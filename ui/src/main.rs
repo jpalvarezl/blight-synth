@@ -1,5 +1,7 @@
 use iced::{Application, Settings, Length, executor, Command, widget::{Container, Column}};
 
+// https://github.com/irvingfisica/iced_examples/blob/master/Life.md
+// buen tutorial, pero en español!
 pub fn main() -> iced::Result {
     BlightSynthApp::run(Settings {
         antialiasing: true,
