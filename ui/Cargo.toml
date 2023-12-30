@@ -4,5 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-iced = "0.10"
-iced_audio = "0.8"
+core = { path = "../core"}
+
+eframe = "0.24"
+egui = "0.24"
+
+env_logger = { version = "0.10", default-features = false, features = [
+    "auto-color",
+    "humantime",
+] }

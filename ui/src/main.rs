@@ -1,48 +1,48 @@
-use iced::{Application, Settings, Length, executor, Command, widget::{Container, Column}};
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
-// https://github.com/irvingfisica/iced_examples/blob/master/Life.md
-// buen tutorial, pero en español!
-pub fn main() -> iced::Result {
-    BlightSynthApp::run(Settings {
-        antialiasing: true,
-        ..Settings::default()
-    })
+use eframe::egui;
+use egui::*;
+
+fn main() -> Result<(), eframe::Error> {
+    core::print_hosts();
+    env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
+    let options = eframe::NativeOptions::default();
+    eframe::run_native(
+        "Keyboard events",
+        options,
+        Box::new(|_cc| Box::<Content>::default()),
+    )
 }
 
 #[derive(Default)]
-struct BlightSynthApp {
+struct Content {
+    text: String,
 }
 
-#[derive(Debug)]
-struct ApplicationMessage {}
+impl eframe::App for Content {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.heading("Press/Hold/Release example. Press A to test.");
+            if ui.button("Clear").clicked() {
+                self.text.clear();
+            }
+            ScrollArea::vertical()
+                .auto_shrink(false)
+                .stick_to_bottom(true)
+                .show(ui, |ui| {
+                    ui.label(&self.text);
+                });
 
-impl Application for BlightSynthApp {
-    type Message = ApplicationMessage;
-    type Executor = executor::Default;
-    type Flags = ();
-    type Theme = iced::Theme;
-
-    fn new(flags: Self::Flags) -> (Self, iced::Command<Self::Message>) {
-        (Self {
-            ..Self::default()
-        },
-        Command::none())
-    }
-
-    fn title(&self) -> String {
-        String::from("Blight Synth")
-    }
-
-    fn update(&mut self, message: Self::Message) -> iced::Command<Self::Message> {
-        Command::none()
-    }
-
-    fn view(&self) -> iced::Element<'_, Self::Message, iced::Renderer<Self::Theme>> {
-        let content = Column::new();
-
-        Container::new(content)
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .into()
+            // if ctx.input(|i| i.key_pressed(Key::A)) {
+            //     self.text.push_str("\nPressed");
+            // }
+            // if ctx.input(|i| i.key_down(Key::A)) {
+            //     self.text.push_str("\nHeld");
+            //     ui.ctx().request_repaint(); // make sure we note the holding.
+            // }
+            // if ctx.input(|i| i.key_released(Key::A)) {
+            //     self.text.push_str("\nReleased");
+            // }
+        });
     }
 }
