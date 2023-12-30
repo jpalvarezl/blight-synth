@@ -6,6 +6,8 @@ pub fn print_hosts() -> Result<(), anyhow::Error>{
         println!("Found host: {}", host_id.name());
         let host = cpal::host_from_id(host_id)?;
 
+        println!("Default output device: {:#?}", host.default_output_device().expect("output device fail").name());
+        
         for device in host.devices()? {
             println!("Found device: {}", device.name()?);
         }
