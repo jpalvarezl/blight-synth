@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 core = { path = "../core"}
+anyhow = "1.0"
 
 eframe = "0.24"
 egui = "0.24"
