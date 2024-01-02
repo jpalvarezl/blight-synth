@@ -12,7 +12,7 @@ pub struct PianoKeyboard {
     pub active_octave: u8,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum KeyState {
     Pressed,
     Held,
@@ -46,8 +46,11 @@ impl PianoKeyboard {
                 (_, _, true) => KeyState::Released,
                 _ => return,
             };
-            println!("Updating key: {:#?}: {:#?}", &note, &key_state);
-            &self.active_notes.insert(note.clone(), key_state);
+            if (key_state == KeyState::Released) {
+                &self.active_notes.remove(note);
+            } else {
+                &self.active_notes.insert(note.clone(), key_state);
+            }
         });
     }
 
@@ -55,10 +58,10 @@ impl PianoKeyboard {
         let mut pressed_keys = String::new();
         for (note, key_state) in &self.active_notes {
             match key_state {
-                KeyState::Pressed => {
+                KeyState::Held => {
                     pressed_keys.push_str(&format!("{} ", note));
                 },
-                KeyState::Held | KeyState::Released => {},
+                _ => {},
             }
         }
         return pressed_keys;
@@ -87,14 +90,5 @@ impl PianoKeyboard {
 impl InputStateHandler for PianoKeyboard {
     fn handle_input(&mut self, context: &egui::Context) {
         context.input(|input_state| self.update_keys_state(input_state));
-        // if context.input(|i| i.key_pressed(Key::A)) {
-        //     // content.text.push_str("\nPressed");
-        // }
-        // if context.input(|i| i.key_down(Key::A)) {
-        //     // content.text.push_str("\nHeld");
-        // }
-        // if context.input(|i| i.key_released(Key::A)) {
-        //     // content.text.push_str("\nReleased");
-        // }
     }
 }

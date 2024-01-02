@@ -8,8 +8,6 @@ pub fn get_default_output_device_name() -> Result<String , anyhow::Error> {
         println!("Found host: {}", host_id.name());
         let host = cpal::host_from_id(host_id)?;
 
-        println!("Default output device: {:#?}", host.default_output_device().expect("output device fail").name());
-
         if let Some(default_output_device) = host.default_output_device() {
             // for device in host.devices()? {
             //     println!("Found device: {}", device.name()?);

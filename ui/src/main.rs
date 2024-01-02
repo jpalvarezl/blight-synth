@@ -39,7 +39,7 @@ impl eframe::App for Content {
             ui_components::init_ui(ui, self);
             InputStateHandler::handle_input(&mut self.input_handler, ctx);
 
-            self.text.push_str(self.input_handler.pressed_keys_as_string().as_str());
+            self.text = self.input_handler.pressed_keys_as_string();
         });
     }
 }
