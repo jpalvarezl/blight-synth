@@ -1,24 +1,14 @@
-// pub trait KeyboardHandler {
-//     fn key_press(&mut self, key: Key);
-//     fn key_hold(&mut self, key: Key);
-//     fn key_release(&mut self, key: Key);
-// }
+use core::harmony::note::Note;
 
-// pub struct PianoKeyboard {
-//     keys: HashMap<Key, KeyState>,
-//     octave: i32,
-// }
+use egui::Key;
 
-// impl KeyboardHandler for PianoKeyboard {
-//     fn key_press(&mut self, key: Key) {
-//         // handle key press
-//     }
+pub struct PianoKeyboard {
+    state: HashMap<Note, KeyState>,
+    active_octave: u8,
+}
 
-//     fn key_hold(&mut self, key: Key) {
-//         // handle key hold
-//     }
-
-//     fn key_release(&mut self, key: Key) {
-//         // handle key release
-//     }
-// }
+pub enum KeyState {
+    Pressed,
+    Held,
+    Released,
+}

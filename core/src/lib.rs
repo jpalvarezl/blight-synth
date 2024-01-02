@@ -1,5 +1,7 @@
 use cpal::traits::{HostTrait, DeviceTrait};
 
+pub mod harmony;
+
 pub fn get_default_output_device_name() -> Result<String , anyhow::Error> {
     let available_hosts = cpal::available_hosts();
     for host_id in available_hosts {
