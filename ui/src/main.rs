@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
 use eframe::egui;
+use event_handlers::{keyboard::PianoKeyboard, InputStateHandler};
 
 mod event_handlers;
 mod ui_components;
@@ -22,20 +23,23 @@ fn init_content(default_output_device: String) -> Content {
     Content {
         default_output_device,
         text: String::new(),
+        input_handler: PianoKeyboard::initialize(), // This should use Box dyn somehow swap keyboards
     }
 }
 
-#[derive(Default)]
 struct Content {
     default_output_device: String,
     text: String,
+    input_handler: PianoKeyboard
 }
 
 impl eframe::App for Content {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui_components::init_ui(ui, self);
-            event_handlers::handle_input(ctx, self);
+            InputStateHandler::handle_input(&mut self.input_handler, ctx);
+
+            self.text.push_str(self.input_handler.pressed_keys_as_string().as_str());
         });
     }
 }
