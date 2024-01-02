@@ -1,7 +1,7 @@
 pub struct Note {
-    pitch: Pitch,
-    accidental: Accidental,
-    octave: u8,
+    pub pitch: Pitch,
+    pub accidental: Accidental,
+    pub octave: u8,
 }
 
 pub enum Accidental {
