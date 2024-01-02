@@ -1,7 +1,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
 use eframe::egui;
-use egui::*;
+
+mod event_handlers;
+mod ui_components;
 
 fn main() -> Result<(), anyhow::Error> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
@@ -32,29 +34,8 @@ struct Content {
 impl eframe::App for Content {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading(&self.default_output_device);
-            ui.heading("Press/Hold/Release example. Press A to test.");
-    
-            if ui.button("Clear").clicked() {
-                self.text.clear();
-            }
-            ScrollArea::vertical()
-                .auto_shrink(false)
-                .stick_to_bottom(true)
-                .show(ui, |ui| {
-                    ui.label(&self.text);
-                });
-
-            if ctx.input(|i| i.key_pressed(Key::A)) {
-                self.text.push_str("\nPressed");
-            }
-            if ctx.input(|i| i.key_down(Key::A)) {
-                self.text.push_str("\nHeld");
-                ui.ctx().request_repaint(); // make sure we note the holding.
-            }
-            if ctx.input(|i| i.key_released(Key::A)) {
-                self.text.push_str("\nReleased");
-            }
+            ui_components::init_ui(ui, self);
+            event_handlers::handle_input(ctx, self);
         });
     }
 }
