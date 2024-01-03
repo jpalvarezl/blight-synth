@@ -2,6 +2,7 @@
 
 use eframe::egui;
 use event_handlers::{keyboard::PianoKeyboard, InputStateHandler};
+use core::devices::get_default_output_device_name;
 
 mod event_handlers;
 mod ui_components;
@@ -10,7 +11,7 @@ fn main() -> Result<(), anyhow::Error> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
     
     let options = eframe::NativeOptions::default();
-    let initial_content = init_content(core::get_default_output_device_name()?);
+    let initial_content = init_content(get_default_output_device_name()?);
     
     eframe::run_native(
         "Keyboard events",

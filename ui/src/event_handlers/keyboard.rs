@@ -46,7 +46,7 @@ impl PianoKeyboard {
                 (_, _, true) => KeyState::Released,
                 _ => return,
             };
-            if (key_state == KeyState::Released) {
+            if key_state == KeyState::Released {
                 &self.active_notes.remove(note);
             } else {
                 &self.active_notes.insert(note.clone(), key_state);
