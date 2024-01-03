@@ -1,7 +1,6 @@
 use core::harmony::note::{Note, Pitch, Accidental};
-use std::collections::{HashSet, HashMap};
+use std::collections::HashMap;
 use egui::{Key, InputState};
-use crate::Content;
 use super::InputStateHandler;
 
 const INITIAL_OCTAVE: u8 = 4;
@@ -47,9 +46,9 @@ impl PianoKeyboard {
                 _ => return,
             };
             if key_state == KeyState::Released {
-                &self.active_notes.remove(note);
+                let _ = &self.active_notes.remove(note);
             } else {
-                &self.active_notes.insert(note.clone(), key_state);
+                let _ = &self.active_notes.insert(note.clone(), key_state);
             }
         });
     }
