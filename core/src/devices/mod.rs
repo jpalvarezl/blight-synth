@@ -1,7 +1,15 @@
-use cpal::{traits::{HostTrait, DeviceTrait}, SizedSample, FromSample,Sample};
+use cpal::{traits::{HostTrait, DeviceTrait, StreamTrait}, SizedSample, FromSample,Sample};
 use crate::Result;
 
-use crate::synths::{Oscillator, Waveform};
+use crate::synths::oscilator::{Oscillator, Waveform};
+
+pub fn play_the_thing() -> Result<()> {
+    let mut stream = setup_stream()?;
+    stream.play()?;
+    std::thread::sleep(std::time::Duration::from_secs(5));
+    stream.pause()?;
+    Ok(())
+}
 
 pub fn get_default_output_device_name() -> Result<String> {
     let default_device = get_default_device()?;
