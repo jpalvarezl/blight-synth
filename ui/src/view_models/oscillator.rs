@@ -1,17 +1,18 @@
-use core::{synths::oscillator::Oscillator, harmony::note::Note};
+use core::{synths::oscillator::{Oscillator, Waveform}, harmony::note::Note};
+use std::sync::Arc;
 
 pub struct OscillatorViewModel {
-    oscillator: Oscillator,
+    oscillator: Arc<Oscillator>,
 }
 
 impl OscillatorViewModel {
     pub fn new() -> Self {
         Self {
-            oscillator: get_oscillator(&Note::new()),
+            oscillator: Arc::new(get_oscillator(&Note::new())),
         }
     }
 
-    pub fn get_oscillator(&self) -> &Oscillator {
+    pub fn get_oscillator(&self) -> &Arc<Oscillator> {
         &self.oscillator
     }
 }

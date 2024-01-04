@@ -2,6 +2,7 @@
 
 use eframe::egui;
 use event_handlers::{keyboard::PianoKeyboard, InputStateHandler};
+use view_models::oscillator::OscillatorViewModel;
 use core::{get_default_output_device_name, play_the_thing};
 
 mod event_handlers;
@@ -14,7 +15,8 @@ fn main() -> Result<(), anyhow::Error> {
     let options = eframe::NativeOptions::default();
     let initial_content = init_content(get_default_output_device_name()?);
 
-    play_the_thing()?;
+    let oscillator = initial_content.oscillator_viewmodel.get_oscillator();
+    play_the_thing(oscillator.clone())?;
     
     eframe::run_native(
         "Keyboard events",

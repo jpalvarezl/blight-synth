@@ -1,5 +1,3 @@
-use std::ops::Mul;
-
 pub enum Waveform {
     Sine,
     Square,
