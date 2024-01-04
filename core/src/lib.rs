@@ -13,13 +13,6 @@ type Result<T> = anyhow::Result<T, anyhow::Error>;
 pub fn play_the_thing() -> Result<Sender<Message>> {
     let (control_sender, control_receiver) = get_control_channel();
     let _thread_handle = std::thread::spawn(move||{
-        // let mut oscillator = Oscillator {
-        //     waveform: oscilator::Waveform::Sine,
-        //     sample_rate: 44100.0,
-        //     current_sample_index: 0.0,
-        //     frequency_hz: 440.0,
-        // };
-        // let message = control_receiver.recv().expect("Control channel error");
         let stream = devices::setup_stream().expect("Stream setup error");
 
         stream.play().expect("Stream start error");
