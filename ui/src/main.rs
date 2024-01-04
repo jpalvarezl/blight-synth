@@ -6,6 +6,7 @@ use core::{get_default_output_device_name, play_the_thing};
 
 mod event_handlers;
 mod ui_components;
+mod view_models;
 
 fn main() -> Result<(), anyhow::Error> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
@@ -27,13 +28,15 @@ fn init_content(default_output_device: String) -> Content {
         default_output_device,
         text: String::new(),
         input_handler: PianoKeyboard::initialize(), // This should use Box dyn somehow swap keyboards
+        oscillator_viewmodel: view_models::oscillator::OscillatorViewModel::new(),
     }
 }
 
 struct Content {
     default_output_device: String,
     text: String,
-    input_handler: PianoKeyboard
+    input_handler: PianoKeyboard,
+    oscillator_viewmodel: OscillatorViewModel,
 }
 
 impl eframe::App for Content {

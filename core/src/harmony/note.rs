@@ -23,6 +23,16 @@ pub enum Pitch {
     G,
 }
 
+impl Note {
+    pub fn new() -> Self {
+        Self {
+            pitch: Pitch::C,
+            accidental: Accidental::Natural,
+            octave: 4,
+        }
+    }
+}
+
 impl std::fmt::Display for Note {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}{}{}", self.pitch, self.accidental, self.octave)

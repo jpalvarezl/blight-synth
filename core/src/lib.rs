@@ -11,11 +11,14 @@ pub mod control;
 type Result<T> = anyhow::Result<T, anyhow::Error>;
 
 pub fn play_the_thing() -> Result<Sender<Message>> {
-    let oscillator = Arc::new(
-        devices::get_oscillator(&devices::get_default_device()?
-            .default_output_config()?
-            .into())
-        );
+    // The oscillator is a shared resource between the audio thread and the UI thread
+    // Therefore should be received in the channel
+    
+    // let oscillator = Arc::new(
+    //     devices::get_oscillator(&devices::get_default_device()?
+    //         .default_output_config()?
+    //         .into())
+    //     );
 
     let (control_sender, control_receiver) = get_control_channel();
     let _thread_handle = std::thread::spawn(move||{

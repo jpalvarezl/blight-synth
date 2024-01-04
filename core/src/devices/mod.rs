@@ -5,6 +5,8 @@ use crate::{Result, synths::oscillator};
 
 use crate::synths::oscillator::{Oscillator, Waveform};
 
+pub(crate) mod streams;
+
 pub fn get_default_device() -> Result<cpal::Device> {
     let host = cpal::default_host();
 
@@ -34,15 +36,6 @@ pub fn setup_stream(oscillator: Arc<Oscillator>) -> Result<cpal::Stream> {
         sample_format => Err(anyhow::Error::msg(format!(
             "Unsupported sample format '{sample_format}'"
         ))),
-    }
-}
-
-pub(crate) fn get_oscillator(config: &StreamConfig) -> Oscillator {
-    Oscillator {
-        waveform: Waveform::Sine,
-        // sample_rate: config.sample_rate.0,
-        // current_sample_index: 0,
-        frequency_hz: 440.0,
     }
 }
 
