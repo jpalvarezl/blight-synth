@@ -1,4 +1,6 @@
-use cpal::{traits::{HostTrait, DeviceTrait, StreamTrait}, SizedSample, FromSample,Sample};
+use std::os;
+
+use cpal::{traits::{HostTrait, DeviceTrait, StreamTrait}, SizedSample, FromSample,Sample, StreamConfig};
 use crate::Result;
 
 use crate::synths::oscilator::{Oscillator, Waveform};
@@ -17,8 +19,7 @@ pub fn get_default_device() -> Result<cpal::Device> {
 pub fn setup_stream() -> Result<cpal::Stream> {
     let device = get_default_device()?;
     let config = device.default_output_config()?;
-    println!("Default output config : {:?}", config);
-
+    println!("Default output config : {:?}", &config);
     match config.sample_format() {
         cpal::SampleFormat::I8 => make_stream::<i8>(&device, &config.into()),
         cpal::SampleFormat::I16 => make_stream::<i16>(&device, &config.into()),
@@ -36,6 +37,15 @@ pub fn setup_stream() -> Result<cpal::Stream> {
     }
 }
 
+fn get_oscillator(config: &StreamConfig) -> Oscillator {
+    Oscillator {
+        waveform: Waveform::Sine,
+        sample_rate: config.sample_rate.0 as f32,
+        current_sample_index: 0.0,
+        frequency_hz: 440.0,
+    }
+}
+
 pub fn make_stream<T>(
     device: &cpal::Device,
     config: &cpal::StreamConfig,
@@ -43,13 +53,8 @@ pub fn make_stream<T>(
 where
     T: SizedSample + FromSample<f32>,
 {
-    let num_channels = config.channels as usize;
-    let mut oscillator = Oscillator {
-        waveform: Waveform::Sine,
-        sample_rate: config.sample_rate.0 as f32,
-        current_sample_index: 0.0,
-        frequency_hz: 440.0,
-    };
+    let num_channels = config.channels as usize;    
+    let mut oscillator = get_oscillator(&config.clone().into());
 
     let time_at_start = std::time::Instant::now();
     println!("Time at start: {:?}", time_at_start);
