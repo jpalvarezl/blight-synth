@@ -1,7 +1,7 @@
-use std::sync::mpsc::{self, Sender, Receiver};
+use std::sync::{mpsc::{self, Sender, Receiver}, Arc};
 use control::{Message, get_control_channel};
 use cpal::traits::{DeviceTrait, StreamTrait};
-use synths::oscilator::{self, Oscillator};
+use synths::oscillator::{self, Oscillator};
 
 pub mod harmony;
 pub mod synths;
@@ -11,9 +11,15 @@ pub mod control;
 type Result<T> = anyhow::Result<T, anyhow::Error>;
 
 pub fn play_the_thing() -> Result<Sender<Message>> {
+    let oscillator = Arc::new(
+        devices::get_oscillator(&devices::get_default_device()?
+            .default_output_config()?
+            .into())
+        );
+
     let (control_sender, control_receiver) = get_control_channel();
     let _thread_handle = std::thread::spawn(move||{
-        let stream = devices::setup_stream().expect("Stream setup error");
+        let stream = devices::setup_stream(oscillator.clone()).expect("Stream setup error");
 
         stream.play().expect("Stream start error");
         std::thread::sleep(std::time::Duration::from_millis(1050));

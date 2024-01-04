@@ -8,9 +8,9 @@ pub enum Waveform {
 }
 
 pub struct Oscillator {
-    pub sample_rate: u32,
+    // pub sample_rate: u32,
     pub waveform: Waveform,
-    pub current_sample_index: u32,
+    // pub current_sample_index: u32,
     pub frequency_hz: f32,
 }
 

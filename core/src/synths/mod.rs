@@ -1,1 +1,1 @@
-pub(crate) mod oscilator;
+pub(crate) mod oscillator;

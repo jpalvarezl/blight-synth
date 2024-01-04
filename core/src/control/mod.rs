@@ -1,4 +1,4 @@
-use crate::synths::oscilator::Oscillator;
+use crate::synths::oscillator::Oscillator;
 use std::sync::mpsc::{self, Receiver, Sender};
 
 pub mod channel;

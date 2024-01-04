@@ -1,9 +1,9 @@
-use std::os;
+use std::{os, sync::Arc};
 
 use cpal::{traits::{HostTrait, DeviceTrait, StreamTrait}, SizedSample, FromSample,Sample, StreamConfig};
-use crate::Result;
+use crate::{Result, synths::oscillator};
 
-use crate::synths::oscilator::{Oscillator, Waveform};
+use crate::synths::oscillator::{Oscillator, Waveform};
 
 pub fn get_default_device() -> Result<cpal::Device> {
     let host = cpal::default_host();
@@ -16,32 +16,32 @@ pub fn get_default_device() -> Result<cpal::Device> {
     Ok(device)
 }
 
-pub fn setup_stream() -> Result<cpal::Stream> {
+pub fn setup_stream(oscillator: Arc<Oscillator>) -> Result<cpal::Stream> {
     let device = get_default_device()?;
     let config = device.default_output_config()?;
     println!("Default output config : {:?}", &config);
     match config.sample_format() {
-        cpal::SampleFormat::I8 => make_stream::<i8>(&device, &config.into()),
-        cpal::SampleFormat::I16 => make_stream::<i16>(&device, &config.into()),
-        cpal::SampleFormat::I32 => make_stream::<i32>(&device, &config.into()),
-        cpal::SampleFormat::I64 => make_stream::<i64>(&device, &config.into()),
-        cpal::SampleFormat::U8 => make_stream::<u8>(&device, &config.into()),
-        cpal::SampleFormat::U16 => make_stream::<u16>(&device, &config.into()),
-        cpal::SampleFormat::U32 => make_stream::<u32>(&device, &config.into()),
-        cpal::SampleFormat::U64 => make_stream::<u64>(&device, &config.into()),
-        cpal::SampleFormat::F32 => make_stream::<f32>(&device, &config.into()),
-        cpal::SampleFormat::F64 => make_stream::<f64>(&device, &config.into()),
+        cpal::SampleFormat::I8 => make_stream::<i8>(&device, &config.into(), oscillator),
+        cpal::SampleFormat::I16 => make_stream::<i16>(&device, &config.into(), oscillator),
+        cpal::SampleFormat::I32 => make_stream::<i32>(&device, &config.into(), oscillator),
+        cpal::SampleFormat::I64 => make_stream::<i64>(&device, &config.into(), oscillator),
+        cpal::SampleFormat::U8 => make_stream::<u8>(&device, &config.into(), oscillator),
+        cpal::SampleFormat::U16 => make_stream::<u16>(&device, &config.into(), oscillator),
+        cpal::SampleFormat::U32 => make_stream::<u32>(&device, &config.into(), oscillator),
+        cpal::SampleFormat::U64 => make_stream::<u64>(&device, &config.into(), oscillator),
+        cpal::SampleFormat::F32 => make_stream::<f32>(&device, &config.into(), oscillator),
+        cpal::SampleFormat::F64 => make_stream::<f64>(&device, &config.into(), oscillator),
         sample_format => Err(anyhow::Error::msg(format!(
             "Unsupported sample format '{sample_format}'"
         ))),
     }
 }
 
-fn get_oscillator(config: &StreamConfig) -> Oscillator {
+pub(crate) fn get_oscillator(config: &StreamConfig) -> Oscillator {
     Oscillator {
         waveform: Waveform::Sine,
-        sample_rate: config.sample_rate.0,
-        current_sample_index: 0,
+        // sample_rate: config.sample_rate.0,
+        // current_sample_index: 0,
         frequency_hz: 440.0,
     }
 }
@@ -49,6 +49,7 @@ fn get_oscillator(config: &StreamConfig) -> Oscillator {
 pub fn make_stream<T>(
     device: &cpal::Device,
     config: &cpal::StreamConfig,
+    oscillator: Arc<Oscillator>
 ) -> Result<cpal::Stream>
 where
     T: SizedSample + FromSample<f32>,
@@ -56,12 +57,11 @@ where
     let num_channels = config.channels as usize; 
     let mut sample_index = 0.0;
     let sample_rate = config.sample_rate.0 as f32;
-    let oscillator = get_oscillator(&config.clone().into());
 
     let stream = device.build_output_stream(
         config,
         move |output: &mut [T], _info: &cpal::OutputCallbackInfo| 
-            process_frame(output, &oscillator, num_channels,&mut sample_index, sample_rate),
+            process_frame(output, oscillator.clone(), num_channels,&mut sample_index, sample_rate),
         |err| eprintln!("Error building output sound stream: {}", err),
         None,
     )?;
@@ -71,7 +71,7 @@ where
 
 fn process_frame<SampleType>(
     output: &mut [SampleType],
-    oscillator: &Oscillator,
+    oscillator: Arc<Oscillator>,
     num_channels: usize,
     sample_index: &mut f32,
     sample_rate: f32,
