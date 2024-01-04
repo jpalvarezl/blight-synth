@@ -2,7 +2,7 @@
 
 use eframe::egui;
 use event_handlers::{keyboard::PianoKeyboard, InputStateHandler};
-use core::devices::{get_default_output_device_name, play_the_thing};
+use core::{get_default_output_device_name, play_the_thing};
 
 mod event_handlers;
 mod ui_components;

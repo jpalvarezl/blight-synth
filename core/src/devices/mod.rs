@@ -3,19 +3,6 @@ use crate::Result;
 
 use crate::synths::oscilator::{Oscillator, Waveform};
 
-pub fn play_the_thing() -> Result<()> {
-    let stream = setup_stream()?;
-    stream.play()?;
-    std::thread::sleep(std::time::Duration::from_secs(5));
-    stream.pause()?;
-    Ok(())
-}
-
-pub fn get_default_output_device_name() -> Result<String> {
-    let default_device = get_default_device()?;
-    Ok(default_device.name()?)
-}
-
 pub fn get_default_device() -> Result<cpal::Device> {
     let host = cpal::default_host();
 
@@ -31,7 +18,7 @@ pub fn setup_stream() -> Result<cpal::Stream> {
     let device = get_default_device()?;
     let config = device.default_output_config()?;
     println!("Default output config : {:?}", config);
-    
+
     match config.sample_format() {
         cpal::SampleFormat::I8 => make_stream::<i8>(&device, &config.into()),
         cpal::SampleFormat::I16 => make_stream::<i16>(&device, &config.into()),
@@ -63,7 +50,6 @@ where
         current_sample_index: 0.0,
         frequency_hz: 440.0,
     };
-    let err_fn = |err| eprintln!("Error building output sound stream: {}", err);
 
     let time_at_start = std::time::Instant::now();
     println!("Time at start: {:?}", time_at_start);
@@ -88,7 +74,7 @@ where
             }
             process_frame(output, &mut oscillator, num_channels)
         },
-        err_fn,
+        |err| eprintln!("Error building output sound stream: {}", err),
         None,
     )?;
 
