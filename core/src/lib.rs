@@ -16,7 +16,7 @@ pub fn play_the_thing() -> Result<Sender<Message>> {
         let stream = devices::setup_stream().expect("Stream setup error");
 
         stream.play().expect("Stream start error");
-        std::thread::sleep(std::time::Duration::from_secs(5));
+        std::thread::sleep(std::time::Duration::from_millis(1050));
         stream.pause().expect("Stream stop error");
 
 

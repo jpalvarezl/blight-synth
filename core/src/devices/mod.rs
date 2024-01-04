@@ -40,8 +40,8 @@ pub fn setup_stream() -> Result<cpal::Stream> {
 fn get_oscillator(config: &StreamConfig) -> Oscillator {
     Oscillator {
         waveform: Waveform::Sine,
-        sample_rate: config.sample_rate.0 as f32,
-        current_sample_index: 0.0,
+        sample_rate: config.sample_rate.0,
+        current_sample_index: 0,
         frequency_hz: 440.0,
     }
 }
@@ -53,32 +53,15 @@ pub fn make_stream<T>(
 where
     T: SizedSample + FromSample<f32>,
 {
-    let num_channels = config.channels as usize;    
-    let mut oscillator = get_oscillator(&config.clone().into());
-
-    let time_at_start = std::time::Instant::now();
-    println!("Time at start: {:?}", time_at_start);
+    let num_channels = config.channels as usize; 
+    let mut sample_index = 0.0;
+    let sample_rate = config.sample_rate.0 as f32;
+    let oscillator = get_oscillator(&config.clone().into());
 
     let stream = device.build_output_stream(
         config,
-        move |output: &mut [T], _: &cpal::OutputCallbackInfo| {
-            // for 0-1s play sine, 1-2s play square, 2-3s play saw, 3-4s play triangle_wave
-            let time_since_start = std::time::Instant::now()
-                .duration_since(time_at_start)
-                .as_secs_f32();
-            if time_since_start < 1.0 {
-                oscillator.set_waveform(Waveform::Sine);
-            } else if time_since_start < 2.0 {
-                oscillator.set_waveform(Waveform::Triangle);
-            } else if time_since_start < 3.0 {
-                oscillator.set_waveform(Waveform::Square);
-            } else if time_since_start < 4.0 {
-                oscillator.set_waveform(Waveform::Saw);
-            } else {
-                oscillator.set_waveform(Waveform::Sine);
-            }
-            process_frame(output, &mut oscillator, num_channels)
-        },
+        move |output: &mut [T], _info: &cpal::OutputCallbackInfo| 
+            process_frame(output, &oscillator, num_channels,&mut sample_index, sample_rate),
         |err| eprintln!("Error building output sound stream: {}", err),
         None,
     )?;
@@ -88,17 +71,22 @@ where
 
 fn process_frame<SampleType>(
     output: &mut [SampleType],
-    oscillator: &mut Oscillator,
+    oscillator: &Oscillator,
     num_channels: usize,
+    sample_index: &mut f32,
+    sample_rate: f32,
 ) where
     SampleType: Sample + FromSample<f32>,
 {
     for frame in output.chunks_mut(num_channels) {
-        let value: SampleType = SampleType::from_sample(oscillator.tick());
+
+        // still unsure if I should calculate the sample "time" here or push it to the oscillator
+        let value: SampleType = SampleType::from_sample(oscillator.tick(*sample_index / sample_rate));
 
         // copy the same value to all channels
         for sample in frame.iter_mut() {
             *sample = value;
         }
+        *sample_index = (*sample_index + 1.0) % sample_rate;
     }
 }
