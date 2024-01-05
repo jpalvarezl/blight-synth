@@ -1,4 +1,4 @@
-use core::harmony::note::{Note, Pitch, Accidental};
+use core::{harmony::note::{Note, Pitch, Accidental}, synths::oscillator};
 use std::collections::HashMap;
 use egui::{Key, InputState};
 use super::InputStateHandler;
@@ -36,7 +36,7 @@ impl PianoKeyboard {
         self.active_octave -= 1;
     }
 
-    pub fn update_keys_state(&mut self, input_state: &InputState) {
+    pub fn update_keys_state(&mut self, input_state: &InputState, oscillator_viewmodel: &super::super::view_models::oscillator::OscillatorViewModel) {
         self.keys.keys().for_each(|key| {
             let note = self.keys.get(key).unwrap();
             let key_state = match (input_state.key_pressed(*key), input_state.key_down(*key), input_state.key_released(*key)) {
@@ -46,8 +46,10 @@ impl PianoKeyboard {
                 _ => return,
             };
             if key_state == KeyState::Released {
+                PianoKeyboard::silence_note(oscillator_viewmodel);
                 let _ = &self.active_notes.remove(note);
             } else {
+                PianoKeyboard::play_sine_wave(oscillator_viewmodel);
                 let _ = &self.active_notes.insert(note.clone(), key_state);
             }
         });
@@ -64,6 +66,14 @@ impl PianoKeyboard {
             }
         }
         return pressed_keys;
+    }
+
+    fn play_sine_wave(oscillator_viewmodel: &super::super::view_models::oscillator::OscillatorViewModel) {
+        oscillator_viewmodel.set_waveform(core::synths::oscillator::Waveform::Sine);
+    }
+
+    fn silence_note(oscillator_viewmodel: &super::super::view_models::oscillator::OscillatorViewModel) {
+        oscillator_viewmodel.set_waveform(core::synths::oscillator::Waveform::Silence);
     }
 
     fn init_keys() -> HashMap<Key, Note> {
@@ -87,7 +97,7 @@ impl PianoKeyboard {
 }
 
 impl InputStateHandler for PianoKeyboard {
-    fn handle_input(&mut self, context: &egui::Context) {
-        context.input(|input_state| self.update_keys_state(input_state));
+    fn handle_input(&mut self, context: &egui::Context, oscillator_viewmodel: &super::super::view_models::oscillator::OscillatorViewModel) {
+        context.input(|input_state| self.update_keys_state(input_state, oscillator_viewmodel));
     }
 }

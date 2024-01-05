@@ -1,4 +1,4 @@
-use std::{os, sync::Arc};
+use std::{os, sync::{Arc, RwLock}};
 
 use cpal::{traits::{HostTrait, DeviceTrait, StreamTrait}, SizedSample, FromSample,Sample, StreamConfig};
 use crate::{Result, synths::oscillator};
@@ -18,7 +18,7 @@ pub fn get_default_device() -> Result<cpal::Device> {
     Ok(device)
 }
 
-pub fn setup_stream(oscillator: Arc<Oscillator>) -> Result<cpal::Stream> {
+pub fn setup_stream(oscillator: Arc<RwLock<Oscillator>>) -> Result<cpal::Stream> {
     let device = get_default_device()?;
     let config = device.default_output_config()?;
     println!("Default output config : {:?}", &config);
@@ -42,7 +42,7 @@ pub fn setup_stream(oscillator: Arc<Oscillator>) -> Result<cpal::Stream> {
 pub fn make_stream<T>(
     device: &cpal::Device,
     config: &cpal::StreamConfig,
-    oscillator: Arc<Oscillator>
+    oscillator: Arc<RwLock<Oscillator>>
 ) -> Result<cpal::Stream>
 where
     T: SizedSample + FromSample<f32>,
@@ -53,8 +53,10 @@ where
 
     let stream = device.build_output_stream(
         config,
-        move |output: &mut [T], _info: &cpal::OutputCallbackInfo| 
-            process_frame(output, oscillator.clone(), num_channels,&mut sample_index, sample_rate),
+        move |output: &mut [T], _info: &cpal::OutputCallbackInfo| {
+            println!("Oscillator: {:#?}", oscillator.read().expect("Oscillator no longer available"));
+            process_frame(output, oscillator.clone(), num_channels,&mut sample_index, sample_rate)
+        },
         |err| eprintln!("Error building output sound stream: {}", err),
         None,
     )?;
@@ -64,7 +66,7 @@ where
 
 fn process_frame<SampleType>(
     output: &mut [SampleType],
-    oscillator: Arc<Oscillator>,
+    oscillator: Arc<RwLock<Oscillator>>,
     num_channels: usize,
     sample_index: &mut f32,
     sample_rate: f32,
@@ -74,7 +76,10 @@ fn process_frame<SampleType>(
     for frame in output.chunks_mut(num_channels) {
 
         // still unsure if I should calculate the sample "time" here or push it to the oscillator
-        let value: SampleType = SampleType::from_sample(oscillator.tick(*sample_index / sample_rate));
+        let value: SampleType = SampleType::from_sample(
+            oscillator.read().expect("Oscillator no longer available")
+                .tick(*sample_index / sample_rate)
+            );
 
         // copy the same value to all channels
         for sample in frame.iter_mut() {

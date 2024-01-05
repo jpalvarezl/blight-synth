@@ -1,4 +1,4 @@
-use std::{sync::{mpsc::{self, Sender, Receiver}, Arc}, ops::Deref};
+use std::{sync::{mpsc::{self, Sender, Receiver}, Arc, Mutex, RwLock}, ops::Deref};
 use control::{Message, get_control_channel};
 use cpal::traits::{DeviceTrait, StreamTrait};
 use synths::oscillator::{self, Oscillator};
@@ -10,17 +10,18 @@ pub mod control;
 
 type Result<T> = anyhow::Result<T, anyhow::Error>;
 
-pub fn play_the_thing(oscillator: Arc<Oscillator>) -> Result<Sender<Message>> {
+pub fn start_audio_thread(oscillator_initial_state: Arc<RwLock<Oscillator>>) -> Result<Sender<Message>> {
     // The oscillator is a shared resource between the audio thread and the UI thread
     // Therefore should be received in the channel
-
+    println!("Starting audio thread");
     let (control_sender, control_receiver) = get_control_channel();
     let _thread_handle = std::thread::spawn(move||{
-        let stream = devices::setup_stream(oscillator).expect("Stream setup error");
-
+        let stream = devices::setup_stream(oscillator_initial_state).expect("Stream setup error");
         stream.play().expect("Stream start error");
-        std::thread::sleep(std::time::Duration::from_millis(1050));
-        stream.pause().expect("Stream stop error");
+        
+        // block the thread
+        while true {}
+        // stream.pause().expect("Stream stop error");
 
         // for message in control_receiver {
         //     match message {

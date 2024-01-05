@@ -1,10 +1,13 @@
+#[derive(Debug)]
 pub enum Waveform {
     Sine,
     Square,
     Saw,
     Triangle,
+    Silence,
 }
 
+#[derive(Debug)]
 pub struct Oscillator {
     pub waveform: Waveform,
     pub frequency_hz: f32,
@@ -51,12 +54,12 @@ impl Oscillator {
     // "time" is the "current sample index" divided by the "sample rate"
     pub(crate) fn tick(&self, time: f32) -> f32 {
         // self.advance_sample();
-        // println!("Oscillator tick. Sample rate: {}, time: {}", self.sample_rate, time);
         match self.waveform {
             Waveform::Sine => self.sine_wave(time),
             // Waveform::Square => self.square_wave(),
             // Waveform::Saw => self.saw_wave(),
             // Waveform::Triangle => self.triangle_wave(),
+            Waveform::Silence => 0.0,
             _ => self.sine_wave(time),
         }
     }

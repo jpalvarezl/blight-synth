@@ -3,7 +3,7 @@
 use eframe::egui;
 use event_handlers::{keyboard::PianoKeyboard, InputStateHandler};
 use view_models::oscillator::OscillatorViewModel;
-use core::{get_default_output_device_name, play_the_thing};
+use core::{get_default_output_device_name, start_audio_thread};
 
 mod event_handlers;
 mod ui_components;
@@ -16,7 +16,7 @@ fn main() -> Result<(), anyhow::Error> {
     let initial_content = init_content(get_default_output_device_name()?);
 
     let oscillator = initial_content.oscillator_viewmodel.get_oscillator();
-    play_the_thing(oscillator.clone())?;
+    start_audio_thread(oscillator.clone())?;
     
     eframe::run_native(
         "Keyboard events",
@@ -45,7 +45,7 @@ impl eframe::App for Content {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui_components::init_ui(ui, self);
-            InputStateHandler::handle_input(&mut self.input_handler, ctx);
+            InputStateHandler::handle_input(&mut self.input_handler, ctx, &self.oscillator_viewmodel);
 
             self.text = self.input_handler.pressed_keys_as_string();
         });
