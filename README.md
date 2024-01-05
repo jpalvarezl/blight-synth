@@ -1,5 +1,7 @@
-## Project Title
+## blight-synth
+
 This project is a synthesizer application built with Rust. It uses the cpal library to handle audio streaming and provides a UI for user interaction.
+When I have the foundation set, I would like to make this sort of a "distortion" focused synth.
 
 ## Concepts
 This project is divided into two main parts: the `core` and the `ui`.
