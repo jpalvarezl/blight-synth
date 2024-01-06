@@ -31,7 +31,7 @@ fn init_content(default_output_device: String) -> Content {
         default_output_device,
         text: String::new(),
         input_handler: PianoKeyboard::initialize(), // This should use Box dyn somehow swap keyboards
-        oscillator_viewmodel: view_models::oscillator::OscillatorViewModel::new(),
+        oscillator_viewmodel: OscillatorViewModel::new(),
     }
 }
 

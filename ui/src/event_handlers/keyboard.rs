@@ -1,5 +1,8 @@
-use super::InputStateHandler;
-use core::harmony::note::{Accidental, Note, Pitch};
+use super::{super::view_models::oscillator::OscillatorViewModel, InputStateHandler};
+use core::{
+    harmony::note::{Accidental, Note, Pitch},
+    synths::oscillator::Waveform::{Silence, Sine},
+};
 use egui::{InputState, Key};
 use std::collections::HashMap;
 
@@ -38,7 +41,7 @@ impl PianoKeyboard {
     pub fn update_keys_state(
         &mut self,
         input_state: &InputState,
-        oscillator_viewmodel: &super::super::view_models::oscillator::OscillatorViewModel,
+        oscillator_viewmodel: &OscillatorViewModel,
     ) {
         self.keys.keys().for_each(|key| {
             let note = self.keys.get(key).unwrap();
@@ -75,16 +78,12 @@ impl PianoKeyboard {
         return pressed_keys;
     }
 
-    fn play_sine_wave(
-        oscillator_viewmodel: &super::super::view_models::oscillator::OscillatorViewModel,
-    ) {
-        oscillator_viewmodel.set_waveform(core::synths::oscillator::Waveform::Sine);
+    fn play_sine_wave(oscillator_viewmodel: &OscillatorViewModel) {
+        oscillator_viewmodel.set_waveform(Sine);
     }
 
-    fn silence_note(
-        oscillator_viewmodel: &super::super::view_models::oscillator::OscillatorViewModel,
-    ) {
-        oscillator_viewmodel.set_waveform(core::synths::oscillator::Waveform::Silence);
+    fn silence_note(oscillator_viewmodel: &OscillatorViewModel) {
+        oscillator_viewmodel.set_waveform(Silence);
     }
 
     fn init_keys() -> HashMap<Key, Note> {
@@ -195,7 +194,7 @@ impl InputStateHandler for PianoKeyboard {
     fn handle_input(
         &mut self,
         context: &egui::Context,
-        oscillator_viewmodel: &super::super::view_models::oscillator::OscillatorViewModel,
+        oscillator_viewmodel: &OscillatorViewModel,
     ) {
         context.input(|input_state| self.update_keys_state(input_state, oscillator_viewmodel));
     }
