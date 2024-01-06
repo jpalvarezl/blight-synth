@@ -1,9 +1,7 @@
 use super::{super::view_models::oscillator::OscillatorViewModel, InputStateHandler};
-use core::{
-    harmony::note::{Accidental, Note, Pitch},
-    synths::oscillator::Waveform::{Silence, Sine},
-};
+use core::synths::oscillator::Waveform::{Silence, Sine};
 use egui::{InputState, Key};
+use harmony::note::{Accidental, Note, Pitch};
 use std::collections::HashMap;
 
 const INITIAL_OCTAVE: u8 = 4;

@@ -475,6 +475,7 @@ dependencies = [
  "eframe",
  "egui",
  "env_logger",
+ "harmony",
 ]
 
 [[package]]
@@ -1341,6 +1342,10 @@ checksum = "ef89398e90033fc6bc65e9bd42fd29bbbfd483bda5b56dc5562f455550618165"
 dependencies = [
  "gl_generator",
 ]
+
+[[package]]
+name = "harmony"
+version = "0.1.0"
 
 [[package]]
 name = "hashbrown"

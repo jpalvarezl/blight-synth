@@ -1,7 +1,5 @@
-use core::{
-    harmony::note::Note,
-    synths::oscillator::{Oscillator, Waveform},
-};
+use core::synths::oscillator::{Oscillator, Waveform};
+use harmony::note::Note;
 use std::sync::{Arc, RwLock};
 
 pub struct OscillatorViewModel {

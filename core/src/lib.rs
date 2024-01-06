@@ -3,7 +3,6 @@ use std::sync::{Arc, RwLock};
 use synths::oscillator::Oscillator;
 
 pub mod devices;
-pub mod harmony;
 pub mod synths;
 
 type Result<T> = anyhow::Result<T, anyhow::Error>;

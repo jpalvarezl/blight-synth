@@ -4,7 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-core = { path = "../core"}
+core = { path = "../core" }
+harmony = { path = "../harmony" }
+
 anyhow = "1.0"
 
 eframe = "0.24"
