@@ -1,0 +1,1226 @@
+[
+    {
+        "note_label": "C0",
+        "pitch": "C",
+        "accidental": "Natural",
+        "octave": 0,
+        "frequency": 16.35,
+        "wavelength": 2109.89
+    },
+    {
+        "note_label": "C#0",
+        "pitch": "C",
+        "accidental": "Sharp",
+        "octave": 0,
+        "frequency": 17.32,
+        "wavelength": 1991.47
+    },
+    {
+        "note_label": "Db0",
+        "pitch": "D",
+        "accidental": "Flat",
+        "octave": 0,
+        "frequency": 17.32,
+        "wavelength": 1991.47
+    },
+    {
+        "note_label": "D0",
+        "pitch": "D",
+        "accidental": "Natural",
+        "octave": 0,
+        "frequency": 18.35,
+        "wavelength": 1879.69
+    },
+    {
+        "note_label": "D#0",
+        "pitch": "D",
+        "accidental": "Sharp",
+        "octave": 0,
+        "frequency": 19.45,
+        "wavelength": 1774.2
+    },
+    {
+        "note_label": "Eb0",
+        "pitch": "E",
+        "accidental": "Flat",
+        "octave": 0,
+        "frequency": 19.45,
+        "wavelength": 1774.2
+    },
+    {
+        "note_label": "E0",
+        "pitch": "E",
+        "accidental": "Natural",
+        "octave": 0,
+        "frequency": 20.6,
+        "wavelength": 1674.62
+    },
+    {
+        "note_label": "F0",
+        "pitch": "F",
+        "accidental": "Natural",
+        "octave": 0,
+        "frequency": 21.83,
+        "wavelength": 1580.63
+    },
+    {
+        "note_label": "F#0",
+        "pitch": "F",
+        "accidental": "Sharp",
+        "octave": 0,
+        "frequency": 23.12,
+        "wavelength": 1491.91
+    },
+    {
+        "note_label": "Gb0",
+        "pitch": "G",
+        "accidental": "Flat",
+        "octave": 0,
+        "frequency": 23.12,
+        "wavelength": 1491.91
+    },
+    {
+        "note_label": "G0",
+        "pitch": "G",
+        "accidental": "Natural",
+        "octave": 0,
+        "frequency": 24.5,
+        "wavelength": 1408.18
+    },
+    {
+        "note_label": "G#0",
+        "pitch": "G",
+        "accidental": "Sharp",
+        "octave": 0,
+        "frequency": 25.96,
+        "wavelength": 1329.14
+    },
+    {
+        "note_label": "Ab0",
+        "pitch": "A",
+        "accidental": "Flat",
+        "octave": 0,
+        "frequency": 25.96,
+        "wavelength": 1329.14
+    },
+    {
+        "note_label": "A0",
+        "pitch": "A",
+        "accidental": "Natural",
+        "octave": 0,
+        "frequency": 27.5,
+        "wavelength": 1254.55
+    },
+    {
+        "note_label": "A#0",
+        "pitch": "A",
+        "accidental": "Sharp",
+        "octave": 0,
+        "frequency": 29.14,
+        "wavelength": 1184.13
+    },
+    {
+        "note_label": "Bb0",
+        "pitch": "B",
+        "accidental": "Flat",
+        "octave": 0,
+        "frequency": 29.14,
+        "wavelength": 1184.13
+    },
+    {
+        "note_label": "B0",
+        "pitch": "B",
+        "accidental": "Natural",
+        "octave": 0,
+        "frequency": 30.87,
+        "wavelength": 1117.67
+    },
+    {
+        "note_label": "C1",
+        "pitch": "C",
+        "accidental": "Natural",
+        "octave": 1,
+        "frequency": 32.7,
+        "wavelength": 1054.94
+    },
+    {
+        "note_label": "C#1",
+        "pitch": "C",
+        "accidental": "Sharp",
+        "octave": 1,
+        "frequency": 34.65,
+        "wavelength": 995.73
+    },
+    {
+        "note_label": "Db1",
+        "pitch": "D",
+        "accidental": "Flat",
+        "octave": 1,
+        "frequency": 34.65,
+        "wavelength": 995.73
+    },
+    {
+        "note_label": "D1",
+        "pitch": "D",
+        "accidental": "Natural",
+        "octave": 1,
+        "frequency": 36.71,
+        "wavelength": 939.85
+    },
+    {
+        "note_label": "D#1",
+        "pitch": "D",
+        "accidental": "Sharp",
+        "octave": 1,
+        "frequency": 38.89,
+        "wavelength": 887.1
+    },
+    {
+        "note_label": "Eb1",
+        "pitch": "E",
+        "accidental": "Flat",
+        "octave": 1,
+        "frequency": 38.89,
+        "wavelength": 887.1
+    },
+    {
+        "note_label": "E1",
+        "pitch": "E",
+        "accidental": "Natural",
+        "octave": 1,
+        "frequency": 41.2,
+        "wavelength": 837.31
+    },
+    {
+        "note_label": "F1",
+        "pitch": "F",
+        "accidental": "Natural",
+        "octave": 1,
+        "frequency": 43.65,
+        "wavelength": 790.31
+    },
+    {
+        "note_label": "F#1",
+        "pitch": "F",
+        "accidental": "Sharp",
+        "octave": 1,
+        "frequency": 46.25,
+        "wavelength": 745.96
+    },
+    {
+        "note_label": "Gb1",
+        "pitch": "G",
+        "accidental": "Flat",
+        "octave": 1,
+        "frequency": 46.25,
+        "wavelength": 745.96
+    },
+    {
+        "note_label": "G1",
+        "pitch": "G",
+        "accidental": "Natural",
+        "octave": 1,
+        "frequency": 49.0,
+        "wavelength": 704.09
+    },
+    {
+        "note_label": "G#1",
+        "pitch": "G",
+        "accidental": "Sharp",
+        "octave": 1,
+        "frequency": 51.91,
+        "wavelength": 664.57
+    },
+    {
+        "note_label": "Ab1",
+        "pitch": "A",
+        "accidental": "Flat",
+        "octave": 1,
+        "frequency": 51.91,
+        "wavelength": 664.57
+    },
+    {
+        "note_label": "A1",
+        "pitch": "A",
+        "accidental": "Natural",
+        "octave": 1,
+        "frequency": 55.0,
+        "wavelength": 627.27
+    },
+    {
+        "note_label": "A#1",
+        "pitch": "A",
+        "accidental": "Sharp",
+        "octave": 1,
+        "frequency": 58.27,
+        "wavelength": 592.07
+    },
+    {
+        "note_label": "Bb1",
+        "pitch": "B",
+        "accidental": "Flat",
+        "octave": 1,
+        "frequency": 58.27,
+        "wavelength": 592.07
+    },
+    {
+        "note_label": "B1",
+        "pitch": "B",
+        "accidental": "Natural",
+        "octave": 1,
+        "frequency": 61.74,
+        "wavelength": 558.84
+    },
+    {
+        "note_label": "C2",
+        "pitch": "C",
+        "accidental": "Natural",
+        "octave": 2,
+        "frequency": 65.41,
+        "wavelength": 527.47
+    },
+    {
+        "note_label": "C#2",
+        "pitch": "C",
+        "accidental": "Sharp",
+        "octave": 2,
+        "frequency": 69.3,
+        "wavelength": 497.87
+    },
+    {
+        "note_label": "Db2",
+        "pitch": "D",
+        "accidental": "Flat",
+        "octave": 2,
+        "frequency": 69.3,
+        "wavelength": 497.87
+    },
+    {
+        "note_label": "D2",
+        "pitch": "D",
+        "accidental": "Natural",
+        "octave": 2,
+        "frequency": 73.42,
+        "wavelength": 469.92
+    },
+    {
+        "note_label": "D#2",
+        "pitch": "D",
+        "accidental": "Sharp",
+        "octave": 2,
+        "frequency": 77.78,
+        "wavelength": 443.55
+    },
+    {
+        "note_label": "Eb2",
+        "pitch": "E",
+        "accidental": "Flat",
+        "octave": 2,
+        "frequency": 77.78,
+        "wavelength": 443.55
+    },
+    {
+        "note_label": "E2",
+        "pitch": "E",
+        "accidental": "Natural",
+        "octave": 2,
+        "frequency": 82.41,
+        "wavelength": 418.65
+    },
+    {
+        "note_label": "F2",
+        "pitch": "F",
+        "accidental": "Natural",
+        "octave": 2,
+        "frequency": 87.31,
+        "wavelength": 395.16
+    },
+    {
+        "note_label": "F#2",
+        "pitch": "F",
+        "accidental": "Sharp",
+        "octave": 2,
+        "frequency": 92.5,
+        "wavelength": 372.98
+    },
+    {
+        "note_label": "Gb2",
+        "pitch": "G",
+        "accidental": "Flat",
+        "octave": 2,
+        "frequency": 92.5,
+        "wavelength": 372.98
+    },
+    {
+        "note_label": "G2",
+        "pitch": "G",
+        "accidental": "Natural",
+        "octave": 2,
+        "frequency": 98.0,
+        "wavelength": 352.04
+    },
+    {
+        "note_label": "G#2",
+        "pitch": "G",
+        "accidental": "Sharp",
+        "octave": 2,
+        "frequency": 103.83,
+        "wavelength": 332.29
+    },
+    {
+        "note_label": "Ab2",
+        "pitch": "A",
+        "accidental": "Flat",
+        "octave": 2,
+        "frequency": 103.83,
+        "wavelength": 332.29
+    },
+    {
+        "note_label": "A2",
+        "pitch": "A",
+        "accidental": "Natural",
+        "octave": 2,
+        "frequency": 110.0,
+        "wavelength": 313.64
+    },
+    {
+        "note_label": "A#2",
+        "pitch": "A",
+        "accidental": "Sharp",
+        "octave": 2,
+        "frequency": 116.54,
+        "wavelength": 296.03
+    },
+    {
+        "note_label": "Bb2",
+        "pitch": "B",
+        "accidental": "Flat",
+        "octave": 2,
+        "frequency": 116.54,
+        "wavelength": 296.03
+    },
+    {
+        "note_label": "B2",
+        "pitch": "B",
+        "accidental": "Natural",
+        "octave": 2,
+        "frequency": 123.47,
+        "wavelength": 279.42
+    },
+    {
+        "note_label": "C3",
+        "pitch": "C",
+        "accidental": "Natural",
+        "octave": 3,
+        "frequency": 130.81,
+        "wavelength": 263.74
+    },
+    {
+        "note_label": "C#3",
+        "pitch": "C",
+        "accidental": "Sharp",
+        "octave": 3,
+        "frequency": 138.59,
+        "wavelength": 248.93
+    },
+    {
+        "note_label": "Db3",
+        "pitch": "D",
+        "accidental": "Flat",
+        "octave": 3,
+        "frequency": 138.59,
+        "wavelength": 248.93
+    },
+    {
+        "note_label": "D3",
+        "pitch": "D",
+        "accidental": "Natural",
+        "octave": 3,
+        "frequency": 146.83,
+        "wavelength": 234.96
+    },
+    {
+        "note_label": "D#3",
+        "pitch": "D",
+        "accidental": "Sharp",
+        "octave": 3,
+        "frequency": 155.56,
+        "wavelength": 221.77
+    },
+    {
+        "note_label": "Eb3",
+        "pitch": "E",
+        "accidental": "Flat",
+        "octave": 3,
+        "frequency": 155.56,
+        "wavelength": 221.77
+    },
+    {
+        "note_label": "E3",
+        "pitch": "E",
+        "accidental": "Natural",
+        "octave": 3,
+        "frequency": 164.81,
+        "wavelength": 209.33
+    },
+    {
+        "note_label": "F3",
+        "pitch": "F",
+        "accidental": "Natural",
+        "octave": 3,
+        "frequency": 174.61,
+        "wavelength": 197.58
+    },
+    {
+        "note_label": "F#3",
+        "pitch": "F",
+        "accidental": "Sharp",
+        "octave": 3,
+        "frequency": 185.0,
+        "wavelength": 186.49
+    },
+    {
+        "note_label": "Gb3",
+        "pitch": "G",
+        "accidental": "Flat",
+        "octave": 3,
+        "frequency": 185.0,
+        "wavelength": 186.49
+    },
+    {
+        "note_label": "G3",
+        "pitch": "G",
+        "accidental": "Natural",
+        "octave": 3,
+        "frequency": 196.0,
+        "wavelength": 176.02
+    },
+    {
+        "note_label": "G#3",
+        "pitch": "G",
+        "accidental": "Sharp",
+        "octave": 3,
+        "frequency": 207.65,
+        "wavelength": 166.14
+    },
+    {
+        "note_label": "Ab3",
+        "pitch": "A",
+        "accidental": "Flat",
+        "octave": 3,
+        "frequency": 207.65,
+        "wavelength": 166.14
+    },
+    {
+        "note_label": "A3",
+        "pitch": "A",
+        "accidental": "Natural",
+        "octave": 3,
+        "frequency": 220.0,
+        "wavelength": 156.82
+    },
+    {
+        "note_label": "A#3",
+        "pitch": "A",
+        "accidental": "Sharp",
+        "octave": 3,
+        "frequency": 233.08,
+        "wavelength": 148.02
+    },
+    {
+        "note_label": "Bb3",
+        "pitch": "B",
+        "accidental": "Flat",
+        "octave": 3,
+        "frequency": 233.08,
+        "wavelength": 148.02
+    },
+    {
+        "note_label": "B3",
+        "pitch": "B",
+        "accidental": "Natural",
+        "octave": 3,
+        "frequency": 246.94,
+        "wavelength": 139.71
+    },
+    {
+        "note_label": "C4",
+        "pitch": "C",
+        "accidental": "Natural",
+        "octave": 4,
+        "frequency": 261.63,
+        "wavelength": 131.87
+    },
+    {
+        "note_label": "C#4",
+        "pitch": "C",
+        "accidental": "Sharp",
+        "octave": 4,
+        "frequency": 277.18,
+        "wavelength": 124.47
+    },
+    {
+        "note_label": "Db4",
+        "pitch": "D",
+        "accidental": "Flat",
+        "octave": 4,
+        "frequency": 277.18,
+        "wavelength": 124.47
+    },
+    {
+        "note_label": "D4",
+        "pitch": "D",
+        "accidental": "Natural",
+        "octave": 4,
+        "frequency": 293.66,
+        "wavelength": 117.48
+    },
+    {
+        "note_label": "D#4",
+        "pitch": "D",
+        "accidental": "Sharp",
+        "octave": 4,
+        "frequency": 311.13,
+        "wavelength": 110.89
+    },
+    {
+        "note_label": "Eb4",
+        "pitch": "E",
+        "accidental": "Flat",
+        "octave": 4,
+        "frequency": 311.13,
+        "wavelength": 110.89
+    },
+    {
+        "note_label": "E4",
+        "pitch": "E",
+        "accidental": "Natural",
+        "octave": 4,
+        "frequency": 329.63,
+        "wavelength": 104.66
+    },
+    {
+        "note_label": "F4",
+        "pitch": "F",
+        "accidental": "Natural",
+        "octave": 4,
+        "frequency": 349.23,
+        "wavelength": 98.79
+    },
+    {
+        "note_label": "F#4",
+        "pitch": "F",
+        "accidental": "Sharp",
+        "octave": 4,
+        "frequency": 369.99,
+        "wavelength": 93.24
+    },
+    {
+        "note_label": "Gb4",
+        "pitch": "G",
+        "accidental": "Flat",
+        "octave": 4,
+        "frequency": 369.99,
+        "wavelength": 93.24
+    },
+    {
+        "note_label": "G4",
+        "pitch": "G",
+        "accidental": "Natural",
+        "octave": 4,
+        "frequency": 392.0,
+        "wavelength": 88.01
+    },
+    {
+        "note_label": "G#4",
+        "pitch": "G",
+        "accidental": "Sharp",
+        "octave": 4,
+        "frequency": 415.3,
+        "wavelength": 83.07
+    },
+    {
+        "note_label": "Ab4",
+        "pitch": "A",
+        "accidental": "Flat",
+        "octave": 4,
+        "frequency": 415.3,
+        "wavelength": 83.07
+    },
+    {
+        "note_label": "A4",
+        "pitch": "A",
+        "accidental": "Natural",
+        "octave": 4,
+        "frequency": 440.0,
+        "wavelength": 78.41
+    },
+    {
+        "note_label": "A#4",
+        "pitch": "A",
+        "accidental": "Sharp",
+        "octave": 4,
+        "frequency": 466.16,
+        "wavelength": 74.01
+    },
+    {
+        "note_label": "Bb4",
+        "pitch": "B",
+        "accidental": "Flat",
+        "octave": 4,
+        "frequency": 466.16,
+        "wavelength": 74.01
+    },
+    {
+        "note_label": "B4",
+        "pitch": "B",
+        "accidental": "Natural",
+        "octave": 4,
+        "frequency": 493.88,
+        "wavelength": 69.85
+    },
+    {
+        "note_label": "C5",
+        "pitch": "C",
+        "accidental": "Natural",
+        "octave": 5,
+        "frequency": 523.25,
+        "wavelength": 65.93
+    },
+    {
+        "note_label": "C#5",
+        "pitch": "C",
+        "accidental": "Sharp",
+        "octave": 5,
+        "frequency": 554.37,
+        "wavelength": 62.23
+    },
+    {
+        "note_label": "Db5",
+        "pitch": "D",
+        "accidental": "Flat",
+        "octave": 5,
+        "frequency": 554.37,
+        "wavelength": 62.23
+    },
+    {
+        "note_label": "D5",
+        "pitch": "D",
+        "accidental": "Natural",
+        "octave": 5,
+        "frequency": 587.33,
+        "wavelength": 58.74
+    },
+    {
+        "note_label": "D#5",
+        "pitch": "D",
+        "accidental": "Sharp",
+        "octave": 5,
+        "frequency": 622.25,
+        "wavelength": 55.44
+    },
+    {
+        "note_label": "Eb5",
+        "pitch": "E",
+        "accidental": "Flat",
+        "octave": 5,
+        "frequency": 622.25,
+        "wavelength": 55.44
+    },
+    {
+        "note_label": "E5",
+        "pitch": "E",
+        "accidental": "Natural",
+        "octave": 5,
+        "frequency": 659.25,
+        "wavelength": 52.33
+    },
+    {
+        "note_label": "F5",
+        "pitch": "F",
+        "accidental": "Natural",
+        "octave": 5,
+        "frequency": 698.46,
+        "wavelength": 49.39
+    },
+    {
+        "note_label": "F#5",
+        "pitch": "F",
+        "accidental": "Sharp",
+        "octave": 5,
+        "frequency": 739.99,
+        "wavelength": 46.62
+    },
+    {
+        "note_label": "Gb5",
+        "pitch": "G",
+        "accidental": "Flat",
+        "octave": 5,
+        "frequency": 739.99,
+        "wavelength": 46.62
+    },
+    {
+        "note_label": "G5",
+        "pitch": "G",
+        "accidental": "Natural",
+        "octave": 5,
+        "frequency": 783.99,
+        "wavelength": 44.01
+    },
+    {
+        "note_label": "G#5",
+        "pitch": "G",
+        "accidental": "Sharp",
+        "octave": 5,
+        "frequency": 830.61,
+        "wavelength": 41.54
+    },
+    {
+        "note_label": "Ab5",
+        "pitch": "A",
+        "accidental": "Flat",
+        "octave": 5,
+        "frequency": 830.61,
+        "wavelength": 41.54
+    },
+    {
+        "note_label": "A5",
+        "pitch": "A",
+        "accidental": "Natural",
+        "octave": 5,
+        "frequency": 880.0,
+        "wavelength": 39.2
+    },
+    {
+        "note_label": "A#5",
+        "pitch": "A",
+        "accidental": "Sharp",
+        "octave": 5,
+        "frequency": 932.33,
+        "wavelength": 37.0
+    },
+    {
+        "note_label": "Bb5",
+        "pitch": "B",
+        "accidental": "Flat",
+        "octave": 5,
+        "frequency": 932.33,
+        "wavelength": 37.0
+    },
+    {
+        "note_label": "B5",
+        "pitch": "B",
+        "accidental": "Natural",
+        "octave": 5,
+        "frequency": 987.77,
+        "wavelength": 34.93
+    },
+    {
+        "note_label": "C6",
+        "pitch": "C",
+        "accidental": "Natural",
+        "octave": 6,
+        "frequency": 1046.5,
+        "wavelength": 32.97
+    },
+    {
+        "note_label": "C#6",
+        "pitch": "C",
+        "accidental": "Sharp",
+        "octave": 6,
+        "frequency": 1108.73,
+        "wavelength": 31.12
+    },
+    {
+        "note_label": "Db6",
+        "pitch": "D",
+        "accidental": "Flat",
+        "octave": 6,
+        "frequency": 1108.73,
+        "wavelength": 31.12
+    },
+    {
+        "note_label": "D6",
+        "pitch": "D",
+        "accidental": "Natural",
+        "octave": 6,
+        "frequency": 1174.66,
+        "wavelength": 29.37
+    },
+    {
+        "note_label": "D#6",
+        "pitch": "D",
+        "accidental": "Sharp",
+        "octave": 6,
+        "frequency": 1244.51,
+        "wavelength": 27.72
+    },
+    {
+        "note_label": "Eb6",
+        "pitch": "E",
+        "accidental": "Flat",
+        "octave": 6,
+        "frequency": 1244.51,
+        "wavelength": 27.72
+    },
+    {
+        "note_label": "E6",
+        "pitch": "E",
+        "accidental": "Natural",
+        "octave": 6,
+        "frequency": 1318.51,
+        "wavelength": 26.17
+    },
+    {
+        "note_label": "F6",
+        "pitch": "F",
+        "accidental": "Natural",
+        "octave": 6,
+        "frequency": 1396.91,
+        "wavelength": 24.7
+    },
+    {
+        "note_label": "F#6",
+        "pitch": "F",
+        "accidental": "Sharp",
+        "octave": 6,
+        "frequency": 1479.98,
+        "wavelength": 23.31
+    },
+    {
+        "note_label": "Gb6",
+        "pitch": "G",
+        "accidental": "Flat",
+        "octave": 6,
+        "frequency": 1479.98,
+        "wavelength": 23.31
+    },
+    {
+        "note_label": "G6",
+        "pitch": "G",
+        "accidental": "Natural",
+        "octave": 6,
+        "frequency": 1567.98,
+        "wavelength": 22.0
+    },
+    {
+        "note_label": "G#6",
+        "pitch": "G",
+        "accidental": "Sharp",
+        "octave": 6,
+        "frequency": 1661.22,
+        "wavelength": 20.77
+    },
+    {
+        "note_label": "Ab6",
+        "pitch": "A",
+        "accidental": "Flat",
+        "octave": 6,
+        "frequency": 1661.22,
+        "wavelength": 20.77
+    },
+    {
+        "note_label": "A6",
+        "pitch": "A",
+        "accidental": "Natural",
+        "octave": 6,
+        "frequency": 1760.0,
+        "wavelength": 19.6
+    },
+    {
+        "note_label": "A#6",
+        "pitch": "A",
+        "accidental": "Sharp",
+        "octave": 6,
+        "frequency": 1864.66,
+        "wavelength": 18.5
+    },
+    {
+        "note_label": "Bb6",
+        "pitch": "B",
+        "accidental": "Flat",
+        "octave": 6,
+        "frequency": 1864.66,
+        "wavelength": 18.5
+    },
+    {
+        "note_label": "B6",
+        "pitch": "B",
+        "accidental": "Natural",
+        "octave": 6,
+        "frequency": 1975.53,
+        "wavelength": 17.46
+    },
+    {
+        "note_label": "C7",
+        "pitch": "C",
+        "accidental": "Natural",
+        "octave": 7,
+        "frequency": 2093.0,
+        "wavelength": 16.48
+    },
+    {
+        "note_label": "C#7",
+        "pitch": "C",
+        "accidental": "Sharp",
+        "octave": 7,
+        "frequency": 2217.46,
+        "wavelength": 15.56
+    },
+    {
+        "note_label": "Db7",
+        "pitch": "D",
+        "accidental": "Flat",
+        "octave": 7,
+        "frequency": 2217.46,
+        "wavelength": 15.56
+    },
+    {
+        "note_label": "D7",
+        "pitch": "D",
+        "accidental": "Natural",
+        "octave": 7,
+        "frequency": 2349.32,
+        "wavelength": 14.69
+    },
+    {
+        "note_label": "D#7",
+        "pitch": "D",
+        "accidental": "Sharp",
+        "octave": 7,
+        "frequency": 2489.02,
+        "wavelength": 13.86
+    },
+    {
+        "note_label": "Eb7",
+        "pitch": "E",
+        "accidental": "Flat",
+        "octave": 7,
+        "frequency": 2489.02,
+        "wavelength": 13.86
+    },
+    {
+        "note_label": "E7",
+        "pitch": "E",
+        "accidental": "Natural",
+        "octave": 7,
+        "frequency": 2637.02,
+        "wavelength": 13.08
+    },
+    {
+        "note_label": "F7",
+        "pitch": "F",
+        "accidental": "Natural",
+        "octave": 7,
+        "frequency": 2793.83,
+        "wavelength": 12.35
+    },
+    {
+        "note_label": "F#7",
+        "pitch": "F",
+        "accidental": "Sharp",
+        "octave": 7,
+        "frequency": 2959.96,
+        "wavelength": 11.66
+    },
+    {
+        "note_label": "Gb7",
+        "pitch": "G",
+        "accidental": "Flat",
+        "octave": 7,
+        "frequency": 2959.96,
+        "wavelength": 11.66
+    },
+    {
+        "note_label": "G7",
+        "pitch": "G",
+        "accidental": "Natural",
+        "octave": 7,
+        "frequency": 3135.96,
+        "wavelength": 11.0
+    },
+    {
+        "note_label": "G#7",
+        "pitch": "G",
+        "accidental": "Sharp",
+        "octave": 7,
+        "frequency": 3322.44,
+        "wavelength": 10.38
+    },
+    {
+        "note_label": "Ab7",
+        "pitch": "A",
+        "accidental": "Flat",
+        "octave": 7,
+        "frequency": 3322.44,
+        "wavelength": 10.38
+    },
+    {
+        "note_label": "A7",
+        "pitch": "A",
+        "accidental": "Natural",
+        "octave": 7,
+        "frequency": 3520.0,
+        "wavelength": 9.8
+    },
+    {
+        "note_label": "A#7",
+        "pitch": "A",
+        "accidental": "Sharp",
+        "octave": 7,
+        "frequency": 3729.31,
+        "wavelength": 9.25
+    },
+    {
+        "note_label": "Bb7",
+        "pitch": "B",
+        "accidental": "Flat",
+        "octave": 7,
+        "frequency": 3729.31,
+        "wavelength": 9.25
+    },
+    {
+        "note_label": "B7",
+        "pitch": "B",
+        "accidental": "Natural",
+        "octave": 7,
+        "frequency": 3951.07,
+        "wavelength": 8.73
+    },
+    {
+        "note_label": "C8",
+        "pitch": "C",
+        "accidental": "Natural",
+        "octave": 8,
+        "frequency": 4186.01,
+        "wavelength": 8.24
+    },
+    {
+        "note_label": "C#8",
+        "pitch": "C",
+        "accidental": "Sharp",
+        "octave": 8,
+        "frequency": 4434.92,
+        "wavelength": 7.78
+    },
+    {
+        "note_label": "Db8",
+        "pitch": "D",
+        "accidental": "Flat",
+        "octave": 8,
+        "frequency": 4434.92,
+        "wavelength": 7.78
+    },
+    {
+        "note_label": "D8",
+        "pitch": "D",
+        "accidental": "Natural",
+        "octave": 8,
+        "frequency": 4698.63,
+        "wavelength": 7.34
+    },
+    {
+        "note_label": "D#8",
+        "pitch": "D",
+        "accidental": "Sharp",
+        "octave": 8,
+        "frequency": 4978.03,
+        "wavelength": 6.93
+    },
+    {
+        "note_label": "Eb8",
+        "pitch": "E",
+        "accidental": "Flat",
+        "octave": 8,
+        "frequency": 4978.03,
+        "wavelength": 6.93
+    },
+    {
+        "note_label": "E8",
+        "pitch": "E",
+        "accidental": "Natural",
+        "octave": 8,
+        "frequency": 5274.04,
+        "wavelength": 6.54
+    },
+    {
+        "note_label": "F8",
+        "pitch": "F",
+        "accidental": "Natural",
+        "octave": 8,
+        "frequency": 5587.65,
+        "wavelength": 6.17
+    },
+    {
+        "note_label": "F#8",
+        "pitch": "F",
+        "accidental": "Sharp",
+        "octave": 8,
+        "frequency": 5919.91,
+        "wavelength": 5.83
+    },
+    {
+        "note_label": "Gb8",
+        "pitch": "G",
+        "accidental": "Flat",
+        "octave": 8,
+        "frequency": 5919.91,
+        "wavelength": 5.83
+    },
+    {
+        "note_label": "G8",
+        "pitch": "G",
+        "accidental": "Natural",
+        "octave": 8,
+        "frequency": 6271.93,
+        "wavelength": 5.5
+    },
+    {
+        "note_label": "G#8",
+        "pitch": "G",
+        "accidental": "Sharp",
+        "octave": 8,
+        "frequency": 6644.88,
+        "wavelength": 5.19
+    },
+    {
+        "note_label": "Ab8",
+        "pitch": "A",
+        "accidental": "Flat",
+        "octave": 8,
+        "frequency": 6644.88,
+        "wavelength": 5.19
+    },
+    {
+        "note_label": "A8",
+        "pitch": "A",
+        "accidental": "Natural",
+        "octave": 8,
+        "frequency": 7040.0,
+        "wavelength": 4.9
+    },
+    {
+        "note_label": "A#8",
+        "pitch": "A",
+        "accidental": "Sharp",
+        "octave": 8,
+        "frequency": 7458.62,
+        "wavelength": 4.63
+    },
+    {
+        "note_label": "Bb8",
+        "pitch": "B",
+        "accidental": "Flat",
+        "octave": 8,
+        "frequency": 7458.62,
+        "wavelength": 4.63
+    },
+    {
+        "note_label": "B8",
+        "pitch": "B",
+        "accidental": "Natural",
+        "octave": 8,
+        "frequency": 7902.13,
+        "wavelength": 4.37
+    }
+]
