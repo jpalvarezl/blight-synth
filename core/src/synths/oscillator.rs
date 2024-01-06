@@ -14,7 +14,6 @@ pub struct Oscillator {
 }
 
 impl Oscillator {
-
     // pub(crate) fn set_waveform(&mut self, waveform: Waveform) {
     //     self.waveform = waveform;
     // }

@@ -1,5 +1,8 @@
-use core::{synths::oscillator::{Oscillator, Waveform}, harmony::note::Note};
-use std::{sync::{Arc, RwLock}, borrow::BorrowMut};
+use core::{
+    harmony::note::Note,
+    synths::oscillator::{Oscillator, Waveform},
+};
+use std::sync::{Arc, RwLock};
 
 pub struct OscillatorViewModel {
     oscillator: Arc<RwLock<Oscillator>>,
@@ -17,7 +20,10 @@ impl OscillatorViewModel {
     }
 
     pub fn set_waveform(&self, waveform: Waveform) {
-        let mut oscillator = self.oscillator.write().expect("Couldn't get oscillator lock"); 
+        let mut oscillator = self
+            .oscillator
+            .write()
+            .expect("Couldn't get oscillator lock");
         oscillator.waveform = waveform;
     }
 }
