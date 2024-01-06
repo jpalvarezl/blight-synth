@@ -41,10 +41,6 @@ where
     let stream = device.build_output_stream(
         config,
         move |output: &mut [T], _info: &cpal::OutputCallbackInfo| {
-            println!(
-                "Oscillator: {:#?}",
-                oscillator.read().expect("Oscillator no longer available")
-            );
             process_frame(
                 output,
                 oscillator.clone(),
