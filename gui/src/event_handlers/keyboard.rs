@@ -87,102 +87,102 @@ impl PianoKeyboard {
     fn init_keys() -> HashMap<Key, Note> {
         let mut keys = HashMap::new();
 
-        keys.insert(
-            Key::A,
-            Note {
-                pitch: Pitch::C,
-                accidental: Accidental::Natural,
-                octave: INITIAL_OCTAVE,
-            },
-        );
-        keys.insert(
-            Key::W,
-            Note {
-                pitch: Pitch::C,
-                accidental: Accidental::Sharp,
-                octave: INITIAL_OCTAVE,
-            },
-        );
-        keys.insert(
-            Key::S,
-            Note {
-                pitch: Pitch::D,
-                accidental: Accidental::Natural,
-                octave: INITIAL_OCTAVE,
-            },
-        );
-        keys.insert(
-            Key::E,
-            Note {
-                pitch: Pitch::D,
-                accidental: Accidental::Sharp,
-                octave: INITIAL_OCTAVE,
-            },
-        );
-        keys.insert(
-            Key::D,
-            Note {
-                pitch: Pitch::E,
-                accidental: Accidental::Natural,
-                octave: INITIAL_OCTAVE,
-            },
-        );
-        keys.insert(
-            Key::F,
-            Note {
-                pitch: Pitch::F,
-                accidental: Accidental::Natural,
-                octave: INITIAL_OCTAVE,
-            },
-        );
-        keys.insert(
-            Key::T,
-            Note {
-                pitch: Pitch::F,
-                accidental: Accidental::Sharp,
-                octave: INITIAL_OCTAVE,
-            },
-        );
-        keys.insert(
-            Key::G,
-            Note {
-                pitch: Pitch::G,
-                accidental: Accidental::Natural,
-                octave: INITIAL_OCTAVE,
-            },
-        );
-        keys.insert(
-            Key::Y,
-            Note {
-                pitch: Pitch::G,
-                accidental: Accidental::Sharp,
-                octave: INITIAL_OCTAVE,
-            },
-        );
-        keys.insert(
-            Key::H,
-            Note {
-                pitch: Pitch::A,
-                accidental: Accidental::Natural,
-                octave: INITIAL_OCTAVE,
-            },
-        );
-        keys.insert(
-            Key::U,
-            Note {
-                pitch: Pitch::A,
-                accidental: Accidental::Sharp,
-                octave: INITIAL_OCTAVE,
-            },
-        );
-        keys.insert(
-            Key::J,
-            Note {
-                pitch: Pitch::B,
-                accidental: Accidental::Natural,
-                octave: INITIAL_OCTAVE,
-            },
-        );
+        // keys.insert(
+        //     Key::A,
+        //     Note {
+        //         pitch: Pitch::C,
+        //         accidental: Accidental::Natural,
+        //         octave: INITIAL_OCTAVE,
+        //     },
+        // );
+        // keys.insert(
+        //     Key::W,
+        //     Note {
+        //         pitch: Pitch::C,
+        //         accidental: Accidental::Sharp,
+        //         octave: INITIAL_OCTAVE,
+        //     },
+        // );
+        // keys.insert(
+        //     Key::S,
+        //     Note {
+        //         pitch: Pitch::D,
+        //         accidental: Accidental::Natural,
+        //         octave: INITIAL_OCTAVE,
+        //     },
+        // );
+        // keys.insert(
+        //     Key::E,
+        //     Note {
+        //         pitch: Pitch::D,
+        //         accidental: Accidental::Sharp,
+        //         octave: INITIAL_OCTAVE,
+        //     },
+        // );
+        // keys.insert(
+        //     Key::D,
+        //     Note {
+        //         pitch: Pitch::E,
+        //         accidental: Accidental::Natural,
+        //         octave: INITIAL_OCTAVE,
+        //     },
+        // );
+        // keys.insert(
+        //     Key::F,
+        //     Note {
+        //         pitch: Pitch::F,
+        //         accidental: Accidental::Natural,
+        //         octave: INITIAL_OCTAVE,
+        //     },
+        // );
+        // keys.insert(
+        //     Key::T,
+        //     Note {
+        //         pitch: Pitch::F,
+        //         accidental: Accidental::Sharp,
+        //         octave: INITIAL_OCTAVE,
+        //     },
+        // );
+        // keys.insert(
+        //     Key::G,
+        //     Note {
+        //         pitch: Pitch::G,
+        //         accidental: Accidental::Natural,
+        //         octave: INITIAL_OCTAVE,
+        //     },
+        // );
+        // keys.insert(
+        //     Key::Y,
+        //     Note {
+        //         pitch: Pitch::G,
+        //         accidental: Accidental::Sharp,
+        //         octave: INITIAL_OCTAVE,
+        //     },
+        // );
+        // keys.insert(
+        //     Key::H,
+        //     Note {
+        //         pitch: Pitch::A,
+        //         accidental: Accidental::Natural,
+        //         octave: INITIAL_OCTAVE,
+        //     },
+        // );
+        // keys.insert(
+        //     Key::U,
+        //     Note {
+        //         pitch: Pitch::A,
+        //         accidental: Accidental::Sharp,
+        //         octave: INITIAL_OCTAVE,
+        //     },
+        // );
+        // keys.insert(
+        //     Key::J,
+        //     Note {
+        //         pitch: Pitch::B,
+        //         accidental: Accidental::Natural,
+        //         octave: INITIAL_OCTAVE,
+        //     },
+        // );
 
         return keys;
     }

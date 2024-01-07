@@ -1,18 +1,32 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+use serde::Deserialize;
+
+// pub struct Note {
+//     pub pitch: Pitch,
+//     pub accidental: Accidental,
+//     pub octave: u8,
+//     pub frequency: f32,
+//     pub note_label: String,
+// }
+
+// TODO make this type only used for deserialization and exposed public type with better types
+// i.e.: frequency should be a float, not a string
+#[derive(Debug, PartialEq, Clone, Eq, Hash, Deserialize)]
 pub struct Note {
     pub pitch: Pitch,
     pub accidental: Accidental,
     pub octave: u8,
+    pub frequency: String, // Hash can't be derived for float types. Use String instead?
+    pub note_label: String,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Clone, Eq ,Hash, Deserialize)]
 pub enum Accidental {
     Sharp,
     Flat,
     Natural,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Clone, Eq, Hash, Deserialize)]
 pub enum Pitch {
     A,
     B,
@@ -23,12 +37,15 @@ pub enum Pitch {
     G,
 }
 
+// TODO remove
 impl Note {
     pub fn new() -> Self {
         Self {
             pitch: Pitch::C,
             accidental: Accidental::Natural,
             octave: 4,
+            frequency: "440".to_string(),
+            note_label: "C4".to_string(),
         }
     }
 }
