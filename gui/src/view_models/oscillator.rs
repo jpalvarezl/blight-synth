@@ -24,6 +24,14 @@ impl OscillatorViewModel {
             .expect("Couldn't get oscillator lock");
         oscillator.waveform = waveform;
     }
+
+    pub fn set_frequency(&self, frequency: f32) {
+        let mut oscillator = self
+            .oscillator
+            .write()
+            .expect("Couldn't get oscillator lock");
+        oscillator.frequency_hz = frequency;
+    }
 }
 
 pub(crate) fn get_oscillator(_note: &Note) -> Oscillator {

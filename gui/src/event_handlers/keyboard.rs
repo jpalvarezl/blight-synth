@@ -54,10 +54,10 @@ impl PianoKeyboard {
                 _ => return,
             };
             if key_state == KeyState::Released {
-                PianoKeyboard::silence_note(oscillator_viewmodel);
+                PianoKeyboard::silence_note(oscillator_viewmodel, &note);
                 let _ = &self.active_notes.remove(note);
             } else {
-                PianoKeyboard::play_sine_wave(oscillator_viewmodel);
+                PianoKeyboard::play_sine_wave(oscillator_viewmodel, &note);
                 let _ = &self.active_notes.insert(note.clone(), key_state);
             }
         });
@@ -76,12 +76,14 @@ impl PianoKeyboard {
         return pressed_keys;
     }
 
-    fn play_sine_wave(oscillator_viewmodel: &OscillatorViewModel) {
+    fn play_sine_wave(oscillator_viewmodel: &OscillatorViewModel, note: &Note) {
         oscillator_viewmodel.set_waveform(Sine);
+        oscillator_viewmodel.set_frequency(note.frequency.parse::<f32>().unwrap());
     }
 
-    fn silence_note(oscillator_viewmodel: &OscillatorViewModel) {
+    fn silence_note(oscillator_viewmodel: &OscillatorViewModel, note: &Note) {
         oscillator_viewmodel.set_waveform(Silence);
+        oscillator_viewmodel.set_frequency(note.frequency.parse::<f32>().unwrap());
     }
 
     fn init_keys() -> HashMap<Key, Note> {
