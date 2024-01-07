@@ -1,7 +1,7 @@
 use super::{super::view_models::oscillator::OscillatorViewModel, InputStateHandler};
 use core::synths::oscillator::Waveform::{Silence, Sine};
 use egui::{InputState, Key};
-use harmony::note::{Accidental, Note, Pitch};
+use harmony::note::Note;
 use std::collections::HashMap;
 
 const INITIAL_OCTAVE: u8 = 4;
@@ -87,103 +87,33 @@ impl PianoKeyboard {
     fn init_keys() -> HashMap<Key, Note> {
         let mut keys = HashMap::new();
 
-        // keys.insert(
-        //     Key::A,
-        //     Note {
-        //         pitch: Pitch::C,
-        //         accidental: Accidental::Natural,
-        //         octave: INITIAL_OCTAVE,
-        //     },
-        // );
-        // keys.insert(
-        //     Key::W,
-        //     Note {
-        //         pitch: Pitch::C,
-        //         accidental: Accidental::Sharp,
-        //         octave: INITIAL_OCTAVE,
-        //     },
-        // );
-        // keys.insert(
-        //     Key::S,
-        //     Note {
-        //         pitch: Pitch::D,
-        //         accidental: Accidental::Natural,
-        //         octave: INITIAL_OCTAVE,
-        //     },
-        // );
-        // keys.insert(
-        //     Key::E,
-        //     Note {
-        //         pitch: Pitch::D,
-        //         accidental: Accidental::Sharp,
-        //         octave: INITIAL_OCTAVE,
-        //     },
-        // );
-        // keys.insert(
-        //     Key::D,
-        //     Note {
-        //         pitch: Pitch::E,
-        //         accidental: Accidental::Natural,
-        //         octave: INITIAL_OCTAVE,
-        //     },
-        // );
-        // keys.insert(
-        //     Key::F,
-        //     Note {
-        //         pitch: Pitch::F,
-        //         accidental: Accidental::Natural,
-        //         octave: INITIAL_OCTAVE,
-        //     },
-        // );
-        // keys.insert(
-        //     Key::T,
-        //     Note {
-        //         pitch: Pitch::F,
-        //         accidental: Accidental::Sharp,
-        //         octave: INITIAL_OCTAVE,
-        //     },
-        // );
-        // keys.insert(
-        //     Key::G,
-        //     Note {
-        //         pitch: Pitch::G,
-        //         accidental: Accidental::Natural,
-        //         octave: INITIAL_OCTAVE,
-        //     },
-        // );
-        // keys.insert(
-        //     Key::Y,
-        //     Note {
-        //         pitch: Pitch::G,
-        //         accidental: Accidental::Sharp,
-        //         octave: INITIAL_OCTAVE,
-        //     },
-        // );
-        // keys.insert(
-        //     Key::H,
-        //     Note {
-        //         pitch: Pitch::A,
-        //         accidental: Accidental::Natural,
-        //         octave: INITIAL_OCTAVE,
-        //     },
-        // );
-        // keys.insert(
-        //     Key::U,
-        //     Note {
-        //         pitch: Pitch::A,
-        //         accidental: Accidental::Sharp,
-        //         octave: INITIAL_OCTAVE,
-        //     },
-        // );
-        // keys.insert(
-        //     Key::J,
-        //     Note {
-        //         pitch: Pitch::B,
-        //         accidental: Accidental::Natural,
-        //         octave: INITIAL_OCTAVE,
-        //     },
-        // );
+        let notes = harmony::load_notes();
+        let chromatic_scale = harmony::scales::get_notes_for_cromatic_scale_in_octave(4);
+        let keyboard_keys = &[
+            Key::A,
+            Key::W,
+            Key::S,
+            Key::E,
+            Key::D,
+            Key::F,
+            Key::T,
+            Key::G,
+            Key::Y,
+            Key::H,
+            Key::U,
+            Key::J,
+        ];
 
+        for (index, note) in chromatic_scale.iter().enumerate() {
+            keys.insert(
+                keyboard_keys[index],
+                notes
+                    .get(note)
+                    .expect(&format!("Could not find note {}", note))
+                    .clone(),
+            );
+        }
+        println!("{:#?}", keys);
         return keys;
     }
 }
