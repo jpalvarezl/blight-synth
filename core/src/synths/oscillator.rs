@@ -14,40 +14,25 @@ pub struct Oscillator {
 }
 
 impl Oscillator {
-    // pub(crate) fn set_waveform(&mut self, waveform: Waveform) {
-    //     self.waveform = waveform;
-    // }
 
-    // fn is_multiple_of_freq_above_nyquist(&self, multiple: f32) -> bool {
-    //     self.frequency_hz * multiple > self.sample_rate / 2.0
-    // }
+    fn triangle_wave(&self, time: f32) -> f32 {
+        // 2πft
+        (std::f32::consts::TAU * self.frequency_hz * time).sin().asin()
+    }
 
-    // fn generative_waveform(&mut self, harmonic_index_increment: i32, gain_exponent: f32) -> f32 {
-    //     let mut output = 0.0;
-    //     let mut i = 1;
-    //     while !self.is_multiple_of_freq_above_nyquist(i as f32) {
-    //         let gain = 1.0 / (i as f32).powf(gain_exponent);
-    //         output += gain * self.calculate_sine_output_from_freq(self.frequency_hz * i as f32);
-    //         i += harmonic_index_increment;
-    //     }
-    //     output
-    // }
+    fn sawtooth_wave(&self, time: f32) -> f32 {
+        // 2πft
+        (std::f32::consts::TAU * self.frequency_hz * time).sin().atan()
+    }
 
-    // fn square_wave(&mut self) -> f32 {
-    //     self.generative_waveform(2, 1.0)
-    // }
-
-    // fn saw_wave(&mut self) -> f32 {
-    //     self.generative_waveform(1, 1.0)
-    // }
-
-    // fn triangle_wave(&mut self) -> f32 {
-    //     self.generative_waveform(2, 2.0)
-    // }
+    fn square_wave(&self, time: f32) -> f32 {
+        // 2πft
+        (std::f32::consts::TAU * self.frequency_hz * time).sin().signum()
+    }
 
     fn sine_wave(&self, time: f32) -> f32 {
         // 2πft
-        (std::f32::consts::TAU * self.frequency_hz * time as f32).sin()
+        (std::f32::consts::TAU * self.frequency_hz * time).sin()
     }
 
     // "time" is the "current sample index" divided by the "sample rate"
@@ -55,9 +40,9 @@ impl Oscillator {
         // self.advance_sample();
         match self.waveform {
             Waveform::Sine => self.sine_wave(time),
-            // Waveform::Square => self.square_wave(),
-            // Waveform::Saw => self.saw_wave(),
-            // Waveform::Triangle => self.triangle_wave(),
+            Waveform::Square => self.square_wave(time),
+            Waveform::Saw => self.sawtooth_wave(time),
+            Waveform::Triangle => self.triangle_wave(time),
             Waveform::Silence => 0.0,
             _ => self.sine_wave(time),
         }

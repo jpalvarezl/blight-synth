@@ -1,5 +1,5 @@
 use super::{super::view_models::oscillator::OscillatorViewModel, InputStateHandler};
-use core::synths::oscillator::Waveform::{Silence, Sine};
+use core::synths::oscillator::Waveform::{Silence, Sine, Square, Saw, Triangle};
 use egui::{InputState, Key};
 use harmony::note::Note;
 use std::collections::HashMap;
@@ -77,7 +77,7 @@ impl PianoKeyboard {
     }
 
     fn play_sine_wave(oscillator_viewmodel: &OscillatorViewModel, note: &Note) {
-        oscillator_viewmodel.set_waveform(Sine);
+        oscillator_viewmodel.set_waveform(Square);
         oscillator_viewmodel.set_frequency(note.frequency.parse::<f32>().unwrap());
     }
 
