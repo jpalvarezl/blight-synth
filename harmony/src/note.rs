@@ -9,14 +9,12 @@ pub struct Note {
     pub note_label: String,
 }
 
-// TODO make this type only used for deserialization and exposed public type with better types
-// i.e.: frequency should be a float, not a string
 #[derive(Debug, Deserialize)]
 pub(crate) struct NoteInner {
     pub pitch: Pitch,
     pub accidental: Accidental,
     pub octave: u8,
-    pub frequency: f32, // Hash can't be derived for float types. Use String instead?
+    pub frequency: f32,
     pub note_label: String,
 }
 
