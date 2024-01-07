@@ -1,25 +1,26 @@
 use serde::Deserialize;
 
-// pub struct Note {
-//     pub pitch: Pitch,
-//     pub accidental: Accidental,
-//     pub octave: u8,
-//     pub frequency: f32,
-//     pub note_label: String,
-// }
-
-// TODO make this type only used for deserialization and exposed public type with better types
-// i.e.: frequency should be a float, not a string
-#[derive(Debug, PartialEq, Clone, Eq, Hash, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Eq, Hash)]
 pub struct Note {
     pub pitch: Pitch,
     pub accidental: Accidental,
     pub octave: u8,
-    pub frequency: String, // Hash can't be derived for float types. Use String instead?
+    pub frequency: String,
     pub note_label: String,
 }
 
-#[derive(Debug, PartialEq, Clone, Eq ,Hash, Deserialize)]
+// TODO make this type only used for deserialization and exposed public type with better types
+// i.e.: frequency should be a float, not a string
+#[derive(Debug, Deserialize)]
+pub(crate) struct NoteInner {
+    pub pitch: Pitch,
+    pub accidental: Accidental,
+    pub octave: u8,
+    pub frequency: f32, // Hash can't be derived for float types. Use String instead?
+    pub note_label: String,
+}
+
+#[derive(Debug, PartialEq, Clone, Eq, Hash, Deserialize)]
 pub enum Accidental {
     Sharp,
     Flat,
@@ -76,6 +77,18 @@ impl std::fmt::Display for Pitch {
             Pitch::E => write!(f, "E"),
             Pitch::F => write!(f, "F"),
             Pitch::G => write!(f, "G"),
+        }
+    }
+}
+
+impl From<NoteInner> for Note {
+    fn from(note: NoteInner) -> Self {
+        Self {
+            pitch: note.pitch,
+            accidental: note.accidental,
+            octave: note.octave,
+            frequency: note.frequency.to_string(),
+            note_label: note.note_label,
         }
     }
 }
