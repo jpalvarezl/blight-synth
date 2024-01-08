@@ -54,7 +54,7 @@ impl PianoKeyboard {
                 _ => return,
             };
             if key_state == KeyState::Released {
-                PianoKeyboard::silence_note(oscillator_viewmodel, &note);
+                PianoKeyboard::silence_note(oscillator_viewmodel);
                 let _ = &self.active_notes.remove(note);
             } else {
                 PianoKeyboard::play_sine_wave(oscillator_viewmodel, &note);
@@ -77,13 +77,12 @@ impl PianoKeyboard {
     }
 
     fn play_sine_wave(oscillator_viewmodel: &OscillatorViewModel, note: &Note) {
-        oscillator_viewmodel.set_waveform(Square);
         oscillator_viewmodel.set_frequency(note.frequency.parse::<f32>().unwrap());
     }
 
-    fn silence_note(oscillator_viewmodel: &OscillatorViewModel, note: &Note) {
-        oscillator_viewmodel.set_waveform(Silence);
-        oscillator_viewmodel.set_frequency(note.frequency.parse::<f32>().unwrap());
+    fn silence_note(oscillator_viewmodel: &OscillatorViewModel) {
+        // oscillator_viewmodel.set_waveform(Silence);
+        oscillator_viewmodel.set_frequency(0.0);
     }
 
     fn init_keys() -> HashMap<Key, Note> {

@@ -37,6 +37,6 @@ impl OscillatorViewModel {
 pub(crate) fn get_oscillator(_note: &Note) -> Oscillator {
     Oscillator {
         waveform: Waveform::Silence,
-        frequency_hz: 440.0,
+        frequency_hz: 0.0,
     }
 }

@@ -53,6 +53,8 @@ impl eframe::App for Content {
             );
 
             self.text = self.input_handler.pressed_keys_as_string();
+
+            println!("Oscillator: {:#?}", self.oscillator_viewmodel.get_oscillator());
         });
     }
 }
