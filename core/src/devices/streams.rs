@@ -71,7 +71,7 @@ fn process_frame<SampleType>(
             oscillator
                 .read()
                 .expect("Oscillator no longer available")
-                .tick(*sample_index / sample_rate),
+                .tick(*sample_index / sample_rate)
         );
 
         // copy the same value to all channels

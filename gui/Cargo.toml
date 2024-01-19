@@ -9,8 +9,7 @@ harmony = { path = "../harmony" }
 
 anyhow = "1.0"
 
-eframe = "0.24"
-egui = "0.24"
+iced = "0.10"
 
 env_logger = { version = "0.10", default-features = false, features = [
     "auto-color",
