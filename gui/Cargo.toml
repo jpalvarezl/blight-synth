@@ -9,7 +9,7 @@ harmony = { path = "../harmony" }
 
 anyhow = "1.0"
 
-iced = "0.10"
+iced = { version = "0.10.0", features = ["default", "smol"] }
 
 env_logger = { version = "0.10", default-features = false, features = [
     "auto-color",

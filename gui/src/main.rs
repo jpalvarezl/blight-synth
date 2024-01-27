@@ -2,9 +2,10 @@
 
 use core::{get_default_output_device_name, start_audio_thread};
 // use event_handlers::{keyboard::PianoKeyboard, InputStateHandler};
-use iced::{Application, Theme, Length, Settings, Command, Alignment};
+use iced::{Application, Theme, Length, Settings, Command, Alignment, keyboard, subscription};
 use iced::widget::{self, container, column, text};
 use view_models::oscillator::OscillatorViewModel;
+use iced::executor;
 
 mod event_handlers;
 mod ui_components;
@@ -66,7 +67,25 @@ impl Application for MainState {
     }
 
     fn update(&mut self, message: Self::Message) -> iced::Command<Self::Message> {
+        
         Command::none()
+    }
+
+    fn subscription(&self) -> iced::Subscription<Self::Message> {
+        subscription::events_with(|event, _status| match event {
+            Event::Keyboard(keyboard_event) => match keyboard_event {
+                keyboard::Event::KeyPressed {
+                    key_code: keyboard::KeyCode::Tab,
+                    modifiers,
+                } => Some(if modifiers.shift {
+                    Message::FocusPrevious
+                } else {
+                    Message::FocusNext
+                }),
+                _ => None,
+            },
+            _ => None,
+        })
     }
 
     fn view(&self) -> iced::Element<'_, Self::Message, iced::Renderer<Self::Theme>> {
