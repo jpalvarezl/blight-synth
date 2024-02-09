@@ -29,20 +29,25 @@ pub struct Oscillator {
 }
 
 impl Oscillator {
-
     fn triangle_wave(&self, time: f32) -> f32 {
         // 2πft
-        (std::f32::consts::TAU * self.frequency_hz * time).sin().asin()
+        (std::f32::consts::TAU * self.frequency_hz * time)
+            .sin()
+            .asin()
     }
 
     fn sawtooth_wave(&self, time: f32) -> f32 {
         // 2πft
-        (std::f32::consts::TAU * self.frequency_hz * time).sin().atan()
+        (std::f32::consts::TAU * self.frequency_hz * time)
+            .sin()
+            .atan()
     }
 
     fn square_wave(&self, time: f32) -> f32 {
         // 2πft
-        (std::f32::consts::TAU * self.frequency_hz * time).sin().signum()
+        (std::f32::consts::TAU * self.frequency_hz * time)
+            .sin()
+            .signum()
     }
 
     fn sine_wave(&self, time: f32) -> f32 {

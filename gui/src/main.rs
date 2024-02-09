@@ -2,41 +2,20 @@
 
 use core::{get_default_output_device_name, start_audio_thread};
 // use event_handlers::{keyboard::PianoKeyboard, InputStateHandler};
-use iced::{Application, Theme, Length, Settings, Command, Alignment, keyboard, subscription};
-use iced::widget::{self, container, column, text};
-use view_models::oscillator::OscillatorViewModel;
 use iced::executor;
+use iced::widget::{self, column, container, text};
+use iced::{keyboard, subscription, Alignment, Application, Command, Length, Settings, Theme};
+use view_models::oscillator::OscillatorViewModel;
 
 mod event_handlers;
 mod ui_components;
 mod view_models;
 
 fn main() {
-    env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
+    env_logger::init();
 
-    MainState::run(Settings::default());
-    // let options = eframe::NativeOptions::default();
-    // let initial_content = init_content(get_default_output_device_name()?);
-
-    // let oscillator = initial_content.oscillator_viewmodel.get_oscillator();
-    // start_audio_thread(oscillator.clone());
-
-    // eframe::run_native(
-    //     "Keyboard events",
-    //     options,
-    //     Box::new(|_cc| Box::new(initial_content)),
-    // )
-    // .map_err(|e| anyhow::anyhow!("eframe error: {}", e))
+    let _ = MainState::run(Settings::default());
 }
-
-// fn init_content(default_output_device: String) -> Content {
-//     Content {
-//         default_output_device,
-//         text: String::new(),
-//         input_handler: PianoKeyboard::initialize(), // This should use Box dyn somehow swap keyboards
-//         oscillator_viewmodel: OscillatorViewModel::new(),
-//     }
-// }
 
 #[derive(Debug, Clone)]
 enum MainMessage {
@@ -46,7 +25,8 @@ enum MainMessage {
 
 #[derive(Debug)]
 enum MainState {
-    Idle, 
+    Idle,
+    KeyPressed(String),
 }
 
 impl Application for MainState {
@@ -67,42 +47,56 @@ impl Application for MainState {
     }
 
     fn update(&mut self, message: Self::Message) -> iced::Command<Self::Message> {
-        
         Command::none()
     }
 
     fn subscription(&self) -> iced::Subscription<Self::Message> {
         subscription::events_with(|event, _status| match event {
-            Event::Keyboard(keyboard_event) => match keyboard_event {
-                keyboard::Event::KeyPressed {
-                    key_code: keyboard::KeyCode::Tab,
-                    modifiers,
-                } => Some(if modifiers.shift {
-                    Message::FocusPrevious
-                } else {
-                    Message::FocusNext
-                }),
-                _ => None,
-            },
+            iced::Event::Keyboard(keyboard_event) => 
+                match keyboard_event {
+                    keyboard::Event::KeyPressed{key_code, modifiers} => {
+                        println!("Key pressed: {:?}", key_code);
+                        None
+                    },
+                    keyboard::Event::KeyReleased { key_code, modifiers } => {
+                        println!("Key released: {:?}", key_code);
+                        None
+                    }
+                    _ => None,
+                },
             _ => None,
         })
     }
 
+    // fn subscription(&self) -> iced::Subscription<Self::Message> {
+    //     // subscription::events_with(|event, _status| match event {
+    //     //     Event::Keyboard(keyboard_event) => match keyboard_event {
+    //     //         // keyboard::Event::KeyPressed {
+    //     //         //     key_code: keyboard::KeyCode::Tab,
+    //     //         //     modifiers,
+    //     //         // } => Some(if modifiers.shift {
+    //     //         //     Message::FocusPrevious
+    //     //         // } else {
+    //     //         //     Message::FocusNext
+    //     //         // }),
+    //     //         // _ => None,
+    //     //     },
+    //     //     _ => None,
+    //     // })
+    // }
+
     fn view(&self) -> iced::Element<'_, Self::Message, iced::Renderer<Self::Theme>> {
-        let content = 
-            column![text("Hello, world!").size(40),]
-        // match self {
-        //     Pokedex::Loading => {
-        //         column![text("Searching for Pokémon...").size(40),]
-        //             .width(Length::Shrink)
-        //     }
-        //     Pokedex::Loaded { pokemon } => column![
-        //         pokemon.view(),
-        //         button("Keep searching!").on_press(Message::Search)
-        //     ]
-            .max_width(500)
-            .spacing(20)
-            .align_items(Alignment::End);
+        let content = match self {
+            MainState::Idle => {
+                column![text("Hello, world!").size(40),]
+            }
+            MainState::KeyPressed(key) => {
+                column![text(key).size(40),]
+            }
+        }
+        .max_width(500)
+        .spacing(20)
+        .align_items(Alignment::End);
 
         container(content)
             .width(Length::Fill)
