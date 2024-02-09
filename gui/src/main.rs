@@ -68,23 +68,6 @@ impl Application for MainState {
         })
     }
 
-    // fn subscription(&self) -> iced::Subscription<Self::Message> {
-    //     // subscription::events_with(|event, _status| match event {
-    //     //     Event::Keyboard(keyboard_event) => match keyboard_event {
-    //     //         // keyboard::Event::KeyPressed {
-    //     //         //     key_code: keyboard::KeyCode::Tab,
-    //     //         //     modifiers,
-    //     //         // } => Some(if modifiers.shift {
-    //     //         //     Message::FocusPrevious
-    //     //         // } else {
-    //     //         //     Message::FocusNext
-    //     //         // }),
-    //     //         // _ => None,
-    //     //     },
-    //     //     _ => None,
-    //     // })
-    // }
-
     fn view(&self) -> iced::Element<'_, Self::Message, iced::Renderer<Self::Theme>> {
         let content = match self {
             MainState::Idle => {
