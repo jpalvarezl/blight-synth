@@ -1,5 +1,6 @@
 [workspace]
 
+resolver = "2"
 members = ["core", "harmony", "gui"]
 exclude = ["frontend/src-tauri"]
 
