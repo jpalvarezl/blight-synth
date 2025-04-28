@@ -1,3 +1,4 @@
+import "./pad-keys";
 import { invoke } from "@tauri-apps/api/core";
 
 let greetInputEl: HTMLInputElement | null;

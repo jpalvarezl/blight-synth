@@ -59,7 +59,6 @@ impl Oscillator {
             Waveform::Saw => self.sawtooth_wave(time),
             Waveform::Triangle => self.triangle_wave(time),
             Waveform::Silence => 0.0,
-            _ => self.sine_wave(time),
         }
     }
 }

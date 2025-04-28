@@ -114,3 +114,34 @@ button {
     background-color: #0f0f0f69;
   }
 }
+
+/* Drum pad grid styles */
+.drum-pad-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 120px);
+  grid-template-rows: repeat(4, 120px);
+  gap: 16px;
+  justify-content: center;
+  margin: 2rem 0;
+}
+
+.pad {
+  background: #222;
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-size: 2rem;
+  font-weight: bold;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pad:active,
+.pad.active {
+  background: #ff9800;
+  transform: scale(0.95);
+}
