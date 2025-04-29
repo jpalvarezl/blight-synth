@@ -21,29 +21,55 @@ function setupPadKeyListeners() {
   const padButtons = document.querySelectorAll<HTMLButtonElement>(".pad");
 
   padButtons.forEach((pad, idx) => {
-    pad.addEventListener("click", () => {
-      const midiValue = midiStart + idx;
+    const midiValue = midiStart + idx;
+    pad.addEventListener("mousedown", () => {
       invoke("play_midi_note", { midiValue });
-      // No manual .active toggle here; let the browser handle the click animation
       pad.classList.add("active");
-      setTimeout(() => pad.classList.remove("active"), 120);
+    });
+    pad.addEventListener("mouseup", () => {
+      invoke("stop_midi_note");
+      pad.classList.remove("active");
+    });
+    pad.addEventListener("mouseleave", () => {
+      invoke("stop_midi_note");
+      pad.classList.remove("active");
+    });
+    // For accessibility: touch events
+    pad.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      invoke("play_midi_note", { midiValue });
+      pad.classList.add("active");
+    });
+    pad.addEventListener("touchend", (e) => {
+      e.preventDefault();
+      invoke("stop_midi_note");
+      pad.classList.remove("active");
     });
   });
 
-  function triggerPad(index: number) {
-    const pad = padButtons[index];
-    if (!pad) return;
-    pad.classList.add("active");
-    pad.click();
-    setTimeout(() => pad.classList.remove("active"), 120);
-  }
+  // Track which key is currently held
+  let heldKey: string | null = null;
 
   window.addEventListener("keydown", (e: KeyboardEvent) => {
     const active = document.activeElement;
     if (active && active.tagName === "INPUT") return;
     const key = e.key.toLowerCase();
-    if (key in keyToPadIndex) {
-      triggerPad(keyToPadIndex[key]);
+    if (key in keyToPadIndex && heldKey !== key) {
+      heldKey = key;
+      const idx = keyToPadIndex[key];
+      const midiValue = midiStart + idx;
+      invoke("play_midi_note", { midiValue });
+      padButtons[idx].classList.add("active");
+    }
+  });
+
+  window.addEventListener("keyup", (e: KeyboardEvent) => {
+    const key = e.key.toLowerCase();
+    if (key in keyToPadIndex && heldKey === key) {
+      heldKey = null;
+      const idx = keyToPadIndex[key];
+      invoke("stop_midi_note");
+      padButtons[idx].classList.remove("active");
     }
   });
 }
