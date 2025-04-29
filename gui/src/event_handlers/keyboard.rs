@@ -1,5 +1,5 @@
 use super::{super::view_models::oscillator::OscillatorViewModel, InputStateHandler};
-use core::synths::oscillator::Waveform::{Silence, Sine, Square, Saw, Triangle};
+use audio_backend::synths::oscillator::Waveform::{Silence, Sine, Square, Saw, Triangle};
 use egui::{InputState, Key};
 use harmony::note::Note;
 use std::collections::HashMap;

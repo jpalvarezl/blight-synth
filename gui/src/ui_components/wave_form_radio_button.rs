@@ -1,4 +1,4 @@
-use core::synths::oscillator::Waveform;
+use audio_backend::synths::oscillator::Waveform;
 use egui::Ui;
 
 use crate::Content;

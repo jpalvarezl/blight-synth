@@ -510,6 +510,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "audio_backend"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cpal",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -567,7 +575,7 @@ name = "blight-synth"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "core",
+ "audio_backend",
  "eframe",
  "egui",
  "env_logger",
@@ -872,14 +880,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d16048cd947b08fa32c24458a22f5dc5e835264f689f4f5653210c69fd107363"
 dependencies = [
  "crossbeam-utils",
-]
-
-[[package]]
-name = "core"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "cpal",
 ]
 
 [[package]]

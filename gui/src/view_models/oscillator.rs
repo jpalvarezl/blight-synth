@@ -1,4 +1,4 @@
-use core::synths::oscillator::{Oscillator, Waveform};
+use audio_backend::synths::oscillator::{Oscillator, Waveform};
 use harmony::note::Note;
 use std::sync::{Arc, RwLock};
 

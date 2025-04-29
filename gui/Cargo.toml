@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-core = { path = "../core" }
+audio_backend = { path = "../audio_backend" }
 harmony = { path = "../harmony" }
 
 anyhow = "1.0"

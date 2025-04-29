@@ -36,6 +36,24 @@ pub enum Pitch {
     G,
 }
 
+/// Convert a MIDI note number to a note label string, e.g. 60 -> "C4"
+pub fn midi_to_note_label(midi: u8) -> Option<String> {
+    if midi < 12 || midi > 127 {
+        return None;
+    }
+    let chromatic = [
+        "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"
+    ];
+    let octave = (midi / 12) as i8 - 1;
+    let note_index = (midi % 12) as usize;
+    Some(format!("{}{}", chromatic[note_index], octave))
+}
+
+/// Convert a MIDI note number to a frequency in Hz (A440 standard)
+pub fn midi_to_frequency(midi: u8) -> f32 {
+    440.0 * 2f32.powf((midi as f32 - 69.0) / 12.0)
+}
+
 // TODO remove
 impl Note {
     pub fn new() -> Self {

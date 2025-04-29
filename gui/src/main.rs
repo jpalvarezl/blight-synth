@@ -1,6 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
-use core::{get_default_output_device_name, start_audio_thread};
+use audio_backend::{get_default_output_device_name, start_audio_thread};
 use eframe::egui;
 use event_handlers::{keyboard::PianoKeyboard, InputStateHandler};
 use view_models::oscillator::OscillatorViewModel;

@@ -1,3 +1,5 @@
+import { invoke } from "@tauri-apps/api/core";
+
 // Drum pad keyboard mapping and event handling
 
 // Key mapping for each pad (1-16)
@@ -13,31 +15,32 @@ padKeyMap.forEach((key, idx) => {
   keyToPadIndex[key] = idx;
 });
 
-function setupPadKeyListeners() {
-  const padButtons = document.querySelectorAll<HTMLButtonElement>('.pad');
+const midiStart = 64; // Pad 1 = MIDI 64
 
-  // Add click event listeners to each pad
+function setupPadKeyListeners() {
+  const padButtons = document.querySelectorAll<HTMLButtonElement>(".pad");
+
   padButtons.forEach((pad, idx) => {
-    pad.addEventListener('click', () => {
-      // TODO: Replace this with actual sound or backend call
-      console.log(`Pad ${idx + 1} pressed (keyboard: ${padKeyMap[idx]})`);
+    pad.addEventListener("click", () => {
+      const midiValue = midiStart + idx;
+      invoke("play_midi_note", { midiValue });
       // No manual .active toggle here; let the browser handle the click animation
+      pad.classList.add("active");
+      setTimeout(() => pad.classList.remove("active"), 120);
     });
   });
 
-  // Visual feedback for pad press from keyboard
   function triggerPad(index: number) {
     const pad = padButtons[index];
     if (!pad) return;
-    pad.classList.add('active');
+    pad.classList.add("active");
     pad.click();
-    setTimeout(() => pad.classList.remove('active'), 120);
+    setTimeout(() => pad.classList.remove("active"), 120);
   }
 
-  // Listen for keydown events
-  window.addEventListener('keydown', (e: KeyboardEvent) => {
+  window.addEventListener("keydown", (e: KeyboardEvent) => {
     const active = document.activeElement;
-    if (active && active.tagName === 'INPUT') return;
+    if (active && active.tagName === "INPUT") return;
     const key = e.key.toLowerCase();
     if (key in keyToPadIndex) {
       triggerPad(keyToPadIndex[key]);
