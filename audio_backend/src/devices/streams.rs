@@ -1,9 +1,8 @@
 use std::sync::{Arc, Mutex};
 
+use cpal::traits::{HostTrait, StreamTrait};
 use cpal::Stream;
 use cpal::{traits::DeviceTrait, FromSample, Sample};
-use cpal::traits::{HostTrait, StreamTrait};
-
 
 use crate::synths::oscillator::{Oscillator, Saw, Sine, Square, Triangle};
 use crate::synths::synthesizer::{ActiveWaveform, SynthControl, Synthesizer};
@@ -44,25 +43,60 @@ pub fn run_audio_engine(synth: Arc<Synthesizer>) -> anyhow::Result<Stream> {
     // --- Build and Play Stream ---
     println!("Attempting to build stream...");
     let stream = match sample_format {
-         cpal::SampleFormat::F32 => device.build_output_stream(
-             &config,
-             move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
-                 write_data(data, channels, &control_clone, &mut sine_osc, &mut square_osc, &mut saw_osc, &mut triangle_osc);
-             },
-             err_fn, None)?,
-         cpal::SampleFormat::I16 => device.build_output_stream(
-             &config,
-             move |data: &mut [i16], _: &cpal::OutputCallbackInfo| {
-                 write_data(data, channels, &control_clone, &mut sine_osc, &mut square_osc, &mut saw_osc, &mut triangle_osc);
-             },
-             err_fn, None)?,
-         cpal::SampleFormat::U16 => device.build_output_stream(
-             &config,
-             move |data: &mut [u16], _: &cpal::OutputCallbackInfo| {
-                 write_data(data, channels, &control_clone, &mut sine_osc, &mut square_osc, &mut saw_osc, &mut triangle_osc);
-             },
-             err_fn, None)?,
-         _ => return Err(anyhow::anyhow!("Unsupported sample format {}", sample_format)),
+        cpal::SampleFormat::F32 => device.build_output_stream(
+            &config,
+            move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
+                write_data(
+                    data,
+                    channels,
+                    &control_clone,
+                    &mut sine_osc,
+                    &mut square_osc,
+                    &mut saw_osc,
+                    &mut triangle_osc,
+                );
+            },
+            err_fn,
+            None,
+        )?,
+        cpal::SampleFormat::I16 => device.build_output_stream(
+            &config,
+            move |data: &mut [i16], _: &cpal::OutputCallbackInfo| {
+                write_data(
+                    data,
+                    channels,
+                    &control_clone,
+                    &mut sine_osc,
+                    &mut square_osc,
+                    &mut saw_osc,
+                    &mut triangle_osc,
+                );
+            },
+            err_fn,
+            None,
+        )?,
+        cpal::SampleFormat::U16 => device.build_output_stream(
+            &config,
+            move |data: &mut [u16], _: &cpal::OutputCallbackInfo| {
+                write_data(
+                    data,
+                    channels,
+                    &control_clone,
+                    &mut sine_osc,
+                    &mut square_osc,
+                    &mut saw_osc,
+                    &mut triangle_osc,
+                );
+            },
+            err_fn,
+            None,
+        )?,
+        _ => {
+            return Err(anyhow::anyhow!(
+                "Unsupported sample format {}",
+                sample_format
+            ))
+        }
     };
     println!("Stream built successfully!");
 
@@ -82,7 +116,8 @@ fn write_data<T>(
 ) where
     T: Sample + FromSample<f32>,
 {
-    if let Ok(locked_control) = control.lock() { // Lock only once per buffer
+    if let Ok(locked_control) = control.lock() {
+        // Lock only once per buffer
         let freq = locked_control.frequency;
         let wave = locked_control.waveform;
         let amp = locked_control.amplitude;
@@ -118,12 +153,12 @@ fn write_data<T>(
         }
     } else {
         // Mutex is poisoned, fill buffer with silence
-            eprintln!("Audio thread: Mutex poisoned, outputting silence.");
-            for frame in output.chunks_mut(channels) {
-                let sample: T = T::from_sample(0.0f32);
-                for dest_sample in frame.iter_mut() {
+        eprintln!("Audio thread: Mutex poisoned, outputting silence.");
+        for frame in output.chunks_mut(channels) {
+            let sample: T = T::from_sample(0.0f32);
+            for dest_sample in frame.iter_mut() {
                 *dest_sample = sample;
-                }
             }
+        }
     }
 }

@@ -24,7 +24,11 @@ pub struct Synthesizer {
 
 impl Synthesizer {
     /// Creates a new Synthesizer controller.
-    pub fn new(initial_frequency: f32, initial_waveform: ActiveWaveform, initial_amplitude: f32) -> Self {
+    pub fn new(
+        initial_frequency: f32,
+        initial_waveform: ActiveWaveform,
+        initial_amplitude: f32,
+    ) -> Self {
         Synthesizer {
             control: Arc::new(Mutex::new(SynthControl {
                 frequency: initial_frequency,
@@ -38,7 +42,7 @@ impl Synthesizer {
     pub fn set_frequency(&self, frequency: f32) {
         // Lock, update, drop lock automatically
         if let Ok(mut control) = self.control.lock() {
-             control.frequency = frequency.max(0.0);
+            control.frequency = frequency.max(0.0);
         } else {
             eprintln!("Error setting frequency: Mutex poisoned");
         }
@@ -49,7 +53,7 @@ impl Synthesizer {
         if let Ok(mut control) = self.control.lock() {
             control.waveform = waveform;
         } else {
-             eprintln!("Error setting waveform: Mutex poisoned");
+            eprintln!("Error setting waveform: Mutex poisoned");
         }
     }
 

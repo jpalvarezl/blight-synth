@@ -11,8 +11,7 @@ type Result<T> = anyhow::Result<T, anyhow::Error>;
 pub fn start_audio_thread(synth: Arc<Synthesizer>) {
     println!("Starting audio thread");
     let _thread_handle = std::thread::spawn(move || {
-        let stream = run_audio_engine(synth.clone())
-            .expect("Stream creation error");
+        let stream = run_audio_engine(synth.clone()).expect("Stream creation error");
         stream.play().expect("Stream start error");
 
         // block the thread

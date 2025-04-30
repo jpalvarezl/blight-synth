@@ -42,7 +42,7 @@ pub fn midi_to_note_label(midi: u8) -> Option<String> {
         return None;
     }
     let chromatic = [
-        "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"
+        "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
     ];
     let octave = (midi / 12) as i8 - 1;
     let note_index = (midi % 12) as usize;
