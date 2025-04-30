@@ -40,12 +40,17 @@ pub fn run_audio_engine(synth: Arc<Synthesizer>) -> anyhow::Result<Stream> {
     // Clone the control Arc for the audio thread
     let control_clone = synth.get_control_clone();
 
+    // --- State for the Audio Callback ---
+    // We need to track the previously active waveform to detect changes.
+    let mut previous_waveform = synth.get_initial_waveform(); // Initialize with starting waveform
+
     // --- Build and Play Stream ---
     println!("Attempting to build stream...");
     let stream = match sample_format {
         cpal::SampleFormat::F32 => device.build_output_stream(
             &config,
             move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
+                // Pass mutable reference to previous_waveform state
                 write_data(
                     data,
                     channels,
@@ -54,6 +59,7 @@ pub fn run_audio_engine(synth: Arc<Synthesizer>) -> anyhow::Result<Stream> {
                     &mut square_osc,
                     &mut saw_osc,
                     &mut triangle_osc,
+                    &mut previous_waveform,
                 );
             },
             err_fn,
@@ -70,6 +76,7 @@ pub fn run_audio_engine(synth: Arc<Synthesizer>) -> anyhow::Result<Stream> {
                     &mut square_osc,
                     &mut saw_osc,
                     &mut triangle_osc,
+                    &mut previous_waveform,
                 );
             },
             err_fn,
@@ -86,6 +93,7 @@ pub fn run_audio_engine(synth: Arc<Synthesizer>) -> anyhow::Result<Stream> {
                     &mut square_osc,
                     &mut saw_osc,
                     &mut triangle_osc,
+                    &mut previous_waveform,
                 );
             },
             err_fn,
@@ -99,7 +107,6 @@ pub fn run_audio_engine(synth: Arc<Synthesizer>) -> anyhow::Result<Stream> {
         }
     };
     println!("Stream built successfully!");
-
     stream.play()?; // Start playing audio
     Ok(stream) // Return the stream
 }
@@ -109,36 +116,53 @@ fn write_data<T>(
     output: &mut [T],
     channels: usize,
     control: &Arc<Mutex<SynthControl>>,
+    // Oscillators
     sine_osc: &mut Oscillator<Sine>,
     square_osc: &mut Oscillator<Square>,
     saw_osc: &mut Oscillator<Saw>,
     triangle_osc: &mut Oscillator<Triangle>,
+    // State tracking
+    previous_waveform: &mut ActiveWaveform, // Pass previous waveform state mutably
 ) where
     T: Sample + FromSample<f32>,
 {
     if let Ok(locked_control) = control.lock() {
-        // Lock only once per buffer
         let freq = locked_control.frequency;
-        let wave = locked_control.waveform;
+        let current_wave = locked_control.waveform; // Renamed for clarity
         let amp = locked_control.amplitude;
 
-        // Update frequency for the *active* oscillator before generating samples
-        // This ensures the frequency change is applied smoothly within the buffer
-        match wave {
+        // --- Phase Reset Logic ---
+        // Check if the waveform has changed since the last buffer
+        if current_wave != *previous_waveform {
+            // Reset the phase of the *newly selected* oscillator to 0.0
+            match current_wave {
+                ActiveWaveform::Sine => sine_osc.reset_phase(0.0),
+                ActiveWaveform::Square => square_osc.reset_phase(0.0),
+                ActiveWaveform::Saw => saw_osc.reset_phase(0.0),
+                ActiveWaveform::Triangle => triangle_osc.reset_phase(0.0),
+            }
+            // Update the state for the next call
+            *previous_waveform = current_wave;
+            // Optional: Print a message when switching
+            println!("Audio thread: Switched to {:?}, phase reset.", current_wave);
+        }
+
+        // Update frequency for the *active* oscillator
+        match current_wave {
             ActiveWaveform::Sine => sine_osc.set_frequency(freq),
             ActiveWaveform::Square => square_osc.set_frequency(freq),
             ActiveWaveform::Saw => saw_osc.set_frequency(freq),
             ActiveWaveform::Triangle => triangle_osc.set_frequency(freq),
         }
 
-        // Drop the lock *after* setting frequency but *before* the sample loop
-        // This allows the main thread to update controls while samples are generated
+        // Drop lock before sample generation loop
         drop(locked_control);
 
         // Generate samples for the buffer
         for frame in output.chunks_mut(channels) {
             // Call next_sample directly on the selected oscillator
-            let value = match wave {
+            let value = match current_wave {
+                // Use current_wave here
                 ActiveWaveform::Sine => sine_osc.next_sample(),
                 ActiveWaveform::Square => square_osc.next_sample(),
                 ActiveWaveform::Saw => saw_osc.next_sample(),
@@ -152,8 +176,9 @@ fn write_data<T>(
             }
         }
     } else {
-        // Mutex is poisoned, fill buffer with silence
+        // Mutex is poisoned
         eprintln!("Audio thread: Mutex poisoned, outputting silence.");
+        // Fill buffer with silence
         for frame in output.chunks_mut(channels) {
             let sample: T = T::from_sample(0.0f32);
             for dest_sample in frame.iter_mut() {

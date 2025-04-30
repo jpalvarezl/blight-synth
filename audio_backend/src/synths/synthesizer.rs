@@ -70,4 +70,13 @@ impl Synthesizer {
     pub fn get_control_clone(&self) -> Arc<Mutex<SynthControl>> {
         Arc::clone(&self.control)
     }
+
+    // Helper to get the initial waveform, needed for the audio thread state
+    pub fn get_initial_waveform(&self) -> ActiveWaveform {
+        // We can ignore mutex poisoning here, as it's just for initialization
+        self.control
+            .lock()
+            .map(|c| c.waveform)
+            .unwrap_or(ActiveWaveform::Sine)
+    }
 }

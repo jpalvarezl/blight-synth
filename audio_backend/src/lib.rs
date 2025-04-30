@@ -1,4 +1,3 @@
-use cpal::traits::StreamTrait;
 use devices::streams::run_audio_engine;
 use std::sync::Arc;
 use synths::synthesizer::Synthesizer;
@@ -11,8 +10,7 @@ type Result<T> = anyhow::Result<T, anyhow::Error>;
 pub fn start_audio_thread(synth: Arc<Synthesizer>) {
     println!("Starting audio thread");
     let _thread_handle = std::thread::spawn(move || {
-        let stream = run_audio_engine(synth.clone()).expect("Stream creation error");
-        stream.play().expect("Stream start error");
+        let _stream = run_audio_engine(synth.clone()).expect("Stream creation error");
 
         // block the thread
         loop {}
