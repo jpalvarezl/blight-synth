@@ -1,7 +1,5 @@
 [workspace]
 
 resolver = "2"
-members = ["audio_backend", "harmony", "gui"]
+members = ["audio_backend", "harmony"]
 exclude = ["frontend/src-tauri"]
-
-default-members = ["gui"]

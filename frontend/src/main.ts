@@ -1,5 +1,6 @@
 import "./pad-keys";
 import { invoke } from "@tauri-apps/api/core";
+import { setupOscillatorDropdown } from "./oscillator-control";
 
 let greetInputEl: HTMLInputElement | null;
 let greetMsgEl: HTMLElement | null;
@@ -20,4 +21,5 @@ window.addEventListener("DOMContentLoaded", () => {
     e.preventDefault();
     greet();
   });
+  setupOscillatorDropdown();
 });

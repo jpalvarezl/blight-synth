@@ -142,6 +142,6 @@ button {
 
 .pad:active,
 .pad.active {
-  background: #ff9800;
+  background: #4fc3f7; /* light blue */
   transform: scale(0.95);
 }

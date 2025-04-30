@@ -1,25 +1,36 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 use std::sync::{Arc, RwLock};
-use audio_backend::{self, synths::oscillator::{Oscillator, Waveform}};
+use audio_backend::synths::synthesizer::{Synthesizer, ActiveWaveform};
 use harmony::note;
 use tauri::State;
 
 // Shared state for the oscillator
-pub struct OscillatorState(pub Arc<RwLock<Oscillator>>);
+pub struct SynthesizerState(pub Arc<Synthesizer>);
 
 #[tauri::command]
-fn play_midi_note(midi_value: u8, oscillator_state: State<OscillatorState>) {
-    let freq = note::midi_to_frequency(midi_value);
-    let mut osc = oscillator_state.0.write().unwrap();
-    osc.frequency_hz = freq;
-    osc.waveform = Waveform::Sine; // or allow selection
+fn set_waveform(waveform: String, synthesizer_state: State<SynthesizerState>) {
+    let mut osc = synthesizer_state.0.clone();
+    let new_waveform = match waveform.as_str() {
+        "Sine" => ActiveWaveform::Sine,
+        "Square" => ActiveWaveform::Square,
+        "Saw" => ActiveWaveform::Saw,
+        "Triangle" => ActiveWaveform::Triangle,
+        _ => ActiveWaveform::Sine,
+    };
+    osc.set_waveform(new_waveform);
 }
 
 #[tauri::command]
-fn stop_midi_note(oscillator_state: State<OscillatorState>) {
-    let mut osc = oscillator_state.0.write().unwrap();
-    osc.frequency_hz = 0.0;
-    osc.waveform = Waveform::Silence;
+fn play_midi_note(midi_value: u8, synthesizer_state: State<SynthesizerState>) {
+    let freq = note::midi_to_frequency(midi_value);
+    let synthesizer = synthesizer_state.0.clone();
+    synthesizer.set_frequency(freq);
+}
+
+#[tauri::command]
+fn stop_midi_note(synthesizer_state: State<SynthesizerState>) {
+    let mut synthesizer = synthesizer_state.0.clone();
+    synthesizer.set_frequency(0.0);
 }
 
 #[tauri::command]
@@ -29,15 +40,14 @@ fn greet(name: &str) -> String {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let oscillator = Arc::new(RwLock::new(Oscillator {
-        waveform: Waveform::Sine,
-        frequency_hz: 0.0,
-    }));
-    audio_backend::start_audio_thread(oscillator.clone());
+    let synthesizer = Arc::new(
+        Synthesizer::new(440.0, ActiveWaveform::Sine, 0.5)
+    );
+    audio_backend::start_audio_thread(synthesizer.clone());
     tauri::Builder::default()
-        .manage(OscillatorState(oscillator))
+        .manage(SynthesizerState(synthesizer))
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet, play_midi_note, stop_midi_note])
+        .invoke_handler(tauri::generate_handler![greet, play_midi_note, stop_midi_note, set_waveform])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
