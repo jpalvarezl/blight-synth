@@ -24,6 +24,7 @@ fn set_waveform(waveform: String, synthesizer_state: State<SynthesizerState>) {
 fn play_midi_note(midi_value: u8, synthesizer_state: State<SynthesizerState>) {
     let freq = note::midi_to_frequency(midi_value);
     let synthesizer = synthesizer_state.0.clone();
+    synthesizer.set_amplitude(0.5); // need to wire to a correct gain controller
     synthesizer.set_frequency(freq);
 }
 
@@ -41,7 +42,7 @@ fn greet(name: &str) -> String {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let synthesizer = Arc::new(
-        Synthesizer::new(440.0, ActiveWaveform::Sine, 0.5)
+        Synthesizer::new(440.0, ActiveWaveform::Sine, 0.0)
     );
     audio_backend::start_audio_thread(synthesizer.clone());
     tauri::Builder::default()
