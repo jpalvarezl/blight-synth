@@ -52,7 +52,6 @@ impl Waveform for Triangle {
 }
 
 // Manages state and uses a Waveform type W.
-// No unsafe needed - Send is automatically derived because all fields are Send.
 #[derive(Debug, Clone)]
 pub struct Oscillator<W: Waveform> {
     sample_rate: f32,

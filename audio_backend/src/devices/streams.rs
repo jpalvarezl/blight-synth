@@ -140,6 +140,7 @@ fn write_data<T>(
                 ActiveWaveform::Square => square_osc.reset_phase(0.0),
                 ActiveWaveform::Saw => saw_osc.reset_phase(0.0),
                 ActiveWaveform::Triangle => triangle_osc.reset_phase(0.0),
+                ActiveWaveform::Silence => {}
             }
             // Update the state for the next call
             *previous_waveform = current_wave;
@@ -153,6 +154,7 @@ fn write_data<T>(
             ActiveWaveform::Square => square_osc.set_frequency(freq),
             ActiveWaveform::Saw => saw_osc.set_frequency(freq),
             ActiveWaveform::Triangle => triangle_osc.set_frequency(freq),
+            ActiveWaveform::Silence => {}
         }
 
         // Drop lock before sample generation loop
@@ -167,6 +169,7 @@ fn write_data<T>(
                 ActiveWaveform::Square => square_osc.next_sample(),
                 ActiveWaveform::Saw => saw_osc.next_sample(),
                 ActiveWaveform::Triangle => triangle_osc.next_sample(),
+                ActiveWaveform::Silence => 0.0,
             } * amp; // Apply amplitude
 
             // Convert to the target sample format T

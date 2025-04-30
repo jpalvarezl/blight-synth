@@ -7,6 +7,7 @@ pub enum ActiveWaveform {
     Square,
     Saw,
     Triangle,
+    Silence,
 }
 
 // --- Struct for Shared Synthesizer Control State ---
@@ -20,6 +21,12 @@ pub struct SynthControl {
 #[derive(Clone)] // Clone is cheap due to Arc
 pub struct Synthesizer {
     pub control: Arc<Mutex<SynthControl>>,
+}
+
+impl Default for Synthesizer {
+    fn default() -> Self {
+        Synthesizer::new(0.0, ActiveWaveform::Silence, 0.0) // Default to A4 note
+    }
 }
 
 impl Synthesizer {

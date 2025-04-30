@@ -15,6 +15,7 @@ fn set_waveform(waveform: String, synthesizer_state: State<SynthesizerState>) {
         "Square" => ActiveWaveform::Square,
         "Saw" => ActiveWaveform::Saw,
         "Triangle" => ActiveWaveform::Triangle,
+        "Silence" => ActiveWaveform::Silence,
         _ => ActiveWaveform::Sine,
     };
     osc.set_waveform(new_waveform);
@@ -41,9 +42,7 @@ fn greet(name: &str) -> String {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let synthesizer = Arc::new(
-        Synthesizer::new(440.0, ActiveWaveform::Sine, 0.0)
-    );
+    let synthesizer = Arc::new(Synthesizer::default());
     audio_backend::start_audio_thread(synthesizer.clone());
     tauri::Builder::default()
         .manage(SynthesizerState(synthesizer))
