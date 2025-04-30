@@ -1,7 +1,7 @@
-use cpal::traits::{DeviceTrait, StreamTrait};
+use cpal::traits::StreamTrait;
 use devices::streams::run_audio_engine;
-use std::sync::{Arc, RwLock};
-use synths::{oscillator::Oscillator, synthesizer::Synthesizer};
+use std::sync::Arc;
+use synths::synthesizer::Synthesizer;
 
 pub mod devices;
 pub mod synths;

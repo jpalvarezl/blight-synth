@@ -1,5 +1,5 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use audio_backend::synths::synthesizer::{Synthesizer, ActiveWaveform};
 use harmony::note;
 use tauri::State;
@@ -9,7 +9,7 @@ pub struct SynthesizerState(pub Arc<Synthesizer>);
 
 #[tauri::command]
 fn set_waveform(waveform: String, synthesizer_state: State<SynthesizerState>) {
-    let mut osc = synthesizer_state.0.clone();
+    let osc = synthesizer_state.0.clone();
     let new_waveform = match waveform.as_str() {
         "Sine" => ActiveWaveform::Sine,
         "Square" => ActiveWaveform::Square,
@@ -30,7 +30,7 @@ fn play_midi_note(midi_value: u8, synthesizer_state: State<SynthesizerState>) {
 
 #[tauri::command]
 fn stop_midi_note(synthesizer_state: State<SynthesizerState>) {
-    let mut synthesizer = synthesizer_state.0.clone();
+    let synthesizer = synthesizer_state.0.clone();
     synthesizer.set_frequency(0.0);
 }
 
