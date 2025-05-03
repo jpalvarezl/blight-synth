@@ -4,6 +4,7 @@ use synths::synthesizer::Synthesizer;
 
 pub mod devices;
 pub mod synths;
+pub mod envelope; // Add the new module
 
 type Result<T> = anyhow::Result<T, anyhow::Error>;
 
