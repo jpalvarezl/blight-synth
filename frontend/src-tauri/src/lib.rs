@@ -15,7 +15,6 @@ fn set_waveform(waveform: String, synthesizer_state: State<SynthesizerState>) {
         "Square" => ActiveWaveform::Square,
         "Saw" => ActiveWaveform::Saw,
         "Triangle" => ActiveWaveform::Triangle,
-        "Silence" => ActiveWaveform::Silence,
         _ => ActiveWaveform::Sine,
     };
     osc.set_waveform(new_waveform);
@@ -25,14 +24,15 @@ fn set_waveform(waveform: String, synthesizer_state: State<SynthesizerState>) {
 fn play_midi_note(midi_value: u8, synthesizer_state: State<SynthesizerState>) {
     let freq = note::midi_to_frequency(midi_value);
     let synthesizer = synthesizer_state.0.clone();
-    synthesizer.set_amplitude(0.5); // need to wire to a correct gain controller
-    synthesizer.set_frequency(freq);
+    // Use note_on instead of set_frequency
+    synthesizer.note_on(freq);
 }
 
 #[tauri::command]
 fn stop_midi_note(synthesizer_state: State<SynthesizerState>) {
     let synthesizer = synthesizer_state.0.clone();
-    synthesizer.set_frequency(0.0);
+    // Use note_off instead of set_frequency(0.0)
+    synthesizer.note_off();
 }
 
 #[tauri::command]
@@ -42,7 +42,10 @@ fn greet(name: &str) -> String {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Synthesizer::default() now works because we added the Default trait
     let synthesizer = Arc::new(Synthesizer::default());
+    // Pass the sample rate from the default synth to the audio thread setup if needed
+    // Or ensure start_audio_thread uses the synth's sample rate
     audio_backend::start_audio_thread(synthesizer.clone());
     tauri::Builder::default()
         .manage(SynthesizerState(synthesizer))

@@ -94,24 +94,23 @@ impl AdsrEnvelope {
                 }
             }
             EnvelopeState::Decay => {
-                 if self.decay_rate.is_infinite() || self.sustain_level >= 1.0 {
+                if self.decay_rate.is_infinite() || self.sustain_level >= 1.0 {
                     self.current_level = self.sustain_level; // Instant decay or sustain is at max
-                 } else {
+                } else {
                     self.current_level -= self.decay_rate;
-                 }
-
+                }
 
                 if self.current_level <= self.sustain_level {
                     self.current_level = self.sustain_level;
                     // Only transition to Sustain if sustain level is positive
                     if self.sustain_level > MIN_LEVEL {
-                         self.state = EnvelopeState::Sustain;
+                        self.state = EnvelopeState::Sustain;
                     } else {
                         // If sustain is zero, go directly to idle after decay?
                         // Or should it wait for release? Let's assume it waits.
                         // If sustain is effectively zero, decay finishes, stay here until release.
                         // Alternative: self.state = EnvelopeState::Idle;
-                         self.state = EnvelopeState::Sustain; // Treat as sustain phase even at zero level
+                        self.state = EnvelopeState::Sustain; // Treat as sustain phase even at zero level
                     }
                 }
             }
@@ -128,11 +127,10 @@ impl AdsrEnvelope {
                     // Rate = delta_level / samples => delta_level = Rate * samples
                     // We want to decrease by release_rate (which assumes starting from sustain_level)
                     // A simple linear decrease:
-                     self.current_level -= self.release_rate;
+                    self.current_level -= self.release_rate;
                     // Alternative exponential decay (more natural):
                     // self.current_level *= self.release_multiplier; // requires precalculating multiplier
                 }
-
 
                 if self.current_level <= MIN_LEVEL {
                     self.current_level = 0.0; // Clamp to zero
@@ -146,11 +144,10 @@ impl AdsrEnvelope {
     /// Triggers the envelope, starting the Attack phase.
     pub fn trigger(&mut self) {
         if self.state == EnvelopeState::Idle || self.state == EnvelopeState::Release {
-             self.current_level = 0.0; // Reset level only if starting from idle/release
+            self.current_level = 0.0; // Reset level only if starting from idle/release
         }
         // Allow re-triggering from any state? Yes, common behavior.
         self.state = EnvelopeState::Attack;
-
     }
 
     /// Starts the Release phase of the envelope.
@@ -177,7 +174,6 @@ impl AdsrEnvelope {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -197,7 +193,7 @@ mod tests {
         assert_eq!(adsr.sustain_level, 0.5);
     }
 
-     #[test]
+    #[test]
     fn test_instant_attack() {
         let mut adsr = AdsrEnvelope::new(SAMPLE_RATE, 0.0, 0.1, 0.5, 0.1);
         adsr.trigger();
@@ -222,35 +218,58 @@ mod tests {
         // Simulate time passing through attack phase
         let attack_samples = (attack_secs * SAMPLE_RATE).ceil() as usize;
         let mut last_level = 0.0;
-        for i in 0..=attack_samples { // Use <= to ensure transition
+        for i in 0..=attack_samples {
+            // Use <= to ensure transition
             let current_output = adsr.process();
-             if i > 0 { // Skip check on first sample where output is 0 but level might jump
-                 assert!(current_output >= last_level - TOLERANCE, "Attack level decreased");
-             }
+            if i > 0 {
+                // Skip check on first sample where output is 0 but level might jump
+                assert!(
+                    current_output >= last_level - TOLERANCE,
+                    "Attack level decreased"
+                );
+            }
             last_level = adsr.get_level(); // Check internal level after process
             if adsr.get_state() == EnvelopeState::Decay {
                 break; // Transitioned
             }
         }
-        assert_eq!(adsr.get_state(), EnvelopeState::Decay, "Should be in Decay state");
-        assert!((adsr.get_level() - 1.0).abs() < TOLERANCE, "Level should be near 1.0 at end of attack");
-
+        assert_eq!(
+            adsr.get_state(),
+            EnvelopeState::Decay,
+            "Should be in Decay state"
+        );
+        assert!(
+            (adsr.get_level() - 1.0).abs() < TOLERANCE,
+            "Level should be near 1.0 at end of attack"
+        );
 
         // Simulate time passing through decay phase
         let decay_samples = (decay_secs * SAMPLE_RATE).ceil() as usize;
         last_level = adsr.get_level();
-         for i in 0..=decay_samples { // Use <= to ensure transition
+        for i in 0..=decay_samples {
+            // Use <= to ensure transition
             let current_output = adsr.process();
-             if i > 0 && adsr.get_state() == EnvelopeState::Decay { // Only check decrease during decay
-                 assert!(current_output <= last_level + TOLERANCE, "Decay level increased");
-             }
+            if i > 0 && adsr.get_state() == EnvelopeState::Decay {
+                // Only check decrease during decay
+                assert!(
+                    current_output <= last_level + TOLERANCE,
+                    "Decay level increased"
+                );
+            }
             last_level = adsr.get_level();
             if adsr.get_state() == EnvelopeState::Sustain {
                 break; // Transitioned
             }
         }
-        assert_eq!(adsr.get_state(), EnvelopeState::Sustain, "Should be in Sustain state");
-        assert!((adsr.get_level() - sustain_level).abs() < TOLERANCE, "Level should be near sustain_level");
+        assert_eq!(
+            adsr.get_state(),
+            EnvelopeState::Sustain,
+            "Should be in Sustain state"
+        );
+        assert!(
+            (adsr.get_level() - sustain_level).abs() < TOLERANCE,
+            "Level should be near sustain_level"
+        );
 
         // Check sustain phase
         let sustain_output1 = adsr.process();
@@ -272,7 +291,9 @@ mod tests {
         // Simulate enough time to reach sustain
         for _ in 0..((0.01 + 0.02) * SAMPLE_RATE).ceil() as usize + 10 {
             adsr.process();
-            if adsr.get_state() == EnvelopeState::Sustain { break; }
+            if adsr.get_state() == EnvelopeState::Sustain {
+                break;
+            }
         }
         assert_eq!(adsr.get_state(), EnvelopeState::Sustain);
         assert!((adsr.get_level() - sustain_level).abs() < TOLERANCE);
@@ -285,23 +306,32 @@ mod tests {
         // Simulate time passing through release phase
         let release_samples = (release_secs * SAMPLE_RATE).ceil() as usize;
         let mut last_level = adsr.get_level();
-        for i in 0..=release_samples + 1 { // Add extra sample to ensure transition if needed
-             let current_output = adsr.process();
-             if i > 0 && adsr.get_state() == EnvelopeState::Release {
-                 assert!(current_output <= last_level + TOLERANCE, "Release level increased");
-             }
+        for i in 0..=release_samples + 1 {
+            // Add extra sample to ensure transition if needed
+            let current_output = adsr.process();
+            if i > 0 && adsr.get_state() == EnvelopeState::Release {
+                assert!(
+                    current_output <= last_level + TOLERANCE,
+                    "Release level increased"
+                );
+            }
             last_level = adsr.get_level();
-            if !adsr.is_active() { // Check using is_active which means state is Idle
+            if !adsr.is_active() {
+                // Check using is_active which means state is Idle
                 break;
             }
         }
 
-        assert_eq!(adsr.get_state(), EnvelopeState::Idle, "Should be in Idle state after release");
+        assert_eq!(
+            adsr.get_state(),
+            EnvelopeState::Idle,
+            "Should be in Idle state after release"
+        );
         assert!(!adsr.is_active());
         assert!(adsr.get_level() < MIN_LEVEL, "Level should be near zero"); // Check internal level is near zero
     }
 
-     #[test]
+    #[test]
     fn test_retrigger() {
         let mut adsr = AdsrEnvelope::new(SAMPLE_RATE, 0.1, 0.1, 0.5, 0.1);
         adsr.trigger();
@@ -317,25 +347,32 @@ mod tests {
         adsr.trigger();
         assert_eq!(adsr.get_state(), EnvelopeState::Attack);
         // Level should NOT reset to 0 when retriggering from attack/decay/sustain
-        assert!((adsr.get_level() - level_before_retrigger).abs() < TOLERANCE, "Level should not reset on retrigger from attack");
+        assert!(
+            (adsr.get_level() - level_before_retrigger).abs() < TOLERANCE,
+            "Level should not reset on retrigger from attack"
+        );
 
         // Let it decay a bit
-         for _ in 0..((0.1 + 0.1) * SAMPLE_RATE) as usize { // Pass attack + decay time
+        for _ in 0..((0.1 + 0.1) * SAMPLE_RATE) as usize {
+            // Pass attack + decay time
             adsr.process();
-             if adsr.get_state() == EnvelopeState::Sustain { break; }
+            if adsr.get_state() == EnvelopeState::Sustain {
+                break;
+            }
         }
-         assert_eq!(adsr.get_state(), EnvelopeState::Sustain);
-         let level_in_sustain = adsr.get_level();
+        assert_eq!(adsr.get_state(), EnvelopeState::Sustain);
+        let level_in_sustain = adsr.get_level();
 
-         // Retrigger from sustain
-         adsr.trigger();
-         assert_eq!(adsr.get_state(), EnvelopeState::Attack);
-         assert!((adsr.get_level() - level_in_sustain).abs() < TOLERANCE, "Level should not reset on retrigger from sustain");
-
-
+        // Retrigger from sustain
+        adsr.trigger();
+        assert_eq!(adsr.get_state(), EnvelopeState::Attack);
+        assert!(
+            (adsr.get_level() - level_in_sustain).abs() < TOLERANCE,
+            "Level should not reset on retrigger from sustain"
+        );
     }
 
-     #[test]
+    #[test]
     fn test_release_from_attack() {
         let mut adsr = AdsrEnvelope::new(SAMPLE_RATE, 0.1, 0.1, 0.5, 0.1);
         adsr.trigger();
@@ -349,7 +386,10 @@ mod tests {
 
         adsr.release();
         assert_eq!(adsr.get_state(), EnvelopeState::Release);
-        assert!((adsr.get_level() - level_before_release).abs() < TOLERANCE, "Level should not change immediately on release call");
+        assert!(
+            (adsr.get_level() - level_before_release).abs() < TOLERANCE,
+            "Level should not change immediately on release call"
+        );
 
         // Process one step
         let output = adsr.process();
@@ -357,7 +397,7 @@ mod tests {
         assert!(adsr.get_level() < level_before_release); // Level should decrease
     }
 
-     #[test]
+    #[test]
     fn test_zero_sustain() {
         let mut adsr = AdsrEnvelope::new(SAMPLE_RATE, 0.01, 0.02, 0.0, 0.03);
         adsr.trigger();
@@ -383,10 +423,8 @@ mod tests {
         adsr.release();
         assert_eq!(adsr.get_state(), EnvelopeState::Release);
         adsr.process(); // Process one step in release
-        // Since level is already ~0, it should immediately go idle
+                        // Since level is already ~0, it should immediately go idle
         assert_eq!(adsr.get_state(), EnvelopeState::Idle);
         assert!(adsr.get_level() < MIN_LEVEL);
-
     }
 }
-
