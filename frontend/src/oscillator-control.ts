@@ -2,7 +2,6 @@
 import { invoke } from "@tauri-apps/api/core";
 
 export const waveforms = [
-  { value: "Silence", label: "None" },
   { value: "Sine", label: "Sine" },
   { value: "Square", label: "Square" },
   { value: "Saw", label: "Saw" },
