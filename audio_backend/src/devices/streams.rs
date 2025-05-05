@@ -81,34 +81,36 @@ fn write_data<T>(
 ) where
     T: Sample + FromSample<f32>,
 {
-    // Lock the mutex once per callback if possible for efficiency,
-    // but locking per frame is simpler to start with.
-    // Consider optimizing later if needed.
-
-    for frame in output.chunks_mut(channels) {
-        // Lock the mutex to get access to the voice state for this frame
-        if let Ok(mut voice_guard) = voice_handle.lock() {
-            // Get the next sample value directly from the voice.
-            // This now handles oscillator selection, frequency, and envelope.
-            let value = voice_guard.next_sample();
-
-            // Drop the lock as soon as we have the value for this frame
-            drop(voice_guard);
-
-            // Convert to the target sample format T and write to output channels
-            let sample: T = T::from_sample(value);
-            for dest_sample in frame.iter_mut() {
-                *dest_sample = sample;
-            }
-        } else {
-            // Mutex is poisoned - fill buffer with silence
+    // Lock the mutex *once* before processing the buffer.
+    let mut voice_guard = match voice_handle.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => {
+            // Mutex is poisoned - fill the entire buffer with silence and return.
             eprintln!("Audio thread: Voice mutex poisoned, outputting silence.");
             let sample: T = T::from_sample(0.0f32);
-            for dest_sample in frame.iter_mut() {
-                *dest_sample = sample;
+            for frame in output.chunks_mut(channels) {
+                for dest_sample in frame.iter_mut() {
+                    *dest_sample = sample;
+                }
             }
-            // Optional: break the loop if mutex is poisoned?
-            // break;
+            // If the mutex is poisoned, we might want to return the poisoned guard
+            // to potentially recover, but for now, just returning is simpler.
+            // return poisoned.into_inner(); // Or handle recovery
+            return;
+        }
+    };
+
+    // Now process the buffer with the lock held.
+    for frame in output.chunks_mut(channels) {
+        // Get the next sample value directly from the voice using the existing guard.
+        let value = voice_guard.next_sample();
+
+        // Convert to the target sample format T and write to output channels
+        let sample: T = T::from_sample(value);
+        for dest_sample in frame.iter_mut() {
+            *dest_sample = sample;
         }
     }
+
+    // The lock (voice_guard) is automatically released here when it goes out of scope.
 }
