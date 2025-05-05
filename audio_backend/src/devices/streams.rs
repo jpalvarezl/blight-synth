@@ -4,11 +4,10 @@ use cpal::traits::{HostTrait, StreamTrait};
 use cpal::Stream;
 use cpal::{traits::DeviceTrait, FromSample, Sample};
 
-use crate::synths::oscillator::{Oscillator, Saw, Sine, Square, Triangle};
-use crate::synths::synthesizer::{ActiveWaveform, SynthControl, Synthesizer};
+use crate::synths::synthesizer::{Synthesizer, Voice}; // Import Voice
 
 // This function sets up and runs the CPAL audio stream.
-// It takes the synthesizer control state as input.
+// It takes the synthesizer as input.
 // It returns the Stream object, which must be kept alive for audio to play.
 pub fn run_audio_engine(synth: Arc<Synthesizer>) -> anyhow::Result<Stream> {
     // --- CPAL Setup ---
@@ -25,24 +24,14 @@ pub fn run_audio_engine(synth: Arc<Synthesizer>) -> anyhow::Result<Stream> {
     let err_fn = |err| eprintln!("An error occurred on the output audio stream: {}", err);
     let sample_format = supported_config.sample_format();
     let config: cpal::StreamConfig = supported_config.into();
-    let sample_rate = config.sample_rate.0 as f32;
+    // let sample_rate = config.sample_rate.0 as f32; // Sample rate is now managed by Synthesizer/Voice
     let channels = config.channels as usize;
 
     println!("Using device: {}", device.name()?);
     println!("Using config: {:?}", config);
 
-    // --- Oscillator Initialization (Local to the audio thread closure) ---
-    let mut sine_osc = Oscillator::<Sine>::new(sample_rate, 0.0);
-    let mut square_osc = Oscillator::<Square>::new(sample_rate, 0.0);
-    let mut saw_osc = Oscillator::<Saw>::new(sample_rate, 0.0);
-    let mut triangle_osc = Oscillator::<Triangle>::new(sample_rate, 0.0);
-
-    // Clone the control Arc for the audio thread
-    let control_clone = synth.get_control_clone();
-
-    // --- State for the Audio Callback ---
-    // We need to track the previously active waveform to detect changes.
-    let mut previous_waveform = synth.get_initial_waveform(); // Initialize with starting waveform
+    // Get the thread-safe handle to the voice
+    let voice_handle = synth.get_voice_handle(); // Use the new method
 
     // --- Build and Play Stream ---
     println!("Attempting to build stream...");
@@ -50,17 +39,8 @@ pub fn run_audio_engine(synth: Arc<Synthesizer>) -> anyhow::Result<Stream> {
         cpal::SampleFormat::F32 => device.build_output_stream(
             &config,
             move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
-                // Pass mutable reference to previous_waveform state
-                write_data(
-                    data,
-                    channels,
-                    &control_clone,
-                    &mut sine_osc,
-                    &mut square_osc,
-                    &mut saw_osc,
-                    &mut triangle_osc,
-                    &mut previous_waveform,
-                );
+                // Pass only the voice handle
+                write_data(data, channels, &voice_handle);
             },
             err_fn,
             None,
@@ -68,16 +48,7 @@ pub fn run_audio_engine(synth: Arc<Synthesizer>) -> anyhow::Result<Stream> {
         cpal::SampleFormat::I16 => device.build_output_stream(
             &config,
             move |data: &mut [i16], _: &cpal::OutputCallbackInfo| {
-                write_data(
-                    data,
-                    channels,
-                    &control_clone,
-                    &mut sine_osc,
-                    &mut square_osc,
-                    &mut saw_osc,
-                    &mut triangle_osc,
-                    &mut previous_waveform,
-                );
+                write_data(data, channels, &voice_handle);
             },
             err_fn,
             None,
@@ -85,16 +56,7 @@ pub fn run_audio_engine(synth: Arc<Synthesizer>) -> anyhow::Result<Stream> {
         cpal::SampleFormat::U16 => device.build_output_stream(
             &config,
             move |data: &mut [u16], _: &cpal::OutputCallbackInfo| {
-                write_data(
-                    data,
-                    channels,
-                    &control_clone,
-                    &mut sine_osc,
-                    &mut square_osc,
-                    &mut saw_osc,
-                    &mut triangle_osc,
-                    &mut previous_waveform,
-                );
+                write_data(data, channels, &voice_handle);
             },
             err_fn,
             None,
@@ -111,82 +73,44 @@ pub fn run_audio_engine(synth: Arc<Synthesizer>) -> anyhow::Result<Stream> {
     Ok(stream) // Return the stream
 }
 
-// --- Generic Audio Callback Function ---
+// --- Generic Audio Callback Function (Refactored) ---
 fn write_data<T>(
     output: &mut [T],
     channels: usize,
-    control: &Arc<Mutex<SynthControl>>,
-    // Oscillators
-    sine_osc: &mut Oscillator<Sine>,
-    square_osc: &mut Oscillator<Square>,
-    saw_osc: &mut Oscillator<Saw>,
-    triangle_osc: &mut Oscillator<Triangle>,
-    // State tracking
-    previous_waveform: &mut ActiveWaveform, // Pass previous waveform state mutably
+    voice_handle: &Arc<Mutex<Voice>>, // Use the Voice handle
 ) where
     T: Sample + FromSample<f32>,
 {
-    if let Ok(locked_control) = control.lock() {
-        let freq = locked_control.frequency;
-        let current_wave = locked_control.waveform; // Renamed for clarity
-        let amp = locked_control.amplitude;
-
-        // --- Phase Reset Logic ---
-        // Check if the waveform has changed since the last buffer
-        if current_wave != *previous_waveform {
-            // Reset the phase of the *newly selected* oscillator to 0.0
-            match current_wave {
-                ActiveWaveform::Sine => sine_osc.reset_phase(0.0),
-                ActiveWaveform::Square => square_osc.reset_phase(0.0),
-                ActiveWaveform::Saw => saw_osc.reset_phase(0.0),
-                ActiveWaveform::Triangle => triangle_osc.reset_phase(0.0),
-                ActiveWaveform::Silence => {}
-            }
-            // Update the state for the next call
-            *previous_waveform = current_wave;
-            // Optional: Print a message when switching
-            println!("Audio thread: Switched to {:?}, phase reset.", current_wave);
-        }
-
-        // Update frequency for the *active* oscillator
-        match current_wave {
-            ActiveWaveform::Sine => sine_osc.set_frequency(freq),
-            ActiveWaveform::Square => square_osc.set_frequency(freq),
-            ActiveWaveform::Saw => saw_osc.set_frequency(freq),
-            ActiveWaveform::Triangle => triangle_osc.set_frequency(freq),
-            ActiveWaveform::Silence => {}
-        }
-
-        // Drop lock before sample generation loop
-        drop(locked_control);
-
-        // Generate samples for the buffer
-        for frame in output.chunks_mut(channels) {
-            // Call next_sample directly on the selected oscillator
-            let value = match current_wave {
-                // Use current_wave here
-                ActiveWaveform::Sine => sine_osc.next_sample(),
-                ActiveWaveform::Square => square_osc.next_sample(),
-                ActiveWaveform::Saw => saw_osc.next_sample(),
-                ActiveWaveform::Triangle => triangle_osc.next_sample(),
-                ActiveWaveform::Silence => 0.0,
-            } * amp; // Apply amplitude
-
-            // Convert to the target sample format T
-            let sample: T = T::from_sample(value);
-            for dest_sample in frame.iter_mut() {
-                *dest_sample = sample;
-            }
-        }
-    } else {
-        // Mutex is poisoned
-        eprintln!("Audio thread: Mutex poisoned, outputting silence.");
-        // Fill buffer with silence
-        for frame in output.chunks_mut(channels) {
+    // Lock the mutex *once* before processing the buffer.
+    let mut voice_guard = match voice_handle.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => {
+            // Mutex is poisoned - fill the entire buffer with silence and return.
+            eprintln!("Audio thread: Voice mutex poisoned, outputting silence.");
             let sample: T = T::from_sample(0.0f32);
-            for dest_sample in frame.iter_mut() {
-                *dest_sample = sample;
+            for frame in output.chunks_mut(channels) {
+                for dest_sample in frame.iter_mut() {
+                    *dest_sample = sample;
+                }
             }
+            // If the mutex is poisoned, we might want to return the poisoned guard
+            // to potentially recover, but for now, just returning is simpler.
+            // return poisoned.into_inner(); // Or handle recovery
+            return;
+        }
+    };
+
+    // Now process the buffer with the lock held.
+    for frame in output.chunks_mut(channels) {
+        // Get the next sample value directly from the voice using the existing guard.
+        let value = voice_guard.next_sample();
+
+        // Convert to the target sample format T and write to output channels
+        let sample: T = T::from_sample(value);
+        for dest_sample in frame.iter_mut() {
+            *dest_sample = sample;
         }
     }
+
+    // The lock (voice_guard) is automatically released here when it goes out of scope.
 }

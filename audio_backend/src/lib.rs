@@ -3,7 +3,8 @@ use std::sync::Arc;
 use synths::synthesizer::Synthesizer;
 
 pub mod devices;
-pub mod synths;
+pub mod envelope;
+pub mod synths; // Add the new module
 
 type Result<T> = anyhow::Result<T, anyhow::Error>;
 
