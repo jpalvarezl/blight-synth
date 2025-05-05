@@ -48,6 +48,20 @@ impl Voice {
 
     pub fn set_waveform(&mut self, waveform: ActiveWaveform) {
         self.active_waveform = waveform;
+        match self.active_waveform {
+            ActiveWaveform::Sine => {
+                self.sine_osc.reset_phase(0.0);
+            }
+            ActiveWaveform::Square => {
+                self.square_osc.reset_phase(0.0);
+            }
+            ActiveWaveform::Saw => {
+                self.saw_osc.reset_phase(0.0);
+            }
+            ActiveWaveform::Triangle => {
+                self.triangle_osc.reset_phase(0.0);
+            }
+        }
     }
 
     pub fn note_on(&mut self, freq: f32) {
