@@ -2,8 +2,8 @@ use std::panic;
 use std::sync::{Arc, Mutex};
 
 use cpal::traits::{HostTrait, StreamTrait};
-use cpal::{SizedSample, Stream};
 use cpal::{traits::DeviceTrait, FromSample, Sample};
+use cpal::{SizedSample, Stream};
 
 use crate::synths::synthesizer::{Synthesizer, Voice}; // Import Voice
 
@@ -54,12 +54,14 @@ pub fn run_audio_engine(synth: Arc<Synthesizer>) -> anyhow::Result<Stream> {
 fn setup_stream_for<T>(
     device: &cpal::Device,
     config: &cpal::StreamConfig,
-    voice_handle: Arc<Mutex<Voice>>
-)  -> Result<cpal::Stream, anyhow::Error>  
-where T: SizedSample + FromSample<f32> {
+    voice_handle: Arc<Mutex<Voice>>,
+) -> Result<cpal::Stream, anyhow::Error>
+where
+    T: SizedSample + FromSample<f32>,
+{
     let err_fn = |err| eprintln!("An error occurred on the output audio stream: {}", err);
     let channels = config.channels as usize;
-    
+
     let stream = device.build_output_stream(
         config,
         move |data: &mut [T], _: &cpal::OutputCallbackInfo| {
