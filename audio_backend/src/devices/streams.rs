@@ -1,4 +1,3 @@
-use std::panic;
 use std::sync::{Arc, Mutex};
 
 use cpal::traits::{HostTrait, StreamTrait};
@@ -44,7 +43,12 @@ pub fn run_audio_engine(synth: Arc<Synthesizer>) -> anyhow::Result<Stream> {
         cpal::SampleFormat::U32 => setup_stream_for::<u32>(&device, &config, voice_handle.clone()),
         cpal::SampleFormat::U64 => setup_stream_for::<u64>(&device, &config, voice_handle.clone()),
         cpal::SampleFormat::F64 => setup_stream_for::<f64>(&device, &config, voice_handle.clone()),
-        _ => panic!("Unsupported sample format: {:?}", sample_format),
+        _ => {
+            return Err(anyhow::anyhow!(
+                "Unsupported sample format: {:?}",
+                sample_format
+            ))
+        }
     }?;
     println!("Stream built successfully!");
     stream.play()?; // Start playing audio
