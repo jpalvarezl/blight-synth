@@ -1,8 +1,8 @@
 use std::sync::{Arc, Mutex};
 
 use cpal::traits::{HostTrait, StreamTrait};
-use cpal::Stream;
 use cpal::{traits::DeviceTrait, FromSample, Sample};
+use cpal::{SizedSample, Stream};
 
 use crate::synths::synthesizer::{Synthesizer, Voice}; // Import Voice
 
@@ -21,11 +21,8 @@ pub fn run_audio_engine(synth: Arc<Synthesizer>) -> anyhow::Result<Stream> {
         .ok_or_else(|| anyhow::anyhow!("No supported config found"))?
         .with_max_sample_rate();
 
-    let err_fn = |err| eprintln!("An error occurred on the output audio stream: {}", err);
     let sample_format = supported_config.sample_format();
     let config: cpal::StreamConfig = supported_config.into();
-    // let sample_rate = config.sample_rate.0 as f32; // Sample rate is now managed by Synthesizer/Voice
-    let channels = config.channels as usize;
 
     println!("Using device: {}", device.name()?);
     println!("Using config: {:?}", config);
@@ -36,41 +33,48 @@ pub fn run_audio_engine(synth: Arc<Synthesizer>) -> anyhow::Result<Stream> {
     // --- Build and Play Stream ---
     println!("Attempting to build stream...");
     let stream = match sample_format {
-        cpal::SampleFormat::F32 => device.build_output_stream(
-            &config,
-            move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
-                // Pass only the voice handle
-                write_data(data, channels, &voice_handle);
-            },
-            err_fn,
-            None,
-        )?,
-        cpal::SampleFormat::I16 => device.build_output_stream(
-            &config,
-            move |data: &mut [i16], _: &cpal::OutputCallbackInfo| {
-                write_data(data, channels, &voice_handle);
-            },
-            err_fn,
-            None,
-        )?,
-        cpal::SampleFormat::U16 => device.build_output_stream(
-            &config,
-            move |data: &mut [u16], _: &cpal::OutputCallbackInfo| {
-                write_data(data, channels, &voice_handle);
-            },
-            err_fn,
-            None,
-        )?,
+        cpal::SampleFormat::F32 => setup_stream_for::<f32>(&device, &config, voice_handle.clone()),
+        cpal::SampleFormat::I16 => setup_stream_for::<i16>(&device, &config, voice_handle.clone()),
+        cpal::SampleFormat::U16 => setup_stream_for::<u16>(&device, &config, voice_handle.clone()),
+        cpal::SampleFormat::I8 => setup_stream_for::<i8>(&device, &config, voice_handle.clone()),
+        cpal::SampleFormat::I32 => setup_stream_for::<i32>(&device, &config, voice_handle.clone()),
+        cpal::SampleFormat::I64 => setup_stream_for::<i64>(&device, &config, voice_handle.clone()),
+        cpal::SampleFormat::U8 => setup_stream_for::<u8>(&device, &config, voice_handle.clone()),
+        cpal::SampleFormat::U32 => setup_stream_for::<u32>(&device, &config, voice_handle.clone()),
+        cpal::SampleFormat::U64 => setup_stream_for::<u64>(&device, &config, voice_handle.clone()),
+        cpal::SampleFormat::F64 => setup_stream_for::<f64>(&device, &config, voice_handle.clone()),
         _ => {
             return Err(anyhow::anyhow!(
-                "Unsupported sample format {}",
+                "Unsupported sample format: {:?}",
                 sample_format
             ))
         }
-    };
+    }?;
     println!("Stream built successfully!");
     stream.play()?; // Start playing audio
     Ok(stream) // Return the stream
+}
+
+fn setup_stream_for<T>(
+    device: &cpal::Device,
+    config: &cpal::StreamConfig,
+    voice_handle: Arc<Mutex<Voice>>,
+) -> Result<cpal::Stream, anyhow::Error>
+where
+    T: SizedSample + FromSample<f32>,
+{
+    let err_fn = |err| eprintln!("An error occurred on the output audio stream: {}", err);
+    let channels = config.channels as usize;
+
+    let stream = device.build_output_stream(
+        config,
+        move |data: &mut [T], _: &cpal::OutputCallbackInfo| {
+            write_data(data, channels, &voice_handle);
+        },
+        err_fn,
+        None,
+    )?;
+    Ok(stream)
 }
 
 // --- Generic Audio Callback Function (Refactored) ---
@@ -84,7 +88,7 @@ fn write_data<T>(
     // Lock the mutex *once* before processing the buffer.
     let mut voice_guard = match voice_handle.lock() {
         Ok(guard) => guard,
-        Err(poisoned) => {
+        Err(_poisoned) => {
             // Mutex is poisoned - fill the entire buffer with silence and return.
             eprintln!("Audio thread: Voice mutex poisoned, outputting silence.");
             let sample: T = T::from_sample(0.0f32);
