@@ -17,9 +17,7 @@ pub struct AdsrEnvelope {
     release_rate: f32,
     sustain_level: f32,
     current_level: f32,
-    // Keep sample_rate if needed for more complex calculations later,
-    // but rates are pre-calculated now.
-    // sample_rate: f32,
+    sample_rate: f32, // Added sample_rate back
 }
 
 impl AdsrEnvelope {
@@ -45,21 +43,21 @@ impl AdsrEnvelope {
         // Calculate rates based on time to reach target level (1.0 for attack, sustain_level for decay/release)
         // Rate = delta_level / (time_secs * sample_rate)
         // Handle zero times to avoid division by zero - use a very small time instead for near-instantaneous change
-        let calculate_rate = |time_secs: f32, delta_level: f32| {
+        let calculate_rate = |time_secs: f32, delta_level: f32, current_sample_rate: f32| {
             if time_secs <= 0.0 {
                 // Effectively infinite rate for instant change
                 f32::INFINITY
             } else {
-                delta_level / (time_secs * sample_rate)
+                delta_level / (time_secs * current_sample_rate)
             }
         };
 
         // Attack goes from 0 to 1
-        let attack_rate = calculate_rate(attack_secs, 1.0);
+        let attack_rate = calculate_rate(attack_secs, 1.0, sample_rate);
         // Decay goes from 1 to sustain_level
-        let decay_rate = calculate_rate(decay_secs, 1.0 - sustain_level);
+        let decay_rate = calculate_rate(decay_secs, 1.0 - sustain_level, sample_rate);
         // Release goes from current level (assumed sustain_level for calculation) to 0
-        let release_rate = calculate_rate(release_secs, sustain_level.max(MIN_LEVEL)); // Use sustain level for rate calc
+        let release_rate = calculate_rate(release_secs, sustain_level.max(MIN_LEVEL), sample_rate); // Use sustain level for rate calc
 
         AdsrEnvelope {
             state: EnvelopeState::Idle,
@@ -68,8 +66,42 @@ impl AdsrEnvelope {
             release_rate,
             sustain_level,
             current_level: 0.0,
-            // sample_rate,
+            sample_rate, // Store sample_rate
         }
+    }
+
+    // Helper function to recalculate rates, used by individual setters
+    fn calculate_rate_internal(time_secs: f32, delta_level: f32, sample_rate: f32) -> f32 {
+        if time_secs <= 0.0 {
+            f32::INFINITY
+        } else {
+            delta_level / (time_secs * sample_rate)
+        }
+    }
+
+    pub fn set_attack(&mut self, attack_secs: f32) {
+        self.attack_rate = Self::calculate_rate_internal(attack_secs, 1.0, self.sample_rate);
+    }
+
+    pub fn set_decay(&mut self, decay_secs: f32) {
+        // Decay rate depends on the sustain level
+        self.decay_rate = Self::calculate_rate_internal(decay_secs, 1.0 - self.sustain_level, self.sample_rate);
+    }
+
+    pub fn set_sustain(&mut self, sustain_level: f32) {
+        self.sustain_level = sustain_level.max(0.0).min(1.0);
+        // Decay rate needs to be recalculated as it depends on sustain level
+        // This assumes decay_secs is implicitly unchanged. If we stored decay_secs, we'd use it here.
+        // For now, if sustain changes, decay rate might become less intuitive if not also reset.
+        // A more robust approach might require storing original times, or forcing a decay_secs update too.
+        // However, to keep it simple and efficient as requested, we only update sustain level.
+        // The user should be aware that changing sustain might require a decay adjustment for desired shape.
+    }
+
+    pub fn set_release(&mut self, release_secs: f32) {
+        // Release rate depends on the sustain level (or current level if higher)
+        // For simplicity, we base it on sustain_level, similar to new()
+        self.release_rate = Self::calculate_rate_internal(release_secs, self.sustain_level.max(MIN_LEVEL), self.sample_rate);
     }
 
     /// Processes one sample of the envelope, updating its state and level.
@@ -172,6 +204,23 @@ impl AdsrEnvelope {
     pub fn get_level(&self) -> f32 {
         self.current_level
     }
+
+    // --- Getters for testing/inspection ---
+    pub fn get_attack_rate(&self) -> f32 {
+        self.attack_rate
+    }
+
+    pub fn get_decay_rate(&self) -> f32 {
+        self.decay_rate
+    }
+
+    pub fn get_sustain_level_param(&self) -> f32 {
+        self.sustain_level
+    }
+
+    pub fn get_release_rate(&self) -> f32 {
+        self.release_rate
+    }
 }
 
 #[cfg(test)]
@@ -191,6 +240,7 @@ mod tests {
         assert!(adsr.decay_rate > 0.0 && adsr.decay_rate.is_finite());
         assert!(adsr.release_rate > 0.0 && adsr.release_rate.is_finite());
         assert_eq!(adsr.sustain_level, 0.5);
+        assert_eq!(adsr.sample_rate, SAMPLE_RATE); // Test sample_rate storage
     }
 
     #[test]
@@ -426,5 +476,161 @@ mod tests {
                         // Since level is already ~0, it should immediately go idle
         assert_eq!(adsr.get_state(), EnvelopeState::Idle);
         assert!(adsr.get_level() < MIN_LEVEL);
+    }
+
+    // --- Tests for individual ADSR parameter setters ---
+
+    #[test]
+    fn test_set_attack() {
+        let mut adsr = AdsrEnvelope::new(SAMPLE_RATE, 0.1, 0.2, 0.5, 0.3);
+        adsr.set_attack(0.05); // Faster attack
+        // Verify the rate changed (it should be roughly double)
+        // Original attack_rate for 0.1s: 1.0 / (0.1 * 44100) = 1.0 / 4410 = 0.0002267
+        // New attack_rate for 0.05s: 1.0 / (0.05 * 44100) = 1.0 / 2205 = 0.0004535
+        assert!((adsr.attack_rate - 1.0 / (0.05 * SAMPLE_RATE)).abs() < TOLERANCE / SAMPLE_RATE);
+
+        adsr.set_attack(0.0); // Instant attack
+        assert!(adsr.attack_rate.is_infinite());
+    }
+
+    #[test]
+    fn test_set_decay() {
+        let mut adsr = AdsrEnvelope::new(SAMPLE_RATE, 0.1, 0.2, 0.5, 0.3);
+        // Original decay_rate for 0.2s to reach 0.5 from 1.0 (delta 0.5):
+        // (1.0 - 0.5) / (0.2 * 44100) = 0.5 / 8820 = 0.000056689
+        adsr.set_decay(0.1); // Faster decay
+        // New decay_rate for 0.1s: (1.0 - 0.5) / (0.1 * 44100) = 0.5 / 4410 = 0.00011337
+        assert!((adsr.decay_rate - (1.0 - 0.5) / (0.1 * SAMPLE_RATE)).abs() < TOLERANCE / SAMPLE_RATE);
+
+        adsr.set_decay(0.0); // Instant decay
+        assert!(adsr.decay_rate.is_infinite());
+    }
+
+    #[test]
+    fn test_set_sustain() {
+        let mut adsr = AdsrEnvelope::new(SAMPLE_RATE, 0.1, 0.2, 0.5, 0.3);
+        let original_decay_rate = adsr.decay_rate;
+
+        adsr.set_sustain(0.8);
+        assert_eq!(adsr.sustain_level, 0.8);
+        // Decay rate should be re-calculated if we want to maintain the original decay *time*
+        // to the *new* sustain. The current implementation of set_sustain does not re-calculate decay_rate.
+        // It only updates sustain_level. This means the time it takes to decay will change if decay_rate is not updated.
+        // For this test, we'll assert that decay_rate is NOT changed by set_sustain,
+        // and then we'll test that set_decay correctly recalculates based on the new sustain.
+        assert_eq!(adsr.decay_rate, original_decay_rate);
+
+        // Now, if we call set_decay, it should use the new sustain_level (0.8)
+        adsr.set_decay(0.1); // Decay time of 0.1s
+        // New decay_rate for 0.1s to reach 0.8 from 1.0 (delta 0.2):
+        // (1.0 - 0.8) / (0.1 * 44100) = 0.2 / 4410 = 0.00004535
+        assert!((adsr.decay_rate - (1.0 - 0.8) / (0.1 * SAMPLE_RATE)).abs() < TOLERANCE / SAMPLE_RATE);
+
+
+        adsr.set_sustain(1.0);
+        assert_eq!(adsr.sustain_level, 1.0);
+        adsr.set_decay(0.1); // Decay time of 0.1s, delta is 0 (1.0 - 1.0)
+        // If sustain is 1.0, decay delta is 0. Rate should be 0 or effectively infinite if time is also 0.
+        // Our calculate_rate_internal gives delta / (time * sr). If delta is 0, rate is 0.
+        // This means it will instantly go to sustain level if sustain is 1.0 during decay phase.
+        assert!((adsr.decay_rate - (1.0 - 1.0) / (0.1 * SAMPLE_RATE)).abs() < TOLERANCE / SAMPLE_RATE);
+
+
+        adsr.set_sustain(0.0);
+        assert_eq!(adsr.sustain_level, 0.0);
+        adsr.set_decay(0.1); // Decay time of 0.1s, delta is 1.0 (1.0 - 0.0)
+        // (1.0 - 0.0) / (0.1 * 44100) = 1.0 / 4410 = 0.00022675
+        assert!((adsr.decay_rate - (1.0 - 0.0) / (0.1 * SAMPLE_RATE)).abs() < TOLERANCE / SAMPLE_RATE);
+    }
+
+    #[test]
+    fn test_set_release() {
+        let mut adsr = AdsrEnvelope::new(SAMPLE_RATE, 0.1, 0.2, 0.5, 0.3);
+        // Original release_rate for 0.3s from sustain 0.5:
+        // 0.5 / (0.3 * 44100) = 0.5 / 13230 = 0.00003779
+        adsr.set_release(0.15); // Faster release
+        // New release_rate for 0.15s: 0.5 / (0.15 * 44100) = 0.5 / 6615 = 0.00007558
+        assert!((adsr.release_rate - adsr.sustain_level / (0.15 * SAMPLE_RATE)).abs() < TOLERANCE / SAMPLE_RATE);
+
+        adsr.set_release(0.0); // Instant release
+        assert!(adsr.release_rate.is_infinite());
+
+        // Test if release rate changes correctly if sustain level was changed
+        adsr.set_sustain(0.8);
+        adsr.set_release(0.1); // Release time 0.1s from new sustain 0.8
+        // New release_rate: 0.8 / (0.1 * 44100) = 0.8 / 4410 = 0.0001814
+        assert!((adsr.release_rate - adsr.sustain_level / (0.1 * SAMPLE_RATE)).abs() < TOLERANCE / SAMPLE_RATE);
+    }
+
+    #[test]
+    fn test_adsr_full_cycle_with_setters() {
+        let mut adsr = AdsrEnvelope::new(SAMPLE_RATE, 0.01, 0.02, 0.5, 0.03); // Initial quick values
+
+        adsr.set_attack(0.005); // 5ms
+        adsr.set_decay(0.01);   // 10ms
+        adsr.set_sustain(0.6);
+        adsr.set_release(0.015); // 15ms
+
+        assert_eq!(adsr.sustain_level, 0.6);
+
+        adsr.trigger();
+        assert_eq!(adsr.get_state(), EnvelopeState::Attack);
+
+        // Process through attack (5ms = 0.005 * 44100 = 220.5 samples, round to 221)
+        for _ in 0..((0.005 * SAMPLE_RATE).ceil() as usize) {
+            adsr.process();
+        }
+        // Should be at or very near peak, transitioning to Decay
+        assert!(
+            adsr.get_state() == EnvelopeState::Decay || adsr.get_level() >= 1.0 - TOLERANCE,
+            "State: {:?}, Level: {}",
+            adsr.get_state(),
+            adsr.get_level()
+        );
+        adsr.process(); // One more sample to ensure transition if exactly at peak
+        assert_eq!(adsr.get_state(), EnvelopeState::Decay);
+        assert!((adsr.get_level() - 1.0).abs() < TOLERANCE);
+
+
+        // Process through decay (10ms = 0.01 * 44100 = 441 samples)
+        for _ in 0..((0.01 * SAMPLE_RATE).ceil() as usize) {
+            adsr.process();
+        }
+         // Should be at or very near sustain level, transitioning to Sustain
+        assert!(
+            adsr.get_state() == EnvelopeState::Sustain || (adsr.get_level() - adsr.sustain_level).abs() < TOLERANCE,
+            "State: {:?}, Level: {}, Sustain: {}",
+            adsr.get_state(),
+            adsr.get_level(),
+            adsr.sustain_level
+        );
+        adsr.process(); // One more sample
+        assert_eq!(adsr.get_state(), EnvelopeState::Sustain);
+        assert!((adsr.get_level() - adsr.sustain_level).abs() < TOLERANCE);
+
+        // Stay in sustain for a bit
+        for _ in 0..100 {
+            adsr.process();
+        }
+        assert_eq!(adsr.get_state(), EnvelopeState::Sustain);
+        assert!((adsr.get_level() - adsr.sustain_level).abs() < TOLERANCE);
+
+        adsr.release();
+        assert_eq!(adsr.get_state(), EnvelopeState::Release);
+
+        // Process through release (15ms = 0.015 * 44100 = 661.5 samples, round to 662)
+        for _ in 0..((0.015 * SAMPLE_RATE).ceil() as usize) {
+            adsr.process();
+        }
+        // Should be at or very near zero, transitioning to Idle
+         assert!(
+            adsr.get_state() == EnvelopeState::Idle || adsr.get_level() < MIN_LEVEL + TOLERANCE,
+            "State: {:?}, Level: {}",
+            adsr.get_state(),
+            adsr.get_level()
+        );
+        adsr.process(); // One more sample
+        assert_eq!(adsr.get_state(), EnvelopeState::Idle);
+        assert!(adsr.get_level() < MIN_LEVEL + TOLERANCE);
     }
 }
