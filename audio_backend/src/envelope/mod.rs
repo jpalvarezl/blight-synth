@@ -40,24 +40,12 @@ impl AdsrEnvelope {
         // Clamp sustain level
         let sustain_level = sustain_level.max(0.0).min(1.0);
 
-        // Calculate rates based on time to reach target level (1.0 for attack, sustain_level for decay/release)
-        // Rate = delta_level / (time_secs * sample_rate)
-        // Handle zero times to avoid division by zero - use a very small time instead for near-instantaneous change
-        let calculate_rate = |time_secs: f32, delta_level: f32, current_sample_rate: f32| {
-            if time_secs <= 0.0 {
-                // Effectively infinite rate for instant change
-                f32::INFINITY
-            } else {
-                delta_level / (time_secs * current_sample_rate)
-            }
-        };
-
         // Attack goes from 0 to 1
-        let attack_rate = calculate_rate(attack_secs, 1.0, sample_rate);
+        let attack_rate = Self::calculate_rate_internal(attack_secs, 1.0, sample_rate);
         // Decay goes from 1 to sustain_level
-        let decay_rate = calculate_rate(decay_secs, 1.0 - sustain_level, sample_rate);
+        let decay_rate = Self::calculate_rate_internal(decay_secs, 1.0 - sustain_level, sample_rate);
         // Release goes from current level (assumed sustain_level for calculation) to 0
-        let release_rate = calculate_rate(release_secs, sustain_level.max(MIN_LEVEL), sample_rate); // Use sustain level for rate calc
+        let release_rate = Self::calculate_rate_internal(release_secs, sustain_level.max(MIN_LEVEL), sample_rate); // Use sustain level for rate calc
 
         AdsrEnvelope {
             state: EnvelopeState::Idle,
