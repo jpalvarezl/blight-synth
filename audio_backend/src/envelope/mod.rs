@@ -17,7 +17,7 @@ pub struct AdsrEnvelope {
     release_rate: f32,
     sustain_level: f32,
     current_level: f32,
-    sample_rate: f32, // Added sample_rate back
+    sample_rate: f32,  // Added sample_rate back
     attack_secs: f32,  // Store original time parameter
     decay_secs: f32,   // Store original time parameter
     release_secs: f32, // Store original time parameter
@@ -46,10 +46,12 @@ impl AdsrEnvelope {
         // Attack goes from 0 to 1
         let attack_rate = Self::calculate_rate_internal(attack_secs, 1.0, sample_rate);
         // Decay goes from 1 to sustain_level
-        let decay_rate = Self::calculate_rate_internal(decay_secs, 1.0 - sustain_level, sample_rate);
+        let decay_rate =
+            Self::calculate_rate_internal(decay_secs, 1.0 - sustain_level, sample_rate);
         // Release rate is initially calculated based on sustain_level.
         // It will be recalculated in release() based on current_level at the time of release.
-        let release_rate = Self::calculate_rate_internal(release_secs, sustain_level.max(MIN_LEVEL), sample_rate);
+        let release_rate =
+            Self::calculate_rate_internal(release_secs, sustain_level.max(MIN_LEVEL), sample_rate);
 
         AdsrEnvelope {
             state: EnvelopeState::Idle,
@@ -58,7 +60,7 @@ impl AdsrEnvelope {
             release_rate,
             sustain_level,
             current_level: 0.0,
-            sample_rate, // Store sample_rate
+            sample_rate,  // Store sample_rate
             attack_secs,  // Store original time
             decay_secs,   // Store original time
             release_secs, // Store original time
@@ -81,24 +83,40 @@ impl AdsrEnvelope {
 
     pub fn set_decay(&mut self, decay_secs: f32) {
         self.decay_secs = decay_secs; // Store new time
-        // Decay rate depends on the sustain level
-        self.decay_rate = Self::calculate_rate_internal(self.decay_secs, 1.0 - self.sustain_level, self.sample_rate);
+                                      // Decay rate depends on the sustain level
+        self.decay_rate = Self::calculate_rate_internal(
+            self.decay_secs,
+            1.0 - self.sustain_level,
+            self.sample_rate,
+        );
     }
 
     pub fn set_sustain(&mut self, sustain_level: f32) {
         self.sustain_level = sustain_level.max(0.0).min(1.0);
         // Recalculate decay_rate: the stored decay_secs now targets the new self.sustain_level.
-        self.decay_rate = Self::calculate_rate_internal(self.decay_secs, 1.0 - self.sustain_level, self.sample_rate);
+        self.decay_rate = Self::calculate_rate_internal(
+            self.decay_secs,
+            1.0 - self.sustain_level,
+            self.sample_rate,
+        );
         // Recalculate a "default" release_rate based on the new sustain_level and stored release_secs.
         // The actual release() method will calculate the precise rate based on current_level when called.
-        self.release_rate = Self::calculate_rate_internal(self.release_secs, self.sustain_level.max(MIN_LEVEL), self.sample_rate);
+        self.release_rate = Self::calculate_rate_internal(
+            self.release_secs,
+            self.sustain_level.max(MIN_LEVEL),
+            self.sample_rate,
+        );
     }
 
     pub fn set_release(&mut self, release_secs: f32) {
         self.release_secs = release_secs; // Store new time
-        // Recalculate a "default" release_rate based on the current sustain_level and new release_secs.
-        // The actual release() method will calculate the precise rate based on current_level when called.
-        self.release_rate = Self::calculate_rate_internal(self.release_secs, self.sustain_level.max(MIN_LEVEL), self.sample_rate);
+                                          // Recalculate a "default" release_rate based on the current sustain_level and new release_secs.
+                                          // The actual release() method will calculate the precise rate based on current_level when called.
+        self.release_rate = Self::calculate_rate_internal(
+            self.release_secs,
+            self.sustain_level.max(MIN_LEVEL),
+            self.sample_rate,
+        );
     }
 
     /// Processes one sample of the envelope, updating its state and level.
@@ -185,7 +203,11 @@ impl AdsrEnvelope {
             // Recalculate release_rate based on the current level and stored release_secs.
             // This ensures the release time is consistent regardless of the level at which release is triggered.
             // If current_level is already very low, rate will be small or zero, and process() will quickly go to Idle.
-            self.release_rate = Self::calculate_rate_internal(self.release_secs, self.current_level.max(0.0), self.sample_rate);
+            self.release_rate = Self::calculate_rate_internal(
+                self.release_secs,
+                self.current_level.max(0.0),
+                self.sample_rate,
+            );
             self.state = EnvelopeState::Release;
         }
     }
@@ -497,9 +519,9 @@ mod tests {
     fn test_set_attack() {
         let mut adsr = AdsrEnvelope::new(SAMPLE_RATE, 0.1, 0.2, 0.5, 0.3);
         adsr.set_attack(0.05); // Faster attack
-        // Verify the rate changed (it should be roughly double)
-        // Original attack_rate for 0.1s: 1.0 / (0.1 * 44100) = 1.0 / 4410 = 0.0002267
-        // New attack_rate for 0.05s: 1.0 / (0.05 * 44100) = 1.0 / 2205 = 0.0004535
+                               // Verify the rate changed (it should be roughly double)
+                               // Original attack_rate for 0.1s: 1.0 / (0.1 * 44100) = 1.0 / 4410 = 0.0002267
+                               // New attack_rate for 0.05s: 1.0 / (0.05 * 44100) = 1.0 / 2205 = 0.0004535
         assert!((adsr.attack_rate - 1.0 / (0.05 * SAMPLE_RATE)).abs() < TOLERANCE / SAMPLE_RATE);
 
         adsr.set_attack(0.0); // Instant attack
@@ -512,8 +534,10 @@ mod tests {
         // Original decay_rate for 0.2s to reach 0.5 from 1.0 (delta 0.5):
         // (1.0 - 0.5) / (0.2 * 44100) = 0.5 / 8820 = 0.000056689
         adsr.set_decay(0.1); // Faster decay
-        // New decay_rate for 0.1s: (1.0 - 0.5) / (0.1 * 44100) = 0.5 / 4410 = 0.00011337
-        assert!((adsr.decay_rate - (1.0 - 0.5) / (0.1 * SAMPLE_RATE)).abs() < TOLERANCE / SAMPLE_RATE);
+                             // New decay_rate for 0.1s: (1.0 - 0.5) / (0.1 * 44100) = 0.5 / 4410 = 0.00011337
+        assert!(
+            (adsr.decay_rate - (1.0 - 0.5) / (0.1 * SAMPLE_RATE)).abs() < TOLERANCE / SAMPLE_RATE
+        );
 
         adsr.set_decay(0.0); // Instant decay
         assert!(adsr.decay_rate.is_infinite());
@@ -535,25 +559,29 @@ mod tests {
 
         // Now, if we call set_decay, it should use the new sustain_level (0.8)
         adsr.set_decay(0.1); // Decay time of 0.1s
-        // New decay_rate for 0.1s to reach 0.8 from 1.0 (delta 0.2):
-        // (1.0 - 0.8) / (0.1 * 44100) = 0.2 / 4410 = 0.00004535
-        assert!((adsr.decay_rate - (1.0 - 0.8) / (0.1 * SAMPLE_RATE)).abs() < TOLERANCE / SAMPLE_RATE);
-
+                             // New decay_rate for 0.1s to reach 0.8 from 1.0 (delta 0.2):
+                             // (1.0 - 0.8) / (0.1 * 44100) = 0.2 / 4410 = 0.00004535
+        assert!(
+            (adsr.decay_rate - (1.0 - 0.8) / (0.1 * SAMPLE_RATE)).abs() < TOLERANCE / SAMPLE_RATE
+        );
 
         adsr.set_sustain(1.0);
         assert_eq!(adsr.sustain_level, 1.0);
         adsr.set_decay(0.1); // Decay time of 0.1s, delta is 0 (1.0 - 1.0)
-        // If sustain is 1.0, decay delta is 0. Rate should be 0 or effectively infinite if time is also 0.
-        // Our calculate_rate_internal gives delta / (time * sr). If delta is 0, rate is 0.
-        // This means it will instantly go to sustain level if sustain is 1.0 during decay phase.
-        assert!((adsr.decay_rate - (1.0 - 1.0) / (0.1 * SAMPLE_RATE)).abs() < TOLERANCE / SAMPLE_RATE);
-
+                             // If sustain is 1.0, decay delta is 0. Rate should be 0 or effectively infinite if time is also 0.
+                             // Our calculate_rate_internal gives delta / (time * sr). If delta is 0, rate is 0.
+                             // This means it will instantly go to sustain level if sustain is 1.0 during decay phase.
+        assert!(
+            (adsr.decay_rate - (1.0 - 1.0) / (0.1 * SAMPLE_RATE)).abs() < TOLERANCE / SAMPLE_RATE
+        );
 
         adsr.set_sustain(0.0);
         assert_eq!(adsr.sustain_level, 0.0);
         adsr.set_decay(0.1); // Decay time of 0.1s, delta is 1.0 (1.0 - 0.0)
-        // (1.0 - 0.0) / (0.1 * 44100) = 1.0 / 4410 = 0.00022675
-        assert!((adsr.decay_rate - (1.0 - 0.0) / (0.1 * SAMPLE_RATE)).abs() < TOLERANCE / SAMPLE_RATE);
+                             // (1.0 - 0.0) / (0.1 * 44100) = 1.0 / 4410 = 0.00022675
+        assert!(
+            (adsr.decay_rate - (1.0 - 0.0) / (0.1 * SAMPLE_RATE)).abs() < TOLERANCE / SAMPLE_RATE
+        );
     }
 
     #[test]
@@ -562,8 +590,11 @@ mod tests {
         // Original release_rate for 0.3s from sustain 0.5:
         // 0.5 / (0.3 * 44100) = 0.5 / 13230 = 0.00003779
         adsr.set_release(0.15); // Faster release
-        // New release_rate for 0.15s: 0.5 / (0.15 * 44100) = 0.5 / 6615 = 0.00007558
-        assert!((adsr.release_rate - adsr.sustain_level / (0.15 * SAMPLE_RATE)).abs() < TOLERANCE / SAMPLE_RATE);
+                                // New release_rate for 0.15s: 0.5 / (0.15 * 44100) = 0.5 / 6615 = 0.00007558
+        assert!(
+            (adsr.release_rate - adsr.sustain_level / (0.15 * SAMPLE_RATE)).abs()
+                < TOLERANCE / SAMPLE_RATE
+        );
 
         adsr.set_release(0.0); // Instant release
         assert!(adsr.release_rate.is_infinite());
@@ -571,8 +602,11 @@ mod tests {
         // Test if release rate changes correctly if sustain level was changed
         adsr.set_sustain(0.8);
         adsr.set_release(0.1); // Release time 0.1s from new sustain 0.8
-        // New release_rate: 0.8 / (0.1 * 44100) = 0.8 / 4410 = 0.0001814
-        assert!((adsr.release_rate - adsr.sustain_level / (0.1 * SAMPLE_RATE)).abs() < TOLERANCE / SAMPLE_RATE);
+                               // New release_rate: 0.8 / (0.1 * 44100) = 0.8 / 4410 = 0.0001814
+        assert!(
+            (adsr.release_rate - adsr.sustain_level / (0.1 * SAMPLE_RATE)).abs()
+                < TOLERANCE / SAMPLE_RATE
+        );
     }
 
     #[test]
@@ -580,7 +614,7 @@ mod tests {
         let mut adsr = AdsrEnvelope::new(SAMPLE_RATE, 0.01, 0.02, 0.5, 0.03); // Initial quick values
 
         adsr.set_attack(0.005); // 5ms
-        adsr.set_decay(0.01);   // 10ms
+        adsr.set_decay(0.01); // 10ms
         adsr.set_sustain(0.6);
         adsr.set_release(0.015); // 15ms
 
@@ -604,14 +638,14 @@ mod tests {
         assert_eq!(adsr.get_state(), EnvelopeState::Decay);
         assert!((adsr.get_level() - 1.0).abs() < TOLERANCE);
 
-
         // Process through decay (10ms = 0.01 * 44100 = 441 samples)
         for _ in 0..((0.01 * SAMPLE_RATE).ceil() as usize) {
             adsr.process();
         }
-         // Should be at or very near sustain level, transitioning to Sustain
+        // Should be at or very near sustain level, transitioning to Sustain
         assert!(
-            adsr.get_state() == EnvelopeState::Sustain || (adsr.get_level() - adsr.sustain_level).abs() < TOLERANCE,
+            adsr.get_state() == EnvelopeState::Sustain
+                || (adsr.get_level() - adsr.sustain_level).abs() < TOLERANCE,
             "State: {:?}, Level: {}, Sustain: {}",
             adsr.get_state(),
             adsr.get_level(),
@@ -636,7 +670,7 @@ mod tests {
             adsr.process();
         }
         // Should be at or very near zero, transitioning to Idle
-         assert!(
+        assert!(
             adsr.get_state() == EnvelopeState::Idle || adsr.get_level() < MIN_LEVEL + TOLERANCE,
             "State: {:?}, Level: {}",
             adsr.get_state(),
