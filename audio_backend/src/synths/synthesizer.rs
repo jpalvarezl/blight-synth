@@ -113,6 +113,23 @@ impl Voice {
         self.envelope = AdsrEnvelope::new(self.sample_rate, attack, decay, sustain, release);
     }
 
+    // --- Individual ADSR parameter setters ---
+    pub fn set_attack(&mut self, attack_secs: f32) {
+        self.envelope.set_attack(attack_secs);
+    }
+
+    pub fn set_decay(&mut self, decay_secs: f32) {
+        self.envelope.set_decay(decay_secs);
+    }
+
+    pub fn set_sustain(&mut self, sustain_level: f32) {
+        self.envelope.set_sustain(sustain_level);
+    }
+
+    pub fn set_release(&mut self, release_secs: f32) {
+        self.envelope.set_release(release_secs);
+    }
+
     // Helper for tests
     #[cfg(test)]
     fn get_envelope_state(&self) -> crate::envelope::EnvelopeState {
@@ -172,6 +189,39 @@ impl Synthesizer {
         }
     }
 
+    // --- Individual ADSR parameter setters for Synthesizer ---
+    pub fn set_attack(&self, attack_secs: f32) {
+        if let Ok(mut voice) = self.voice.lock() {
+            voice.set_attack(attack_secs);
+        } else {
+            eprintln!("Error locking voice mutex in set_attack");
+        }
+    }
+
+    pub fn set_decay(&self, decay_secs: f32) {
+        if let Ok(mut voice) = self.voice.lock() {
+            voice.set_decay(decay_secs);
+        } else {
+            eprintln!("Error locking voice mutex in set_decay");
+        }
+    }
+
+    pub fn set_sustain(&self, sustain_level: f32) {
+        if let Ok(mut voice) = self.voice.lock() {
+            voice.set_sustain(sustain_level);
+        } else {
+            eprintln!("Error locking voice mutex in set_sustain");
+        }
+    }
+
+    pub fn set_release(&self, release_secs: f32) {
+        if let Ok(mut voice) = self.voice.lock() {
+            voice.set_release(release_secs);
+        } else {
+            eprintln!("Error locking voice mutex in set_release");
+        }
+    }
+
     pub fn note_on(&self, freq: f32) {
         if let Ok(mut voice) = self.voice.lock() {
             voice.note_on(freq);
@@ -211,6 +261,22 @@ impl Synthesizer {
     fn get_voice_envelope_state(&self) -> crate::envelope::EnvelopeState {
         self.voice.lock().unwrap().get_envelope_state()
     }
+    #[cfg(test)]
+    fn get_voice_envelope_attack_rate(&self) -> f32 { // Helper for tests
+        self.voice.lock().unwrap().envelope.get_attack_rate()
+    }
+    #[cfg(test)]
+    fn get_voice_envelope_decay_rate(&self) -> f32 { // Helper for tests
+        self.voice.lock().unwrap().envelope.get_decay_rate()
+    }
+    #[cfg(test)]
+    fn get_voice_envelope_sustain_level_param(&self) -> f32 { // Helper for tests
+        self.voice.lock().unwrap().envelope.get_sustain_level_param()
+    }
+    #[cfg(test)]
+    fn get_voice_envelope_release_rate(&self) -> f32 { // Helper for tests
+        self.voice.lock().unwrap().envelope.get_release_rate()
+    }
 }
 
 #[cfg(test)]
@@ -221,6 +287,15 @@ mod tests {
     const TEST_SAMPLE_RATE: f32 = 44100.0;
     const TEST_FREQ: f32 = 440.0; // A4
     const TOLERANCE: f32 = 0.001;
+
+    // Helper function for tests to calculate expected rates
+    fn calculate_expected_rate(time_secs: f32, delta_level: f32, sample_rate: f32) -> f32 {
+        if time_secs <= 0.0 {
+            f32::INFINITY
+        } else {
+            delta_level / (time_secs * sample_rate)
+        }
+    }
 
     fn process_voice_for_samples(voice: &mut Voice, num_samples: usize) {
         for _ in 0..num_samples {
@@ -326,6 +401,43 @@ mod tests {
     }
 
     #[test]
+    fn voice_individual_adsr_setters() {
+        let mut voice = Voice::new(TEST_SAMPLE_RATE);
+        let attack_time = 0.01;
+        let decay_time = 0.02;
+        let sustain_level_val = 0.6;
+        let release_time = 0.03;
+
+        voice.set_attack(attack_time);
+        voice.set_sustain(sustain_level_val); // Set sustain before decay, as decay rate depends on it
+        voice.set_decay(decay_time);
+        voice.set_release(release_time);
+
+        // Verify by checking the underlying envelope's parameters using its public getters
+        let expected_attack_rate = calculate_expected_rate(attack_time, 1.0, TEST_SAMPLE_RATE);
+        assert!((voice.envelope.get_attack_rate() - expected_attack_rate).abs() < TOLERANCE / TEST_SAMPLE_RATE);
+
+        let expected_decay_rate = calculate_expected_rate(decay_time, 1.0 - sustain_level_val, TEST_SAMPLE_RATE);
+        assert!((voice.envelope.get_decay_rate() - expected_decay_rate).abs() < TOLERANCE / TEST_SAMPLE_RATE);
+
+        assert!((voice.envelope.get_sustain_level_param() - sustain_level_val).abs() < TOLERANCE);
+
+        let expected_release_rate = calculate_expected_rate(release_time, sustain_level_val, TEST_SAMPLE_RATE);
+        assert!((voice.envelope.get_release_rate() - expected_release_rate).abs() < TOLERANCE / TEST_SAMPLE_RATE);
+
+        voice.note_on(TEST_FREQ);
+        assert_eq!(voice.get_envelope_state(), EnvelopeState::Attack);
+        process_voice_for_secs(&mut voice, attack_time + decay_time + 0.01); // Attack + Decay + a bit of Sustain
+        assert_eq!(voice.get_envelope_state(), EnvelopeState::Sustain);
+        assert!((voice.envelope.get_level() - sustain_level_val).abs() < TOLERANCE);
+
+        voice.note_off();
+        assert_eq!(voice.get_envelope_state(), EnvelopeState::Release);
+        process_voice_for_secs(&mut voice, release_time + 0.01); // Release + a bit more
+        assert_eq!(voice.get_envelope_state(), EnvelopeState::Idle);
+    }
+
+    #[test]
     fn synthesizer_controls_voice() {
         let synth = Synthesizer::new(TEST_SAMPLE_RATE);
         assert_eq!(synth.get_sample_rate(), TEST_SAMPLE_RATE);
@@ -355,5 +467,34 @@ mod tests {
         synth.set_adsr(0.1, 0.2, 0.7, 0.3);
         // We can't easily verify the internal rates without more access,
         // but we check the call doesn't panic.
+        // Check one parameter to see if it propagated
+        assert!((synth.get_voice_envelope_sustain_level_param() - 0.7).abs() < TOLERANCE);
+    }
+
+    #[test]
+    fn synthesizer_individual_adsr_setters() {
+        let synth = Synthesizer::new(TEST_SAMPLE_RATE);
+
+        let initial_attack_rate = synth.get_voice_envelope_attack_rate();
+        synth.set_attack(0.01); // Expected to be different from default
+        assert_ne!(synth.get_voice_envelope_attack_rate(), initial_attack_rate);
+
+        let initial_decay_rate = synth.get_voice_envelope_decay_rate();
+        synth.set_decay(0.02);
+        assert_ne!(synth.get_voice_envelope_decay_rate(), initial_decay_rate);
+
+        let initial_sustain_level = synth.get_voice_envelope_sustain_level_param();
+        synth.set_sustain(0.6);
+        assert!((synth.get_voice_envelope_sustain_level_param() - 0.6).abs() < TOLERANCE);
+        assert_ne!(synth.get_voice_envelope_sustain_level_param(), initial_sustain_level);
+
+        let initial_release_rate = synth.get_voice_envelope_release_rate();
+        synth.set_release(0.03);
+        assert_ne!(synth.get_voice_envelope_release_rate(), initial_release_rate);
+
+        // Test a full cycle to see if it behaves as expected
+        synth.note_on(TEST_FREQ); // Attack: 0.01s, Decay: 0.02s, Sustain: 0.6, Release: 0.03s
+
+        assert_eq!(synth.get_voice_envelope_state(), EnvelopeState::Attack);
     }
 }
