@@ -18,6 +18,9 @@ pub struct AdsrEnvelope {
     sustain_level: f32,
     current_level: f32,
     sample_rate: f32, // Added sample_rate back
+    attack_secs: f32,  // Store original time parameter
+    decay_secs: f32,   // Store original time parameter
+    release_secs: f32, // Store original time parameter
 }
 
 impl AdsrEnvelope {
@@ -44,8 +47,9 @@ impl AdsrEnvelope {
         let attack_rate = Self::calculate_rate_internal(attack_secs, 1.0, sample_rate);
         // Decay goes from 1 to sustain_level
         let decay_rate = Self::calculate_rate_internal(decay_secs, 1.0 - sustain_level, sample_rate);
-        // Release goes from current level (assumed sustain_level for calculation) to 0
-        let release_rate = Self::calculate_rate_internal(release_secs, sustain_level.max(MIN_LEVEL), sample_rate); // Use sustain level for rate calc
+        // Release rate is initially calculated based on sustain_level.
+        // It will be recalculated in release() based on current_level at the time of release.
+        let release_rate = Self::calculate_rate_internal(release_secs, sustain_level.max(MIN_LEVEL), sample_rate);
 
         AdsrEnvelope {
             state: EnvelopeState::Idle,
@@ -55,6 +59,9 @@ impl AdsrEnvelope {
             sustain_level,
             current_level: 0.0,
             sample_rate, // Store sample_rate
+            attack_secs,  // Store original time
+            decay_secs,   // Store original time
+            release_secs, // Store original time
         }
     }
 
@@ -68,28 +75,30 @@ impl AdsrEnvelope {
     }
 
     pub fn set_attack(&mut self, attack_secs: f32) {
-        self.attack_rate = Self::calculate_rate_internal(attack_secs, 1.0, self.sample_rate);
+        self.attack_secs = attack_secs; // Store new time
+        self.attack_rate = Self::calculate_rate_internal(self.attack_secs, 1.0, self.sample_rate);
     }
 
     pub fn set_decay(&mut self, decay_secs: f32) {
+        self.decay_secs = decay_secs; // Store new time
         // Decay rate depends on the sustain level
-        self.decay_rate = Self::calculate_rate_internal(decay_secs, 1.0 - self.sustain_level, self.sample_rate);
+        self.decay_rate = Self::calculate_rate_internal(self.decay_secs, 1.0 - self.sustain_level, self.sample_rate);
     }
 
     pub fn set_sustain(&mut self, sustain_level: f32) {
         self.sustain_level = sustain_level.max(0.0).min(1.0);
-        // Decay rate needs to be recalculated as it depends on sustain level
-        // This assumes decay_secs is implicitly unchanged. If we stored decay_secs, we'd use it here.
-        // For now, if sustain changes, decay rate might become less intuitive if not also reset.
-        // A more robust approach might require storing original times, or forcing a decay_secs update too.
-        // However, to keep it simple and efficient as requested, we only update sustain level.
-        // The user should be aware that changing sustain might require a decay adjustment for desired shape.
+        // Recalculate decay_rate: the stored decay_secs now targets the new self.sustain_level.
+        self.decay_rate = Self::calculate_rate_internal(self.decay_secs, 1.0 - self.sustain_level, self.sample_rate);
+        // Recalculate a "default" release_rate based on the new sustain_level and stored release_secs.
+        // The actual release() method will calculate the precise rate based on current_level when called.
+        self.release_rate = Self::calculate_rate_internal(self.release_secs, self.sustain_level.max(MIN_LEVEL), self.sample_rate);
     }
 
     pub fn set_release(&mut self, release_secs: f32) {
-        // Release rate depends on the sustain level (or current level if higher)
-        // For simplicity, we base it on sustain_level, similar to new()
-        self.release_rate = Self::calculate_rate_internal(release_secs, self.sustain_level.max(MIN_LEVEL), self.sample_rate);
+        self.release_secs = release_secs; // Store new time
+        // Recalculate a "default" release_rate based on the current sustain_level and new release_secs.
+        // The actual release() method will calculate the precise rate based on current_level when called.
+        self.release_rate = Self::calculate_rate_internal(self.release_secs, self.sustain_level.max(MIN_LEVEL), self.sample_rate);
     }
 
     /// Processes one sample of the envelope, updating its state and level.
@@ -143,10 +152,9 @@ impl AdsrEnvelope {
                 if self.release_rate.is_infinite() {
                     self.current_level = 0.0; // Instant release
                 } else {
-                    // Use the rate calculated based on sustain level, but apply it proportionally
-                    // Rate = delta_level / samples => delta_level = Rate * samples
-                    // We want to decrease by release_rate (which assumes starting from sustain_level)
-                    // A simple linear decrease:
+                    // self.release_rate is calculated in the release() method (or by setters as a default)
+                    // to make the envelope reach 0 from the level at which release was triggered,
+                    // over self.release_secs.
                     self.current_level -= self.release_rate;
                     // Alternative exponential decay (more natural):
                     // self.current_level *= self.release_multiplier; // requires precalculating multiplier
@@ -174,6 +182,10 @@ impl AdsrEnvelope {
     pub fn release(&mut self) {
         // Can only release if not already idle
         if self.state != EnvelopeState::Idle {
+            // Recalculate release_rate based on the current level and stored release_secs.
+            // This ensures the release time is consistent regardless of the level at which release is triggered.
+            // If current_level is already very low, rate will be small or zero, and process() will quickly go to Idle.
+            self.release_rate = Self::calculate_rate_internal(self.release_secs, self.current_level.max(0.0), self.sample_rate);
             self.state = EnvelopeState::Release;
         }
     }
@@ -208,6 +220,19 @@ impl AdsrEnvelope {
 
     pub fn get_release_rate(&self) -> f32 {
         self.release_rate
+    }
+
+    // --- Getters for original time parameters (for testing/inspection) ---
+    pub fn get_attack_secs(&self) -> f32 {
+        self.attack_secs
+    }
+
+    pub fn get_decay_secs(&self) -> f32 {
+        self.decay_secs
+    }
+
+    pub fn get_release_secs(&self) -> f32 {
+        self.release_secs
     }
 }
 
