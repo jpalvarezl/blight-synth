@@ -14,9 +14,9 @@ This project is divided into two main parts: the `core` and the `ui`.
 To set up the project, follow these steps:
 
 - Clone the repository.
-- Navigate to the project directory.
-- Run cargo build to compile the project.
-- Run cargo run to start the application.
+- Navigate to the project directory and then to `frontend
+- Run `deno install`
+- Run `deno task tauri dev`
 
 ## Dependencies
 This project uses the following main dependencies:
