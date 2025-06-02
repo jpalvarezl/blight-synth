@@ -314,19 +314,6 @@ impl Synthesizer {
     }
 
     // Example: Get status of the first voice (for testing/debugging)
-    #[cfg(test)]
-    fn get_first_voice_active_waveform(&self) -> Option<ActiveWaveform> {
-        self.voices
-            .get(0)
-            .and_then(|vm| vm.lock().ok().map(|v| v.active_waveform))
-    }
-
-    #[cfg(test)]
-    fn get_first_voice_envelope_state(&self) -> Option<crate::envelope::EnvelopeState> {
-        self.voices
-            .get(0)
-            .and_then(|vm| vm.lock().ok().map(|v| v.get_envelope_state()))
-    }
 }
 
 // --- Tests ---
@@ -429,12 +416,12 @@ mod tests {
         }
         drop(voice); // Release lock before calling synth.next_sample()
 
-        let sample1 = synth.next_sample();
+        let _sample1 = synth.next_sample();
 
         // Let's advance the envelope and oscillator of the first voice directly
         // to predict the next sample.
         let mut voice_clone = synth.voices[0].lock().unwrap().clone(); // Clone the state
-        let expected_sample = voice_clone.next_sample();
+        let _expected_sample = voice_clone.next_sample();
 
         // The sample from synth should be what the first voice would produce
         // This is a bit tricky because next_sample() in Synthesizer also calls next_sample() on voice
@@ -469,10 +456,10 @@ mod tests {
             first_voice_guard.envelope.process();
         }
         // Get expected sample directly from the voice
-        let expected_sample_direct = first_voice_guard.next_sample();
+        let _expected_sample_direct = first_voice_guard.next_sample();
         drop(first_voice_guard);
 
-        let actual_sample_from_synth = synth2.next_sample();
+        let _actual_sample_from_synth = synth2.next_sample();
 
         // The `actual_sample_from_synth` is the output of the *second* call to the voice's `next_sample`
         // (first was `expected_sample_direct`).
@@ -487,7 +474,7 @@ mod tests {
             // ~1ms
             let _ = synth3.next_sample();
         }
-        let sample_val = synth3.next_sample();
+        let _sample_val = synth3.next_sample();
         if synth3.voices[0].lock().unwrap().is_active()
             && synth3.voices[0].lock().unwrap().envelope.get_level() > 0.01
         {
