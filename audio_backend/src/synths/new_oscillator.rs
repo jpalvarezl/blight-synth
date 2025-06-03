@@ -42,7 +42,7 @@ impl Oscillator {
         
         let sample = match self.waveform {
             Waveform::Sine => (self.phase).sin(),
-            Waveform::Square => if self.phase < PI { 1.0 } else { -1.0 },
+            Waveform::Square => if self.phase < PI - f32::EPSILON { 1.0 } else { -1.0 },
             Waveform::Sawtooth => 2.0 * (self.phase / TAU) - 1.0,
             Waveform::Triangle => {
                 // Correct triangle wave: rises from -1 to 1 in first half, falls from 1 to -1 in second half
@@ -94,11 +94,14 @@ mod tests {
     fn test_oscillator_square_wave() {
         let mut osc = Oscillator::new(44100.0);
         osc.set_waveform(Waveform::Square);
-        osc.set_frequency(44100.0 / 2.0); // 2 samples per cycle
-        let s1 = osc.next_sample();
-        let s2 = osc.next_sample();
-        assert_eq!(s1, 1.0);
-        assert_eq!(s2, -1.0);
+        osc.set_frequency(44100.0 / 4.0); // 4 samples per cycle
+        let samples: Vec<f32> = (0..4).map(|_| osc.next_sample()).collect();
+        
+        // First half of cycle should be 1.0, second half should be -1.0
+        assert_eq!(samples[0], 1.0);  // phase = 0
+        assert_eq!(samples[1], 1.0);  // phase = π/2 (still < π)
+        assert_eq!(samples[2], -1.0); // phase = π (>= π)
+        assert_eq!(samples[3], -1.0); // phase = 3π/2 (>= π)
     }
 
     #[test]

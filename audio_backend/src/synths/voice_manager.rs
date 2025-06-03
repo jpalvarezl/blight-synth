@@ -212,12 +212,29 @@ mod tests {
 
         // Activate one voice and check the sample
         voice_manager.note_on(60, 1.0);
-        let sample = voice_manager.next_sample();
-        assert!(sample != 0.0); // Should not be zero if oscillator is working
+        
+        // Generate a few samples since the first sine wave sample at phase 0 is 0
+        // and the ADSR starts with 0 amplitude
+        let mut non_zero_found = false;
+        for _ in 0..10 {
+            let sample = voice_manager.next_sample();
+            if sample != 0.0 {
+                non_zero_found = true;
+                break;
+            }
+        }
+        assert!(non_zero_found, "Should produce non-zero samples after a few iterations");
 
         // Activate another voice and check the sample again
         voice_manager.note_on(61, 1.0);
-        let sample2 = voice_manager.next_sample();
-        assert!(sample2 != 0.0); // Should not be zero if both oscillators are working
+        let mut non_zero_found2 = false;
+        for _ in 0..10 {
+            let sample2 = voice_manager.next_sample();
+            if sample2 != 0.0 {
+                non_zero_found2 = true;
+                break;
+            }
+        }
+        assert!(non_zero_found2, "Should produce non-zero samples with multiple voices");
     }
 }
