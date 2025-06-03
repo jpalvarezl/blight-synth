@@ -22,6 +22,7 @@ pub struct Voice {
     current_frequency: f32,
     active_waveform: ActiveWaveform,
     sample_rate: f32, // Store sample rate for oscillator frequency updates
+    note_id: Option<u8>, // Track which note is assigned to this voice
 }
 
 impl Voice {
@@ -38,6 +39,7 @@ impl Voice {
             current_frequency: 440.0, // Default A4
             active_waveform: ActiveWaveform::Sine,
             sample_rate,
+            note_id: None,
         }
     }
 
@@ -243,24 +245,40 @@ impl Synthesizer {
     }
 
     // --- Note control ---
-    pub fn note_on(&self, freq: f32) {
-        // FIXME: This will be expanded for polyphony. For now, use the first voice.
-        if let Some(voice_mutex) = self.voices.get(0) {
+    pub fn note_on(&self, note_id: u8, freq: f32) {
+        // 1. Try to find an inactive voice and use it
+        let mut handled = false;
+        for voice_mutex in &self.voices {
             if let Ok(mut voice) = voice_mutex.lock() {
-                voice.note_on(freq);
+                if !voice.is_active() {
+                    voice.note_id = Some(note_id);
+                    voice.set_frequency(freq);
+                    voice.envelope.trigger();
+                    handled = true;
+                    break;
+                }
+            }
+        }
+        // 2. If none found, steal the first voice
+        if !handled {
+            if let Ok(mut voice) = self.voices[0].lock() {
+                voice.note_id = Some(note_id);
+                voice.set_frequency(freq);
+                voice.envelope.trigger();
             } else {
                 eprintln!("Error locking voice mutex in note_on");
             }
         }
     }
 
-    pub fn note_off(&self) {
-        // FIXME: This will be expanded for polyphony. For now, use the first voice.
-        if let Some(voice_mutex) = self.voices.get(0) {
+    pub fn note_off(&self, note_id: u8) {
+        for voice_mutex in &self.voices {
             if let Ok(mut voice) = voice_mutex.lock() {
-                voice.note_off();
-            } else {
-                eprintln!("Error locking voice mutex in note_off");
+                if voice.note_id == Some(note_id) {
+                    voice.envelope.release();
+                    voice.note_id = None; // Or keep until envelope is idle, depending on strategy
+                    break;
+                }
             }
         }
     }
@@ -296,19 +314,6 @@ impl Synthesizer {
     }
 
     // Example: Get status of the first voice (for testing/debugging)
-    #[cfg(test)]
-    fn get_first_voice_active_waveform(&self) -> Option<ActiveWaveform> {
-        self.voices
-            .get(0)
-            .and_then(|vm| vm.lock().ok().map(|v| v.active_waveform))
-    }
-
-    #[cfg(test)]
-    fn get_first_voice_envelope_state(&self) -> Option<crate::envelope::EnvelopeState> {
-        self.voices
-            .get(0)
-            .and_then(|vm| vm.lock().ok().map(|v| v.get_envelope_state()))
-    }
 }
 
 // --- Tests ---
@@ -358,14 +363,14 @@ mod tests {
     #[test]
     fn test_note_on_off_on_first_voice() {
         let synth = Synthesizer::new(TEST_SAMPLE_RATE);
-        synth.note_on(440.0);
+        synth.note_on(60, 440.0);
         {
             let voice = synth.voices[0].lock().unwrap();
             assert_eq!(voice.current_frequency, 440.0);
             assert_eq!(voice.get_envelope_state(), EnvelopeState::Attack);
         } // Mutex guard dropped here
 
-        synth.note_off();
+        synth.note_off(60);
         let voice = synth.voices[0].lock().unwrap();
         assert_eq!(voice.get_envelope_state(), EnvelopeState::Release);
     }
@@ -402,7 +407,7 @@ mod tests {
     fn test_next_sample_from_first_voice() {
         let synth = Synthesizer::new(TEST_SAMPLE_RATE);
         // Ensure the first voice is producing sound
-        synth.note_on(440.0); // Activate the envelope
+        synth.note_on(60, 440.0); // Activate the envelope
         let mut voice = synth.voices[0].lock().unwrap();
         voice.set_waveform(ActiveWaveform::Sine); // Known waveform
                                                   // Process a few samples to get past initial zero output of envelope
@@ -411,12 +416,12 @@ mod tests {
         }
         drop(voice); // Release lock before calling synth.next_sample()
 
-        let sample1 = synth.next_sample();
+        let _sample1 = synth.next_sample();
 
         // Let's advance the envelope and oscillator of the first voice directly
         // to predict the next sample.
         let mut voice_clone = synth.voices[0].lock().unwrap().clone(); // Clone the state
-        let expected_sample = voice_clone.next_sample();
+        let _expected_sample = voice_clone.next_sample();
 
         // The sample from synth should be what the first voice would produce
         // This is a bit tricky because next_sample() in Synthesizer also calls next_sample() on voice
@@ -442,7 +447,7 @@ mod tests {
 
         // Reset and re-test more directly
         let synth2 = Synthesizer::new(TEST_SAMPLE_RATE);
-        synth2.note_on(300.0); // Activate first voice
+        synth2.note_on(60, 300.0); // Activate first voice
         synth2.set_waveform(ActiveWaveform::Square);
 
         let mut first_voice_guard = synth2.voices[0].lock().unwrap();
@@ -451,10 +456,10 @@ mod tests {
             first_voice_guard.envelope.process();
         }
         // Get expected sample directly from the voice
-        let expected_sample_direct = first_voice_guard.next_sample();
+        let _expected_sample_direct = first_voice_guard.next_sample();
         drop(first_voice_guard);
 
-        let actual_sample_from_synth = synth2.next_sample();
+        let _actual_sample_from_synth = synth2.next_sample();
 
         // The `actual_sample_from_synth` is the output of the *second* call to the voice's `next_sample`
         // (first was `expected_sample_direct`).
@@ -463,13 +468,13 @@ mod tests {
 
         // If the first voice is active, output should not be zero (unless waveform is silent at a point)
         let synth3 = Synthesizer::new(TEST_SAMPLE_RATE);
-        synth3.note_on(440.0); // freq, gain
+        synth3.note_on(60, 440.0); // freq, gain
                                // Process a few samples to ensure envelope is > 0
         for _ in 0..((0.001 * TEST_SAMPLE_RATE) as usize) {
             // ~1ms
             let _ = synth3.next_sample();
         }
-        let sample_val = synth3.next_sample();
+        let _sample_val = synth3.next_sample();
         if synth3.voices[0].lock().unwrap().is_active()
             && synth3.voices[0].lock().unwrap().envelope.get_level() > 0.01
         {

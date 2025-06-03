@@ -27,11 +27,11 @@ function setupPadKeyListeners() {
       pad.classList.add("active");
     });
     pad.addEventListener("mouseup", () => {
-      invoke("stop_midi_note");
+      invoke("stop_midi_note", { midiValue });
       pad.classList.remove("active");
     });
     pad.addEventListener("mouseleave", () => {
-      invoke("stop_midi_note");
+      invoke("stop_midi_note", { midiValue });
       pad.classList.remove("active");
     });
     // For accessibility: touch events
@@ -42,7 +42,7 @@ function setupPadKeyListeners() {
     });
     pad.addEventListener("touchend", (e) => {
       e.preventDefault();
-      invoke("stop_midi_note");
+      invoke("stop_midi_note", { midiValue });
       pad.classList.remove("active");
     });
   });
@@ -68,7 +68,8 @@ function setupPadKeyListeners() {
     if (key in keyToPadIndex && heldKey === key) {
       heldKey = null;
       const idx = keyToPadIndex[key];
-      invoke("stop_midi_note");
+      const midiValue = midiStart + idx;
+      invoke("stop_midi_note", { midiValue });
       padButtons[idx].classList.remove("active");
     }
   });

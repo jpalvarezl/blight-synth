@@ -546,16 +546,12 @@ mod tests {
     #[test]
     fn test_set_sustain() {
         let mut adsr = AdsrEnvelope::new(SAMPLE_RATE, 0.1, 0.2, 0.5, 0.3);
-        let original_decay_rate = adsr.decay_rate;
 
         adsr.set_sustain(0.8);
         assert_eq!(adsr.sustain_level, 0.8);
-        // Decay rate should be re-calculated if we want to maintain the original decay *time*
-        // to the *new* sustain. The current implementation of set_sustain does not re-calculate decay_rate.
-        // It only updates sustain_level. This means the time it takes to decay will change if decay_rate is not updated.
-        // For this test, we'll assert that decay_rate is NOT changed by set_sustain,
-        // and then we'll test that set_decay correctly recalculates based on the new sustain.
-        assert_eq!(adsr.decay_rate, original_decay_rate);
+        // Decay rate should be recalculated to match the new sustain level
+        let expected_decay_rate = (1.0 - 0.8) / (adsr.decay_secs * SAMPLE_RATE);
+        assert!((adsr.decay_rate - expected_decay_rate).abs() < TOLERANCE / SAMPLE_RATE);
 
         // Now, if we call set_decay, it should use the new sustain_level (0.8)
         adsr.set_decay(0.1); // Decay time of 0.1s
