@@ -39,16 +39,36 @@ impl Oscillator {
 
     pub fn next_sample(&mut self) -> f32 {
         let phase_inc = self.frequency * TAU / self.sample_rate;
+        
         let sample = match self.waveform {
             Waveform::Sine => (self.phase).sin(),
             Waveform::Square => if self.phase < PI { 1.0 } else { -1.0 },
             Waveform::Sawtooth => 2.0 * (self.phase / TAU) - 1.0,
             Waveform::Triangle => {
-                2.0 * (2.0 * (self.phase / TAU) - 1.0).abs() - 1.0
+                // Correct triangle wave: rises from -1 to 1 in first half, falls from 1 to -1 in second half
+                let normalized_phase = self.phase / TAU; // 0 to 1
+                if normalized_phase < 0.5 {
+                    // Rising: -1 to 1
+                    4.0 * normalized_phase - 1.0
+                } else {
+                    // Falling: 1 to -1
+                    3.0 - 4.0 * normalized_phase
+                }
             }
         };
 
-        self.phase = (self.phase + phase_inc) % TAU;
+        // Debug output to see what's happening - include more info
+        if self.phase < phase_inc * 2.0 { // Print at start of each cycle
+            println!("🎵 Oscillator: waveform={:?}, freq={:.1}Hz, phase={:.6}, phase_inc={:.6}, sample={:.4}", 
+                self.waveform, self.frequency, self.phase, phase_inc, sample);
+        }
+
+        // More precise phase accumulation to avoid floating point drift
+        self.phase += phase_inc;
+        if self.phase >= TAU {
+            self.phase -= TAU;
+        }
+        
         sample
     }
 }
