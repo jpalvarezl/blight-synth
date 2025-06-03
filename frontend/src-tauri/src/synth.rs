@@ -19,7 +19,7 @@ pub fn set_waveform(waveform: String, synthesizer_state: State<SynthesizerState>
 
 #[tauri::command]
 pub fn play_midi_note(midi_value: u8, synthesizer_state: State<SynthesizerState>) {
-    let velocity = 127.0;
+    let velocity = 1.0;
     let mut synthesizer = synthesizer_state.0.lock().expect("Failed to lock synthesizer state");
     synthesizer.note_on(midi_value, velocity);
 }

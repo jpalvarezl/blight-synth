@@ -11,7 +11,8 @@ pub struct SynthesizerState(pub Mutex<Synthesizer>);
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Synthesizer::default() now works because we added the Default trait
-    let synthesizer = Synthesizer::new(44100.0, 8);
+    // let synthesizer = Synthesizer::new(44100.0, 8);
+    let synthesizer = Synthesizer::new(24000.0, 8); // Use the default synthesizer
     // Pass the sample rate from the default synth to the audio thread setup if needed
     // Or ensure start_audio_thread uses the synth's sample rate
     audio_backend::start_audio_thread(synthesizer.clone());

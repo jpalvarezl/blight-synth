@@ -1,5 +1,7 @@
-use crate::synths::voice::Voice;
+use std::ops::Div;
+
 use super::waveform::Waveform;
+use crate::synths::voice::Voice;
 
 #[derive(Debug, Clone)]
 pub struct VoiceManager {
@@ -23,6 +25,10 @@ impl VoiceManager {
             .map(|_| Voice::new(sample_rate))
             .collect();
 
+        println!(
+            "Creating VoiceManager with {} voices and sample rate {}",
+            max_polyphony, sample_rate
+        );
         Self {
             voices,
             max_polyphony,
@@ -35,12 +41,17 @@ impl VoiceManager {
             waveform: Waveform::Sine,
         }
     }
-  
+
     pub fn note_on(&mut self, note: u8, velocity: f32) {
         self.note_on_with_velocity_and_waveform(note, velocity, self.waveform);
     }
 
-    pub fn note_on_with_velocity_and_waveform(&mut self, note: u8, velocity: f32, waveform: Waveform) {
+    pub fn note_on_with_velocity_and_waveform(
+        &mut self,
+        note: u8,
+        velocity: f32,
+        waveform: Waveform,
+    ) {
         let (attack, decay, sustain, release) = self.current_adsr_params();
         if let Some(voice) = self.find_free_voice() {
             voice.set_adsr(attack, decay, sustain, release);
@@ -85,16 +96,20 @@ impl VoiceManager {
     }
 
     pub fn next_sample(&mut self) -> f32 {
-        if self.voices.is_empty() {
-            return 0.0; // No voices to process
-        }
+        let next_sample = if self.voices.is_empty() {
+            0.0 // No voices to process
+        } else {
+            // Sum the samples from all active voices and normalize
 
-        // Sum the samples from all active voices and normalize
-        (self.voices
-            .iter_mut()
-            .map(|voice| voice.next_sample())
-            .sum::<f32>()
-            / self.max_polyphony as f32).clamp(-1.0, 1.0) // normalize
+            self.voices
+                .iter_mut()
+                .filter(|voice| voice.is_active())
+                .map(|voice| voice.next_sample())
+                .sum::<f32>()
+                .div(self.max_polyphony as f32) // Normalize by max polyphony
+                .clamp(-1.0, 1.0) // normalize
+        };
+        next_sample
     }
 
     fn find_free_voice(&mut self) -> Option<&mut Voice> {
@@ -111,5 +126,74 @@ impl VoiceManager {
 
     pub fn current_waveform(&self) -> Waveform {
         self.waveform
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_voice_manager_creation() {
+        let sample_rate = 44100.0;
+        let max_polyphony = 8;
+        let voice_manager = VoiceManager::new(sample_rate, max_polyphony);
+
+        assert_eq!(voice_manager.voices.len(), max_polyphony);
+        assert_eq!(voice_manager.max_polyphony, max_polyphony);
+        assert_eq!(voice_manager.current_adsr_params(), (0.01, 0.1, 0.8, 0.2));
+        assert_eq!(voice_manager.current_waveform(), Waveform::Sine);
+    }
+
+    #[test]
+    fn find_free_voice_free_available() {
+        let sample_rate = 44100.0;
+        let max_polyphony = 8;
+        let mut voice_manager = VoiceManager::new(sample_rate, max_polyphony);
+
+        // All voices should be free initially
+        assert!(voice_manager.find_free_voice().is_some());
+
+        // Activate one voice
+        voice_manager.note_on(60, 1.0);
+        assert!(voice_manager.find_free_voice().is_some());
+
+        // All voices are not active yet
+        assert!(voice_manager.find_free_voice().is_some());
+    }
+
+    #[test]
+    fn steal_voice_when_all_active() {
+        let sample_rate = 44100.0;
+        let max_polyphony = 8;
+        let mut voice_manager = VoiceManager::new(sample_rate, max_polyphony);
+
+        // Activate all voices
+        for i in 0..max_polyphony {
+            voice_manager.note_on(i as u8 + 60, 1.0);
+        }
+
+        // All voices are active, so we should be able to steal one
+        assert!(voice_manager.find_voice_to_steal().is_some());
+    }
+
+    #[test]
+    fn next_sample_test() {
+        let sample_rate = 44100.0;
+        let max_polyphony = 8;
+        let mut voice_manager = VoiceManager::new(sample_rate, max_polyphony);
+
+        // Test with no active voices
+        assert_eq!(voice_manager.next_sample(), 0.0);
+
+        // Activate one voice and check the sample
+        voice_manager.note_on(60, 1.0);
+        let sample = voice_manager.next_sample();
+        assert!(sample != 0.0); // Should not be zero if oscillator is working
+
+        // Activate another voice and check the sample again
+        voice_manager.note_on(61, 1.0);
+        let sample2 = voice_manager.next_sample();
+        assert!(sample2 != 0.0); // Should not be zero if both oscillators are working
     }
 }

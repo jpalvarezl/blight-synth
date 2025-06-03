@@ -25,6 +25,7 @@ impl Voice {
     }
 
     pub fn note_on(&mut self, note: u8, velocity: f32, waveform: Waveform) {
+        println!("Voice note_on: note: {}, velocity: {}, waveform: {:?}, is_active: {}", note, velocity, waveform, self.is_active);
         let freq = midi_note_to_freq(note);
 
         self.note = Some(note);
@@ -38,15 +39,20 @@ impl Voice {
         self.oscillator.set_frequency(freq);
         
         self.envelope.reset();
-        self.envelope.note_on_with_velocity(velocity);    
+        self.envelope.note_on_with_velocity(velocity); 
+        println!("Voice note_on: note: {}, velocity: {}, waveform: {:?}, is_active: {}", note, velocity, waveform, self.is_active);
+  
     }
 
     pub fn note_off(&mut self) {
+        self.is_active = false;
+        self.note = None;
         self.envelope.note_off();
+        println!("Voice note_off: note: {:?}, envelope finished: {}, is_active: {}", self.note, self.envelope.is_finished(), self.is_active);
     }
 
     pub fn is_active(&self) -> bool {
-        self.is_active || !self.envelope.is_finished()
+        self.is_active// || !self.envelope.is_finished()
     }
 
     pub fn is_playing(&self, note: u8) -> bool {
@@ -63,18 +69,20 @@ impl Voice {
 
     pub fn next_sample(&mut self) -> f32 {
         if !self.is_active {
+            println!("Voice is not active, returning 0.0");
             return 0.0;
         }
 
-        let env = self.envelope.next_sample();
-        let sample = self.oscillator.next_sample() * env * self.velocity;
+        // let env = self.envelope.next_sample();
+        let sample = self.oscillator.next_sample();
 
         if self.envelope.is_finished() {
             self.is_active = false;
             self.note = None;
         }
-
-        env * sample
+        
+        // sample * env * self.velocity
+        sample
     }
 }
 

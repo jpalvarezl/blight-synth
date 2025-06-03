@@ -55,7 +55,6 @@ pub fn run_audio_engine(synth: Arc<Mutex<Synthesizer>>) -> anyhow::Result<Stream
     Ok(stream) // Return the stream
 }
 
-
 // For more advanced use: use lock-free ring buffers (e.g., ringbuf crate) to pass samples across threads.
 fn setup_stream_for<T>(
     device: &cpal::Device,
@@ -75,7 +74,7 @@ where
                 let mut synth = synth.lock().expect("Failed to lock synthesizer");
                 synth.next_sample()
             };
-            write_data(data, channels, next_sample); // Pass the synthesizer Arc
+            write_data(data, channels, next_sample);
         },
         err_fn,
         None,
@@ -84,11 +83,8 @@ where
 }
 
 // --- Generic Audio Callback Function (Refactored) ---
-fn write_data<T>(
-    output: &mut [T],
-    channels: usize,
-    next_sample: f32,
-) where
+fn write_data<T>(output: &mut [T], channels: usize, next_sample: f32)
+where
     T: Sample + FromSample<f32>,
 {
     // The Synthesizer's next_sample() method now handles getting samples.

@@ -7,6 +7,10 @@ pub struct Synthesizer {
 
 impl Synthesizer {
     pub fn new(sample_rate: f32, max_polyphony: usize) -> Self {
+        println!(
+            "Creating Synthesizer with sample rate: {} and max polyphony: {}",
+            sample_rate, max_polyphony
+        );
         Self {
             voice_manager: VoiceManager::new(sample_rate, max_polyphony),
         }
