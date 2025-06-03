@@ -21,7 +21,7 @@ pub struct Voice {
     envelope: AdsrEnvelope,
     current_frequency: f32,
     active_waveform: ActiveWaveform,
-    sample_rate: f32, // Store sample rate for oscillator frequency updates
+    sample_rate: f32,    // Store sample rate for oscillator frequency updates
     note_id: Option<u8>, // Track which note is assigned to this voice
 }
 
@@ -469,7 +469,7 @@ mod tests {
         // If the first voice is active, output should not be zero (unless waveform is silent at a point)
         let synth3 = Synthesizer::new(TEST_SAMPLE_RATE);
         synth3.note_on(60, 440.0); // freq, gain
-                               // Process a few samples to ensure envelope is > 0
+                                   // Process a few samples to ensure envelope is > 0
         for _ in 0..((0.001 * TEST_SAMPLE_RATE) as usize) {
             // ~1ms
             let _ = synth3.next_sample();
