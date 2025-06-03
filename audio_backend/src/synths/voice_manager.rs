@@ -53,12 +53,12 @@ impl VoiceManager {
         waveform: Waveform,
     ) {
         let (attack, decay, sustain, release) = self.current_adsr_params();
-        if let Some(voice) = self.find_free_voice() {
+        if let Some(voice) = self.find_free_voice().as_deref_mut() {
             voice.set_adsr(attack, decay, sustain, release);
             voice.note_on(note, velocity, waveform);
         } else {
             // Voice stealing: replace the oldest active voice
-            if let Some(voice) = self.find_voice_to_steal() {
+            if let Some(voice) = self.find_voice_to_steal().as_deref_mut() {
                 voice.set_adsr(attack, decay, sustain, release);
                 voice.note_on(note, velocity, waveform);
             }
@@ -96,14 +96,18 @@ impl VoiceManager {
     }
 
     pub fn next_sample(&mut self) -> f32 {
-        let next_sample = if self.voices.is_empty() {
+        let next_sample = if self.voices.iter().filter(|v| v.is_active()).count() == 0 {
             0.0 // No voices to process
         } else {
             // Sum the samples from all active voices and normalize
 
+            println!(
+                "Calculating next sample for {} active voices",
+                self.voices.iter().filter(|v| v.is_active()).count()
+            );
             self.voices
                 .iter_mut()
-                .filter(|voice| voice.is_active())
+                .filter(|v| v.is_active())
                 .map(|voice| voice.next_sample())
                 .sum::<f32>()
                 .div(self.max_polyphony as f32) // Normalize by max polyphony

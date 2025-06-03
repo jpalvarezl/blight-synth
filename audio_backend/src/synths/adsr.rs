@@ -114,3 +114,97 @@ impl ADSR {
         self.state == ADSRState::Idle
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const SAMPLE_RATE: f32 = 44100.0;
+    const EPS: f32 = 1e-4;
+
+    #[test]
+    fn test_initial_state() {
+        let adsr = ADSR::new(SAMPLE_RATE);
+        assert_eq!(adsr.state, ADSRState::Idle);
+        assert!((adsr.current_amplitude - 0.0).abs() < EPS);
+    }
+
+    #[test]
+    fn test_attack_phase_reaches_peak() {
+        let mut adsr = ADSR::new(SAMPLE_RATE);
+        adsr.set_params(0.001, 0.1, 0.5, 0.1); // Fast attack
+        adsr.note_on();
+        let mut last = 0.0;
+        for _ in 0..(SAMPLE_RATE as usize) {
+            last = adsr.next_sample();
+            if adsr.state == ADSRState::Decay {
+                break;
+            }
+        }
+        assert!((last - 1.0).abs() < EPS, "Attack should reach peak amplitude");
+        assert_eq!(adsr.state, ADSRState::Decay);
+    }
+
+    #[test]
+    fn test_decay_phase_reaches_sustain() {
+        let mut adsr = ADSR::new(SAMPLE_RATE);
+        adsr.set_params(0.001, 0.001, 0.3, 0.1); // Fast attack/decay
+        adsr.note_on();
+        // Go through attack
+        for _ in 0..100 { adsr.next_sample(); if adsr.state == ADSRState::Decay { break; } }
+        // Go through decay
+        let mut last = 0.0;
+        for _ in 0..1000 {
+            last = adsr.next_sample();
+            if adsr.state == ADSRState::Sustain {
+                break;
+            }
+        }
+        assert!((last - 0.3).abs() < EPS, "Decay should reach sustain level");
+        assert_eq!(adsr.state, ADSRState::Sustain);
+    }
+
+    #[test]
+    fn test_sustain_holds() {
+        let mut adsr = ADSR::new(SAMPLE_RATE);
+        adsr.set_params(0.001, 0.001, 0.7, 0.1);
+        adsr.note_on();
+        // Go to sustain
+        for _ in 0..1000 { adsr.next_sample(); if adsr.state == ADSRState::Sustain { break; } }
+        let sustain_level = adsr.current_amplitude;
+        for _ in 0..100 {
+            let val = adsr.next_sample();
+            assert!((val - sustain_level).abs() < EPS, "Sustain should hold");
+        }
+    }
+
+    #[test]
+    fn test_release_to_idle() {
+        let mut adsr = ADSR::new(SAMPLE_RATE);
+        adsr.set_params(0.001, 0.001, 0.5, 0.001);
+        adsr.note_on();
+        // Go to sustain
+        for _ in 0..1000 { adsr.next_sample(); if adsr.state == ADSRState::Sustain { break; } }
+        adsr.note_off();
+        let mut last = adsr.current_amplitude;
+        for _ in 0..1000 {
+            last = adsr.next_sample();
+            if adsr.state == ADSRState::Idle { break; }
+        }
+        assert!((last - 0.0).abs() < EPS, "Release should reach zero");
+        assert_eq!(adsr.state, ADSRState::Idle);
+    }
+
+    #[test]
+    fn test_velocity_scaling() {
+        let mut adsr = ADSR::new(SAMPLE_RATE);
+        adsr.set_params(0.001, 0.1, 0.5, 0.1);
+        adsr.note_on_with_velocity(0.5);
+        let mut last = 0.0;
+        for _ in 0..1000 {
+            last = adsr.next_sample();
+            if adsr.state == ADSRState::Decay { break; }
+        }
+        assert!((last - 0.5).abs() < EPS, "Attack should reach velocity peak");
+    }
+}

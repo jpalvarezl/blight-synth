@@ -3,7 +3,7 @@
 //   - SIMD waveform generation
 //   - PolyBLEP for band-limited oscillators (avoids aliasing)
 
-use std::f32::consts::PI;
+use std::f32::consts::{PI,TAU}; 
 
 use crate::synths::waveform::Waveform;
 
@@ -38,17 +38,17 @@ impl Oscillator {
     }
 
     pub fn next_sample(&mut self) -> f32 {
-        let phase_inc = self.frequency * 2.0 * PI / self.sample_rate;
+        let phase_inc = self.frequency * TAU / self.sample_rate;
         let sample = match self.waveform {
             Waveform::Sine => (self.phase).sin(),
             Waveform::Square => if self.phase < PI { 1.0 } else { -1.0 },
-            Waveform::Sawtooth => 2.0 * (self.phase / (2.0 * PI)) - 1.0,
+            Waveform::Sawtooth => 2.0 * (self.phase / TAU) - 1.0,
             Waveform::Triangle => {
-                2.0 * (2.0 * (self.phase / (2.0 * PI)) - 1.0).abs() - 1.0
+                2.0 * (2.0 * (self.phase / TAU) - 1.0).abs() - 1.0
             }
         };
 
-        self.phase = (self.phase + phase_inc) % (2.0 * PI);
+        self.phase = (self.phase + phase_inc) % TAU;
         sample
     }
 }

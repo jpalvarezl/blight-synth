@@ -8,7 +8,6 @@ pub struct Voice {
     envelope: ADSR,
     note: Option<u8>,
     velocity: f32,
-    is_active: bool,
     start_time: u64,
 }
 
@@ -19,40 +18,35 @@ impl Voice {
             envelope: ADSR::new(sample_rate),
             note: None,
             velocity: 0.0,
-            is_active: false,
             start_time: 0,
         }
     }
 
     pub fn note_on(&mut self, note: u8, velocity: f32, waveform: Waveform) {
-        println!("Voice note_on: note: {}, velocity: {}, waveform: {:?}, is_active: {}", note, velocity, waveform, self.is_active);
+        println!("Voice note_on: note: {}, velocity: {}, waveform: {:?}", note, velocity, waveform);
         let freq = midi_note_to_freq(note);
 
         self.note = Some(note);
         self.velocity = velocity;
-        self.is_active = true;
         self.start_time = get_current_time(); // you provide this
 
         // Should we reset the oscillator phase? Probably not, as it can create clicks.
         // self.oscillator.reset();
         self.oscillator.set_waveform(waveform);
         self.oscillator.set_frequency(freq);
-        
+
+
         self.envelope.reset();
-        self.envelope.note_on_with_velocity(velocity); 
-        println!("Voice note_on: note: {}, velocity: {}, waveform: {:?}, is_active: {}", note, velocity, waveform, self.is_active);
-  
+        self.envelope.note_on_with_velocity(velocity);
     }
 
     pub fn note_off(&mut self) {
-        self.is_active = false;
-        self.note = None;
         self.envelope.note_off();
-        println!("Voice note_off: note: {:?}, envelope finished: {}, is_active: {}", self.note, self.envelope.is_finished(), self.is_active);
+        self.note = None;
     }
 
     pub fn is_active(&self) -> bool {
-        self.is_active// || !self.envelope.is_finished()
+        !self.envelope.is_finished()
     }
 
     pub fn is_playing(&self, note: u8) -> bool {
@@ -68,21 +62,15 @@ impl Voice {
     }
 
     pub fn next_sample(&mut self) -> f32 {
-        if !self.is_active {
-            println!("Voice is not active, returning 0.0");
-            return 0.0;
-        }
-
-        // let env = self.envelope.next_sample();
+        let env = self.envelope.next_sample();
         let sample = self.oscillator.next_sample();
 
         if self.envelope.is_finished() {
-            self.is_active = false;
             self.note = None;
+            0.0
+        } else {
+            sample * env * self.velocity
         }
-        
-        // sample * env * self.velocity
-        sample
     }
 }
 
