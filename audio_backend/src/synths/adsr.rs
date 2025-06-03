@@ -7,6 +7,7 @@ enum ADSRState {
     Release,
 }
 
+#[derive(Debug, Clone)]
 pub struct ADSR {
     state: ADSRState,
     sample_rate: f32,

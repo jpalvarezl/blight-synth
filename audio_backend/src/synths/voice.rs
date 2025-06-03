@@ -1,5 +1,8 @@
+use std::time::Instant;
+
 use crate::synths::{adsr::ADSR, new_oscillator::Oscillator, waveform::Waveform};
 
+#[derive(Debug, Clone)]
 pub struct Voice {
     oscillator: Oscillator,
     envelope: ADSR,
@@ -82,5 +85,5 @@ fn midi_note_to_freq(note: u8) -> f32 {
 // You provide this depending on your context
 fn get_current_time() -> u64 {
     // Can be a global audio frame counter, or std::time::Instant duration in frames
-    0
+    Instant::now().elapsed().as_secs()
 }

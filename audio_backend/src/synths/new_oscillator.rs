@@ -7,6 +7,7 @@ use std::f32::consts::PI;
 
 use crate::synths::waveform::Waveform;
 
+#[derive(Debug, Clone)]
 pub struct Oscillator {
     waveform: Waveform,
     frequency: f32,

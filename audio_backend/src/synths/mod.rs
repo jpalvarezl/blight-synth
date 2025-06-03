@@ -2,7 +2,7 @@ pub mod oscillator;
 pub mod synthesizer;
 
 mod adsr;
-mod new_synthesizer;
+pub mod new_synthesizer;
 mod new_oscillator;
 pub mod voice_manager;
 pub mod waveform;

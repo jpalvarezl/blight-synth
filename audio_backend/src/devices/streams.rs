@@ -1,15 +1,15 @@
-use std::sync::Arc; // Removed Mutex
+use std::sync::{Arc, Mutex};
 
 use cpal::traits::{HostTrait, StreamTrait};
 use cpal::{traits::DeviceTrait, FromSample, Sample};
 use cpal::{SizedSample, Stream};
 
-use crate::synths::synthesizer::Synthesizer; // Import Synthesizer, removed Voice
+use crate::synths::new_synthesizer::Synthesizer; // Import Synthesizer, removed Voice
 
 // This function sets up and runs the CPAL audio stream.
 // It takes the synthesizer as input.
 // It returns the Stream object, which must be kept alive for audio to play.
-pub fn run_audio_engine(synth: Arc<Synthesizer>) -> anyhow::Result<Stream> {
+pub fn run_audio_engine(synth: Arc<Mutex<Synthesizer>>) -> anyhow::Result<Stream> {
     // --- CPAL Setup ---
     let host = cpal::default_host();
     let device = host
@@ -55,10 +55,12 @@ pub fn run_audio_engine(synth: Arc<Synthesizer>) -> anyhow::Result<Stream> {
     Ok(stream) // Return the stream
 }
 
+
+// For more advanced use: use lock-free ring buffers (e.g., ringbuf crate) to pass samples across threads.
 fn setup_stream_for<T>(
     device: &cpal::Device,
     config: &cpal::StreamConfig,
-    synth: Arc<Synthesizer>, // Changed to Arc<Synthesizer>
+    synth: Arc<Mutex<Synthesizer>>,
 ) -> Result<cpal::Stream, anyhow::Error>
 where
     T: SizedSample + FromSample<f32>,
@@ -69,7 +71,11 @@ where
     let stream = device.build_output_stream(
         config,
         move |data: &mut [T], _: &cpal::OutputCallbackInfo| {
-            write_data(data, channels, &synth); // Pass the synthesizer Arc
+            let next_sample = {
+                let mut synth = synth.lock().expect("Failed to lock synthesizer");
+                synth.next_sample()
+            };
+            write_data(data, channels, next_sample); // Pass the synthesizer Arc
         },
         err_fn,
         None,
@@ -81,7 +87,7 @@ where
 fn write_data<T>(
     output: &mut [T],
     channels: usize,
-    synth: &Arc<Synthesizer>, // Changed to &Arc<Synthesizer>
+    next_sample: f32,
 ) where
     T: Sample + FromSample<f32>,
 {
@@ -89,7 +95,7 @@ fn write_data<T>(
     // It currently sums the output of its voices (or just the first one).
     for frame in output.chunks_mut(channels) {
         // Get the next sample value from the synthesizer.
-        let value = synth.next_sample();
+        let value = next_sample;
 
         // Convert to the target sample format T and write to output channels
         let sample: T = T::from_sample(value);
