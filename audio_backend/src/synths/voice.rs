@@ -102,7 +102,7 @@ fn midi_note_to_freq(note: u8) -> f32 {
     let freq = A4_FREQ * (2.0_f32).powf((note as f32 - A4_NOTE) / SEMITONES_PER_OCTAVE);
     
     // Debug output to verify frequency calculation
-    println!("🎵 MIDI Note {} -> {:.2} Hz", note, freq);
+    // println!("🎵 MIDI Note {} -> {:.2} Hz", note, freq);
     
     freq
 }

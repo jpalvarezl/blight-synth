@@ -21,6 +21,7 @@ pub fn set_waveform(waveform: String, synthesizer_state: State<SynthesizerState>
 pub fn play_midi_note(midi_value: u8, synthesizer_state: State<SynthesizerState>) {
     let velocity = 1.0;
     let mut synthesizer = synthesizer_state.0.lock().expect("Failed to lock synthesizer state");
+    println!("Playing MIDI note: {}", midi_value);
     synthesizer.note_on(midi_value, velocity);
 }
 
