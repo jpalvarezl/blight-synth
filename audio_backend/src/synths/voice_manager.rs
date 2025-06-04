@@ -55,8 +55,8 @@ impl VoiceManager {
         velocity: f32,
         waveform: Waveform,
     ) {
-        println!("[VoiceManager] note_on_with_velocity_and_waveform on instance {:p}: note={}, velocity={}", 
-                 self as *const _, note, velocity);
+        // println!("[VoiceManager] note_on_with_velocity_and_waveform on instance {:p}: note={}, velocity={}", 
+        //          self as *const _, note, velocity);
         let (attack, decay, sustain, release) = self.current_adsr_params();
         // println!("[VoiceManager] ADSR params: attack={}, decay={}, sustain={}, release={}", attack, decay, sustain, release);
         
