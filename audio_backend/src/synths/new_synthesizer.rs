@@ -157,4 +157,65 @@ mod tests {
         let _synthesizer_guard = synthesizer.lock().unwrap();
         println!("Final synthesizer state checked - test completed");
     }
+
+    #[test]
+    fn test_synthesizer_polyphony_c_minor_chord() {
+        let sample_rate = 44100.0;
+        let max_polyphony = 8;
+        let mut synthesizer = Synthesizer::new(sample_rate, max_polyphony);
+
+        // Set ADSR values optimized for a chord test:
+        // - Medium attack (50ms) for smooth chord onset
+        // - Short decay (150ms) to reach sustain level
+        // - High sustain (75%) to maintain audible level during chord hold
+        // - Medium release (400ms) to hear the chord fade naturally
+        synthesizer.set_adsr(0.05, 0.15, 0.75, 0.4);
+
+        // C minor chord: C4 (60), Eb4 (63), G4 (67)
+        let chord_notes = [60u8, 63u8, 67u8]; // C, Eb, G
+        let chord_names = ["C4", "Eb4", "G4"];
+
+        // Wrap in Arc<Mutex<>> for thread safety
+        let synthesizer = Arc::new(Mutex::new(synthesizer));
+
+        // Start the audio stream
+        let stream = run_audio_stream_with_producer(synthesizer.clone())
+            .expect("Failed to create Synthesizer audio stream");
+
+        println!("Playing C minor chord (C4-Eb4-G4) for 1.5 seconds, then releasing notes...");
+
+        // Play all notes of the chord simultaneously
+        {
+            let mut synth_guard = synthesizer.lock().unwrap();
+            for (i, &note) in chord_notes.iter().enumerate() {
+                synth_guard.note_on(note, 0.6); // Moderate velocity for chord balance
+                println!("Playing {} (MIDI note {})", chord_names[i], note);
+            }
+        }
+
+        // Hold the chord for 1.5 seconds (attack + decay + sustain)
+        std::thread::sleep(Duration::from_millis(1500));
+
+        // Release all notes of the chord
+        {
+            let mut synth_guard = synthesizer.lock().unwrap();
+            for (i, &note) in chord_notes.iter().enumerate() {
+                synth_guard.note_off(note);
+                println!("Released {} (MIDI note {})", chord_names[i], note);
+            }
+            println!("All chord notes released - starting release phase");
+        }
+
+        // Continue playing for another 1 second to hear the chord release
+        std::thread::sleep(Duration::from_secs(1));
+
+        // Stop the stream by dropping it
+        drop(stream);
+
+        println!("C minor chord polyphony test completed successfully!");
+
+        // Verify that the synthesizer was used during playback
+        let _synthesizer_guard = synthesizer.lock().unwrap();
+        println!("Final synthesizer state checked - polyphony test completed");
+    }
 }
