@@ -64,27 +64,27 @@ impl ADSR {
         self.current_amplitude = 0.0; // Reset amplitude to start attack from zero
         self.state = ADSRState::Attack;
         self.step = self.peak_amplitude / (self.attack_time * self.sample_rate);
-        println!("[ADSR] note_on_with_velocity: velocity={}, peak_amplitude={}, step={}, attack_time={}, sample_rate={}", 
-                 velocity, self.peak_amplitude, self.step, self.attack_time, self.sample_rate);
+        // println!("[ADSR] note_on_with_velocity: velocity={}, peak_amplitude={}, step={}, attack_time={}, sample_rate={}", 
+        //          velocity, self.peak_amplitude, self.step, self.attack_time, self.sample_rate);
     }
 
     pub fn note_off(&mut self) {
         if self.state != ADSRState::Idle {
-            println!("[ADSR] note_off called: current_state={:?}, current_amplitude={}", self.state, self.current_amplitude);
+            // println!("[ADSR] note_off called: current_state={:?}, current_amplitude={}", self.state, self.current_amplitude);
             self.state = ADSRState::Release;
             // Calculate step based on current amplitude, not sustain target
             // This ensures proper release regardless of what state we were in
             self.step = self.current_amplitude / (self.release_time * self.sample_rate);
-            println!("[ADSR] note_off: current_amplitude={}, release_time={}, sample_rate={}, calculated_step={}", 
-                     self.current_amplitude, self.release_time, self.sample_rate, self.step);
-            println!("[ADSR] note_off: denominator = release_time * sample_rate = {} * {} = {}", 
-                     self.release_time, self.sample_rate, self.release_time * self.sample_rate);
+            // println!("[ADSR] note_off: current_amplitude={}, release_time={}, sample_rate={}, calculated_step={}", 
+            //          self.current_amplitude, self.release_time, self.sample_rate, self.step);
+            // println!("[ADSR] note_off: denominator = release_time * sample_rate = {} * {} = {}", 
+            //          self.release_time, self.sample_rate, self.release_time * self.sample_rate);
         }
     }
 
     pub fn next_sample(&mut self) -> f32 {
-        println!("[ADSR] next_sample called: state={:?}, current_amplitude={}, step={}", 
-                 self.state, self.current_amplitude, self.step);
+        // println!("[ADSR] next_sample called: state={:?}, current_amplitude={}, step={}", 
+                //  self.state, self.current_amplitude, self.step);
 
         let old_state = self.state;
         match self.state {
@@ -98,7 +98,7 @@ impl ADSR {
                     self.state = ADSRState::Decay;
                     let delta = self.peak_amplitude - (self.peak_amplitude * self.sustain_level);
                     self.step = delta / (self.decay_time * self.sample_rate);
-                    println!("[ADSR] Attack->Decay: amplitude={}, new_step={}", self.current_amplitude, self.step);
+                    // println!("[ADSR] Attack->Decay: amplitude={}, new_step={}", self.current_amplitude, self.step);
                 }
             }
             ADSRState::Decay => {
@@ -107,7 +107,7 @@ impl ADSR {
                 if self.current_amplitude <= sustain_target {
                     self.current_amplitude = sustain_target;
                     self.state = ADSRState::Sustain;
-                    println!("[ADSR] Decay->Sustain: amplitude={}", self.current_amplitude);
+                    // println!("[ADSR] Decay->Sustain: amplitude={}", self.current_amplitude);
                 }
             }
             ADSRState::Sustain => {
@@ -120,14 +120,14 @@ impl ADSR {
                 if self.current_amplitude <= MIN_AMPLITUDE {
                     self.current_amplitude = 0.0;
                     self.state = ADSRState::Idle;
-                    println!("[ADSR] Release->Idle: amplitude={} (hit minimum threshold)", self.current_amplitude);
+                    // println!("[ADSR] Release->Idle: amplitude={} (hit minimum threshold)", self.current_amplitude);
                 }
             }
         }
 
-        if old_state != self.state {
-            println!("[ADSR] State change: {:?} -> {:?}, amplitude={}", old_state, self.state, self.current_amplitude);
-        }
+        // if old_state != self.state {
+        //     println!("[ADSR] State change: {:?} -> {:?}, amplitude={}", old_state, self.state, self.current_amplitude);
+        // }
 
         self.current_amplitude
     }

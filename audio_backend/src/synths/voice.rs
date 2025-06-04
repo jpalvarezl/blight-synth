@@ -2,6 +2,14 @@ use std::time::Instant;
 
 use crate::synths::{adsr::ADSR, new_oscillator::Oscillator, waveform::Waveform};
 
+#[cfg(test)]
+use {
+    crate::test::audio_backend_utils::{SampleProducer, run_audio_stream_with_producer},
+    std::sync::{Arc, Mutex},
+    std::thread,
+    std::time::Duration,
+};
+
 #[derive(Debug, Clone)]
 pub struct Voice {
     oscillator: Oscillator,
@@ -40,15 +48,15 @@ impl Voice {
     }
 
     pub fn note_off(&mut self) {
-        println!("[Voice] note_off called");
+        // println!("[Voice] note_off called");
         self.envelope.note_off();
         // Don't clear note here - let it clear when envelope finishes
     }
 
     pub fn is_active(&self) -> bool {
         let active = !self.envelope.is_finished();
-        println!("[Voice] is_active check: note={:?}, envelope_finished={}, returning={}", 
-                 self.note, self.envelope.is_finished(), active);
+        // println!("[Voice] is_active check: note={:?}, envelope_finished={}, returning={}", 
+        //          self.note, self.envelope.is_finished(), active);
         active
     }
 
@@ -68,12 +76,12 @@ impl Voice {
         let env = self.envelope.next_sample();
         let sample = self.oscillator.next_sample();
 
-        println!("[Voice] next_sample: note={:?}, env={}, sample={}, velocity={}, is_finished={}", 
-                 self.note, env, sample, self.velocity, self.envelope.is_finished());
+        // println!("[Voice] next_sample: note={:?}, env={}, sample={}, velocity={}, is_finished={}", 
+        //          self.note, env, sample, self.velocity, self.envelope.is_finished());
 
         if self.envelope.is_finished() {
             if self.note.is_some() {
-                println!("[Voice] Clearing note - envelope finished");
+                // println!("[Voice] Clearing note - envelope finished");
             }
             self.note = None;
             0.0
@@ -108,6 +116,10 @@ fn get_current_time() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test::audio_backend_utils::run_audio_stream_with_producer;
+    use std::sync::{Arc, Mutex};
+    use std::thread;
+    use std::time::Duration;
 
     #[test]
     fn test_midi_note_to_freq() {
@@ -136,5 +148,82 @@ mod tests {
         let a4 = midi_note_to_freq(69);  // A4
         let a5 = midi_note_to_freq(81);  // A5 (one octave higher)
         assert!((a5 / a4 - 2.0).abs() < 0.001); // Should be exactly 2x
+    }
+
+    #[test]
+    fn test_voice_sine_audio() {
+        println!("🎵 Testing Voice with Sine Wave - 440 Hz for 1 second");
+        
+        let mut voice = Voice::new(44100.0);
+        voice.note_on(69, 0.5, Waveform::Sine); // A4 (440 Hz) with 50% velocity
+        
+        let voice_arc = Arc::new(Mutex::new(voice));
+        
+        match run_audio_stream_with_producer(voice_arc) {
+            Ok(stream) => {
+                println!("🔊 Playing Voice sine wave at 440 Hz...");
+                thread::sleep(Duration::from_secs(1));
+                drop(stream);
+                println!("✅ Voice sine wave test completed");
+            },
+            Err(e) => {
+                eprintln!("❌ Failed to create audio stream: {}", e);
+                panic!("Audio test failed");
+            }
+        }
+    }
+
+    #[test]
+    fn test_voice_adsr_envelope_audio() {
+        println!("🎵 Testing Voice with ADSR Envelope - 440 Hz with attack/decay/sustain/release");
+        
+        let mut voice = Voice::new(44100.0);
+        
+        // Set ADSR parameters: 0.3s attack, 0.4s decay, 0.6 sustain level, 0.5s release
+        voice.set_adsr(0.3, 0.4, 0.6, 0.5);
+        
+        // Start the note with A4 (440 Hz) at 80% velocity
+        voice.note_on(69, 0.8, Waveform::Sine);
+        
+        let voice_arc = Arc::new(Mutex::new(voice));
+        
+        match run_audio_stream_with_producer(voice_arc.clone()) {
+            Ok(stream) => {
+                // println!("🔊 Playing Voice with ADSR envelope...");
+                
+                // Let it play through attack and decay phases (0.7s total)
+                // println!("📈 Attack and Decay phases (0.7s)...");
+                // thread::sleep(Duration::from_millis(700));
+                
+                // Now in sustain phase - play for a bit
+                // println!("🔄 Sustain phase (0.5s)...");
+                thread::sleep(Duration::from_millis(500));
+                
+                // Trigger note off to start release phase
+                println!("📉 Starting release phase...");
+                {
+                    let mut voice = voice_arc.lock().unwrap();
+                    voice.note_off();
+                }
+                
+                // Let release phase complete (0.5s)
+                println!("📉 Release phase (0.5s)...");
+                thread::sleep(Duration::from_millis(2000));
+                
+                drop(stream);
+                println!("✅ Voice ADSR envelope test completed");
+            },
+            Err(e) => {
+                eprintln!("❌ Failed to create audio stream: {}", e);
+                panic!("Audio test failed");
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+impl crate::test::audio_backend_utils::SampleProducer for Voice {
+    fn next_sample(&mut self) -> f32 {
+        self.next_sample()
     }
 }

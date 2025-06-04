@@ -66,10 +66,10 @@ impl Oscillator {
         };
 
         // Debug output to see what's happening - include more info
-        if self.phase < phase_inc * 2.0 { // Print at start of each cycle
-            println!("🎵 Oscillator: waveform={:?}, freq={:.1}Hz, phase={:.6}, phase_inc={:.6}, sample={:.4}", 
-                self.waveform, self.frequency, self.phase, phase_inc, sample);
-        }
+        // if self.phase < phase_inc * 2.0 { // Print at start of each cycle
+        //     println!("🎵 Oscillator: waveform={:?}, freq={:.1}Hz, phase={:.6}, phase_inc={:.6}, sample={:.4}", 
+        //         self.waveform, self.frequency, self.phase, phase_inc, sample);
+        // }
 
         // More precise phase accumulation to avoid floating point drift
         self.phase += phase_inc;

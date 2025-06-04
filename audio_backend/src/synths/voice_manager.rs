@@ -58,22 +58,22 @@ impl VoiceManager {
         println!("[VoiceManager] note_on_with_velocity_and_waveform on instance {:p}: note={}, velocity={}", 
                  self as *const _, note, velocity);
         let (attack, decay, sustain, release) = self.current_adsr_params();
-        println!("[VoiceManager] ADSR params: attack={}, decay={}, sustain={}, release={}", attack, decay, sustain, release);
+        // println!("[VoiceManager] ADSR params: attack={}, decay={}, sustain={}, release={}", attack, decay, sustain, release);
         
         if let Some(voice) = self.find_free_voice() {
-            println!("[VoiceManager] Found free voice, triggering note");
+            // println!("[VoiceManager] Found free voice, triggering note");
             voice.set_adsr(attack, decay, sustain, release);
             voice.note_on(note, velocity, waveform);
-            println!("[VoiceManager] Voice activated, is_active={}", voice.is_active());
+            // println!("[VoiceManager] Voice activated, is_active={}", voice.is_active());
         } else {
             // Voice stealing: replace the oldest active voice
-            println!("[VoiceManager] No free voice, attempting voice stealing");
+            // println!("[VoiceManager] No free voice, attempting voice stealing");
             if let Some(voice) = self.find_voice_to_steal() {
                 voice.set_adsr(attack, decay, sustain, release);
                 voice.note_on(note, velocity, waveform);
-                println!("[VoiceManager] Voice stolen and activated, is_active={}", voice.is_active());
+                // println!("[VoiceManager] Voice stolen and activated, is_active={}", voice.is_active());
             } else {
-                println!("[VoiceManager] No voice available for stealing!");
+                // println!("[VoiceManager] No voice available for stealing!");
             }
         }
     }
@@ -109,15 +109,15 @@ impl VoiceManager {
     }
 
     pub fn next_sample(&mut self) -> f32 {
-        println!("[VoiceManager] next_sample called on instance {:p}", self as *const _);
+        // println!("[VoiceManager] next_sample called on instance {:p}", self as *const _);
         let active_count = self.voices.iter().filter(|v| v.is_active()).count();
-        println!("[VoiceManager] Active voices: {}", active_count);
+        // println!("[VoiceManager] Active voices: {}", active_count);
         
         let next_sample = if active_count == 0 {
             0.0 // No voices to process
         } else {
             // Sum the samples from all active voices and normalize
-            println!("Calculating next sample for {} active voices", active_count);
+            // println!("Calculating next sample for {} active voices", active_count);
             self.voices
                 .iter_mut()
                 .filter(|v| v.is_active())
@@ -130,16 +130,16 @@ impl VoiceManager {
     }
 
     fn find_free_voice(&mut self) -> Option<&mut Voice> {
-        println!("[VoiceManager] Looking for free voice among {} voices", self.voices.len());
-        for (i, voice) in self.voices.iter().enumerate() {
-            println!("[VoiceManager] Voice {}: is_active={}", i, voice.is_active());
-        }
+        // println!("[VoiceManager] Looking for free voice among {} voices", self.voices.len());
+        // for (i, voice) in self.voices.iter().enumerate() {
+        //     println!("[VoiceManager] Voice {}: is_active={}", i, voice.is_active());
+        // }
         let free_voice = self.voices.iter_mut().find(|v| !v.is_active());
-        if free_voice.is_some() {
-            println!("[VoiceManager] Found free voice");
-        } else {
-            println!("[VoiceManager] No free voice found");
-        }
+        // if free_voice.is_some() {
+        //     println!("[VoiceManager] Found free voice");
+        // } else {
+        //     println!("[VoiceManager] No free voice found");
+        // }
         free_voice
     }
 
@@ -286,7 +286,7 @@ mod tests {
         println!("VoiceManager audio test completed successfully!");
         
         // Verify that at least one voice was active during playback
-        let voice_manager_guard = voice_manager.lock().unwrap();
+        let _voice_manager_guard = voice_manager.lock().unwrap();
         println!("Final voice manager state checked - test completed");
     }
 }
