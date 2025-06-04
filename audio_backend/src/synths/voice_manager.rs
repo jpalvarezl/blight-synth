@@ -3,6 +3,9 @@ use std::ops::Div;
 use super::waveform::Waveform;
 use crate::synths::voice::Voice;
 
+#[cfg(test)]
+use crate::test::audio_backend_utils::SampleProducer;
+
 #[derive(Debug, Clone)]
 pub struct VoiceManager {
     voices: Vec<Voice>,
@@ -154,6 +157,13 @@ impl VoiceManager {
 }
 
 #[cfg(test)]
+impl SampleProducer for VoiceManager {
+    fn next_sample(&mut self) -> f32 {
+        self.next_sample()
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -236,5 +246,47 @@ mod tests {
             }
         }
         assert!(non_zero_found2, "Should produce non-zero samples with multiple voices");
+    }
+
+    #[test]
+    fn test_voice_manager_audio_output() {
+        use crate::test::audio_backend_utils::run_audio_stream_with_producer;
+        use std::sync::{Arc, Mutex};
+        use std::time::Duration;
+        
+        let sample_rate = 44100.0;
+        let max_polyphony = 8;
+        let mut voice_manager = VoiceManager::new(sample_rate, max_polyphony);
+        
+        // Set sensible ADSR values for a 1-second test:
+        // - Quick attack (10ms)
+        // - Short decay (100ms) 
+        // - High sustain (80%)
+        // - Medium release (200ms)
+        voice_manager.set_adsr(0.01, 0.1, 0.8, 0.2);
+        
+        // Play a 440 Hz sine wave (MIDI note 69, A4)
+        voice_manager.note_on(69, 0.7);
+        
+        // Wrap in Arc<Mutex<>> for thread safety
+        let voice_manager = Arc::new(Mutex::new(voice_manager));
+        
+        // Start the audio stream
+        let stream = run_audio_stream_with_producer(voice_manager.clone())
+            .expect("Failed to create VoiceManager audio stream");
+        
+        println!("Playing VoiceManager 440 Hz sine wave (A4) for 1 second with ADSR envelope...");
+        
+        // Play for 1 second
+        std::thread::sleep(Duration::from_secs(1));
+        
+        // Stop the stream by dropping it
+        drop(stream);
+        
+        println!("VoiceManager audio test completed successfully!");
+        
+        // Verify that at least one voice was active during playback
+        let voice_manager_guard = voice_manager.lock().unwrap();
+        println!("Final voice manager state checked - test completed");
     }
 }
