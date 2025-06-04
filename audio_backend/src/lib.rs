@@ -6,6 +6,9 @@ pub mod devices;
 pub mod envelope;
 pub mod synths; // Add the new module
 
+#[cfg(test)]
+mod test;
+
 type Result<T> = anyhow::Result<T, anyhow::Error>;
 
 pub fn start_audio_thread(synth: Arc<Mutex<Synthesizer>>) {

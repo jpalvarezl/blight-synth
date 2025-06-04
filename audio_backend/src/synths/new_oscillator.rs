@@ -7,6 +7,14 @@ use std::f32::consts::{PI,TAU};
 
 use crate::synths::waveform::Waveform;
 
+#[cfg(test)]
+use {
+    crate::test::audio_backend_utils::{SampleProducer, run_audio_stream_with_producer},
+    std::sync::{Arc, Mutex},
+    std::thread,
+    std::time::Duration,
+};
+
 #[derive(Debug, Clone)]
 pub struct Oscillator {
     waveform: Waveform,
@@ -73,6 +81,12 @@ impl Oscillator {
     }
 }
 
+#[cfg(test)]
+impl SampleProducer for Oscillator {
+    fn next_sample(&mut self) -> f32 {
+        self.next_sample() * 0.1 // Reduce amplitude to prevent loud output
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -159,5 +173,101 @@ mod tests {
         assert_ne!(s_sine, s_square);
         assert_ne!(s_square, s_saw);
         assert_ne!(s_saw, s_tri);
+    }
+
+    #[test]
+    fn test_sine_oscillator_audio() {
+        println!("🎵 Testing Sine Oscillator - 440 Hz for 1 second");
+        
+        let mut osc = Oscillator::new(44100.0);
+        osc.set_waveform(Waveform::Sine);
+        osc.set_frequency(440.0);
+        
+        let oscillator = Arc::new(Mutex::new(osc));
+        
+        match run_audio_stream_with_producer(oscillator) {
+            Ok(stream) => {
+                println!("🔊 Playing Sine wave at 440 Hz...");
+                thread::sleep(Duration::from_secs(1));
+                drop(stream);
+                println!("✅ Sine wave test completed");
+            },
+            Err(e) => {
+                eprintln!("❌ Failed to create audio stream: {}", e);
+                panic!("Audio test failed");
+            }
+        }
+    }
+
+    #[test]
+    fn test_square_oscillator_audio() {
+        println!("🎵 Testing Square Oscillator - 440 Hz for 1 second");
+        
+        let mut osc = Oscillator::new(44100.0);
+        osc.set_waveform(Waveform::Square);
+        osc.set_frequency(440.0);
+        
+        let oscillator = Arc::new(Mutex::new(osc));
+        
+        match run_audio_stream_with_producer(oscillator) {
+            Ok(stream) => {
+                println!("🔊 Playing Square wave at 440 Hz...");
+                thread::sleep(Duration::from_secs(1));
+                drop(stream);
+                println!("✅ Square wave test completed");
+            },
+            Err(e) => {
+                eprintln!("❌ Failed to create audio stream: {}", e);
+                panic!("Audio test failed");
+            }
+        }
+    }
+
+    #[test]
+    fn test_triangle_oscillator_audio() {
+        println!("🎵 Testing Triangle Oscillator - 440 Hz for 1 second");
+        
+        let mut osc = Oscillator::new(44100.0);
+        osc.set_waveform(Waveform::Triangle);
+        osc.set_frequency(440.0);
+        
+        let oscillator = Arc::new(Mutex::new(osc));
+        
+        match run_audio_stream_with_producer(oscillator) {
+            Ok(stream) => {
+                println!("🔊 Playing Triangle wave at 440 Hz...");
+                thread::sleep(Duration::from_secs(1));
+                drop(stream);
+                println!("✅ Triangle wave test completed");
+            },
+            Err(e) => {
+                eprintln!("❌ Failed to create audio stream: {}", e);
+                panic!("Audio test failed");
+            }
+        }
+    }
+
+    #[test]
+    fn test_sawtooth_oscillator_audio() {
+        println!("🎵 Testing Sawtooth Oscillator - 440 Hz for 1 second");
+        
+        let mut osc = Oscillator::new(44100.0);
+        osc.set_waveform(Waveform::Sawtooth);
+        osc.set_frequency(440.0);
+        
+        let oscillator = Arc::new(Mutex::new(osc));
+        
+        match run_audio_stream_with_producer(oscillator) {
+            Ok(stream) => {
+                println!("🔊 Playing Sawtooth wave at 440 Hz...");
+                thread::sleep(Duration::from_secs(1));
+                drop(stream);
+                println!("✅ Sawtooth wave test completed");
+            },
+            Err(e) => {
+                eprintln!("❌ Failed to create audio stream: {}", e);
+                panic!("Audio test failed");
+            }
+        }
     }
 }
