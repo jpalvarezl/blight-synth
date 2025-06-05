@@ -1,29 +1,21 @@
-use crate::SynthesizerState;
+use crate::AudioEngineState;
 
 #[tauri::command]
-pub fn set_attack(value: f32, synthesizer_state: tauri::State<SynthesizerState>) {
-    let mut synthesizer = synthesizer_state.0.lock().expect("Failed to lock synthesizer state");
-    let (_, decay, sustain, release) = synthesizer.current_adsr_params();
-    synthesizer.set_adsr(value, decay, sustain, release);
+pub fn set_attack(value: f32, audio_engine_state: tauri::State<AudioEngineState>) {
+    audio_engine_state.0.set_attack(value);
 }
 
 #[tauri::command]
-pub fn set_decay(value: f32, synthesizer_state: tauri::State<SynthesizerState>) {
-    let mut synthesizer = synthesizer_state.0.lock().expect("Failed to lock synthesizer state");
-    let (attack, _, sustain, release) = synthesizer.current_adsr_params();
-    synthesizer.set_adsr(attack, value, sustain, release);
+pub fn set_decay(value: f32, audio_engine_state: tauri::State<AudioEngineState>) {
+    audio_engine_state.0.set_decay(value);
 }
 
 #[tauri::command]
-pub fn set_sustain(value: f32, synthesizer_state: tauri::State<SynthesizerState>) {
-    let mut synthesizer = synthesizer_state.0.lock().expect("Failed to lock synthesizer state");
-    let (attack, decay, _, release) = synthesizer.current_adsr_params();
-    synthesizer.set_adsr(attack, decay, value, release);
+pub fn set_sustain(value: f32, audio_engine_state: tauri::State<AudioEngineState>) {
+    audio_engine_state.0.set_sustain(value);
 }
 
 #[tauri::command]
-pub fn set_release(value: f32, synthesizer_state: tauri::State<SynthesizerState>) {
-    let mut synthesizer = synthesizer_state.0.lock().expect("Failed to lock synthesizer state");
-    let (attack, decay, sustain, _) = synthesizer.current_adsr_params();
-    synthesizer.set_adsr(attack, decay, sustain, value);
+pub fn set_release(value: f32, audio_engine_state: tauri::State<AudioEngineState>) {
+    audio_engine_state.0.set_release(value);
 }

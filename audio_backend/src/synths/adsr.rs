@@ -1,3 +1,5 @@
+use log::debug;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum ADSRState {
     Idle,
@@ -64,29 +66,27 @@ impl ADSR {
         self.current_amplitude = 0.0; // Reset amplitude to start attack from zero
         self.state = ADSRState::Attack;
         self.step = self.peak_amplitude / (self.attack_time * self.sample_rate);
-        // println!("[ADSR] note_on_with_velocity: velocity={}, peak_amplitude={}, step={}, attack_time={}, sample_rate={}", 
-        //          velocity, self.peak_amplitude, self.step, self.attack_time, self.sample_rate);
+        debug!("[ADSR] note_on_with_velocity: velocity={}, peak_amplitude={}, step={}, attack_time={}, sample_rate={}",
+                 velocity, self.peak_amplitude, self.step, self.attack_time, self.sample_rate);
     }
 
     pub fn note_off(&mut self) {
         if self.state != ADSRState::Idle {
-            // println!("[ADSR] note_off called: current_state={:?}, current_amplitude={}", self.state, self.current_amplitude);
             self.state = ADSRState::Release;
             // Calculate step based on current amplitude, not sustain target
             // This ensures proper release regardless of what state we were in
             self.step = self.current_amplitude / (self.release_time * self.sample_rate);
-            // println!("[ADSR] note_off: current_amplitude={}, release_time={}, sample_rate={}, calculated_step={}", 
-            //          self.current_amplitude, self.release_time, self.sample_rate, self.step);
-            // println!("[ADSR] note_off: denominator = release_time * sample_rate = {} * {} = {}", 
-            //          self.release_time, self.sample_rate, self.release_time * self.sample_rate);
+            debug!("[ADSR] note_off: current_amplitude={}, release_time={}, sample_rate={}, calculated_step={}",
+                     self.current_amplitude, self.release_time, self.sample_rate, self.step);
         }
     }
 
     pub fn next_sample(&mut self) -> f32 {
-        // println!("[ADSR] next_sample called: state={:?}, current_amplitude={}, step={}", 
-                //  self.state, self.current_amplitude, self.step);
-
         let old_state = self.state;
+        debug!(
+            "[ADSR] next_sample: state={:?}, current_amplitude={}, step={}",
+            self.state, self.current_amplitude, self.step
+        );
         match self.state {
             ADSRState::Idle => {
                 self.current_amplitude = 0.0;
@@ -98,7 +98,10 @@ impl ADSR {
                     self.state = ADSRState::Decay;
                     let delta = self.peak_amplitude - (self.peak_amplitude * self.sustain_level);
                     self.step = delta / (self.decay_time * self.sample_rate);
-                    // println!("[ADSR] Attack->Decay: amplitude={}, new_step={}", self.current_amplitude, self.step);
+                    debug!(
+                        "[ADSR] Attack->Decay: amplitude={}, new_step={}",
+                        self.current_amplitude, self.step
+                    );
                 }
             }
             ADSRState::Decay => {
@@ -107,7 +110,10 @@ impl ADSR {
                 if self.current_amplitude <= sustain_target {
                     self.current_amplitude = sustain_target;
                     self.state = ADSRState::Sustain;
-                    // println!("[ADSR] Decay->Sustain: amplitude={}", self.current_amplitude);
+                    debug!(
+                        "[ADSR] Decay->Sustain: amplitude={}",
+                        self.current_amplitude
+                    );
                 }
             }
             ADSRState::Sustain => {
@@ -120,15 +126,19 @@ impl ADSR {
                 if self.current_amplitude <= MIN_AMPLITUDE {
                     self.current_amplitude = 0.0;
                     self.state = ADSRState::Idle;
-                    // println!("[ADSR] Release->Idle: amplitude={} (hit minimum threshold)", self.current_amplitude);
+                    debug!(
+                        "[ADSR] Release->Idle: amplitude={} (hit minimum threshold)",
+                        self.current_amplitude
+                    );
                 }
             }
         }
-
-        // if old_state != self.state {
-        //     println!("[ADSR] State change: {:?} -> {:?}, amplitude={}", old_state, self.state, self.current_amplitude);
-        // }
-
+        if old_state != self.state {
+            debug!(
+                "[ADSR] State change: {:?} -> {:?}, amplitude={}",
+                old_state, self.state, self.current_amplitude
+            );
+        }
         self.current_amplitude
     }
 
@@ -139,7 +149,7 @@ impl ADSR {
 
 #[cfg(test)]
 mod tests {
-use super::*;
+    use super::*;
 
     const SAMPLE_RATE: f32 = 1000.0; // 1kHz for easy calculations
     const EPS: f32 = 0.01; // Tolerance for floating point comparisons
@@ -157,26 +167,29 @@ use super::*;
         let mut adsr = ADSR::new(SAMPLE_RATE); // 1kHz for easy math
         adsr.set_params(0.1, 0.1, 0.7, 0.1); // 100ms attack = 100 samples at 1kHz
         adsr.note_on_with_velocity(1.0);
-        
+
         assert_eq!(adsr.state, ADSRState::Attack);
         assert!(!adsr.is_finished());
-        
+
         // First sample should start increasing from 0
         let first_sample = adsr.next_sample();
         println!("First attack sample: {}", first_sample);
         assert!(first_sample > 0.0);
         assert!(first_sample < 1.0);
-        
+
         // After ~100 samples, should reach peak and move to decay
         for i in 0..99 {
             let sample = adsr.next_sample();
             if i < 5 {
-                println!("Attack sample {}: {}", i+2, sample);
+                println!("Attack sample {}: {}", i + 2, sample);
             }
         }
-        
+
         let final_attack_sample = adsr.next_sample();
-        println!("Final attack sample: {}, state: {:?}", final_attack_sample, adsr.state);
+        println!(
+            "Final attack sample: {}, state: {:?}",
+            final_attack_sample, adsr.state
+        );
         assert_eq!(adsr.state, ADSRState::Decay);
         assert!((final_attack_sample - 1.0).abs() < EPS);
     }
@@ -186,29 +199,36 @@ use super::*;
         let mut adsr = ADSR::new(SAMPLE_RATE);
         adsr.set_params(0.01, 0.1, 0.5, 0.1); // Fast attack, 100ms decay
         adsr.note_on_with_velocity(1.0);
-        
+
         // Skip through attack quickly
         for _ in 0..20 {
             adsr.next_sample();
-            if adsr.state == ADSRState::Decay { break; }
+            if adsr.state == ADSRState::Decay {
+                break;
+            }
         }
-        
+
         assert_eq!(adsr.state, ADSRState::Decay);
         let start_amplitude = adsr.current_amplitude;
         println!("Decay start amplitude: {}", start_amplitude);
-        
+
         // Run through decay phase
         for i in 0..120 {
             let sample = adsr.next_sample();
             if i < 5 || i % 20 == 0 {
                 println!("Decay sample {}: {}", i, sample);
             }
-            if adsr.state == ADSRState::Sustain { break; }
+            if adsr.state == ADSRState::Sustain {
+                break;
+            }
         }
-        
+
         assert_eq!(adsr.state, ADSRState::Sustain);
-        assert!((adsr.current_amplitude - 0.5).abs() < EPS, 
-                "Should reach sustain level of 0.5, got {}", adsr.current_amplitude);
+        assert!(
+            (adsr.current_amplitude - 0.5).abs() < EPS,
+            "Should reach sustain level of 0.5, got {}",
+            adsr.current_amplitude
+        );
     }
 
     #[test]
@@ -216,22 +236,29 @@ use super::*;
         let mut adsr = ADSR::new(SAMPLE_RATE);
         adsr.set_params(0.01, 0.01, 0.7, 0.1);
         adsr.note_on_with_velocity(1.0);
-        
+
         // Get to sustain quickly
         for _ in 0..50 {
             adsr.next_sample();
-            if adsr.state == ADSRState::Sustain { break; }
+            if adsr.state == ADSRState::Sustain {
+                break;
+            }
         }
-        
+
         assert_eq!(adsr.state, ADSRState::Sustain);
         let sustain_level = adsr.current_amplitude;
         println!("Sustain level: {}", sustain_level);
-        
+
         // Verify sustain holds steady for many samples
         for i in 0..100 {
             let sample = adsr.next_sample();
-            assert!((sample - sustain_level).abs() < EPS, 
-                    "Sample {} should hold sustain level {}, got {}", i, sustain_level, sample);
+            assert!(
+                (sample - sustain_level).abs() < EPS,
+                "Sample {} should hold sustain level {}, got {}",
+                i,
+                sustain_level,
+                sample
+            );
         }
     }
 
@@ -240,14 +267,14 @@ use super::*;
         let mut adsr = ADSR::new(44100.0); // Real sample rate
         adsr.set_params(0.1, 0.1, 0.8, 0.2); // 200ms release
         adsr.note_on_with_velocity(1.0);
-        
+
         // Set to a known amplitude in sustain
         adsr.current_amplitude = 0.8;
         adsr.state = ADSRState::Sustain;
-        
+
         // Trigger release
         adsr.note_off();
-        
+
         // Expected step: 0.8 / (0.2 * 44100) = 0.8 / 8820 ≈ 0.0000907
         let expected_step = 0.8 / (0.2 * 44100.0);
         println!("Release step calculation: amplitude={}, release_time={}, sample_rate={}, step={}, expected={}",
@@ -260,36 +287,36 @@ use super::*;
         let mut adsr = ADSR::new(SAMPLE_RATE);
         adsr.set_params(0.01, 0.01, 0.6, 0.1); // 100ms release
         adsr.note_on_with_velocity(1.0);
-        
+
         // Skip to sustain quickly
         for _ in 0..30 {
             adsr.next_sample();
         }
-        
+
         // Verify we're in sustain
         assert_eq!(adsr.state, ADSRState::Sustain);
         let sustain_amplitude = adsr.current_amplitude;
         println!("Sustain amplitude: {}", sustain_amplitude);
-        
+
         // Trigger release
         adsr.note_off();
         assert_eq!(adsr.state, ADSRState::Release);
         println!("Release step: {}", adsr.step);
-        
+
         // Count samples until finished
         let mut samples_in_release = 0;
         while !adsr.is_finished() && samples_in_release < 200 {
             let sample = adsr.next_sample();
             samples_in_release += 1;
-            
+
             if samples_in_release <= 5 || samples_in_release % 20 == 0 {
                 println!("Release sample {}: {}", samples_in_release, sample);
             }
-            
+
             assert!(sample >= 0.0);
             assert!(sample <= sustain_amplitude);
         }
-        
+
         println!("Release took {} samples, expected ~100", samples_in_release);
         assert!(adsr.is_finished());
         assert_eq!(adsr.current_amplitude, 0.0);
@@ -302,9 +329,9 @@ use super::*;
         let mut adsr = ADSR::new(SAMPLE_RATE);
         adsr.set_params(0.05, 0.05, 0.6, 0.05); // 50ms each phase
         adsr.note_on_with_velocity(0.8);
-        
+
         println!("=== Complete ADSR Cycle Test ===");
-        
+
         // Attack phase - should reach 0.8 peak
         let mut samples_in_attack = 0;
         while adsr.state == ADSRState::Attack && samples_in_attack < 100 {
@@ -317,7 +344,7 @@ use super::*;
         println!("Attack took {} samples", samples_in_attack);
         assert_eq!(adsr.state, ADSRState::Decay);
         assert!((adsr.current_amplitude - 0.8).abs() < EPS);
-        
+
         // Decay phase - should reach 0.6 * 0.8 = 0.48
         let mut samples_in_decay = 0;
         while adsr.state == ADSRState::Decay && samples_in_decay < 100 {
@@ -330,7 +357,7 @@ use super::*;
         println!("Decay took {} samples", samples_in_decay);
         assert_eq!(adsr.state, ADSRState::Sustain);
         assert!((adsr.current_amplitude - 0.48).abs() < EPS);
-        
+
         // Sustain phase - should hold at 0.48
         for i in 0..20 {
             let sample = adsr.next_sample();
@@ -340,7 +367,7 @@ use super::*;
             assert!((sample - 0.48).abs() < EPS);
         }
         assert_eq!(adsr.state, ADSRState::Sustain);
-        
+
         // Release phase - should go to 0
         adsr.note_off();
         assert_eq!(adsr.state, ADSRState::Release);
@@ -365,8 +392,13 @@ use super::*;
         let mut last = 0.0;
         for _ in 0..1000 {
             last = adsr.next_sample();
-            if adsr.state == ADSRState::Decay { break; }
+            if adsr.state == ADSRState::Decay {
+                break;
+            }
         }
-        assert!((last - 0.5).abs() < EPS, "Attack should reach velocity peak");
+        assert!(
+            (last - 0.5).abs() < EPS,
+            "Attack should reach velocity peak"
+        );
     }
 }

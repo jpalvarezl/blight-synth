@@ -1,6 +1,7 @@
 use crate::Result;
 use cpal::traits::{DeviceTrait, HostTrait};
 
+pub mod audio_engine;
 pub(crate) mod streams;
 
 pub fn get_default_device() -> Result<cpal::Device> {

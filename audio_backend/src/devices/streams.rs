@@ -1,15 +1,21 @@
-use std::sync::{Arc, Mutex};
-
-use cpal::traits::{HostTrait, StreamTrait};
-use cpal::{traits::DeviceTrait, FromSample, Sample};
+use cpal::{
+    traits::{DeviceTrait, HostTrait},
+    FromSample, Sample,
+};
 use cpal::{SizedSample, Stream};
+use crossbeam::queue::SegQueue;
+use log::{error, info};
+use std::sync::Arc;
 
-use crate::synths::new_synthesizer::Synthesizer; // Import Synthesizer, removed Voice
+use super::audio_engine::AudioCommand;
+use crate::synths::synthesizer::Synthesizer;
 
-// This function sets up and runs the CPAL audio stream.
-// It takes the synthesizer as input.
-// It returns the Stream object, which must be kept alive for audio to play.
-pub fn run_audio_engine(synth: Arc<Mutex<Synthesizer>>) -> anyhow::Result<Stream> {
+// New function that creates a stream with command processing
+pub fn create_stream_with_commands(
+    sample_rate: f32,
+    max_polyphony: usize,
+    command_queue: Arc<SegQueue<AudioCommand>>,
+) -> anyhow::Result<Stream> {
     // --- CPAL Setup ---
     let host = cpal::default_host();
     let device = host
@@ -24,25 +30,44 @@ pub fn run_audio_engine(synth: Arc<Mutex<Synthesizer>>) -> anyhow::Result<Stream
     let sample_format = supported_config.sample_format();
     let config: cpal::StreamConfig = supported_config.into();
 
-    println!("Using device: {}", device.name()?);
-    println!("Using config: {:?}", config);
+    info!("Using device: {}", device.name()?);
+    info!("Using config: {:?}", config);
 
-    // The Synthesizer instance itself is already an Arc, pass it directly.
-    // No need for get_voice_handle as the synth itself will provide samples.
+    let synth = Synthesizer::new(sample_rate, max_polyphony);
 
-    // --- Build and Play Stream ---
-    println!("Attempting to build stream...");
+    // --- Build Stream with Command Processing ---
+    info!("Attempting to build stream with command processing...");
     let stream = match sample_format {
-        cpal::SampleFormat::F32 => setup_stream_for::<f32>(&device, &config, synth.clone()),
-        cpal::SampleFormat::I16 => setup_stream_for::<i16>(&device, &config, synth.clone()),
-        cpal::SampleFormat::U16 => setup_stream_for::<u16>(&device, &config, synth.clone()),
-        cpal::SampleFormat::I8 => setup_stream_for::<i8>(&device, &config, synth.clone()),
-        cpal::SampleFormat::I32 => setup_stream_for::<i32>(&device, &config, synth.clone()),
-        cpal::SampleFormat::I64 => setup_stream_for::<i64>(&device, &config, synth.clone()),
-        cpal::SampleFormat::U8 => setup_stream_for::<u8>(&device, &config, synth.clone()),
-        cpal::SampleFormat::U32 => setup_stream_for::<u32>(&device, &config, synth.clone()),
-        cpal::SampleFormat::U64 => setup_stream_for::<u64>(&device, &config, synth.clone()),
-        cpal::SampleFormat::F64 => setup_stream_for::<f64>(&device, &config, synth.clone()),
+        cpal::SampleFormat::F32 => {
+            setup_command_stream_for::<f32>(&device, &config, synth, command_queue)
+        }
+        cpal::SampleFormat::I16 => {
+            setup_command_stream_for::<i16>(&device, &config, synth, command_queue)
+        }
+        cpal::SampleFormat::U16 => {
+            setup_command_stream_for::<u16>(&device, &config, synth, command_queue)
+        }
+        cpal::SampleFormat::I8 => {
+            setup_command_stream_for::<i8>(&device, &config, synth, command_queue)
+        }
+        cpal::SampleFormat::I32 => {
+            setup_command_stream_for::<i32>(&device, &config, synth, command_queue)
+        }
+        cpal::SampleFormat::I64 => {
+            setup_command_stream_for::<i64>(&device, &config, synth, command_queue)
+        }
+        cpal::SampleFormat::U8 => {
+            setup_command_stream_for::<u8>(&device, &config, synth, command_queue)
+        }
+        cpal::SampleFormat::U32 => {
+            setup_command_stream_for::<u32>(&device, &config, synth, command_queue)
+        }
+        cpal::SampleFormat::U64 => {
+            setup_command_stream_for::<u64>(&device, &config, synth, command_queue)
+        }
+        cpal::SampleFormat::F64 => {
+            setup_command_stream_for::<f64>(&device, &config, synth, command_queue)
+        }
         _ => {
             return Err(anyhow::anyhow!(
                 "Unsupported sample format: {:?}",
@@ -50,31 +75,31 @@ pub fn run_audio_engine(synth: Arc<Mutex<Synthesizer>>) -> anyhow::Result<Stream
             ))
         }
     }?;
-    println!("Stream built successfully!");
-    stream.play()?; // Start playing audio
-    Ok(stream) // Return the stream
+    info!("Stream built successfully!");
+    Ok(stream)
 }
 
-// For more advanced use: use lock-free ring buffers (e.g., ringbuf crate) to pass samples across threads.
-fn setup_stream_for<T>(
+// Stream setup with command processing
+fn setup_command_stream_for<T>(
     device: &cpal::Device,
     config: &cpal::StreamConfig,
-    synth: Arc<Mutex<Synthesizer>>,
+    mut synth: Synthesizer,
+    command_queue: Arc<SegQueue<AudioCommand>>,
 ) -> Result<cpal::Stream, anyhow::Error>
 where
     T: SizedSample + FromSample<f32>,
 {
-    let err_fn = |err| eprintln!("An error occurred on the output audio stream: {}", err);
+    let err_fn = |err| error!("An error occurred on the output audio stream: {}", err);
     let channels = config.channels as usize;
 
     let stream = device.build_output_stream(
         config,
         move |data: &mut [T], _: &cpal::OutputCallbackInfo| {
-            let next_sample = {
-                let mut synth = synth.lock().expect("Failed to lock synthesizer");
-                synth.next_sample()
-            };
-            write_data(data, channels, next_sample);
+            // Process commands (lock-free, real-time safe)
+            process_commands(&mut synth, &command_queue);
+
+            // Generate audio
+            write_data(data, channels, &mut synth);
         },
         err_fn,
         None,
@@ -82,8 +107,52 @@ where
     Ok(stream)
 }
 
+// Process all pending commands in the audio callback
+fn process_commands(synth: &mut Synthesizer, command_queue: &SegQueue<AudioCommand>) {
+    // Process up to a reasonable number of commands per audio callback
+    // to avoid spending too much time in command processing
+    const MAX_COMMANDS_PER_CALLBACK: usize = 32;
+
+    for _ in 0..MAX_COMMANDS_PER_CALLBACK {
+        match command_queue.pop() {
+            Some(cmd) => {
+                match cmd {
+                    AudioCommand::NoteOn { note, velocity } => {
+                        synth.note_on(note, velocity);
+                    }
+                    AudioCommand::NoteOnWithWaveform {
+                        note,
+                        velocity,
+                        waveform,
+                    } => {
+                        synth.note_on_with_waveform(note, velocity, waveform);
+                    }
+                    AudioCommand::NoteOff { note } => {
+                        synth.note_off(note);
+                    }
+                    AudioCommand::SetAdsr {
+                        attack,
+                        decay,
+                        sustain,
+                        release,
+                    } => {
+                        synth.set_adsr(attack, decay, sustain, release);
+                    }
+                    AudioCommand::SetWaveform(waveform) => {
+                        synth.set_waveform(waveform);
+                    } // AudioCommand::Stop => {
+                      //     // Handle stop command - might want to fade out or similar
+                      //     break;
+                      // }
+                }
+            }
+            None => break, // No more commands
+        }
+    }
+}
+
 // --- Generic Audio Callback Function (Refactored) ---
-fn write_data<T>(output: &mut [T], channels: usize, next_sample: f32)
+fn write_data<T>(output: &mut [T], channels: usize, synth: &mut Synthesizer)
 where
     T: Sample + FromSample<f32>,
 {
@@ -91,7 +160,7 @@ where
     // It currently sums the output of its voices (or just the first one).
     for frame in output.chunks_mut(channels) {
         // Get the next sample value from the synthesizer.
-        let value = next_sample;
+        let value = synth.next_sample();
 
         // Convert to the target sample format T and write to output channels
         let sample: T = T::from_sample(value);
@@ -99,5 +168,5 @@ where
             *dest_sample = sample;
         }
     }
-    // Locking is handled within synth.next_sample() for its voice pool.
+    // No locking needed since we own the synthesizer in the closure.
 }

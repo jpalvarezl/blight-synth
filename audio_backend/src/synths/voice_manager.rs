@@ -3,9 +3,6 @@ use std::ops::Div;
 use super::waveform::Waveform;
 use crate::synths::voice::Voice;
 
-#[cfg(test)]
-use crate::test::audio_backend_utils::SampleProducer;
-
 #[derive(Debug, Clone)]
 pub struct VoiceManager {
     voices: Vec<Voice>,
@@ -46,20 +43,15 @@ impl VoiceManager {
     }
 
     pub fn note_on(&mut self, note: u8, velocity: f32) {
-        self.note_on_with_velocity_and_waveform(note, velocity, self.waveform);
+        self.note_on_with_waveform(note, velocity, self.waveform);
     }
 
-    pub fn note_on_with_velocity_and_waveform(
-        &mut self,
-        note: u8,
-        velocity: f32,
-        waveform: Waveform,
-    ) {
-        // println!("[VoiceManager] note_on_with_velocity_and_waveform on instance {:p}: note={}, velocity={}", 
+    pub fn note_on_with_waveform(&mut self, note: u8, velocity: f32, waveform: Waveform) {
+        // println!("[VoiceManager] note_on_with_velocity_and_waveform on instance {:p}: note={}, velocity={}",
         //          self as *const _, note, velocity);
         let (attack, decay, sustain, release) = self.current_adsr_params();
         // println!("[VoiceManager] ADSR params: attack={}, decay={}, sustain={}, release={}", attack, decay, sustain, release);
-        
+
         if let Some(voice) = self.find_free_voice() {
             // println!("[VoiceManager] Found free voice, triggering note");
             voice.set_adsr(attack, decay, sustain, release);
@@ -112,7 +104,7 @@ impl VoiceManager {
         // println!("[VoiceManager] next_sample called on instance {:p}", self as *const _);
         let active_count = self.voices.iter().filter(|v| v.is_active()).count();
         // println!("[VoiceManager] Active voices: {}", active_count);
-        
+
         let next_sample = if active_count == 0 {
             0.0 // No voices to process
         } else {
@@ -157,15 +149,15 @@ impl VoiceManager {
 }
 
 #[cfg(test)]
-impl SampleProducer for VoiceManager {
-    fn next_sample(&mut self) -> f32 {
-        self.next_sample()
-    }
-}
-
-#[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test::audio_backend_utils::SampleProducer;
+
+    impl SampleProducer for VoiceManager {
+        fn next_sample(&mut self) -> f32 {
+            self.next_sample()
+        }
+    }
 
     #[test]
     fn test_voice_manager_creation() {
@@ -222,7 +214,7 @@ mod tests {
 
         // Activate one voice and check the sample
         voice_manager.note_on(60, 1.0);
-        
+
         // Generate a few samples since the first sine wave sample at phase 0 is 0
         // and the ADSR starts with 0 amplitude
         let mut non_zero_found = false;
@@ -233,7 +225,10 @@ mod tests {
                 break;
             }
         }
-        assert!(non_zero_found, "Should produce non-zero samples after a few iterations");
+        assert!(
+            non_zero_found,
+            "Should produce non-zero samples after a few iterations"
+        );
 
         // Activate another voice and check the sample again
         voice_manager.note_on(61, 1.0);
@@ -245,7 +240,10 @@ mod tests {
                 break;
             }
         }
-        assert!(non_zero_found2, "Should produce non-zero samples with multiple voices");
+        assert!(
+            non_zero_found2,
+            "Should produce non-zero samples with multiple voices"
+        );
     }
 
     #[test]
@@ -253,38 +251,38 @@ mod tests {
         use crate::test::audio_backend_utils::run_audio_stream_with_producer;
         use std::sync::{Arc, Mutex};
         use std::time::Duration;
-        
+
         let sample_rate = 44100.0;
         let max_polyphony = 8;
         let mut voice_manager = VoiceManager::new(sample_rate, max_polyphony);
-        
+
         // Set sensible ADSR values for a 1-second test:
         // - Quick attack (10ms)
-        // - Short decay (100ms) 
+        // - Short decay (100ms)
         // - High sustain (80%)
         // - Medium release (200ms)
         voice_manager.set_adsr(0.01, 0.1, 0.8, 0.2);
-        
+
         // Play a 440 Hz sine wave (MIDI note 69, A4)
         voice_manager.note_on(69, 0.7);
-        
+
         // Wrap in Arc<Mutex<>> for thread safety
         let voice_manager = Arc::new(Mutex::new(voice_manager));
-        
+
         // Start the audio stream
         let stream = run_audio_stream_with_producer(voice_manager.clone())
             .expect("Failed to create VoiceManager audio stream");
-        
+
         println!("Playing VoiceManager 440 Hz sine wave (A4) for 1 second with ADSR envelope...");
-        
+
         // Play for 1 second
         std::thread::sleep(Duration::from_secs(1));
-        
+
         // Stop the stream by dropping it
         drop(stream);
-        
+
         println!("VoiceManager audio test completed successfully!");
-        
+
         // Verify that at least one voice was active during playback
         let _voice_manager_guard = voice_manager.lock().unwrap();
         println!("Final voice manager state checked - test completed");

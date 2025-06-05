@@ -2,11 +2,10 @@ use audio_backend::synths::waveform::Waveform;
 use harmony::note;
 use tauri::State;
 
-use super::SynthesizerState;
+use super::AudioEngineState;
 
 #[tauri::command]
-pub fn set_waveform(waveform: String, synthesizer_state: State<SynthesizerState>) {
-    let mut synth = synthesizer_state.0.lock().expect("Failed to lock synthesizer state");
+pub fn set_waveform(waveform: String, audio_engine_state: State<AudioEngineState>) {
     let new_waveform = match waveform.as_str() {
         "Sine" => Waveform::Sine,
         "Square" => Waveform::Square,
@@ -14,19 +13,17 @@ pub fn set_waveform(waveform: String, synthesizer_state: State<SynthesizerState>
         "Triangle" => Waveform::Triangle,
         _ => Waveform::Sine,
     };
-    synth.set_waveform(new_waveform);
+    audio_engine_state.0.set_waveform(new_waveform);
 }
 
 #[tauri::command]
-pub fn play_midi_note(midi_value: u8, synthesizer_state: State<SynthesizerState>) {
+pub fn play_midi_note(midi_value: u8, audio_engine_state: State<AudioEngineState>) {
     let velocity = 1.0;
-    let mut synthesizer = synthesizer_state.0.lock().expect("Failed to lock synthesizer state");
     println!("Playing MIDI note: {}", midi_value);
-    synthesizer.note_on(midi_value, velocity);
+    audio_engine_state.0.note_on(midi_value, velocity);
 }
 
 #[tauri::command]
-pub fn stop_midi_note(midi_value: u8, synthesizer_state: State<SynthesizerState>) {
-    let mut synthesizer = synthesizer_state.0.lock().expect("Failed to lock synthesizer state");
-    synthesizer.note_off(midi_value);
+pub fn stop_midi_note(midi_value: u8, audio_engine_state: State<AudioEngineState>) {
+    audio_engine_state.0.note_off(midi_value);
 }

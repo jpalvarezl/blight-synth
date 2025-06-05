@@ -78,16 +78,32 @@ where
     // --- Build and Play Stream ---
     println!("Attempting to build stream...");
     let stream = match sample_format {
-        cpal::SampleFormat::F32 => setup_generic_stream_for::<f32>(&device, &config, sample_producer),
-        cpal::SampleFormat::I16 => setup_generic_stream_for::<i16>(&device, &config, sample_producer),
-        cpal::SampleFormat::U16 => setup_generic_stream_for::<u16>(&device, &config, sample_producer),
+        cpal::SampleFormat::F32 => {
+            setup_generic_stream_for::<f32>(&device, &config, sample_producer)
+        }
+        cpal::SampleFormat::I16 => {
+            setup_generic_stream_for::<i16>(&device, &config, sample_producer)
+        }
+        cpal::SampleFormat::U16 => {
+            setup_generic_stream_for::<u16>(&device, &config, sample_producer)
+        }
         cpal::SampleFormat::I8 => setup_generic_stream_for::<i8>(&device, &config, sample_producer),
-        cpal::SampleFormat::I32 => setup_generic_stream_for::<i32>(&device, &config, sample_producer),
-        cpal::SampleFormat::I64 => setup_generic_stream_for::<i64>(&device, &config, sample_producer),
+        cpal::SampleFormat::I32 => {
+            setup_generic_stream_for::<i32>(&device, &config, sample_producer)
+        }
+        cpal::SampleFormat::I64 => {
+            setup_generic_stream_for::<i64>(&device, &config, sample_producer)
+        }
         cpal::SampleFormat::U8 => setup_generic_stream_for::<u8>(&device, &config, sample_producer),
-        cpal::SampleFormat::U32 => setup_generic_stream_for::<u32>(&device, &config, sample_producer),
-        cpal::SampleFormat::U64 => setup_generic_stream_for::<u64>(&device, &config, sample_producer),
-        cpal::SampleFormat::F64 => setup_generic_stream_for::<f64>(&device, &config, sample_producer),
+        cpal::SampleFormat::U32 => {
+            setup_generic_stream_for::<u32>(&device, &config, sample_producer)
+        }
+        cpal::SampleFormat::U64 => {
+            setup_generic_stream_for::<u64>(&device, &config, sample_producer)
+        }
+        cpal::SampleFormat::F64 => {
+            setup_generic_stream_for::<f64>(&device, &config, sample_producer)
+        }
         _ => {
             return Err(anyhow::anyhow!(
                 "Unsupported sample format: {:?}",
@@ -112,7 +128,7 @@ where
             producer.next_sample()
         }
     };
-    
+
     run_audio_stream_with_callback(callback)
 }
 
@@ -141,17 +157,18 @@ where
 
 /// Generic audio callback function that works with any sample producer
 fn write_generic_data<T>(
-    output: &mut [T], 
-    channels: usize, 
-    sample_producer: &Arc<Mutex<dyn FnMut() -> f32 + Send>>
-)
-where
+    output: &mut [T],
+    channels: usize,
+    sample_producer: &Arc<Mutex<dyn FnMut() -> f32 + Send>>,
+) where
     T: Sample + FromSample<f32>,
 {
     for frame in output.chunks_mut(channels) {
         // Get the next sample value from the sample producer
         let next_sample = {
-            let mut producer = sample_producer.lock().expect("Failed to lock sample producer");
+            let mut producer = sample_producer
+                .lock()
+                .expect("Failed to lock sample producer");
             producer()
         };
 
@@ -167,7 +184,7 @@ where
 pub fn create_sine_wave_generator(frequency: f32, sample_rate: f32) -> impl FnMut() -> f32 {
     let mut phase: f32 = 0.0;
     let phase_increment = frequency * 2.0 * std::f32::consts::PI / sample_rate;
-    
+
     move || {
         let sample = phase.sin() * 0.1; // Low amplitude to prevent loud output
         phase += phase_increment;
@@ -217,37 +234,40 @@ mod tests {
     fn test_simple_sine_wave_playback() {
         // Create a 440 Hz sine wave at 44.1 kHz sample rate with low amplitude
         let sine_wave = Arc::new(Mutex::new(SimpleSineWave::new(440.0, 44100.0, 0.1)));
-        
+
         // Start the audio stream
         let stream = run_audio_stream_with_producer(sine_wave.clone())
             .expect("Failed to create audio stream");
-        
+
         println!("Playing 440 Hz sine wave for 1 second...");
-        
+
         // Play for 1 second
         std::thread::sleep(Duration::from_secs(1));
-        
+
         // Stop the stream by dropping it
         drop(stream);
-        
+
         println!("Playback completed.");
-        
+
         // Verify that the sine wave actually generated some samples
         // by checking that the phase has advanced
         let sine_wave_guard = sine_wave.lock().unwrap();
-        assert!(sine_wave_guard.phase > 0.0, "Phase should have advanced during playback");
+        assert!(
+            sine_wave_guard.phase > 0.0,
+            "Phase should have advanced during playback"
+        );
     }
 
     #[test]
     fn test_sine_wave_sample_generation() {
         let mut sine_wave = SimpleSineWave::new(440.0, 44100.0, 0.5);
-        
+
         // Generate a few samples and verify they're in expected range
         let mut samples = Vec::new();
         for _ in 0..100 {
             samples.push(sine_wave.next_sample());
         }
-        
+
         // Check that all samples are within the expected amplitude range
         for sample in &samples {
             assert!(
@@ -256,32 +276,45 @@ mod tests {
                 sample
             );
         }
-        
+
         // Check that we have some variation (not all zeros)
         let max_sample = samples.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
         let min_sample = samples.iter().fold(f32::INFINITY, |a, &b| a.min(b));
-        
-        assert!(max_sample > 0.1, "Maximum sample should be reasonably positive");
-        assert!(min_sample < -0.1, "Minimum sample should be reasonably negative");
-        
-        println!("Generated {} samples with range [{:.3}, {:.3}]", 
-                samples.len(), min_sample, max_sample);
+
+        assert!(
+            max_sample > 0.1,
+            "Maximum sample should be reasonably positive"
+        );
+        assert!(
+            min_sample < -0.1,
+            "Minimum sample should be reasonably negative"
+        );
+
+        println!(
+            "Generated {} samples with range [{:.3}, {:.3}]",
+            samples.len(),
+            min_sample,
+            max_sample
+        );
     }
 
     #[test]
     fn test_callback_based_sine_wave() {
         // Test the callback-based approach
         let sine_gen = create_sine_wave_generator(440.0, 44100.0);
-        
+
         // This test just verifies the stream can be created successfully
         // We don't actually play it to avoid lengthy test execution
         let stream = run_audio_stream_with_callback(sine_gen);
-        
-        assert!(stream.is_ok(), "Failed to create audio stream with callback");
-        
+
+        assert!(
+            stream.is_ok(),
+            "Failed to create audio stream with callback"
+        );
+
         // Immediately drop the stream
         drop(stream);
-        
+
         println!("Callback-based sine wave stream created successfully");
     }
 }

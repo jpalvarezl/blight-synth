@@ -1,23 +1,20 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-use audio_backend::synths::new_synthesizer::Synthesizer;
-use std::sync::{Arc, Mutex};
+use audio_backend::devices::audio_engine::AudioEngine;
 
 mod adsr;
 mod synth;
 
-// Shared state for the oscillator
-pub struct SynthesizerState(pub Arc<Mutex<Synthesizer>>);
+// Shared state for the audio engine
+pub struct AudioEngineState(pub AudioEngine);
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // Create a single synthesizer instance wrapped in Arc<Mutex<>>
-    let synthesizer = Arc::new(Mutex::new(Synthesizer::new(44100.0, 8)));
-    
-    // Pass the same Arc reference to the audio thread
-    audio_backend::start_audio_thread(synthesizer.clone());
+    // Create the lock-free audio engine (this automatically starts the audio stream)
+    let audio_engine = audio_backend::start_lockfree_audio_engine(44100.0, 8)
+        .expect("Failed to start audio engine");
     
     tauri::Builder::default()
-        .manage(SynthesizerState(synthesizer))
+        .manage(AudioEngineState(audio_engine))
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(
             tauri::generate_handler![
