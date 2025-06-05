@@ -88,15 +88,14 @@ impl Oscillator {
 }
 
 #[cfg(test)]
-impl SampleProducer for Oscillator {
-    fn next_sample(&mut self) -> f32 {
-        self.next_sample() * 0.1 // Reduce amplitude to prevent loud output
-    }
-}
-
-#[cfg(test)]
 mod tests {
     use super::*;
+
+    impl SampleProducer for Oscillator {
+        fn next_sample(&mut self) -> f32 {
+            self.next_sample() * 0.1 // Reduce amplitude to prevent loud output
+        }
+    }
 
     #[test]
     fn test_oscillator_sine_wave() {

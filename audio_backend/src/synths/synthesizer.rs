@@ -54,18 +54,17 @@ impl Synthesizer {
 }
 
 #[cfg(test)]
-impl SampleProducer for Synthesizer {
-    fn next_sample(&mut self) -> f32 {
-        self.next_sample()
-    }
-}
-
-#[cfg(test)]
 mod tests {
     use super::*;
     use crate::test::audio_backend_utils::run_audio_stream_with_producer;
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
+
+    impl SampleProducer for Synthesizer {
+        fn next_sample(&mut self) -> f32 {
+            self.next_sample()
+        }
+    }
 
     #[test]
     fn test_synthesizer_creation() {
