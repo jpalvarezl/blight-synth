@@ -1,7 +1,7 @@
 use crossbeam::queue::SegQueue;
 use std::sync::Arc;
 
-use crate::synths::waveform::Waveform;
+use crate::synths::Waveform;
 // use super::commands::SynthesizerCommand;
 
 #[derive(Debug, Clone)]

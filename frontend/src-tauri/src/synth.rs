@@ -1,4 +1,4 @@
-use audio_backend::synths::waveform::Waveform;
+use audio_backend::synths::Waveform;
 use harmony::note;
 use tauri::State;
 

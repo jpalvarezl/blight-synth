@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use crate::synths::{adsr::ADSR, oscillator::Oscillator, waveform::Waveform};
+use crate::synths::{adsr::ADSR, oscillator::Oscillator, Waveform};
 
 #[derive(Debug, Clone)]
 pub struct Voice {

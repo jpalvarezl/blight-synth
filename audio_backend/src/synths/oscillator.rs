@@ -5,15 +5,7 @@
 
 use std::f32::consts::{PI, TAU};
 
-use crate::synths::waveform::Waveform;
-
-#[cfg(test)]
-use {
-    crate::test::audio_backend_utils::{run_audio_stream_with_producer, SampleProducer},
-    std::sync::{Arc, Mutex},
-    std::thread,
-    std::time::Duration,
-};
+use crate::synths::Waveform;
 
 #[derive(Debug, Clone)]
 pub struct Oscillator {
@@ -90,6 +82,12 @@ impl Oscillator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use {
+        crate::test::audio_backend_utils::{run_audio_stream_with_producer, SampleProducer},
+        std::sync::{Arc, Mutex},
+        std::thread,
+        std::time::Duration,
+    };
 
     impl SampleProducer for Oscillator {
         fn next_sample(&mut self) -> f32 {

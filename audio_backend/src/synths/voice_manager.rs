@@ -1,6 +1,6 @@
 use std::ops::Div;
 
-use super::waveform::Waveform;
+use super::Waveform;
 use crate::synths::voice::Voice;
 
 #[derive(Debug, Clone)]

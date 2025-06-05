@@ -1,7 +1,4 @@
-use crate::synths::{voice_manager::VoiceManager, waveform::Waveform};
-
-#[cfg(test)]
-use crate::test::audio_backend_utils::SampleProducer;
+use crate::synths::{voice_manager::VoiceManager, Waveform};
 
 #[derive(Debug, Clone)]
 pub struct Synthesizer {
@@ -57,6 +54,7 @@ impl Synthesizer {
 mod tests {
     use super::*;
     use crate::test::audio_backend_utils::run_audio_stream_with_producer;
+    use crate::test::audio_backend_utils::SampleProducer;
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
