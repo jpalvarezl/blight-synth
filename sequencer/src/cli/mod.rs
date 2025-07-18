@@ -1,26 +1,37 @@
-use clap::Parser;
+use std::path::PathBuf;
+
+mod commands;
+
+use clap::{Parser, ValueEnum};
 
 /// Simple program to greet a person
 #[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
+#[command(
+    version,
+    about = Some("This program stores song sequences in a specified file format."))]
 pub struct CliArgs {
-    /// Name of the person to greet
+    /// Output file to store the sequences
     #[arg(short, long)]
-    name: String,
+    output_file: PathBuf,
 
-    /// Number of times to greet
-    #[arg(short, long, default_value_t = 1)]
-    count: u8,
+    /// Format of the file to store
+    #[arg(short, long, value_enum, default_value_t = FileFormat::Json)]
+    file_format: FileFormat,
 }
 
+#[derive(Debug, Clone, ValueEnum)]
+pub enum FileFormat {
+    Json,
+    Binary,
+}
 
 impl CliArgs {
-    pub fn name(&self) -> &str {
-        &self.name
+    pub fn output_file(&self) -> &PathBuf {
+        &self.output_file
     }
 
-    pub fn count(&self) -> u8 {
-        self.count
+    pub fn file_format(&self) -> &FileFormat {
+        &self.file_format
     }
 
     pub fn parse_arguments() -> Self {
