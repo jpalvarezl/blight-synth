@@ -51,6 +51,6 @@ def write_notes(notes, file_path):
 
 
 # Read notes from the CSV file
-notes = read_notes("assets/notes.csv")
+notes = read_notes("./notes.csv")
 # Write notes to the JSON file
-write_notes(notes, "assets/notes.json")
+write_notes(notes, "./notes.json")

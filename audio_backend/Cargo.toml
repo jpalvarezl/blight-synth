@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-cpal = "0.15"
-anyhow = "1.0"
-log = "0.4"
-env_logger = "0.10"
-crossbeam = "0.8"
+cpal = {workspace = true}
+anyhow = {workspace = true}
+log = {workspace = true}
+env_logger = {workspace = true}
+crossbeam = {workspace = true}
