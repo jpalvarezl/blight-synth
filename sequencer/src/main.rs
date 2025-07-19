@@ -1,5 +1,6 @@
 // use sequencer::models::*;
-use sequencer::{cli::CliArgs, models::{EffectType, Pattern, PatternEvent, Sequencer}};
+use sequencer::cli::CliArgs;
+use sequencer::models::{EffectType, Pattern, PatternEvent, Sequencer};
 
 fn main() {
     let args = CliArgs::parse_arguments();
@@ -26,11 +27,7 @@ fn main() {
     ];
 
     let sequencer = Sequencer {
-        sequences: vec![Pattern {
-            name: "Sequence 1".into(),
-            instrument_id: 1,
-            events: sequence_events,
-        }],
+        sequences: vec![Pattern::from_events(sequence_events)],
     };
 
     args.write_file(&sequencer).expect("Failed to write file");

@@ -1,6 +1,6 @@
+use crate::Result;
 use crate::cli::{CliArgs, FileFormat};
 use crate::models::Sequencer;
-use crate::Result;
 
 impl CliArgs {
     pub fn write_file(&self, sequencer: &Sequencer) -> Result<()> {
