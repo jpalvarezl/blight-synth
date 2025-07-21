@@ -1,30 +1,43 @@
 // use sequencer::models::*;
-use sequencer::{cli::CliArgs, models::{Sequence, SequenceEvent, Sequencer}};
+use sequencer::cli::CliArgs;
+use sequencer::models::{EMPTY_PHRASE_SLOT, EffectType, Event, Phrase, Song};
 
 fn main() {
     let args = CliArgs::parse_arguments();
 
-    let sequence_events = vec![
-        SequenceEvent::NoteOn {
-            midi_value: 60,
-            velocity: 100,
-            start_time: 0,
+    let phrase = vec![
+        Event {
+            note: 60,
+            volume: 100,
+            effect: EffectType::Arpeggio,
+            effect_param: 0,
         },
-        SequenceEvent::NoteOff { midi_value: 60 },
-        SequenceEvent::CC {
-            controller: 1,
-            value: 127,
-            start_time: 500,
+        Event {
+            note: 60,
+            volume: 0,
+            effect: EffectType::Arpeggio,
+            effect_param: 0,
+        },
+        Event {
+            note: 60,
+            volume: 127,
+            effect: EffectType::Arpeggio,
+            effect_param: 1,
         },
     ];
 
-    let sequencer = Sequencer {
-        sequences: vec![Sequence {
-            name: "Sequence 1".into(),
-            instrument_id: 1,
-            events: sequence_events,
-        }],
-    };
+    let mut song = Song::new("Test song");
+    song.phrase_bank = vec![Phrase::from_events(phrase)];
+    song.arrangement = vec![[
+        0,
+        1,
+        2,
+        EMPTY_PHRASE_SLOT,
+        EMPTY_PHRASE_SLOT,
+        EMPTY_PHRASE_SLOT,
+        EMPTY_PHRASE_SLOT,
+        EMPTY_PHRASE_SLOT,
+    ]];
 
-    args.write_file(&sequencer).expect("Failed to write file");
+    args.write_file(&song).expect("Failed to write file");
 }
