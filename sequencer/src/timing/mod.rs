@@ -50,6 +50,7 @@ impl TimingState {
         self.bpm = new_bpm;
         let tick_duration_sec = BPM_TO_TICK_DURATION_SECONDS_FACTOR / self.bpm;
         self.tick_duration_samples = tick_duration_sec * self.sample_rate;
+        self.samples_until_next_tick = self.tick_duration_samples;
     }
 
     /// Sets a new TPL.
@@ -60,9 +61,8 @@ impl TimingState {
 
 #[cfg(test)]
 mod tests {
-    use std::ops::Mul;
-
     use super::*;
+    
     #[test]
     fn test_timing_state_default_values() {
         let sample_rate = 44100.0;
@@ -83,22 +83,23 @@ mod tests {
     }
 
     #[test]
-    fn test_advance_tickk() {
+    fn test_advance_tick() {
         let sample_rate = 48000.0;
-        let tick_duration_in_samples = sample_rate * (BPM_TO_TICK_DURATION_SECONDS_FACTOR / INITIAL_BPM); // 125 BPM
+        let tick_duration_in_samples = sample_rate * (BPM_TO_TICK_DURATION_SECONDS_FACTOR / INITIAL_BPM); // Should be 960.0
 
+        // Assuming initial_tpl of 6, though it doesn't affect this test
         let mut timing_state = TimingState::new(sample_rate);
 
-        // 1 fewer sample than a full tick duration
-        let ticks = timing_state.advance((tick_duration_in_samples - 1.0) as usize);
-        assert_eq!(ticks, 1);
+        // 1 fewer sample than a full tick duration should yield ZERO ticks.
+        let ticks = timing_state.advance((tick_duration_in_samples - 1.0) as usize); // advance(959)
+        assert_eq!(ticks, 0);
 
-        // Advance the needed sample to complete the tick
+        // Advancing by the final sample should yield exactly ONE tick.
         let ticks = timing_state.advance(1);
         assert_eq!(ticks, 1);
 
-        // Advance 2 ticks worth of samples
-        let ticks = timing_state.advance(tick_duration_in_samples.mul(2.0) as usize);
+        // Advancing by exactly two ticks worth of samples should yield TWO ticks.
+        let ticks = timing_state.advance((tick_duration_in_samples * 2.0) as usize); // advance(1920)
         assert_eq!(ticks, 2);
     }
 }
