@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 /// Enum representing all primary effect types, based on ProTracker/XM standards.
 /// Also stored as a single byte.
-#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode)]
 #[repr(u8)]
 pub enum EffectType {
     Arpeggio = 0x0, // When effect_param is 0 then this variant is actually None (no effect)

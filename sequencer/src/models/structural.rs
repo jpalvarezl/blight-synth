@@ -1,53 +1,94 @@
 use bincode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
-use crate::models::EffectType;
+use crate::models::{Instrument, Event, SampleData};
 
-pub const MAX_CHANNELS: usize = 32;
-pub const DEFAULT_PATTERN_ROWS: usize = 64;
+pub const DEFAULT_PHRASE_LENGTH: usize = 16;
+pub const DEFAULT_CHAIN_LENGTH: usize = 16;
+pub const MAX_TRACKS: usize = 8;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
-pub struct Sequencer {
-    pub sequences: Vec<Pattern>,
+pub const EMPTY_PHRASE_SLOT: usize = usize::MAX;
+pub const EMPTY_CHAIN_SLOT: usize = usize::MAX;
+
+/// A Phrase is a fixed-size musical block for a single track.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode)]
+pub struct Phrase {
+    pub events: [Event; DEFAULT_PHRASE_LENGTH],
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
-/// Represents a single pattern, the core building block of a song.
-pub struct Pattern {
-    pub num_rows: usize,
-    /// Events are stored in a flat vector in row-major order.
-    /// Access via `events`.
-    /// This dense representation is for performance during playback.
-    pub events: Vec<PatternEvent>,
-}
-
-impl Pattern {
-    pub fn new(rows: usize) -> Self {
-        Pattern {
-            num_rows: rows,
-            events: vec![],
-        }
-    }
-
-    pub fn from_events(events: Vec<PatternEvent>) -> Self {
-        Pattern {
-            num_rows: DEFAULT_PATTERN_ROWS,
-            events,
-        }
-    }
-}
-
-impl Default for Pattern {
+impl Default for Phrase {
     fn default() -> Self {
-        Pattern::new(DEFAULT_PATTERN_ROWS)
+        Phrase {
+            events: [Event::default(); DEFAULT_PHRASE_LENGTH],
+        }
     }
 }
 
+impl Phrase {
+    pub fn from_events<I>(events: I) -> Self 
+    where 
+        I: IntoIterator<Item = Event>
+    {
+        let mut events_iter = events.into_iter();
+        Phrase {
+            events: std::array::from_fn(|_| {
+                events_iter.next().unwrap_or_default()
+            }),
+        }
+    }
+}
+
+/// A Chain is a fixed-size "playlist" of phrases.
+/// We use a sentinel value (usize::MAX) to represent an empty slot for size efficiency.
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
-#[repr(C)]
-pub struct PatternEvent {
-    pub note: u8,
-    pub volume: u8,
-    pub effect: EffectType,
-    pub effect_param: u8,
+pub struct Chain {
+    pub phrase_indices: [usize; DEFAULT_CHAIN_LENGTH],
+}
+
+impl Default for Chain {
+    fn default() -> Self {
+        Chain {
+            phrase_indices: [EMPTY_PHRASE_SLOT; DEFAULT_CHAIN_LENGTH],
+        }
+    }
+}
+
+/// The top-level Song struct aggregates all components.
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+pub struct Song {
+    pub name: String,
+    pub initial_bpm: u16,
+    pub initial_speed: u16, // Also known as Ticks Per Line (TPL)
+
+    /// The master arrangement grid. Each row is a step in the song,
+    /// and each column is a track. The value is an index into the `chain_bank`.
+    /// We use a sentinel value (usize::MAX) for empty slots.
+    pub arrangement: Vec<[usize; MAX_TRACKS]>,
+
+    /// A bank containing all unique phrases used in the song.
+    pub phrase_bank: Vec<Phrase>,
+
+    /// A bank containing all unique chains used in the song.
+    pub chain_bank: Vec<Chain>,
+
+    /// A bank containing all instruments.
+    pub instrument_bank: Vec<Instrument>,
+
+    /// A bank containing all raw sample data for sample-based instruments.
+    pub sample_bank: Vec<SampleData>,
+}
+
+impl Song {
+    pub fn new(name: impl Into<String>) -> Self {
+        Song {
+            name: name.into(),
+            initial_bpm: 120,
+            initial_speed: 6,
+            arrangement: vec![[EMPTY_CHAIN_SLOT; MAX_TRACKS]], // Default to 64 steps
+            phrase_bank: vec![Phrase::default()],
+            chain_bank: vec![Chain::default()],
+            instrument_bank: vec![],
+            sample_bank: vec![],
+        }
+    }
 }
