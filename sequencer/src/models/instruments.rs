@@ -13,7 +13,7 @@ pub struct SynthParams {
     //... other synth parameters
 }
 
-#[serde_as] // needs to preceede #[derive]
+#[serde_as] // needs to precede #[derive]
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 /// Parameters for a classic sample-based instrument.
 pub struct SampleParams {
@@ -42,9 +42,21 @@ pub struct Instrument {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+/// An enum to hold the raw PCM data for a sample, allowing for multiple bit depths.
+pub enum SampleEncoding {
+    Signed8(Vec<i8>),
+    Signed16(Vec<i16>),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 /// Raw audio data for a single sample.
 pub struct SampleData {
     pub name: String,
-    pub data: Vec<i8>,
+    pub data: SampleEncoding,
+    pub sample_rate: u32,
+    pub loop_start: u32,
+    pub loop_length: u32,
+    pub volume: u8,
+    pub panning: u8,
     //... other metadata
 }

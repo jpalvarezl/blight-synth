@@ -82,7 +82,7 @@ impl Song {
             name: name.into(),
             initial_bpm: 120,
             initial_speed: 6,
-            arrangement: vec![[EMPTY_CHAIN_SLOT; MAX_TRACKS]], // Default to 64 steps
+            arrangement: vec![[EMPTY_CHAIN_SLOT; MAX_TRACKS]],
             phrase_bank: vec![Phrase::default()],
             chain_bank: vec![Chain::default()],
             instrument_bank: vec![],

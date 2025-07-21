@@ -33,7 +33,6 @@ const NO_EFFECT: u8 = 0;
 pub enum NoteSentinelValues {
     NoNote = NO_NOTE,
     NoteOff = NOTE_OFF,
-    Note(u8),
 }
 
 /// Sentinel values for effects.
