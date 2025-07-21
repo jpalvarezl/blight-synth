@@ -14,7 +14,7 @@ pub struct TimingState {
 
     // Internal state for the audio callback
     tick_duration_samples: f64, // milliseconds per tick in samples
-    samples_until_next_tick: f64, 
+    samples_until_next_tick: f64,
 }
 
 impl TimingState {
@@ -62,7 +62,7 @@ impl TimingState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_timing_state_default_values() {
         let sample_rate = 44100.0;
@@ -85,7 +85,8 @@ mod tests {
     #[test]
     fn test_advance_tick() {
         let sample_rate = 48000.0;
-        let tick_duration_in_samples = sample_rate * (BPM_TO_TICK_DURATION_SECONDS_FACTOR / INITIAL_BPM); // Should be 960.0
+        let tick_duration_in_samples =
+            sample_rate * (BPM_TO_TICK_DURATION_SECONDS_FACTOR / INITIAL_BPM); // Should be 960.0
 
         // Assuming initial_tpl of 6, though it doesn't affect this test
         let mut timing_state = TimingState::new(sample_rate);
@@ -101,5 +102,58 @@ mod tests {
         // Advancing by exactly two ticks worth of samples should yield TWO ticks.
         let ticks = timing_state.advance((tick_duration_in_samples * 2.0) as usize); // advance(1920)
         assert_eq!(ticks, 2);
+    }
+
+    #[test]
+    fn test_advance_multiple_ticks() {
+        let sample_rate = 48000.0;
+        let initial_bpm = 125.0;
+        let mut timing_state = TimingState::new(sample_rate);
+        let tick_duration_in_samples = 960.0;
+
+        // Advance by 2.5 ticks worth of samples, should process 2 ticks
+        let ticks = timing_state.advance((tick_duration_in_samples * 2.5) as usize); // 2400 samples
+        assert_eq!(ticks, 2);
+
+        // The remainder should be 0.5 ticks (480 samples). Advancing by another 480 should trigger the 3rd tick.
+        let ticks = timing_state.advance(480);
+        assert_eq!(ticks, 1);
+    }
+
+    #[test]
+    fn test_bpm_change_resets_counter() {
+        let sample_rate = 48000.0;
+        let mut timing_state = TimingState::new(sample_rate); // 960 samples/tick
+
+        // Advance halfway through a tick
+        let ticks = timing_state.advance(480);
+        assert_eq!(ticks, 0); // No tick should have passed yet
+
+        // Now, double the tempo. This should reset the tick counter.
+        timing_state.set_bpm(250.0); // New duration is 480 samples/tick
+
+        // Advancing by 479 samples should still not trigger a tick
+        let ticks = timing_state.advance(479);
+        assert_eq!(ticks, 0);
+
+        // The final sample should trigger the tick
+        let ticks = timing_state.advance(1);
+        assert_eq!(ticks, 1);
+    }
+
+    #[test]
+    fn test_small_advances_accumulate() {
+        let sample_rate = 48000.0;
+        let mut timing_state = TimingState::new(sample_rate); // 960 samples/tick
+
+        // Advance by 100 samples 9 times. No ticks should pass.
+        for _ in 0..9 {
+            let ticks = timing_state.advance(100);
+            assert_eq!(ticks, 0);
+        }
+
+        // The 10th advance of 100 samples (totaling 1000) should trigger the first tick.
+        let ticks = timing_state.advance(100);
+        assert_eq!(ticks, 1);
     }
 }
