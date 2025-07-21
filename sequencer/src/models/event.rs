@@ -24,9 +24,9 @@ impl Default for Event {
     }
 }
 
-pub const NO_NOTE: u8 = 0;
-pub const NOTE_OFF: u8 = 97;
-pub const NO_EFFECT: u8 = 0;
+const NO_NOTE: u8 = 0;
+const NOTE_OFF: u8 = 97;
+const NO_EFFECT: u8 = 0;
 
 /// Sentinel values for notes.
 #[repr(u8)]

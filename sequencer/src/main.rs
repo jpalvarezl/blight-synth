@@ -1,6 +1,6 @@
 // use sequencer::models::*;
 use sequencer::cli::CliArgs;
-use sequencer::models::{EffectType, Event, Phrase, Song, EMPTY_PHRASE_SLOT};
+use sequencer::models::{EMPTY_PHRASE_SLOT, EffectType, Event, Phrase, Song};
 
 fn main() {
     let args = CliArgs::parse_arguments();
@@ -28,7 +28,16 @@ fn main() {
 
     let mut song = Song::new("Test song");
     song.phrase_bank = vec![Phrase::from_events(phrase)];
-    song.arrangement = vec![[0, 1, 2, EMPTY_PHRASE_SLOT, EMPTY_PHRASE_SLOT, EMPTY_PHRASE_SLOT, EMPTY_PHRASE_SLOT, EMPTY_PHRASE_SLOT]];
+    song.arrangement = vec![[
+        0,
+        1,
+        2,
+        EMPTY_PHRASE_SLOT,
+        EMPTY_PHRASE_SLOT,
+        EMPTY_PHRASE_SLOT,
+        EMPTY_PHRASE_SLOT,
+        EMPTY_PHRASE_SLOT,
+    ]];
 
     args.write_file(&song).expect("Failed to write file");
 }

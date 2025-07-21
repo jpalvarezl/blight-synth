@@ -1,12 +1,11 @@
 mod effects;
-mod instruments;
+mod envelope;
 mod event;
+mod instruments;
 mod structural;
-mod sample;
-
 
 pub use effects::*;
-pub use instruments::*;
+pub use envelope::*;
 pub use event::*;
+pub use instruments::*;
 pub use structural::*;
-pub use sample::*;

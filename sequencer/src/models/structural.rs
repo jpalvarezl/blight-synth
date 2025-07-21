@@ -1,7 +1,7 @@
 use bincode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
-use crate::models::{Instrument, Event, SampleData};
+use crate::models::{Event, Instrument, SampleData};
 
 pub const DEFAULT_PHRASE_LENGTH: usize = 16;
 pub const DEFAULT_CHAIN_LENGTH: usize = 16;
@@ -25,15 +25,13 @@ impl Default for Phrase {
 }
 
 impl Phrase {
-    pub fn from_events<I>(events: I) -> Self 
-    where 
-        I: IntoIterator<Item = Event>
+    pub fn from_events<I>(events: I) -> Self
+    where
+        I: IntoIterator<Item = Event>,
     {
         let mut events_iter = events.into_iter();
         Phrase {
-            events: std::array::from_fn(|_| {
-                events_iter.next().unwrap_or_default()
-            }),
+            events: std::array::from_fn(|_| events_iter.next().unwrap_or_default()),
         }
     }
 }
