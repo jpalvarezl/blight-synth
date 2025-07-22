@@ -113,6 +113,7 @@ dependencies = [
  "crossbeam",
  "env_logger",
  "log",
+ "sequencer",
 ]
 
 [[package]]

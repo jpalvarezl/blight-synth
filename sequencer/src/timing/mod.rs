@@ -182,7 +182,7 @@ mod tests {
 
         // Advance halfway through a tick.
         timing_state.advance(480);
-        
+
         // Now, double the tempo. This should reset the tick counter.
         timing_state.set_bpm(250.0); // New duration is 480 samples/tick
 
@@ -200,7 +200,7 @@ mod tests {
         let sample_rate = 44100.0;
         let bpm = 120.0; // This gives a fractional tick duration: 918.75 samples
         let mut timing_state = TimingState::new_with_bpm_tpl(sample_rate, bpm, INITIAL_TPL);
-        
+
         // Advance by 918 samples four times. Three ticks should pass.
         let mut total_ticks = 0;
         total_ticks += timing_state.advance(918); // Remainder: 0.75

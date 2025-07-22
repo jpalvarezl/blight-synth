@@ -25,7 +25,7 @@ impl VoiceManager {
             .map(|_| Voice::new(sample_rate))
             .collect();
 
-        println!(
+        log::info!(
             "[VoiceManager] Creating NEW VoiceManager instance with {} voices and sample rate {} at address {:p}",
             max_polyphony, sample_rate, &voices as *const _
         );

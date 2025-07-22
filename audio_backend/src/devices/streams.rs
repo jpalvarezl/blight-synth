@@ -12,7 +12,6 @@ use crate::synths::synthesizer::Synthesizer;
 
 // New function that creates a stream with command processing
 pub fn create_stream_with_commands(
-    sample_rate: f32,
     max_polyphony: usize,
     command_queue: Arc<SegQueue<AudioCommand>>,
 ) -> anyhow::Result<Stream> {
@@ -27,6 +26,7 @@ pub fn create_stream_with_commands(
         .ok_or_else(|| anyhow::anyhow!("No supported config found"))?
         .with_max_sample_rate();
 
+    let sample_rate = supported_config.sample_rate().0 as f32;
     let sample_format = supported_config.sample_format();
     let config: cpal::StreamConfig = supported_config.into();
 

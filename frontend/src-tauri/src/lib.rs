@@ -10,7 +10,7 @@ pub struct AudioEngineState(pub AudioEngine);
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Create the lock-free audio engine (this automatically starts the audio stream)
-    let audio_engine = audio_backend::start_lockfree_audio_engine(44100.0, 8)
+    let audio_engine = audio_backend::start_lockfree_audio_engine(8)
         .expect("Failed to start audio engine");
     
     tauri::Builder::default()
