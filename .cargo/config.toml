@@ -1,0 +1,4 @@
+[build]
+# https://rust-lang.github.io/packed_simd/perf-guide/target-feature/rustflags.html#target-cpu
+# as mentioned in the link, this is useful when compiling and running locally. 
+rustflags = ["-C", "target-cpu=native"]
