@@ -123,6 +123,7 @@ dependencies = [
  "anyhow",
  "cpal",
  "env_logger",
+ "harmony",
  "log",
  "ringbuf",
  "sequencer",

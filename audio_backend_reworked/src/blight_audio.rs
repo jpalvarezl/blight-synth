@@ -1,4 +1,4 @@
-use crate::{AudioProcessor, Command};
+use crate::{AudioProcessor, Command, VoiceFactory};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use ringbuf::{traits::*, HeapProd, HeapRb};
 
@@ -7,6 +7,7 @@ pub struct BlightAudio {
     // The producer end of the command queue.
     command_tx: HeapProd<Command>,
     // The cpal audio stream. Kept alive to continue playback.
+    voice_factory: VoiceFactory,
     _stream: cpal::Stream,
 }
 
@@ -41,6 +42,7 @@ impl BlightAudio {
 
         Ok(BlightAudio {
             command_tx,
+            voice_factory: VoiceFactory::new(sample_rate as f32),
             _stream: stream,
         })
     }
@@ -51,5 +53,9 @@ impl BlightAudio {
             // In a real app, handle this more gracefully (e.g., log, drop command).
             eprintln!("Command queue is full. Command dropped.");
         }
+    }
+
+    pub fn get_voice_factory(&self) -> &VoiceFactory {
+        &self.voice_factory
     }
 }
