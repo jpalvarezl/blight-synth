@@ -9,4 +9,5 @@ pub(crate) use audio_processor::*;
 pub use blight_audio::*;
 pub use commands::*;
 pub(crate) use synth_infra::*;
+pub use synths::*;
 pub use voice_factory::*;

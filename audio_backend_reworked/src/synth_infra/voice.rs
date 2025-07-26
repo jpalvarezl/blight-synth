@@ -27,17 +27,18 @@ pub trait VoiceTrait: Send + Sync {
     /// Sets the stereo pan for this voice.
     fn set_pan(&mut self, pan: f32);
 
-    // /// Returns a mutable `Any` reference to the concrete `Voice` type,
-    // /// enabling safe downcasting to access type-specific methods.
-    // fn as_any_mut(&mut self) -> &mut dyn Any;
+    /// Returns a mutable `Any` reference to the concrete `Voice` type,
+    /// enabling safe downcasting to access type-specific methods.
+    fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
 /// A `Voice` represents a single, monophonic musical event. It bundles a sound
 /// generator (`SynthNode`) with its own dedicated `Envelope` and other state.
 /// Polyphony is achieved by managing multiple `Voice` instances.
+#[derive(Debug)]
 pub struct Voice<S: SynthNode> {
     id: VoiceId,
-    node: S,
+    pub(crate) node: S,
     // envelope: Envelope,
     sample_rate: f32,
     pan: f32, // -1.0 (L) to 1.0 (R)
@@ -45,8 +46,13 @@ pub struct Voice<S: SynthNode> {
     mono_buf: Vec<f32>,
 }
 
-impl <S: SynthNode>Voice<S> {
-    pub fn new(id: VoiceId, node: S, /* envelope: Envelope,*/ sample_rate: f32, pan: f32) -> Self {
+impl<S: SynthNode> Voice<S> {
+    pub fn new(
+        id: VoiceId,
+        node: S,
+        /* envelope: Envelope,*/ sample_rate: f32,
+        pan: f32,
+    ) -> Self {
         // Pre-allocate the internal mono buffer for the voice.
         const MAX_BUFFER_SIZE: usize = 4096;
         let mono_buf = vec![0.0; MAX_BUFFER_SIZE];
@@ -63,8 +69,7 @@ impl <S: SynthNode>Voice<S> {
 }
 
 // Implementation of the object-safe trait for the generic Voice.
-impl<S: SynthNode> VoiceTrait for Voice<S> {
-
+impl<S: SynthNode + 'static> VoiceTrait for Voice<S> {
     fn id(&self) -> VoiceId {
         self.id
     }
@@ -84,7 +89,7 @@ impl<S: SynthNode> VoiceTrait for Voice<S> {
         // 3. Apply envelope and panning, adding to the main stereo buffers.
         for i in 0..frame_count {
             // let envelope_val = self.envelope.process();
-            let mono_sample = mono_processing_buf[i];// * envelope_val;
+            let mono_sample = mono_processing_buf[i]; // * envelope_val;
             left_buf[i] += mono_sample * gain_left;
             right_buf[i] += mono_sample * gain_right;
         }
@@ -94,7 +99,7 @@ impl<S: SynthNode> VoiceTrait for Voice<S> {
         self.node.note_on(note, velocity);
         // self.envelope.gate(true);
     }
-    
+
     fn note_off(&mut self) {
         self.node.note_off();
         // self.envelope.gate(false);
@@ -109,10 +114,9 @@ impl<S: SynthNode> VoiceTrait for Voice<S> {
         self.pan = pan.clamp(-1.0, 1.0);
     }
 
-    // TODO: figure out when this is needed.
-    // fn as_any_mut(&mut self) -> &mut dyn Any {
-    //     self
-    // }
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
 }
 
 // Manages a heterogeneous collection of voices using dynamic dispatch.
@@ -122,7 +126,6 @@ pub struct VoiceManager {
 }
 
 impl VoiceManager {
-
     pub fn new() -> Self {
         Self {
             voices: Vec::with_capacity(64),

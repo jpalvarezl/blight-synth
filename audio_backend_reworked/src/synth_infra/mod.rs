@@ -1,9 +1,9 @@
-mod synthesizer;
 mod synth_node;
-mod voice; 
+mod synthesizer;
+mod voice;
 
-pub use synthesizer::*;
 pub use synth_node::*;
+pub use synthesizer::*;
 pub use voice::*;
 
 pub type VoiceId = u64;

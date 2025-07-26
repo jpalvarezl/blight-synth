@@ -1,4 +1,4 @@
-use crate::{synth_infra::voice::VoiceManager, Command};
+use crate::{synth_infra::voice::VoiceManager, synths::oscillator_node, Command, Voice};
 
 pub struct Synthesizer {
     pub sample_rate: f32,
@@ -16,11 +16,16 @@ impl Synthesizer {
 
     pub fn handle_command(&mut self, command: Command) {
         match command {
-            Command::PlayNote { voice, note, velocity } => {
+            Command::PlayNote {
+                voice,
+                note,
+                velocity,
+            } => {
                 // Create a new voice and add it to the manager.
                 let voice_id = voice.id(); // Assuming Voice has an id field.
                 self.voice_manager.add_voice(voice);
-                self.voice_manager.find_voice_mut(voice_id)
+                self.voice_manager
+                    .find_voice_mut(voice_id)
                     .expect("Voice should be added")
                     .note_on(note, velocity);
             }
@@ -29,6 +34,17 @@ impl Synthesizer {
                 self.voice_manager.find_voice_mut(voice_id).map(|voice| {
                     voice.note_off();
                 });
+            }
+            Command::ChangeWaveform { voice_id, waveform } => {
+                // Find the voice and change its waveform.
+                if let Some(voice) = self.voice_manager.find_voice_mut(voice_id) {
+                    if let Some(oscillator_node) = voice
+                        .as_any_mut()
+                        .downcast_mut::<Voice<oscillator_node::OscillatorNode>>()
+                    {
+                        oscillator_node.node.set_waveform(waveform);
+                    }
+                }
             }
             _ => {
                 // TODO: support the rest

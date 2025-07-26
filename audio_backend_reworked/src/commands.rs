@@ -1,7 +1,7 @@
-use crate::{EffectChainId, InstrumentId, VoiceId, VoiceTrait};
+use crate::{synths::oscillator_node::Waveform, EffectChainId, InstrumentId, VoiceId, VoiceTrait};
 
 pub enum Command {
-      // Note/Voice Control
+    // Note/Voice Control
     PlayNote {
         // voice_id: VoiceId, // Unique ID for this specific note event
         voice: Box<dyn VoiceTrait>,
@@ -13,7 +13,6 @@ pub enum Command {
     StopNote {
         voice_id: VoiceId, // Target a specific note to stop
     },
-    
     // Parameter Control (Type-Safe)
     SetVoicePan {
         voice_id: VoiceId,
@@ -39,6 +38,10 @@ pub enum Command {
         effect_index: usize,
         param_index: u32,
         value: f32,
+    },
+    ChangeWaveform {
+        voice_id: VoiceId,
+        waveform: Waveform,
     },
     // AddEffect {
     //     target_chain: EffectChainId,

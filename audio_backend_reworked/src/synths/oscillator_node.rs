@@ -4,6 +4,7 @@ use crate::SynthNode;
 
 /// Represents a simple oscillator node for audio synthesis.
 /// It can generate different waveforms such as sine, square, sawtooth, and triangle
+#[derive(Debug, Clone, Copy)]
 pub struct OscillatorNode {
     waveform: Waveform,
     frequency: f32,
@@ -11,6 +12,7 @@ pub struct OscillatorNode {
 }
 
 /// Represents the different waveforms that the oscillator can generate.
+#[derive(Debug, Clone, Copy)]
 pub enum Waveform {
     Sine,
     Square,
@@ -74,22 +76,21 @@ impl OscillatorNode {
 }
 
 impl SynthNode for OscillatorNode {
-
     fn process(&mut self, mono_buf: &mut [f32], sample_rate: f32) {
         // Implementation of oscillator processing logic
         for sample in mono_buf.iter_mut() {
             *sample = self.next_sample(sample_rate);
         }
     }
-    
+
     fn note_on(&mut self, note: u8, _velocity: u8) {
         self.frequency = midi_to_frequency(note)
     }
-    
+
     fn note_off(&mut self) {
         // ignored for dumb oscillator
     }
-    
+
     fn is_active(&self) -> bool {
         true
     }
