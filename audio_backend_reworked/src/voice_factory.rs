@@ -1,3 +1,5 @@
+use std::env;
+
 use crate::{
     synth_infra::{Voice, VoiceTrait}, synths::oscillator_node::OscillatorNode, Envelope, InstrumentId, SynthNode, VoiceId
 };
@@ -32,6 +34,23 @@ impl VoiceFactory {
         Box::new(voice)
     }
 
+    pub fn create_voice_with_envelope(
+        &self,
+        voice_id: VoiceId,
+        instrument_id: InstrumentId,
+        pan: f32,
+        attack_s: f32,
+        decay_s: f32,
+        sustain: f32,
+        release_s: f32,
+    ) -> Box<dyn VoiceTrait> {
+        let synth_node = self.create_synth_node(instrument_id);
+        let envelope = self.create_envelope(attack_s, decay_s, sustain, release_s);
+        let voice = Voice::new(voice_id, synth_node, envelope, pan);
+
+        Box::new(voice)
+    }
+
     fn create_synth_node(&self, instrument_id: InstrumentId) -> impl SynthNode {
         // In a real implementation, this would look up the instrument definition.
         // For this example, we'll use a simple OscillatorNode.
@@ -40,5 +59,11 @@ impl VoiceFactory {
             // INSTRUMENT_ID_SUPERSAW => Box::new(SuperSawNode::new(self.sample_rate)),
             _ => OscillatorNode::new(), // Default
         }
+    }
+
+    pub fn create_envelope(&self, attack_s: f32, decay_s: f32, sustain: f32, release_s: f32) -> Envelope {
+        let mut envelope = Envelope::new(self.sample_rate);
+        envelope.set_parameters(attack_s, decay_s, sustain, release_s);
+        envelope
     }
 }
