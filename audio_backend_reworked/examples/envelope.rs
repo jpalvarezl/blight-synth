@@ -63,9 +63,9 @@ fn main() {
                 note: 60,
                 velocity: 127,
             });
-            thread::sleep(Duration::from_millis(100));
+            thread::sleep(Duration::from_millis(200));
             audio.send_command(Command::StopNote { voice_id });
-            thread::sleep(Duration::from_millis(500));
+            thread::sleep(Duration::from_millis(1000));
         }
         Err(e) => {
             eprintln!("Error initializing audio: {}", e);

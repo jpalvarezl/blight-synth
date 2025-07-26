@@ -71,7 +71,7 @@ impl Envelope {
                 self.target = self.sustain_level;
                 self.coefficient = self.decay_coef;
             }
-            EnvelopeState::Decay if self.output <= self.sustain_level => {
+            EnvelopeState::Decay if self.output <= self.sustain_level + f32::EPSILON => {
                 self.state = EnvelopeState::Sustain;
                 self.target = self.sustain_level;
                 self.coefficient = 0.0; // Stay at sustain level
