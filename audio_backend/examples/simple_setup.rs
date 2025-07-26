@@ -1,11 +1,11 @@
 use std::thread;
 
-use audio_backend_reworked::Command;
+use audio_backend::{BlightAudio, Command};
 
 fn main() {
     // This is a placeholder for the main function.
     // The actual implementation will depend on how you want to use the BlightAudio API.
-    match &mut audio_backend_reworked::BlightAudio::new() {
+    match &mut BlightAudio::new() {
         Ok(audio) => {
             println!("BlightAudio initialized successfully!");
             // You can now use `audio` to send commands, etc.

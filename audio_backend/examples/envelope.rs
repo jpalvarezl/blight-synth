@@ -1,9 +1,9 @@
 use std::{thread, time::Duration};
 
-use audio_backend_reworked::Command;
+use audio_backend::{Command, BlightAudio};
 
 fn main() {
-    match &mut audio_backend_reworked::BlightAudio::new() {
+    match &mut BlightAudio::new() {
         Ok(audio) => {
             let voice_id = 0;
             let instrument_id = 0;

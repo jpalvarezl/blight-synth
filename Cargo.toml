@@ -1,9 +1,9 @@
 [workspace]
 resolver = "2"
-members = ["audio_backend", "audio_backend_reworked", "harmony", "sequencer"]
+members = ["audio_backend", "harmony", "sequencer"]
 # TODO: undo
 # default-members = ["sequencer"]
-default-members = ["audio_backend_reworked"]
+default-members = ["audio_backend"]
 exclude = ["frontend/src-tauri"]
 
 [workspace.dependencies]
@@ -21,5 +21,5 @@ serde_with = "3.14"
 
 sequencer = { path = "sequencer" }
 harmony = { path = "harmony" }
+# audio_backend_deprecated = { path = "audio_backend_deprecated" }
 audio_backend = { path = "audio_backend" }
-audio_backend_reworked = { path = "audio_backend_reworked" }

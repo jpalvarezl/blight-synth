@@ -23,7 +23,7 @@ pub struct Envelope {
 impl Envelope {
     pub fn new(sample_rate: f32) -> Self {
         // Default values
-        Self {
+        let mut env = Self {
             state: EnvelopeState::Idle,
             sample_rate,
             output: 0.0,
@@ -33,7 +33,9 @@ impl Envelope {
             decay_coef: 0.0,
             release_coef: 0.0,
             sustain_level: 1.0,
-        }
+        };
+        env.set_parameters(0.1, 0.1, 0.8, 0.5); // Default ADSR values
+        env
     }
 
     pub fn set_parameters(&mut self, attack_s: f32, decay_s: f32, sustain: f32, release_s: f32) {

@@ -8,5 +8,6 @@ cpal = {workspace = true}
 anyhow = {workspace = true}
 log = {workspace = true}
 env_logger = {workspace = true}
-crossbeam = {workspace = true}
+ringbuf = {workspace = true}
 sequencer = {workspace = true}
+harmony = {workspace = true}

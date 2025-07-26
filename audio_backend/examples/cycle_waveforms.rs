@@ -1,11 +1,11 @@
 use std::thread;
 
-use audio_backend_reworked::{oscillator_node::Waveform, Command};
+use audio_backend::{oscillator_node::Waveform, Command, BlightAudio};
 
 fn main() {
     // This is a placeholder for the main function.
     // The actual implementation will depend on how you want to use the BlightAudio API.
-    match &mut audio_backend_reworked::BlightAudio::new() {
+    match &mut BlightAudio::new() {
         Ok(audio) => {
             println!("BlightAudio initialized successfully!");
             let voice_id = 0;
