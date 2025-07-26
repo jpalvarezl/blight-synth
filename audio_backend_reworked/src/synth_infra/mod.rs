@@ -1,7 +1,9 @@
+mod envelope;
 mod synth_node;
 mod synthesizer;
 mod voice;
 
+pub use envelope::*;
 pub use synth_node::*;
 pub use synthesizer::*;
 pub use voice::*;

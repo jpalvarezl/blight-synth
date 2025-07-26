@@ -18,7 +18,7 @@ impl AudioProcessor {
         const MAX_BUFFER_SIZE: usize = 4096;
         Self {
             command_rx,
-            synthesizer: Synthesizer::new(sample_rate),
+            synthesizer: Synthesizer::new(),
             sample_rate,
             channels,
             left_buf: vec![0.0; MAX_BUFFER_SIZE],
@@ -45,7 +45,7 @@ impl AudioProcessor {
         right.fill(0.0);
 
         // 2. Process audio into our non-interleaved buffers.
-        self.synthesizer.process(left, right);
+        self.synthesizer.process(left, right, self.sample_rate);
 
         // 3. Re-interleave the processed audio back into the output buffer.
         for (i, frame) in output_buffer.chunks_mut(self.channels).enumerate() {

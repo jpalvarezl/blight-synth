@@ -1,6 +1,6 @@
 use std::{any::Any, env, vec};
 
-use crate::{synth_infra::synth_node::SynthNode, VoiceId};
+use crate::{synth_infra::synth_node::SynthNode, Envelope, VoiceId};
 
 // TODO: address envelope in a separate issue.
 
@@ -11,7 +11,7 @@ pub trait VoiceTrait: Send + Sync {
     fn id(&self) -> VoiceId;
 
     /// Processes the next block of audio, adding the voice's output to the provided stereo buffers.
-    fn process(&mut self, left_buf: &mut [f32], right_buf: &mut [f32]);
+    fn process(&mut self, left_buf: &mut [f32], right_buf: &mut [f32], frame_rate: f32);
 
     /// Triggers the note on event for this voice.
     fn note_on(&mut self, note: u8, velocity: u8);
@@ -39,8 +39,7 @@ pub trait VoiceTrait: Send + Sync {
 pub struct Voice<S: SynthNode> {
     id: VoiceId,
     pub(crate) node: S,
-    // envelope: Envelope,
-    sample_rate: f32,
+    envelope: Envelope,
     pan: f32, // -1.0 (L) to 1.0 (R)
     // Pre-allocated buffer for mono processing.
     mono_buf: Vec<f32>,
@@ -50,7 +49,8 @@ impl<S: SynthNode> Voice<S> {
     pub fn new(
         id: VoiceId,
         node: S,
-        /* envelope: Envelope,*/ sample_rate: f32,
+        envelope: Envelope,
+        // sample_rate: f32,
         pan: f32,
     ) -> Self {
         // Pre-allocate the internal mono buffer for the voice.
@@ -60,8 +60,7 @@ impl<S: SynthNode> Voice<S> {
         Self {
             id,
             node,
-            // envelope: Envelope::new(sample_rate),
-            sample_rate,
+            envelope,
             pan,
             mono_buf,
         }
@@ -74,12 +73,12 @@ impl<S: SynthNode + 'static> VoiceTrait for Voice<S> {
         self.id
     }
 
-    fn process(&mut self, left_buf: &mut [f32], right_buf: &mut [f32]) {
+    fn process(&mut self, left_buf: &mut [f32], right_buf: &mut [f32], sample_rate: f32) {
         let frame_count = left_buf.len();
         let mono_processing_buf = &mut self.mono_buf[..frame_count];
 
         // 1. Generate mono audio from the synth node.
-        self.node.process(mono_processing_buf, self.sample_rate);
+        self.node.process(mono_processing_buf, sample_rate);
 
         // 2. Calculate constant-power panning gains.
         let pan_angle = (self.pan + 1.0) * std::f32::consts::FRAC_PI_4; // Map [-1, 1] to [0, PI/2]
@@ -88,8 +87,8 @@ impl<S: SynthNode + 'static> VoiceTrait for Voice<S> {
 
         // 3. Apply envelope and panning, adding to the main stereo buffers.
         for i in 0..frame_count {
-            // let envelope_val = self.envelope.process();
-            let mono_sample = mono_processing_buf[i]; // * envelope_val;
+            let envelope_val = self.envelope.process();
+            let mono_sample = mono_processing_buf[i] * envelope_val;
             left_buf[i] += mono_sample * gain_left;
             right_buf[i] += mono_sample * gain_right;
         }
@@ -97,17 +96,16 @@ impl<S: SynthNode + 'static> VoiceTrait for Voice<S> {
 
     fn note_on(&mut self, note: u8, velocity: u8) {
         self.node.note_on(note, velocity);
-        // self.envelope.gate(true);
+        self.envelope.gate(true);
     }
 
     fn note_off(&mut self) {
         self.node.note_off();
-        // self.envelope.gate(false);
+        self.envelope.gate(false);
     }
 
     fn is_active(&self) -> bool {
-        // self.envelope.is_active() && self.node.is_active()
-        self.node.is_active()
+        self.envelope.is_active() && self.node.is_active()
     }
 
     fn set_pan(&mut self, pan: f32) {
@@ -122,14 +120,12 @@ impl<S: SynthNode + 'static> VoiceTrait for Voice<S> {
 // Manages a heterogeneous collection of voices using dynamic dispatch.
 pub struct VoiceManager {
     voices: Vec<Box<dyn VoiceTrait>>,
-    // sample_rate: f32,
 }
 
 impl VoiceManager {
     pub fn new() -> Self {
         Self {
             voices: Vec::with_capacity(64),
-            // sample_rate: 44100.0,
         }
     }
 
@@ -137,10 +133,10 @@ impl VoiceManager {
         self.voices.iter_mut().find(|v| v.id() == voice_id)
     }
 
-    pub fn process(&mut self, left_buf: &mut [f32], right_buf: &mut [f32]) {
+    pub fn process(&mut self, left_buf: &mut [f32], right_buf: &mut [f32], sample_rate: f32) {
         // Iterate and process active voices, which add their output to the buffers.
         for voice in self.voices.iter_mut() {
-            voice.process(left_buf, right_buf); // Dynamic dispatch here.
+            voice.process(left_buf, right_buf, sample_rate); // Dynamic dispatch here.
         }
 
         // Remove inactive voices.

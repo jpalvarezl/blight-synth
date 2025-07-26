@@ -1,7 +1,5 @@
 use crate::{
-    synth_infra::{Voice, VoiceTrait},
-    synths::oscillator_node::OscillatorNode,
-    InstrumentId, SynthNode, VoiceId,
+    synth_infra::{Voice, VoiceTrait}, synths::oscillator_node::OscillatorNode, Envelope, InstrumentId, SynthNode, VoiceId
 };
 
 /// A factory for creating `Voice` objects in the non-real-time world.
@@ -28,11 +26,8 @@ impl VoiceFactory {
         // All `Box::new` calls happen here, safely in the NRT world.
         let synth_node = self.create_synth_node(instrument_id);
 
-        // Pre-allocate the internal mono buffer for the voice.
-        // const MAX_BUFFER_SIZE: usize = 4096;
-        // let mono_buf = vec!;
-
-        let voice = Voice::new(voice_id, synth_node, self.sample_rate, pan);
+        let envelope = Envelope::new(self.sample_rate);
+        let voice = Voice::new(voice_id, synth_node, envelope, pan);
 
         Box::new(voice)
     }
