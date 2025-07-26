@@ -1,15 +1,14 @@
 use crate::{synth_infra::voice::VoiceManager, synths::oscillator_node, Command, Voice};
 
 pub struct Synthesizer {
-    pub sample_rate: f32,
+    // pub sample_rate: f32,
     voice_manager: VoiceManager,
     // Add more fields as needed for synthesizer state.
 }
 
 impl Synthesizer {
-    pub fn new(sample_rate: f32) -> Self {
+    pub fn new() -> Self {
         Self {
-            sample_rate,
             voice_manager: VoiceManager::new(),
         }
     }
@@ -52,11 +51,11 @@ impl Synthesizer {
         }
     }
 
-    pub fn process(&mut self, left_buf: &mut [f32], right_buf: &mut [f32]) {
+    pub fn process(&mut self, left_buf: &mut [f32], right_buf: &mut [f32], sample_rate: f32) {
         // Process audio and fill the output buffer.
         // for (left, right) in left_buf.iter_mut().zip(right_buf.iter_mut()) {
         //     self.voice_manager.process(left, right);
         // }
-        self.voice_manager.process(left_buf, right_buf);
+        self.voice_manager.process(left_buf, right_buf, sample_rate);
     }
 }
