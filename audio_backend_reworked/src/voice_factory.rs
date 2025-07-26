@@ -1,7 +1,7 @@
-use std::env;
-
 use crate::{
-    synth_infra::{Voice, VoiceTrait}, synths::oscillator_node::OscillatorNode, Envelope, InstrumentId, SynthNode, VoiceId
+    synth_infra::{Voice, VoiceTrait},
+    synths::oscillator_node::OscillatorNode,
+    Envelope, InstrumentId, SynthNode, VoiceId,
 };
 
 /// A factory for creating `Voice` objects in the non-real-time world.
@@ -61,7 +61,13 @@ impl VoiceFactory {
         }
     }
 
-    pub fn create_envelope(&self, attack_s: f32, decay_s: f32, sustain: f32, release_s: f32) -> Envelope {
+    pub fn create_envelope(
+        &self,
+        attack_s: f32,
+        decay_s: f32,
+        sustain: f32,
+        release_s: f32,
+    ) -> Envelope {
         let mut envelope = Envelope::new(self.sample_rate);
         envelope.set_parameters(attack_s, decay_s, sustain, release_s);
         envelope
