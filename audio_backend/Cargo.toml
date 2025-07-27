@@ -10,4 +10,4 @@ log = {workspace = true}
 env_logger = {workspace = true}
 ringbuf = {workspace = true}
 sequencer = {workspace = true}
-harmony = {workspace = true}
+utils = {workspace = true}

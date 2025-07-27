@@ -5,7 +5,7 @@ blight-synth is a modular synthesizer application built in Rust, featuring a ded
 ## Project Structure
 
 - `audio_backend/` — Core audio engine. Handles audio device management, synthesis, streaming, and processing. Written in Rust.
-- `harmony/` — Music theory utilities (notes, scales, etc.) for use by the synth engine. Written in Rust.
+- `utils/` — Music theory utilities (notes, scales, etc.) for use by the synth engine. Written in Rust.
 - `frontend/` — Graphical User Interface (GUI) for operating the synth, built with Tauri. (Details are in the folder; not covered here.)
 - `assets/` — Data files for notes and other resources.
 - `scripts/` — Utility scripts (e.g., for generating note data).
@@ -25,12 +25,7 @@ The `audio_backend` crate is responsible for all audio processing and device man
 
 ```
 +-------------------+
-|   audio_backend   |
-+-------------------+
-        |
-        v
-+-------------------+
-|   devices/        |  <-- Audio device & stream management (cpal)
+|   audio_backend   |. <-- Audio device & stream management (cpal)
 +-------------------+
         |
         v
@@ -40,13 +35,13 @@ The `audio_backend` crate is responsible for all audio processing and device man
         |
         v
 +-------------------+
-|   harmony crate   |  <-- Music theory (notes, scales)
+|   Utils crate   |  <-- Music theory (notes, scales)
 +-------------------+
 ```
 
-- **devices/**: Manages audio devices and streaming using the `cpal` library. Includes stream creation, buffer management, and audio callback logic.
+- **audio_backend/**: Manages audio devices and streaming using the `cpal` library. Includes stream creation, buffer management, and audio callback logic.
 - **synths/**: Implements synthesis algorithms (oscillators, ADSR envelopes, voice management, etc.).
-- **harmony/**: Provides music theory utilities (note frequencies, scales, etc.) used by the synth engine.
+- **utils/**: Provides music theory utilities (note frequencies, scales, etc.) used by the synth engine.
 
 ## Main Dependencies
 

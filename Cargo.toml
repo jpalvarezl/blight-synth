@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["audio_backend", "harmony", "sequencer"]
+members = ["audio_backend", "utils", "sequencer"]
 # TODO: undo
 # default-members = ["sequencer"]
 default-members = ["audio_backend"]
@@ -20,6 +20,6 @@ serde_json = "1.0"
 serde_with = "3.14"
 
 sequencer = { path = "sequencer" }
-harmony = { path = "harmony" }
+utils = { path = "utils" }
 # audio_backend_deprecated = { path = "audio_backend_deprecated" }
 audio_backend = { path = "audio_backend" }

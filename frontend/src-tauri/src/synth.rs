@@ -1,5 +1,5 @@
 use audio_backend::synths::Waveform;
-use harmony::note;
+use utils::note;
 use tauri::State;
 
 use super::AudioEngineState;

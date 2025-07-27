@@ -1,4 +1,4 @@
-use harmony::note::midi_to_frequency;
+use utils::note::midi_to_frequency;
 
 use crate::SynthNode;
 
