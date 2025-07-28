@@ -1,6 +1,6 @@
 use std::{any::Any, vec};
 
-use crate::{synth_infra::synth_node::SynthNode, Envelope, VoiceId};
+use crate::{id::VoiceId, synth_infra::synth_node::SynthNode, Envelope};
 
 // TODO: address envelope in a separate issue.
 
