@@ -1,4 +1,4 @@
-use crate::{synths::oscillator_node::Waveform, EffectChainId, VoiceId, VoiceTrait};
+use crate::{id::EffectChainId, id::VoiceId, synths::Waveform, VoiceTrait};
 
 pub enum Command {
     // Note/Voice Control

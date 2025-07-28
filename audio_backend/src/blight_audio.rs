@@ -66,7 +66,7 @@ impl BlightAudio {
         &self.voice_factory
     }
 
-    pub fn get_resource_manager(&self) -> &ResourceManager {
-        &self.resource_manager
+    pub fn get_resource_manager(&mut self) -> &mut ResourceManager {
+        &mut self.resource_manager
     }
 }

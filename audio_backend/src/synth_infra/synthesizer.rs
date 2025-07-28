@@ -1,4 +1,4 @@
-use crate::{synth_infra::voice::VoiceManager, synths::oscillator_node, Command, Voice};
+use crate::{synth_infra::voice::VoiceManager, Command, Voice};
 
 pub struct Synthesizer {
     // pub sample_rate: f32,
@@ -39,7 +39,7 @@ impl Synthesizer {
                 if let Some(voice) = self.voice_manager.find_voice_mut(voice_id) {
                     if let Some(oscillator_node) = voice
                         .as_any_mut()
-                        .downcast_mut::<Voice<oscillator_node::OscillatorNode>>()
+                        .downcast_mut::<Voice<crate::OscillatorNode>>()
                     {
                         oscillator_node.node.set_waveform(waveform);
                     }

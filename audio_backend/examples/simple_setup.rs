@@ -1,6 +1,6 @@
 use std::thread;
 
-use audio_backend::{BlightAudio, Command};
+use audio_backend::{id::Instrument, BlightAudio, Command};
 
 fn main() {
     // This is a placeholder for the main function.
@@ -8,24 +8,25 @@ fn main() {
     match &mut BlightAudio::new() {
         Ok(audio) => {
             println!("BlightAudio initialized successfully!");
+            let instrument = Instrument::Oscillator;
             // You can now use `audio` to send commands, etc.
             audio.send_command(Command::PlayNote {
                 note: 60,
-                voice: audio.get_voice_factory().create_voice(0, 0, 0.0),
+                voice: audio.get_voice_factory().create_voice(0, &instrument, 0.0),
                 velocity: 127,
             });
             thread::sleep(std::time::Duration::from_millis(1000));
             audio.send_command(Command::StopNote { voice_id: 0 });
             audio.send_command(Command::PlayNote {
                 note: 63,
-                voice: audio.get_voice_factory().create_voice(1, 0, 0.0),
+                voice: audio.get_voice_factory().create_voice(1, &instrument, 0.0),
                 velocity: 127,
             });
             thread::sleep(std::time::Duration::from_millis(1000));
             audio.send_command(Command::StopNote { voice_id: 1 });
             audio.send_command(Command::PlayNote {
                 note: 66,
-                voice: audio.get_voice_factory().create_voice(2, 0, 0.0),
+                voice: audio.get_voice_factory().create_voice(2, &instrument, 0.0),
                 velocity: 127,
             });
             thread::sleep(std::time::Duration::from_millis(1000));

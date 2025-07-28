@@ -1,6 +1,6 @@
 use std::thread;
 
-use audio_backend::{oscillator_node::Waveform, Command, BlightAudio};
+use audio_backend::{id::Instrument, BlightAudio, Command, Waveform};
 
 fn main() {
     // This is a placeholder for the main function.
@@ -9,10 +9,11 @@ fn main() {
         Ok(audio) => {
             println!("BlightAudio initialized successfully!");
             let voice_id = 0;
+            let instrument_id = Instrument::Oscillator;
             // You can now use `audio` to send commands, etc.
             audio.send_command(Command::PlayNote {
                 note: 60,
-                voice: audio.get_voice_factory().create_voice(voice_id, 0, 0.0),
+                voice: audio.get_voice_factory().create_voice(voice_id, instrument_id, 0.0),
                 velocity: 127,
             });
             thread::sleep(std::time::Duration::from_millis(1000));

@@ -1,15 +1,15 @@
 use std::{thread, time::Duration};
 
-use audio_backend::{Command, BlightAudio};
+use audio_backend::{BlightAudio, Command};
 
 fn main() {
     match &mut BlightAudio::new() {
         Ok(audio) => {
             let voice_id = 0;
-            let instrument_id = 0;
+            let instrument = audio_backend::id::Instrument::Oscillator;
             let voice = audio.get_voice_factory().create_voice_with_envelope(
                 voice_id,
-                instrument_id,
+                &instrument,
                 0.0,
                 0.4,
                 0.1,
@@ -27,10 +27,9 @@ fn main() {
 
             // slow attack and release
             let voice_id = 0;
-            let instrument_id = 0;
             let voice = audio.get_voice_factory().create_voice_with_envelope(
                 voice_id,
-                instrument_id,
+                &instrument,
                 0.0,
                 2.0,
                 0.1,
@@ -48,10 +47,9 @@ fn main() {
 
             // quick attack and release
             let voice_id = 0;
-            let instrument_id = 0;
             let voice = audio.get_voice_factory().create_voice_with_envelope(
                 voice_id,
-                instrument_id,
+                &instrument,
                 0.0,
                 0.01,
                 0.1,
