@@ -32,8 +32,9 @@ impl ResourceManager {
     }
 
     /// Retrieves a sample by its ID.
-    pub fn get_sample(&self, sample_id: SampleId) -> Option<Arc<SampleData>> {
-        self.samples.get(&sample_id).cloned()
+    pub fn get_sample_unsafe(&self, sample_id: SampleId) -> Arc<SampleData> {
+        let sample = self.samples.get(&sample_id).expect("Sample not found");
+        sample.clone()
     }
 }
 

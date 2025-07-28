@@ -1,9 +1,16 @@
+use std::sync::Arc;
+
 use crate::{
-    id::{Instrument, InstrumentId, VoiceId},
+    id::VoiceId,
     synth_infra::{Voice, VoiceTrait},
     synths::{OscillatorNode, SamplePlayerNode},
-    Envelope,
+    Envelope, SampleData,
 };
+
+pub enum InstrumentDefinition {
+    Oscillator,
+    SamplePlayer(Arc<SampleData>),
+}
 
 /// A factory for creating `Voice` objects in the non-real-time world.
 /// This ensures all allocations happen before a voice is sent to the audio thread.
@@ -21,30 +28,35 @@ impl VoiceFactory {
     pub fn create_voice(
         &self,
         voice_id: VoiceId,
-        instrument: &Instrument,
+        instrument: InstrumentDefinition,
         pan: f32,
     ) -> Box<dyn VoiceTrait> {
         // This is where the logic to choose a `SynthNode` based on the
         // instrument definition from the `sequencer` crate would live.
         // All `Box::new` calls happen here, safely in the NRT world.
         let envelope = Envelope::new(self.sample_rate);
-        
+
         match instrument {
-            Instrument::Oscillator => {
+            InstrumentDefinition::Oscillator => {
                 let voice = Voice::new(voice_id, OscillatorNode::new(), envelope, pan);
                 Box::new(voice)
-            },
-            Instrument::SamplePlayer => {
-                let voice = Voice::new(voice_id, SamplePlayerNode::new(), envelope, pan);
+            }
+            InstrumentDefinition::SamplePlayer(sample) => {
+                let voice = Voice::new(
+                    voice_id,
+                    SamplePlayerNode::new(sample.clone(), self.sample_rate),
+                    envelope,
+                    pan,
+                );
                 Box::new(voice)
-            },
+            }
         }
     }
 
     pub fn create_voice_with_envelope(
         &self,
         voice_id: VoiceId,
-        instrument: &Instrument,
+        instrument: InstrumentDefinition,
         pan: f32,
         attack_s: f32,
         decay_s: f32,
@@ -54,14 +66,19 @@ impl VoiceFactory {
         let envelope = self.create_envelope(attack_s, decay_s, sustain, release_s);
 
         match instrument {
-            Instrument::Oscillator => {
+            InstrumentDefinition::Oscillator => {
                 let voice = Voice::new(voice_id, OscillatorNode::new(), envelope, pan);
                 Box::new(voice)
-            },
-            Instrument::SamplePlayer => {
-                let voice = Voice::new(voice_id, SamplePlayerNode::new(), envelope, pan);
+            }
+            InstrumentDefinition::SamplePlayer(sample) => {
+                let voice = Voice::new(
+                    voice_id,
+                    SamplePlayerNode::new(sample.clone(), self.sample_rate),
+                    envelope,
+                    pan,
+                );
                 Box::new(voice)
-            },
+            }
         }
     }
 
