@@ -5,18 +5,18 @@ use crate::{SampleData, SynthNode};
 pub struct SamplePlayerNode {
     sample: Arc<SampleData>,
     output_sample_rate: f32,
-    
+
     /// The current playback position in the sample buffer.
     /// This is a float to allow for fractional positions, which is necessary for resampling.
     position: f64,
-    
+
     is_playing: bool,
-    
+
     /// The rate at which we advance the `position` for each output sample.
     /// A rate of 1.0 plays at the original pitch, corrected for the output sample rate.
     /// A rate > 1.0 is pitched up, < 1.0 is pitched down.
     playback_rate: f64,
-    
+
     /// The MIDI note that corresponds to the original pitch of the sample.
     /// For example, if the sample is a C4 note, this would be 60.
     base_note: u8,
@@ -42,7 +42,12 @@ impl SamplePlayerNode {
             let frame_index = index * 2;
             // Safely get left and right samples, defaulting to 0.0 if out of bounds.
             let left = self.sample.data.get(frame_index).cloned().unwrap_or(0.0);
-            let right = self.sample.data.get(frame_index + 1).cloned().unwrap_or(0.0);
+            let right = self
+                .sample
+                .data
+                .get(frame_index + 1)
+                .cloned()
+                .unwrap_or(0.0);
             // Mix down to mono.
             (left + right) * 0.5
         } else {
@@ -54,7 +59,7 @@ impl SamplePlayerNode {
 impl SynthNode for SamplePlayerNode {
     fn process(&mut self, output_buffer: &mut [f32], _sample_rate: f32) {
         for sample in output_buffer.iter_mut() {
-            if!self.is_active() {
+            if !self.is_active() {
                 *sample = 0.0;
                 continue;
             }

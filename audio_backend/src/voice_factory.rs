@@ -35,22 +35,7 @@ impl VoiceFactory {
         // instrument definition from the `sequencer` crate would live.
         // All `Box::new` calls happen here, safely in the NRT world.
         let envelope = Envelope::new(self.sample_rate);
-
-        match instrument {
-            InstrumentDefinition::Oscillator => {
-                let voice = Voice::new(voice_id, OscillatorNode::new(), envelope, pan);
-                Box::new(voice)
-            }
-            InstrumentDefinition::SamplePlayer(sample) => {
-                let voice = Voice::new(
-                    voice_id,
-                    SamplePlayerNode::new(sample.clone(), self.sample_rate),
-                    envelope,
-                    pan,
-                );
-                Box::new(voice)
-            }
-        }
+        Self::create_instrument(voice_id, instrument, pan, envelope, self.sample_rate)
     }
 
     pub fn create_voice_with_envelope(
@@ -63,8 +48,30 @@ impl VoiceFactory {
         sustain: f32,
         release_s: f32,
     ) -> Box<dyn VoiceTrait> {
-        let envelope = self.create_envelope(attack_s, decay_s, sustain, release_s);
+        let envelope =
+            Self::create_envelope(attack_s, decay_s, sustain, release_s, self.sample_rate);
+        Self::create_instrument(voice_id, instrument, pan, envelope, self.sample_rate)
+    }
 
+    fn create_envelope(
+        attack_s: f32,
+        decay_s: f32,
+        sustain: f32,
+        release_s: f32,
+        sample_rate: f32,
+    ) -> Envelope {
+        let mut envelope = Envelope::new(sample_rate);
+        envelope.set_parameters(attack_s, decay_s, sustain, release_s);
+        envelope
+    }
+
+    fn create_instrument(
+        voice_id: u64,
+        instrument: InstrumentDefinition,
+        pan: f32,
+        envelope: Envelope,
+        sample_rate: f32,
+    ) -> Box<dyn VoiceTrait> {
         match instrument {
             InstrumentDefinition::Oscillator => {
                 let voice = Voice::new(voice_id, OscillatorNode::new(), envelope, pan);
@@ -73,24 +80,12 @@ impl VoiceFactory {
             InstrumentDefinition::SamplePlayer(sample) => {
                 let voice = Voice::new(
                     voice_id,
-                    SamplePlayerNode::new(sample.clone(), self.sample_rate),
+                    SamplePlayerNode::new(sample.clone(), sample_rate),
                     envelope,
                     pan,
                 );
                 Box::new(voice)
             }
         }
-    }
-
-    pub fn create_envelope(
-        &self,
-        attack_s: f32,
-        decay_s: f32,
-        sustain: f32,
-        release_s: f32,
-    ) -> Envelope {
-        let mut envelope = Envelope::new(self.sample_rate);
-        envelope.set_parameters(attack_s, decay_s, sustain, release_s);
-        envelope
     }
 }

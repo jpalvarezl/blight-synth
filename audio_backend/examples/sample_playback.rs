@@ -20,15 +20,9 @@ fn main() -> Result<()> {
             );
 
             audio.send_command(audio_backend::Command::PlayNote {
-                voice: audio.get_voice_factory().create_voice_with_envelope(
-                    0,
-                    instrument,
-                    0.0,
-                    0.0,
-                    0.0,
-                    1.0,
-                    0.0,
-                ),
+                voice: audio
+                    .get_voice_factory()
+                    .create_voice_with_envelope(0, instrument, 0.0, 0.0, 0.0, 1.0, 0.0),
                 note: 60,
                 velocity: 127,
             });
