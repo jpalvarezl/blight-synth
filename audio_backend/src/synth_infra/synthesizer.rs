@@ -1,15 +1,17 @@
-use crate::{synth_infra::voice::VoiceManager, Command, Voice};
+use crate::{synth_infra::voice::VoiceManager, Command, EffectChain, Voice};
 
 pub struct Synthesizer {
     // pub sample_rate: f32,
     voice_manager: VoiceManager,
     // Add more fields as needed for synthesizer state.
+    master_effect_chain: EffectChain,
 }
 
 impl Synthesizer {
     pub fn new() -> Self {
         Self {
             voice_manager: VoiceManager::new(),
+            master_effect_chain: EffectChain::new(10), // Pre-allocate space for 10 effects.
         }
     }
 
@@ -52,10 +54,11 @@ impl Synthesizer {
     }
 
     pub fn process(&mut self, left_buf: &mut [f32], right_buf: &mut [f32], sample_rate: f32) {
-        // Process audio and fill the output buffer.
-        // for (left, right) in left_buf.iter_mut().zip(right_buf.iter_mut()) {
-        //     self.voice_manager.process(left, right);
-        // }
+        // 1. Get audio from all active voices.
         self.voice_manager.process(left_buf, right_buf, sample_rate);
+
+        // 2. Process the master effect chain.
+        self.master_effect_chain
+            .process(left_buf, right_buf, sample_rate);
     }
 }

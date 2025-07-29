@@ -3,6 +3,7 @@ use std::fmt::{Debug, Display};
 mod audio_processor;
 mod blight_audio;
 mod commands;
+pub mod effects;
 pub mod id;
 mod resources;
 mod synth_infra;
