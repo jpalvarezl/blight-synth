@@ -1,7 +1,7 @@
 use std::vec;
 
 use crate::{
-    id::VoiceId, synth_infra::synth_node::SynthNode, Envelope, MonoEffectChain, SynthCommand,
+    id::VoiceId, synth_infra::synth_node::SynthNode, Envelope, MonoEffect, MonoEffectChain, SynthCommand
 };
 
 /// A trait for a generic, type-erased `Voice`. This is used for dynamic dispatch
@@ -29,6 +29,9 @@ pub trait VoiceTrait: Send + Sync {
 
     /// Try to handle a synth-specific command
     fn try_handle_command(&mut self, command: &SynthCommand) -> bool;
+
+    /// Add a mono effect to this voice's effect chain.
+    fn add_effect(&mut self, effect: Box<dyn MonoEffect>);
 }
 
 /// A `Voice` represents a single, monophonic musical event. It bundles a sound
@@ -121,6 +124,10 @@ impl<S: SynthNode> VoiceTrait for Voice<S> {
 
     fn try_handle_command(&mut self, command: &SynthCommand) -> bool {
         self.node.try_handle_command(command)
+    }
+
+    fn add_effect(&mut self, effect: Box<dyn MonoEffect>) {
+        self.effect_chain.add_effect(effect);
     }
 }
 

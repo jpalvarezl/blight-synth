@@ -7,8 +7,8 @@ pub struct Gain {
 }
 
 impl Gain {
-    pub fn new() -> Self {
-        Self { gain_factor: 1.0 } // Default to no change in volume.
+    pub fn new(gain_factor: f32) -> Self {
+        Self { gain_factor } // 1.0 Default to no change in volume.
     }
 }
 

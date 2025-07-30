@@ -1,4 +1,4 @@
-use crate::effects::{Delay, Distortion, DistortionType, Filter, FilterType, Reverb, StereoReverb};
+use crate::effects::{Delay, Distortion, DistortionType, Filter, FilterType, Gain, Reverb, StereoReverb};
 use crate::{MonoEffect, StereoEffect};
 
 pub struct EffectFactory {
@@ -49,5 +49,9 @@ impl EffectFactory {
             resonance,
             self.sample_rate,
         ))
+    }
+
+    pub fn create_gain(&self, gain: f32) -> Box<dyn StereoEffect> {
+        Box::new(Gain::new(gain))
     }
 }

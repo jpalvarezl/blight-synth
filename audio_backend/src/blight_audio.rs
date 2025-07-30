@@ -1,4 +1,4 @@
-use crate::{AudioProcessor, Command, ResourceManager, VoiceFactory};
+use crate::{effect_factory::EffectFactory, AudioProcessor, Command, ResourceManager, VoiceFactory};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use ringbuf::{traits::*, HeapProd, HeapRb};
 
@@ -6,10 +6,12 @@ use ringbuf::{traits::*, HeapProd, HeapRb};
 pub struct BlightAudio {
     /// The producer end of the command queue.
     command_tx: HeapProd<Command>,
-    /// The cpal audio stream. Kept alive to continue playback.
+    /// Voice factory for creating and managing voices.
     voice_factory: VoiceFactory,
     /// Resource manager for audio samples and other resources.
     resource_manager: ResourceManager,
+    /// Effect factory for creating audio effects.
+    effect_factory: EffectFactory,
     /// The audio stream for real-time audio processing.
     _stream: cpal::Stream,
 }
@@ -43,6 +45,7 @@ impl BlightAudio {
 
         let resource_manager = ResourceManager::new();
         let voice_factory = VoiceFactory::new(sample_rate as f32);
+        let effect_factory = EffectFactory::new(sample_rate as f32);
 
         stream.play()?;
 
@@ -50,6 +53,7 @@ impl BlightAudio {
             command_tx,
             voice_factory,
             resource_manager,
+            effect_factory,
             _stream: stream,
         })
     }
@@ -68,5 +72,9 @@ impl BlightAudio {
 
     pub fn get_resource_manager(&mut self) -> &mut ResourceManager {
         &mut self.resource_manager
+    }
+
+    pub fn get_effect_factory(&self) -> &EffectFactory {
+        &self.effect_factory
     }
 }

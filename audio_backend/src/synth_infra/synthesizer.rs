@@ -42,6 +42,16 @@ impl Synthesizer {
                     voice.try_handle_command(&SynthCommand::SetWaveform(waveform));
                 }
             }
+            Command::AddMasterEffect { effect } => {
+                // Add a new effect to the master effect chain.
+                self.master_effect_chain.add_effect(effect);
+            }
+            Command::AddVoiceEffect { voice_id, effect } => {
+                // Find the voice by ID and add the effect.
+                if let Some(voice) = self.voice_manager.find_voice_mut(voice_id) {
+                    voice.add_effect(effect);
+                }
+            }
             _ => {
                 // TODO: support the rest
             }
