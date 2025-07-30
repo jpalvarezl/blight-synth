@@ -1,4 +1,4 @@
-use crate::Effect;
+use crate::StereoEffect;
 
 /// A simple effect that adjusts the volume of the audio signal. Units are in decibels (dB).
 pub struct Gain {
@@ -12,7 +12,7 @@ impl Gain {
     }
 }
 
-impl Effect for Gain {
+impl StereoEffect for Gain {
     fn process(&mut self, left_buf: &mut [f32], right_buf: &mut [f32], _sample_rate: f32) {
         // Use zip to iterate over both channels safely and efficiently.
         for (left_sample, right_sample) in left_buf.iter_mut().zip(right_buf.iter_mut()) {

@@ -1,6 +1,8 @@
 use std::{any::Any, vec};
 
-use crate::{id::VoiceId, synth_infra::synth_node::SynthNode, Envelope};
+use crate::{
+    id::VoiceId, synth_infra::synth_node::SynthNode, Envelope, MonoEffectChain, StereoEffectChain,
+};
 
 // TODO: address envelope in a separate issue.
 
@@ -35,7 +37,6 @@ pub trait VoiceTrait: Send + Sync {
 /// A `Voice` represents a single, monophonic musical event. It bundles a sound
 /// generator (`SynthNode`) with its own dedicated `Envelope` and other state.
 /// Polyphony is achieved by managing multiple `Voice` instances.
-#[derive(Debug)]
 pub struct Voice<S: SynthNode> {
     id: VoiceId,
     pub(crate) node: S,
@@ -43,6 +44,8 @@ pub struct Voice<S: SynthNode> {
     pan: f32, // -1.0 (L) to 1.0 (R)
     // Pre-allocated buffer for mono processing.
     mono_buf: Vec<f32>,
+    /// Per voice effect chain.
+    effect_chain: MonoEffectChain,
 }
 
 impl<S: SynthNode> Voice<S> {
@@ -52,6 +55,7 @@ impl<S: SynthNode> Voice<S> {
         envelope: Envelope,
         // sample_rate: f32,
         pan: f32,
+        effect_chain: MonoEffectChain,
     ) -> Self {
         // Pre-allocate the internal mono buffer for the voice.
         const MAX_BUFFER_SIZE: usize = 4096;
@@ -63,6 +67,7 @@ impl<S: SynthNode> Voice<S> {
             envelope,
             pan,
             mono_buf,
+            effect_chain,
         }
     }
 }
@@ -79,6 +84,11 @@ impl<S: SynthNode + 'static> VoiceTrait for Voice<S> {
 
         // 1. Generate mono audio from the synth node.
         self.node.process(mono_processing_buf, sample_rate);
+
+        // 2. Process the mono signal through the per-voice insert effects.
+        //    Since our Effect trait works on stereo buffers, we pass the mono buffer
+        //    for both left and right channels. The effect will process it in-place.
+        self.effect_chain.process(mono_processing_buf, sample_rate);
 
         // 2. Calculate constant-power panning gains.
         let pan_angle = (self.pan + 1.0) * std::f32::consts::FRAC_PI_4; // Map [-1, 1] to [0, PI/2]

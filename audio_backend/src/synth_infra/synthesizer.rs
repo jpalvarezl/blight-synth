@@ -1,17 +1,17 @@
-use crate::{synth_infra::voice::VoiceManager, Command, EffectChain, Voice};
+use crate::{synth_infra::voice::VoiceManager, Command, StereoEffectChain, Voice};
 
 pub struct Synthesizer {
     // pub sample_rate: f32,
     voice_manager: VoiceManager,
     // Add more fields as needed for synthesizer state.
-    master_effect_chain: EffectChain,
+    master_effect_chain: StereoEffectChain,
 }
 
 impl Synthesizer {
     pub fn new() -> Self {
         Self {
             voice_manager: VoiceManager::new(),
-            master_effect_chain: EffectChain::new(10), // Pre-allocate space for 10 effects.
+            master_effect_chain: StereoEffectChain::new(10), // Pre-allocate space for 10 effects.
         }
     }
 

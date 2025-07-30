@@ -4,7 +4,7 @@ use crate::{
     id::VoiceId,
     synth_infra::{Voice, VoiceTrait},
     synths::{OscillatorNode, SamplePlayerNode},
-    Envelope, SampleData,
+    Envelope, MonoEffectChain, SampleData, StereoEffectChain,
 };
 
 pub enum InstrumentDefinition {
@@ -74,7 +74,13 @@ impl VoiceFactory {
     ) -> Box<dyn VoiceTrait> {
         match instrument {
             InstrumentDefinition::Oscillator => {
-                let voice = Voice::new(voice_id, OscillatorNode::new(), envelope, pan);
+                let voice = Voice::new(
+                    voice_id,
+                    OscillatorNode::new(),
+                    envelope,
+                    pan,
+                    MonoEffectChain::new(10),
+                );
                 Box::new(voice)
             }
             InstrumentDefinition::SamplePlayer(sample) => {
@@ -83,6 +89,7 @@ impl VoiceFactory {
                     SamplePlayerNode::new(sample.clone(), sample_rate),
                     envelope,
                     pan,
+                    MonoEffectChain::new(10),
                 );
                 Box::new(voice)
             }
