@@ -1,10 +1,8 @@
-use std::{any::Any, vec};
+use std::vec;
 
 use crate::{
-    id::VoiceId, synth_infra::synth_node::SynthNode, Envelope, MonoEffectChain, StereoEffectChain,
+    id::VoiceId, synth_infra::synth_node::SynthNode, Envelope, MonoEffectChain, SynthCommand,
 };
-
-// TODO: address envelope in a separate issue.
 
 /// A trait for a generic, type-erased `Voice`. This is used for dynamic dispatch
 /// in the `VoiceManager` to hold a heterogeneous collection of voices.
@@ -29,9 +27,8 @@ pub trait VoiceTrait: Send + Sync {
     /// Sets the stereo pan for this voice.
     fn set_pan(&mut self, pan: f32);
 
-    /// Returns a mutable `Any` reference to the concrete `Voice` type,
-    /// enabling safe downcasting to access type-specific methods.
-    fn as_any_mut(&mut self) -> &mut dyn Any;
+    /// Try to handle a synth-specific command
+    fn try_handle_command(&mut self, command: &SynthCommand) -> bool;
 }
 
 /// A `Voice` represents a single, monophonic musical event. It bundles a sound
@@ -73,7 +70,7 @@ impl<S: SynthNode> Voice<S> {
 }
 
 // Implementation of the object-safe trait for the generic Voice.
-impl<S: SynthNode + 'static> VoiceTrait for Voice<S> {
+impl<S: SynthNode> VoiceTrait for Voice<S> {
     fn id(&self) -> VoiceId {
         self.id
     }
@@ -122,8 +119,8 @@ impl<S: SynthNode + 'static> VoiceTrait for Voice<S> {
         self.pan = pan.clamp(-1.0, 1.0);
     }
 
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
+    fn try_handle_command(&mut self, command: &SynthCommand) -> bool {
+        self.node.try_handle_command(command)
     }
 }
 

@@ -1,4 +1,8 @@
-use crate::{id::{EffectChainId, VoiceId}, synths::Waveform, MonoEffect, StereoEffect, VoiceTrait};
+use crate::{
+    id::{EffectChainId, VoiceId},
+    synths::Waveform,
+    MonoEffect, StereoEffect, VoiceTrait,
+};
 
 pub enum Command {
     // Note/Voice Control

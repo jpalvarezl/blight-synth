@@ -1,4 +1,4 @@
-use crate::{synth_infra::voice::VoiceManager, Command, StereoEffectChain, Voice};
+use crate::{synth_infra::voice::VoiceManager, Command, StereoEffectChain, SynthCommand};
 
 pub struct Synthesizer {
     // pub sample_rate: f32,
@@ -39,12 +39,7 @@ impl Synthesizer {
             Command::ChangeWaveform { voice_id, waveform } => {
                 // Find the voice and change its waveform.
                 if let Some(voice) = self.voice_manager.find_voice_mut(voice_id) {
-                    if let Some(oscillator_node) = voice
-                        .as_any_mut()
-                        .downcast_mut::<Voice<crate::OscillatorNode>>()
-                    {
-                        oscillator_node.node.set_waveform(waveform);
-                    }
+                    voice.try_handle_command(&SynthCommand::SetWaveform(waveform));
                 }
             }
             _ => {

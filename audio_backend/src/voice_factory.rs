@@ -4,7 +4,7 @@ use crate::{
     id::VoiceId,
     synth_infra::{Voice, VoiceTrait},
     synths::{OscillatorNode, SamplePlayerNode},
-    Envelope, MonoEffectChain, SampleData, StereoEffectChain,
+    Envelope, MonoEffectChain, SampleData,
 };
 
 pub enum InstrumentDefinition {
