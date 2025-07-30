@@ -1,4 +1,4 @@
-use crate::{id::EffectChainId, id::VoiceId, synths::Waveform, VoiceTrait};
+use crate::{id::{EffectChainId, VoiceId}, synths::Waveform, MonoEffect, StereoEffect, VoiceTrait};
 
 pub enum Command {
     // Note/Voice Control
@@ -43,10 +43,13 @@ pub enum Command {
         voice_id: VoiceId,
         waveform: Waveform,
     },
-    // AddEffect {
-    //     target_chain: EffectChainId,
-    //     effect: Box<dyn Effect>, // The Box is created in the NRT world
-    // },
+    AddMasterEffect {
+        effect: Box<dyn StereoEffect>, // The Box is created in the NRT world
+    },
+    AddVoiceEffect {
+        voice_id: VoiceId,
+        effect: Box<dyn MonoEffect>, // The Box is created in the NRT world
+    },
     // RemoveEffect {
     //     target_chain: EffectChainId,
     //     effect_index: usize,
