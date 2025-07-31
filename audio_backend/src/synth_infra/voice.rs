@@ -1,7 +1,8 @@
 use std::vec;
 
 use crate::{
-    id::VoiceId, synth_infra::synth_node::SynthNode, Envelope, MonoEffect, MonoEffectChain, SynthCommand
+    id::VoiceId, synth_infra::synth_node::SynthNode, Envelope, MonoEffect, MonoEffectChain,
+    SynthCommand,
 };
 
 /// A trait for a generic, type-erased `Voice`. This is used for dynamic dispatch
@@ -90,12 +91,12 @@ impl<S: SynthNode> VoiceTrait for Voice<S> {
         //    for both left and right channels. The effect will process it in-place.
         self.effect_chain.process(mono_processing_buf, sample_rate);
 
-        // 2. Calculate constant-power panning gains.
+        // 3. Calculate constant-power panning gains.
         let pan_angle = (self.pan + 1.0) * std::f32::consts::FRAC_PI_4; // Map [-1, 1] to [0, PI/2]
         let gain_left = pan_angle.cos();
         let gain_right = pan_angle.sin();
 
-        // 3. Apply envelope and panning, adding to the main stereo buffers.
+        // 4. Apply envelope and panning, adding to the main stereo buffers.
         for i in 0..frame_count {
             let envelope_val = self.envelope.process();
             let mono_sample = mono_processing_buf[i] * envelope_val;

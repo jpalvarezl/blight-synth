@@ -139,7 +139,7 @@ impl Filter {
 }
 
 impl MonoEffect for Filter {
-    fn process(&mut self, buffer: &mut [f32], sample_rate: f32) {
+    fn process(&mut self, buffer: &mut [f32], _sample_rate: f32) {
         for sample in buffer.iter_mut() {
             let input = *sample;
 

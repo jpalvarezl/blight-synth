@@ -1,4 +1,6 @@
-use crate::{effect_factory::EffectFactory, AudioProcessor, Command, ResourceManager, VoiceFactory};
+use crate::{
+    effect_factory::EffectFactory, AudioProcessor, Command, ResourceManager, VoiceFactory,
+};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use ringbuf::{traits::*, HeapProd, HeapRb};
 
