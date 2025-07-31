@@ -1,30 +1,24 @@
 use std::thread;
 
-use audio_backend::{BlightAudio, Command, InstrumentDefinition, Waveform};
+use audio_backend::{BlightAudio, Command, InstrumentDefinition};
 
 pub fn main() {
-    // This is a placeholder for the main function.
-    // The actual implementation will depend on how you want to use the BlightAudio API.
     match &mut BlightAudio::new() {
         Ok(audio) => {
             println!("BlightAudio initialized successfully!");
             let voice_id = 0;
 
-            // Add a stereo reverb to the master effect chain
-            // Parameters:
-            // - room_size: 0.7 (large hall, ~2-3 second decay)
-            // - damping: 0.5 (natural room damping, balanced brightness)
-            // 
-            // Safe parameter ranges:
-            // - Small room: room_size=0.3, damping=0.7
-            // - Medium hall: room_size=0.5, damping=0.5
-            // - Large hall: room_size=0.7, damping=0.5
-            // - Cathedral: room_size=0.9, damping=0.3
-            // 
-            // WARNING: room_size >= 1.0 will cause runaway feedback!
-            audio.send_command(Command::AddMasterEffect { effect: audio.get_effect_factory().create_stereo_reverb(0.8, 0.5) });
-            audio.send_command(Command::AddMasterEffect { effect: audio.get_effect_factory().create_gain(0.5) });
-            // You can now use `audio` to send commands, etc.
+            // Try more aggressive reverb settings to make it obvious
+            // Using a smaller room with less damping for more audible effect
+            audio.send_command(Command::AddMasterEffect { 
+                effect: audio.get_effect_factory().create_gain(0.1) 
+            });
+            
+            // Remove the gain effect for now - it might be interfering
+            // audio.send_command(Command::AddMasterEffect { effect: audio.get_effect_factory().create_gain(0.5) });
+            
+            // Play a short staccato note to hear the reverb tail
+            println!("Playing C4 (60) with sine wave");
             audio.send_command(Command::PlayNote {
                 note: 60,
                 voice: audio.get_voice_factory().create_voice(
@@ -34,23 +28,42 @@ pub fn main() {
                 ),
                 velocity: 127,
             });
-            thread::sleep(std::time::Duration::from_millis(1000));
-            audio.send_command(Command::ChangeWaveform {
-                voice_id,
-                waveform: Waveform::Sawtooth,
+            
+            // Play a very short note - 200ms
+            thread::sleep(std::time::Duration::from_millis(200));
+            
+            // Stop the note - you should hear the reverb tail continue
+            println!("Stopping note - listen for reverb tail");
+            audio.send_command(Command::StopNote { voice_id });
+
+            // Wait to hear the release decay
+            thread::sleep(std::time::Duration::from_millis(3000));
+            
+            // Play a chord
+            audio.send_command(Command::PlayNote {
+                note: 60, // C
+                voice: audio.get_voice_factory().create_voice(1, InstrumentDefinition::Oscillator, 0.0),
+                velocity: 100,
             });
-            thread::sleep(std::time::Duration::from_millis(1000));
-            audio.send_command(Command::ChangeWaveform {
-                voice_id,
-                waveform: Waveform::Square,
+            audio.send_command(Command::PlayNote {
+                note: 64, // E
+                voice: audio.get_voice_factory().create_voice(2, InstrumentDefinition::Oscillator, 0.0),
+                velocity: 100,
             });
-            thread::sleep(std::time::Duration::from_millis(1000));
-            audio.send_command(Command::ChangeWaveform {
-                voice_id,
-                waveform: Waveform::Triangle,
+            audio.send_command(Command::PlayNote {
+                note: 67, // G
+                voice: audio.get_voice_factory().create_voice(3, InstrumentDefinition::Oscillator, 0.0),
+                velocity: 100,
             });
-            thread::sleep(std::time::Duration::from_millis(1000));
-            audio.send_command(Command::StopNote { voice_id: voice_id });
+            
+            thread::sleep(std::time::Duration::from_millis(500));
+            
+            // Stop all notes
+            audio.send_command(Command::StopNote { voice_id: 1 });
+            audio.send_command(Command::StopNote { voice_id: 2 });
+            audio.send_command(Command::StopNote { voice_id: 3 });
+            
+            // Listen to the release tail
             thread::sleep(std::time::Duration::from_millis(5000));
         }
         Err(e) => eprintln!("Failed to initialize BlightAudio: {}", e),

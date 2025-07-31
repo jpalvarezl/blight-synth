@@ -11,21 +11,25 @@ impl EffectFactory {
     }
 
     /// Create a mono reverb effect
+    #[deprecated(note = "Doesn't work correctly")]
     pub fn create_mono_reverb(&self, room_size: f32, damping: f32) -> Box<dyn MonoEffect> {
         Box::new(Reverb::new(self.sample_rate, room_size, damping))
     }
 
     /// Create a stereo reverb effect
+    #[deprecated(note = "Doesn't work correctly")]
     pub fn create_stereo_reverb(&self, room_size: f32, damping: f32) -> Box<dyn StereoEffect> {
         Box::new(StereoReverb::new(self.sample_rate, room_size, damping))
     }
 
     /// Create a mono delay effect
+    #[deprecated(note = "Doesn't work correctly")]
     pub fn create_mono_delay(&self, delay_ms: f32, feedback: f32, mix: f32) -> Box<dyn MonoEffect> {
         Box::new(Delay::new(self.sample_rate, delay_ms, feedback, mix))
     }
 
     /// Create a distortion effect
+    #[deprecated(note = "Doesn't work correctly")]
     pub fn create_distortion(
         &self,
         distortion_type: DistortionType,
@@ -37,6 +41,7 @@ impl EffectFactory {
     }
 
     /// Create a filter effect
+    #[deprecated(note = "Doesn't work correctly")]
     pub fn create_filter(
         &self,
         filter_type: FilterType,
