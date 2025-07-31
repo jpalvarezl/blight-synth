@@ -1,8 +1,9 @@
-use std::{any::Any, vec};
+use std::vec;
 
-use crate::{id::VoiceId, synth_infra::synth_node::SynthNode, Envelope};
-
-// TODO: address envelope in a separate issue.
+use crate::{
+    id::VoiceId, synth_infra::synth_node::SynthNode, Envelope, MonoEffect, MonoEffectChain,
+    SynthCommand,
+};
 
 /// A trait for a generic, type-erased `Voice`. This is used for dynamic dispatch
 /// in the `VoiceManager` to hold a heterogeneous collection of voices.
@@ -27,15 +28,16 @@ pub trait VoiceTrait: Send + Sync {
     /// Sets the stereo pan for this voice.
     fn set_pan(&mut self, pan: f32);
 
-    /// Returns a mutable `Any` reference to the concrete `Voice` type,
-    /// enabling safe downcasting to access type-specific methods.
-    fn as_any_mut(&mut self) -> &mut dyn Any;
+    /// Try to handle a synth-specific command
+    fn try_handle_command(&mut self, command: &SynthCommand) -> bool;
+
+    /// Add a mono effect to this voice's effect chain.
+    fn add_effect(&mut self, effect: Box<dyn MonoEffect>);
 }
 
 /// A `Voice` represents a single, monophonic musical event. It bundles a sound
 /// generator (`SynthNode`) with its own dedicated `Envelope` and other state.
 /// Polyphony is achieved by managing multiple `Voice` instances.
-#[derive(Debug)]
 pub struct Voice<S: SynthNode> {
     id: VoiceId,
     pub(crate) node: S,
@@ -43,6 +45,8 @@ pub struct Voice<S: SynthNode> {
     pan: f32, // -1.0 (L) to 1.0 (R)
     // Pre-allocated buffer for mono processing.
     mono_buf: Vec<f32>,
+    /// Per voice effect chain.
+    effect_chain: MonoEffectChain,
 }
 
 impl<S: SynthNode> Voice<S> {
@@ -52,6 +56,7 @@ impl<S: SynthNode> Voice<S> {
         envelope: Envelope,
         // sample_rate: f32,
         pan: f32,
+        effect_chain: MonoEffectChain,
     ) -> Self {
         // Pre-allocate the internal mono buffer for the voice.
         const MAX_BUFFER_SIZE: usize = 4096;
@@ -63,12 +68,13 @@ impl<S: SynthNode> Voice<S> {
             envelope,
             pan,
             mono_buf,
+            effect_chain,
         }
     }
 }
 
 // Implementation of the object-safe trait for the generic Voice.
-impl<S: SynthNode + 'static> VoiceTrait for Voice<S> {
+impl<S: SynthNode> VoiceTrait for Voice<S> {
     fn id(&self) -> VoiceId {
         self.id
     }
@@ -80,12 +86,17 @@ impl<S: SynthNode + 'static> VoiceTrait for Voice<S> {
         // 1. Generate mono audio from the synth node.
         self.node.process(mono_processing_buf, sample_rate);
 
-        // 2. Calculate constant-power panning gains.
+        // 2. Process the mono signal through the per-voice insert effects.
+        //    Since our Effect trait works on stereo buffers, we pass the mono buffer
+        //    for both left and right channels. The effect will process it in-place.
+        self.effect_chain.process(mono_processing_buf, sample_rate);
+
+        // 3. Calculate constant-power panning gains.
         let pan_angle = (self.pan + 1.0) * std::f32::consts::FRAC_PI_4; // Map [-1, 1] to [0, PI/2]
         let gain_left = pan_angle.cos();
         let gain_right = pan_angle.sin();
 
-        // 3. Apply envelope and panning, adding to the main stereo buffers.
+        // 4. Apply envelope and panning, adding to the main stereo buffers.
         for i in 0..frame_count {
             let envelope_val = self.envelope.process();
             let mono_sample = mono_processing_buf[i] * envelope_val;
@@ -112,8 +123,12 @@ impl<S: SynthNode + 'static> VoiceTrait for Voice<S> {
         self.pan = pan.clamp(-1.0, 1.0);
     }
 
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
+    fn try_handle_command(&mut self, command: &SynthCommand) -> bool {
+        self.node.try_handle_command(command)
+    }
+
+    fn add_effect(&mut self, effect: Box<dyn MonoEffect>) {
+        self.effect_chain.add_effect(effect);
     }
 }
 

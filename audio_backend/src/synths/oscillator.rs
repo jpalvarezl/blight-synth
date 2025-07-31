@@ -94,4 +94,15 @@ impl SynthNode for OscillatorNode {
     fn is_active(&self) -> bool {
         true
     }
+
+    fn try_handle_command(&mut self, command: &crate::synth_infra::SynthCommand) -> bool {
+        let was_handled = match command {
+            crate::synth_infra::SynthCommand::SetWaveform(waveform) => {
+                self.set_waveform(*waveform);
+                true
+            }
+            _ => false,
+        };
+        was_handled
+    }
 }

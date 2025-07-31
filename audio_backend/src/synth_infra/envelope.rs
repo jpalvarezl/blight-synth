@@ -7,7 +7,7 @@ pub enum EnvelopeState {
     Release,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Envelope {
     state: EnvelopeState,
     sample_rate: f32,
