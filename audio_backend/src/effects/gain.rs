@@ -1,4 +1,4 @@
-use crate::StereoEffect;
+use crate::{MonoEffect, StereoEffect};
 
 /// A simple effect that adjusts the volume of the audio signal. Units are in decibels (dB).
 pub struct Gain {
@@ -27,6 +27,22 @@ impl StereoEffect for Gain {
             // It's common to control volume in decibels (dB) from the UI.
             // We convert the dB value to a linear amplitude factor for processing.
             // A value of 0.0 dB results in a factor of 1.0 (no change).
+            self.gain_factor = 10.0_f32.powf(value / 20.0);
+        }
+    }
+}
+
+impl MonoEffect for Gain {
+    fn process(&mut self, buffer: &mut [f32], _sample_rate: f32) {
+        // For mono processing, we can use the same logic as stereo but only on one channel.
+        for sample in buffer.iter_mut() {
+            *sample *= self.gain_factor;
+        }
+    }
+
+    fn set_parameter(&mut self, index: u32, value: f32) {
+        // Mono effect also has the same single parameter.
+        if index == 0 {
             self.gain_factor = 10.0_f32.powf(value / 20.0);
         }
     }

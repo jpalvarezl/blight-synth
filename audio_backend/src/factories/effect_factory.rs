@@ -56,7 +56,11 @@ impl EffectFactory {
         ))
     }
 
-    pub fn create_gain(&self, gain: f32) -> Box<dyn StereoEffect> {
+    pub fn create_stereo_gain(&self, gain: f32) -> Box<dyn StereoEffect> {
+        Box::new(Gain::new(gain))
+    }
+
+    pub fn create_mono_gain(&self, gain: f32) -> Box<dyn MonoEffect> {
         Box::new(Gain::new(gain))
     }
 }

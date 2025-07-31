@@ -6,23 +6,14 @@ pub fn main() {
     match &mut BlightAudio::new() {
         Ok(audio) => {
             println!("BlightAudio initialized successfully!");
-            let voice_id = 0;
-
-            // Try more aggressive reverb settings to make it obvious
-            // Using a smaller room with less damping for more audible effect
             audio.send_command(Command::AddMasterEffect { 
-                effect: audio.get_effect_factory().create_gain(0.1) 
+                effect: audio.get_effect_factory().create_stereo_gain(0.1) 
             });
             
-            // Remove the gain effect for now - it might be interfering
-            // audio.send_command(Command::AddMasterEffect { effect: audio.get_effect_factory().create_gain(0.5) });
-            
-            // Play a short staccato note to hear the reverb tail
-            println!("Playing C4 (60) with sine wave");
             audio.send_command(Command::PlayNote {
                 note: 60,
                 voice: audio.get_voice_factory().create_voice(
-                    voice_id,
+                    0,
                     InstrumentDefinition::Oscillator,
                     0.0,
                 ),
@@ -31,10 +22,7 @@ pub fn main() {
             
             // Play a very short note - 200ms
             thread::sleep(std::time::Duration::from_millis(200));
-            
-            // Stop the note - you should hear the reverb tail continue
-            println!("Stopping note - listen for reverb tail");
-            audio.send_command(Command::StopNote { voice_id });
+            audio.send_command(Command::StopNote { voice_id: 0 });
 
             // Wait to hear the release decay
             thread::sleep(std::time::Duration::from_millis(3000));
