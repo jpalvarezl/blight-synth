@@ -1,6 +1,6 @@
 pub mod cli;
 pub mod models;
 pub mod project;
-mod timing;
+pub mod timing;
 
 type Result<T> = anyhow::Result<T, anyhow::Error>;

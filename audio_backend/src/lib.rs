@@ -8,6 +8,7 @@ mod resources;
 mod result;
 mod synth_infra;
 mod synths;
+mod player;
 
 pub(crate) use audio_processor::*;
 pub use blight_audio::*;
@@ -15,6 +16,7 @@ pub use commands::*;
 pub use factories::*;
 pub use resources::*;
 pub use result::*;
+pub(crate) use player::*;
 pub use synth_infra::SampleData;
 pub(crate) use synth_infra::*;
 pub use synths::*;

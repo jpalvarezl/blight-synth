@@ -1,4 +1,4 @@
-use crate::{Command, Synthesizer};
+use crate::{Command, Synthesizer, Player};
 use ringbuf::{traits::*, HeapCons};
 
 // The core audio processor. Lives exclusively in the RT world.
@@ -10,6 +10,8 @@ pub struct AudioProcessor {
     // Pre-allocated, non-interleaved buffers for processing.
     left_buf: Vec<f32>,
     right_buf: Vec<f32>,
+    // Player
+    player: Player,
 }
 
 impl AudioProcessor {
@@ -23,18 +25,21 @@ impl AudioProcessor {
             channels,
             left_buf: vec![0.0; MAX_BUFFER_SIZE],
             right_buf: vec![0.0; MAX_BUFFER_SIZE],
+            player: Player::new(sample_rate),
         }
     }
 
     // The main processing function called by the audio driver.
     pub fn process(&mut self, output_buffer: &mut [f32]) {
+        // frames in this block.
+        let frame_count = output_buffer.len() / self.channels;
+
         // 1. Drain the command queue to update state. This is non-blocking.
         while let Some(command) = self.command_rx.try_pop() {
             self.synthesizer.handle_command(command);
         }
 
         // Calculate the number of frames in this block.
-        let frame_count = output_buffer.len() / self.channels;
         let (left, right) = (
             &mut self.left_buf[..frame_count],
             &mut self.right_buf[..frame_count],
