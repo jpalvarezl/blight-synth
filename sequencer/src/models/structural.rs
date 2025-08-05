@@ -51,6 +51,29 @@ impl Default for Chain {
     }
 }
 
+/// A SongRow represents a single step in the master arrangement,
+/// assigning a chain to each track.
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+pub struct SongRow {
+    pub chain_indices: [usize; MAX_TRACKS],
+}
+
+impl Default for SongRow {
+    fn default() -> Self {
+        SongRow {
+            chain_indices: [EMPTY_CHAIN_SLOT; MAX_TRACKS],
+        }
+    }
+}
+
+impl SongRow {
+    pub fn new(chains: [usize; MAX_TRACKS]) -> Self {
+        SongRow {
+            chain_indices: chains,
+        }
+    }
+}
+
 /// The top-level Song struct aggregates all components.
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 pub struct Song {
@@ -61,7 +84,7 @@ pub struct Song {
     /// The master arrangement grid. Each row is a step in the song,
     /// and each column is a track. The value is an index into the `chain_bank`.
     /// We use a sentinel value (usize::MAX) for empty slots.
-    pub arrangement: Vec<[usize; MAX_TRACKS]>,
+    pub arrangement: Vec<SongRow>,
 
     /// A bank containing all unique phrases used in the song.
     pub phrase_bank: Vec<Phrase>,
@@ -82,7 +105,7 @@ impl Song {
             name: name.into(),
             initial_bpm: 120,
             initial_speed: 6,
-            arrangement: vec![[EMPTY_CHAIN_SLOT; MAX_TRACKS]],
+            arrangement: vec![SongRow::default()],
             phrase_bank: vec![Phrase::default()],
             chain_bank: vec![Chain::default()],
             instrument_bank: vec![],

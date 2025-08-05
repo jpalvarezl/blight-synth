@@ -1,18 +1,7 @@
-use crate::{Command, Synthesizer, Player};
-use ringbuf::{traits::*, HeapCons};
+#![cfg(not(feature = "tracker"))]
 
-// The core audio processor. Lives exclusively in the RT world.
-pub struct AudioProcessor {
-    command_rx: HeapCons<Command>,
-    synthesizer: Synthesizer,
-    sample_rate: f32,
-    channels: usize,
-    // Pre-allocated, non-interleaved buffers for processing.
-    left_buf: Vec<f32>,
-    right_buf: Vec<f32>,
-    // Player
-    player: Player,
-}
+use crate::{AudioProcessor, Command, Synthesizer};
+use ringbuf::{traits::*, HeapCons};
 
 impl AudioProcessor {
     pub fn new(command_rx: HeapCons<Command>, sample_rate: f32, channels: usize) -> Self {
@@ -25,7 +14,6 @@ impl AudioProcessor {
             channels,
             left_buf: vec![0.0; MAX_BUFFER_SIZE],
             right_buf: vec![0.0; MAX_BUFFER_SIZE],
-            player: Player::new(sample_rate),
         }
     }
 
