@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use sequencer::models::MAX_TRACKS;
 
-use crate::{id::InstrumentId, player::commands::PlayerCommand, VoiceTrait};
+use crate::{player::commands::PlayerCommand, VoiceTrait};
 
 /// Specific implementation of a synthesizer for `tracker` mode.
 /// Instruments are pre-allocated to prevent RT contract violations.
@@ -47,9 +47,5 @@ impl Synthesizer {
 
     pub fn add_track_instrument(&mut self, track_id: usize, instrument: Box<dyn VoiceTrait>) {
         self.track_instruments.insert(track_id, instrument);
-    }
-
-    fn get_track_instrument(&self, track_id: &usize) -> Option<&Box<dyn VoiceTrait>> {
-        self.track_instruments.get(track_id)
     }
 }

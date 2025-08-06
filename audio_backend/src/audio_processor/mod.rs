@@ -1,12 +1,8 @@
 #[cfg(not(feature = "tracker"))]
 mod no_sequencer;
-#[cfg(not(feature = "tracker"))]
-pub use no_sequencer::*;
 
 #[cfg(feature = "tracker")]
 mod tracker;
-#[cfg(feature = "tracker")]
-pub use tracker::*;
 
 #[cfg(feature = "tracker")]
 use crate::{Player, TrackerCommand};

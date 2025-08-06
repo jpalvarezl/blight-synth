@@ -6,8 +6,8 @@ use crate::{
 };
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use ringbuf::storage::Heap;
-use ringbuf::{traits::*, HeapRb};
-use ringbuf::{HeapProd, SharedRb};
+use ringbuf::traits::*;
+use ringbuf::SharedRb;
 
 impl BlightAudio {
     pub fn new() -> Result<Self, anyhow::Error> {

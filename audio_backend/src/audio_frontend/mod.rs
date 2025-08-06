@@ -3,17 +3,12 @@ mod tracker;
 #[cfg(feature = "tracker")]
 use ringbuf::HeapProd;
 #[cfg(feature = "tracker")]
-pub use tracker::*;
-#[cfg(feature = "tracker")]
 mod commands;
 #[cfg(feature = "tracker")]
 pub use commands::*;
 
 #[cfg(not(feature = "tracker"))]
 mod blight_audio;
-#[cfg(not(feature = "tracker"))]
-pub use blight_audio::*;
-
 #[cfg(not(feature = "tracker"))]
 use crate::Command;
 #[cfg(not(feature = "tracker"))]
