@@ -36,7 +36,9 @@ cargo run -p tracker_gui
 
 ## Interface Layout
 
-- **Menu Bar**: File menu with New, Load, Export, and Quit options
+- **Menu Bar**: 
+  - **File Menu**: New, Load, Export, and Quit options
+  - **Playback Menu**: Play/Stop toggle and Initialize Audio options
 - **Song Info Section**: Editable song name, BPM, and speed fields (always visible)
 - **Tab Selector**: Switch between Arrangement, Chains, and Phrases modes
 - **Tab Content**: Context-sensitive editing interface
