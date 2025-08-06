@@ -4,7 +4,15 @@ use std::sync::Arc;
 
 use sequencer::models::Song;
 
+use crate::VoiceTrait;
+
 pub enum TrackerCommand {
-    PlaySong { song: Arc<Song> },
+    AddTrackInstrument {
+        track_id: usize,
+        instrument: Box<dyn VoiceTrait>,
+    },
+    PlaySong {
+        song: Arc<Song>,
+    },
     StopSong,
 }

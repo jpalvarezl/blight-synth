@@ -3,15 +3,15 @@
 pub(super) mod commands;
 mod synthesizer;
 
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
-use ringbuf::{traits::*, HeapProd};
+use log::debug;
 use sequencer::{
     models::{NoteSentinelValues, Song, DEFAULT_CHAIN_LENGTH, DEFAULT_PHRASE_LENGTH, MAX_TRACKS},
     timing::TimingState,
 };
 
-use crate::{Command, TrackerCommand, VoiceTrait};
+use crate::TrackerCommand;
 
 /// Holds the playback position for a single track.
 #[derive(Debug, Clone, Copy)]
@@ -75,7 +75,7 @@ impl Player {
             timing,
             position: PlayerPosition::default(),
             is_playing: false,
-            synthesizer: synthesizer::Synthesizer::new(sample_rate as f32),
+            synthesizer: synthesizer::Synthesizer::new(),
         }
     }
 
@@ -97,6 +97,12 @@ impl Player {
             }
             TrackerCommand::StopSong => {
                 self.stop();
+            }
+            TrackerCommand::AddTrackInstrument {
+                track_id,
+                instrument,
+            } => {
+                self.synthesizer.add_track_instrument(track_id, instrument);
             }
         }
     }
@@ -169,13 +175,13 @@ impl Player {
         };
 
         // Iterate through each track
-        for i in 0..MAX_TRACKS {
-            let track_pos = &self.position.track_positions[i];
-            let chain_index = current_song_row.chain_indices[i];
+        for track_index in 0..MAX_TRACKS {
+            let track_pos = &self.position.track_positions[track_index];
+            let chain_index = current_song_row.chain_indices[track_index];
 
-            println!(
+            debug!(
                 "Processing track {}: chain_index={}, chain_step={}, phrase_step={}",
-                i, chain_index, track_pos.chain_step, track_pos.phrase_step
+                track_index, chain_index, track_pos.chain_step, track_pos.phrase_step
             );
 
             if chain_index == sequencer::models::EMPTY_CHAIN_SLOT {
@@ -196,9 +202,9 @@ impl Player {
                         if event.note != NoteSentinelValues::NoNote as u8
                             && event.note != NoteSentinelValues::NoteOff as u8
                         {
-                            println!(
-                                "Playing note: {} on instrument: {} with velocity: {}",
-                                event.note, event.instrument_id, event.volume
+                            debug!(
+                                "Playing note: {} on track: {} with velocity: {}",
+                                event.note, track_index, event.volume
                             );
                             // TODO: A real implementation would also need to know which instrument to use.
                             // This is often implicit (the last one used on the track) or specified in the event.
@@ -206,7 +212,7 @@ impl Player {
                             // let instrument_id = 1;
                             self.synthesizer
                                 .handle_command(commands::PlayerCommand::PlayNote {
-                                    instrument_id: event.instrument_id as u64,
+                                    track_id: track_index,
                                     note: event.note,
                                     velocity: event.volume,
                                 });
@@ -214,7 +220,7 @@ impl Player {
                             // Handle NoteOff events
                             self.synthesizer
                                 .handle_command(commands::PlayerCommand::StopNote {
-                                    instrument_id: event.instrument_id as u64,
+                                    track_id: track_index,
                                 });
                         }
                         // TODO: Handle NoteOff, effects, etc.

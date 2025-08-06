@@ -6,7 +6,6 @@ use crate::models::EffectType;
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode)]
 #[repr(C)]
 pub struct Event {
-    pub instrument_id: u8, // support a max of 256 instruments
     pub note: u8,
     pub volume: u8,
     pub effect: EffectType,
@@ -16,7 +15,6 @@ pub struct Event {
 impl Default for Event {
     fn default() -> Self {
         Event {
-            instrument_id: 0,
             note: 0,
             volume: 0,
             // effect == EffectType::Arpeggio && effect_param == 0 => no effect

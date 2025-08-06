@@ -1,12 +1,10 @@
-use crate::id::InstrumentId;
-
 pub enum PlayerCommand {
     PlayNote {
-        instrument_id: InstrumentId,
+        track_id: usize,
         note: u8,
         velocity: u8,
     },
     StopNote {
-        instrument_id: InstrumentId,
+        track_id: usize,
     },
 }

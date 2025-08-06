@@ -2,12 +2,28 @@
 
 use std::{sync::Arc, thread, time::Duration};
 
-use audio_backend::{BlightAudio, TrackerCommand};
+use audio_backend::{BlightAudio, InstrumentDefinition, TrackerCommand};
 use sequencer::models::{Chain, EffectType, Event, Phrase, Song, SongRow, EMPTY_CHAIN_SLOT};
 
 pub fn main() {
     match &mut BlightAudio::new(Arc::new(load_song())) {
         Ok(audio) => {
+            audio.send_command(TrackerCommand::AddTrackInstrument {
+                track_id: 0,
+                instrument: audio.get_voice_factory().create_voice(
+                    0,
+                    InstrumentDefinition::Oscillator,
+                    0.0,
+                ),
+            });
+            audio.send_command(TrackerCommand::AddTrackInstrument {
+                track_id: 1,
+                instrument: audio.get_voice_factory().create_voice(
+                    1,
+                    InstrumentDefinition::Oscillator,
+                    0.0,
+                ),
+            });
             audio.send_command(TrackerCommand::PlaySong {
                 song: Arc::new(load_song()),
             });
@@ -22,21 +38,18 @@ pub fn main() {
 pub fn load_song() -> Song {
     let phrase_1 = vec![
         Event {
-            instrument_id: 1,
             note: 60,
             volume: 100,
             effect: EffectType::Arpeggio,
             effect_param: 0,
         },
         Event {
-            instrument_id: 1,
             note: 63,
             volume: 0,
             effect: EffectType::Arpeggio,
             effect_param: 0,
         },
         Event {
-            instrument_id: 1,
             note: 66,
             volume: 127,
             effect: EffectType::Arpeggio,
@@ -46,21 +59,18 @@ pub fn load_song() -> Song {
 
     let phrase_2 = vec![
         Event {
-            instrument_id: 1,
             note: 66,
             volume: 100,
             effect: EffectType::Arpeggio,
             effect_param: 0,
         },
         Event {
-            instrument_id: 1,
             note: 64,
             volume: 0,
             effect: EffectType::Arpeggio,
             effect_param: 0,
         },
         Event {
-            instrument_id: 1,
             note: 60,
             volume: 127,
             effect: EffectType::Arpeggio,
@@ -69,14 +79,12 @@ pub fn load_song() -> Song {
     ];
 
     let event_1 = Event {
-        instrument_id: 0,
         note: 40,
         volume: 100,
         effect: EffectType::Arpeggio,
         effect_param: 0,
     };
     let event_2 = Event {
-        instrument_id: 0,
         note: 43,
         volume: 0,
         effect: EffectType::Arpeggio,

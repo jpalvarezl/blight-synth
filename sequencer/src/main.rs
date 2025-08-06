@@ -7,21 +7,18 @@ fn main() {
 
     let phrase = vec![
         Event {
-            instrument_id: 1,
             note: 60,
             volume: 100,
             effect: EffectType::Arpeggio,
             effect_param: 0,
         },
         Event {
-            instrument_id: 1,
             note: 60,
             volume: 0,
             effect: EffectType::Arpeggio,
             effect_param: 0,
         },
         Event {
-            instrument_id: 1,
             note: 60,
             volume: 127,
             effect: EffectType::Arpeggio,
