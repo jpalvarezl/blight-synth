@@ -20,97 +20,97 @@
         {
             "events": [
                 {
-                    "note": 1,
+                    "note": 60,
                     "volume": 255,
                     "effect": "Arpeggio",
                     "effect_param": 0
                 },
                 {
-                    "note": 84,
+                    "note": 66,
                     "volume": 255,
                     "effect": "Arpeggio",
                     "effect_param": 0
                 },
                 {
-                    "note": 20,
+                    "note": 63,
                     "volume": 255,
                     "effect": "Arpeggio",
                     "effect_param": 0
                 },
                 {
-                    "note": 0,
+                    "note": 59,
                     "volume": 0,
                     "effect": "Arpeggio",
                     "effect_param": 0
                 },
                 {
-                    "note": 0,
+                    "note": 57,
                     "volume": 0,
                     "effect": "Arpeggio",
                     "effect_param": 0
                 },
                 {
-                    "note": 0,
+                    "note": 55,
                     "volume": 0,
                     "effect": "Arpeggio",
                     "effect_param": 0
                 },
                 {
-                    "note": 0,
+                    "note": 63,
                     "volume": 0,
                     "effect": "Arpeggio",
                     "effect_param": 0
                 },
                 {
-                    "note": 0,
+                    "note": 66,
                     "volume": 0,
                     "effect": "Arpeggio",
                     "effect_param": 0
                 },
                 {
-                    "note": 0,
+                    "note": 70,
                     "volume": 0,
                     "effect": "Arpeggio",
                     "effect_param": 0
                 },
                 {
-                    "note": 0,
+                    "note": 54,
                     "volume": 0,
                     "effect": "Arpeggio",
                     "effect_param": 0
                 },
                 {
-                    "note": 0,
+                    "note": 57,
                     "volume": 0,
                     "effect": "Arpeggio",
                     "effect_param": 0
                 },
                 {
-                    "note": 0,
+                    "note": 66,
                     "volume": 0,
                     "effect": "Arpeggio",
                     "effect_param": 0
                 },
                 {
-                    "note": 0,
+                    "note": 65,
                     "volume": 0,
                     "effect": "Arpeggio",
                     "effect_param": 0
                 },
                 {
-                    "note": 0,
+                    "note": 63,
                     "volume": 0,
                     "effect": "Arpeggio",
                     "effect_param": 0
                 },
                 {
-                    "note": 0,
+                    "note": 56,
                     "volume": 0,
                     "effect": "Arpeggio",
                     "effect_param": 0
                 },
                 {
-                    "note": 0,
+                    "note": 60,
                     "volume": 0,
                     "effect": "Arpeggio",
                     "effect_param": 0

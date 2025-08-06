@@ -11,6 +11,11 @@ A basic tracker-style music editor interface built with egui, inspired by the Di
   - **Export as JSON**: Save songs in human-readable JSON format
   - **Export as Binary**: Save songs in compact binary format using bincode
   - **Quit**: Exit the application
+- **Real-time Playback**: Full audio engine integration
+  - **Play/Stop**: Play songs with real-time audio output
+  - **Auto-initialization**: Audio system initializes automatically when needed
+  - **Multi-track**: 8 tracks with individual oscillator instruments
+  - **Live Updates**: Changes to song data update playback in real-time
 - **Tab-Based Interface**: Three main editing modes:
   - **Arrangement Tab**: Master song arrangement with 8 tracks (MAX_TRACKS)
   - **Chains Tab**: Edit chains (sequences of phrases)

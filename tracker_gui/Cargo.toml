@@ -9,4 +9,4 @@ egui_extras = { workspace = true }
 env_logger = { workspace = true }
 rfd = { workspace = true }
 sequencer = { workspace = true }
-audio_backend = { workspace = true }
+audio_backend = { workspace = true, features = ["tracker"] }

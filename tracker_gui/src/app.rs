@@ -1,7 +1,9 @@
 use eframe::egui;
-use sequencer::models::Song;
+use sequencer::models::{Song, MAX_TRACKS};
 use sequencer::cli::FileFormat;
 use sequencer::project::{write_song_to_file, open_song_from_file};
+use audio_backend::{BlightAudio, TrackerCommand, InstrumentDefinition};
+use std::sync::Arc;
 
 use crate::tabs::{CurrentTab, arrangement::ArrangementTab, chains::ChainsTab, phrases::PhrasesTab};
 
@@ -16,6 +18,10 @@ pub struct TrackerApp {
     pub arrangement_tab: ArrangementTab,
     pub chains_tab: ChainsTab,
     pub phrases_tab: PhrasesTab,
+    
+    // Audio system
+    pub audio: Option<BlightAudio>,
+    pub is_playing: bool,
 }
 
 impl TrackerApp {
@@ -126,6 +132,51 @@ impl TrackerApp {
             ui.selectable_value(&mut self.current_tab, CurrentTab::Phrases, "Phrases");
         });
     }
+    
+    fn init_audio(&mut self) {
+        if self.audio.is_none() {
+            match BlightAudio::new(Arc::new(self.song.clone())) {
+                Ok(mut audio) => {
+                    // Add some default instruments to each track
+                    for track_id in 0..MAX_TRACKS {
+                        audio.send_command(TrackerCommand::AddTrackInstrument {
+                            track_id,
+                            instrument: audio.get_voice_factory().create_voice(
+                                track_id as u64,
+                                InstrumentDefinition::Oscillator,
+                                0.0,
+                            ),
+                        });
+                    }
+                    self.audio = Some(audio);
+                    println!("Audio system initialized successfully");
+                }
+                Err(e) => {
+                    eprintln!("Failed to initialize audio system: {}", e);
+                }
+            }
+        }
+    }
+    
+    fn play_song(&mut self) {
+        self.init_audio();
+        
+        if let Some(audio) = &mut self.audio {
+            audio.send_command(TrackerCommand::PlaySong {
+                song: Arc::new(self.song.clone()),
+            });
+            self.is_playing = true;
+            println!("Playing song: {}", self.song.name);
+        }
+    }
+    
+    fn stop_song(&mut self) {
+        if let Some(audio) = &mut self.audio {
+            audio.send_command(TrackerCommand::StopSong);
+            self.is_playing = false;
+            println!("Stopped song");
+        }
+    }
 }
 
 impl Default for TrackerApp {
@@ -139,6 +190,8 @@ impl Default for TrackerApp {
             arrangement_tab: ArrangementTab::default(),
             chains_tab: ChainsTab::default(),
             phrases_tab: PhrasesTab::default(),
+            audio: None,
+            is_playing: false,
         }
     }
 }
@@ -177,6 +230,26 @@ impl eframe::App for TrackerApp {
                     
                     if ui.button("Quit").clicked() {
                         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                    }
+                });
+                
+                ui.menu_button("Playback", |ui| {
+                    let play_text = if self.is_playing { "⏸ Stop" } else { "▶ Play" };
+                    
+                    if ui.button(play_text).clicked() {
+                        if self.is_playing {
+                            self.stop_song();
+                        } else {
+                            self.play_song();
+                        }
+                        ui.close_menu();
+                    }
+                    
+                    ui.separator();
+                    
+                    if ui.button("🔄 Initialize Audio").clicked() {
+                        self.init_audio();
+                        ui.close_menu();
                     }
                 });
             });
