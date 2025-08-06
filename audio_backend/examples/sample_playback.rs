@@ -1,3 +1,4 @@
+#![cfg(not(feature = "tracker"))]
 use std::path::PathBuf;
 use std::thread;
 

@@ -12,3 +12,9 @@ ringbuf = {workspace = true}
 sequencer = {workspace = true}
 utils = {workspace = true}
 hound = { workspace = true}
+
+[features]
+
+tracker = []
+no_sequencer = []
+default = ["tracker"]

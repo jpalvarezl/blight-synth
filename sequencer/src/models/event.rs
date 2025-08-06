@@ -30,6 +30,7 @@ const NO_EFFECT: u8 = 0;
 
 /// Sentinel values for notes.
 #[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum NoteSentinelValues {
     NoNote = NO_NOTE,
     NoteOff = NOTE_OFF,

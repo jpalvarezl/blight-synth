@@ -57,6 +57,16 @@ impl TimingState {
     pub fn set_tpl(&mut self, new_tpl: u32) {
         self.tpl = new_tpl;
     }
+
+    /// Returns the current BPM.
+    pub fn bpm(&self) -> f64 {
+        self.bpm
+    }
+
+    /// Returns the current TPL.
+    pub fn tpl(&self) -> u32 {
+        self.tpl
+    }
 }
 
 #[cfg(test)]

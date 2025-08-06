@@ -1,10 +1,7 @@
 [workspace]
 resolver = "2"
 members = ["audio_backend", "utils", "sequencer"]
-# TODO: undo
-# default-members = ["sequencer"]
 default-members = ["audio_backend"]
-exclude = ["frontend/src-tauri"]
 
 [workspace.dependencies]
 bincode = "2.0.1"
@@ -22,5 +19,4 @@ hound = "3.5"
 
 sequencer = { path = "sequencer" }
 utils = { path = "utils" }
-# audio_backend_deprecated = { path = "audio_backend_deprecated" }
 audio_backend = { path = "audio_backend" }

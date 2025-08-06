@@ -37,6 +37,7 @@ pub enum InstrumentData {
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 /// The main instrument structure.
 pub struct Instrument {
+    pub id: usize,
     pub name: String,
     pub data: InstrumentData,
 }

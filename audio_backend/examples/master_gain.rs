@@ -7,6 +7,9 @@ pub fn main() {
     match &mut BlightAudio::new() {
         Ok(audio) => {
             println!("BlightAudio initialized successfully!");
+            audio.send_command(Command::AddMasterEffect {
+                effect: audio.get_effect_factory().create_stereo_gain(0.1),
+            });
 
             audio.send_command(Command::PlayNote {
                 note: 60,
@@ -16,10 +19,6 @@ pub fn main() {
                     0.0,
                 ),
                 velocity: 127,
-            });
-            audio.send_command(Command::AddVoiceEffect {
-                voice_id: 0,
-                effect: audio.get_effect_factory().create_mono_gain(1.0),
             });
 
             // Play a very short note - 200ms
@@ -39,12 +38,6 @@ pub fn main() {
                 ),
                 velocity: 100,
             });
-            audio.send_command(Command::AddVoiceEffect {
-                voice_id: 1,
-                effect: audio.get_effect_factory().create_mono_gain(0.1),
-            });
-            thread::sleep(std::time::Duration::from_millis(500));
-
             audio.send_command(Command::PlayNote {
                 note: 64, // E
                 voice: audio.get_voice_factory().create_voice(
@@ -54,12 +47,6 @@ pub fn main() {
                 ),
                 velocity: 100,
             });
-            audio.send_command(Command::AddVoiceEffect {
-                voice_id: 2,
-                effect: audio.get_effect_factory().create_mono_gain(0.5),
-            });
-            thread::sleep(std::time::Duration::from_millis(500));
-
             audio.send_command(Command::PlayNote {
                 note: 67, // G
                 voice: audio.get_voice_factory().create_voice(
@@ -69,10 +56,7 @@ pub fn main() {
                 ),
                 velocity: 100,
             });
-            audio.send_command(Command::AddVoiceEffect {
-                voice_id: 3,
-                effect: audio.get_effect_factory().create_mono_gain(1.0),
-            });
+
             thread::sleep(std::time::Duration::from_millis(500));
 
             // Stop all notes
@@ -81,7 +65,7 @@ pub fn main() {
             audio.send_command(Command::StopNote { voice_id: 3 });
 
             // Listen to the release tail
-            thread::sleep(std::time::Duration::from_millis(3000));
+            thread::sleep(std::time::Duration::from_millis(5000));
         }
         Err(e) => eprintln!("Failed to initialize BlightAudio: {}", e),
     };

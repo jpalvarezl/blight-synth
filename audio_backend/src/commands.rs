@@ -6,6 +6,11 @@ use crate::{
 
 pub enum Command {
     // Note/Voice Control
+    PlayNoteInstrument {
+        voice_id: VoiceId,
+        note: u8,
+        velocity: u8,
+    },
     PlayNote {
         // voice_id: VoiceId, // Unique ID for this specific note event
         voice: Box<dyn VoiceTrait>,
