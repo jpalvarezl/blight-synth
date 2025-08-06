@@ -2,14 +2,12 @@
 
 use std::sync::Arc;
 
-use crate::BlightAudio;
-use crate::{
-    effect_factory::EffectFactory, AudioProcessor, Command, ResourceManager, VoiceFactory,
-};
+use crate::{effect_factory::EffectFactory, AudioProcessor, ResourceManager, VoiceFactory};
+use crate::{BlightAudio, TrackerCommand};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use ringbuf::storage::Heap;
-use ringbuf::{HeapProd, SharedRb};
-use ringbuf::{traits::*};
+use ringbuf::traits::*;
+use ringbuf::SharedRb;
 use sequencer::models::Song;
 
 impl BlightAudio {
@@ -24,13 +22,12 @@ impl BlightAudio {
 
         // Create the SPSC ring buffer for commands using a heap-allocated buffer.
         // let rb = HeapRb::<Command>::new(1024); // Capacity for 1024 commands
-        let rb = SharedRb::<Heap<Command>>::new(1024);
+        let rb = SharedRb::<Heap<TrackerCommand>>::new(1024);
         let (command_tx, command_rx) = rb.split();
-    
 
         // Create the real-time processor and move it into the audio thread.
         let mut audio_processor =
-            AudioProcessor::new(song, command_rx, command_tx, sample_rate as f32, channels);
+            AudioProcessor::new(song, command_rx, sample_rate as f32, channels);
 
         let stream = device.build_output_stream(
             &config.into(),
@@ -49,12 +46,20 @@ impl BlightAudio {
         stream.play()?;
 
         Ok(BlightAudio {
-            // command_tx,
+            command_tx,
             voice_factory,
             resource_manager,
             effect_factory,
             _stream: stream,
         })
+    }
+
+    /// Public method to send a command to the audio thread.
+    pub fn send_command(&mut self, command: TrackerCommand) {
+        if self.command_tx.try_push(command).is_err() {
+            // In a real app, handle this more gracefully (e.g., log, drop command).
+            eprintln!("Command queue is full. Command dropped.");
+        }
     }
 
     pub fn get_voice_factory(&self) -> &VoiceFactory {

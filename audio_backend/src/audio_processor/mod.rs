@@ -9,15 +9,20 @@ mod tracker;
 pub use tracker::*;
 
 #[cfg(feature = "tracker")]
-use crate::Player;
+use crate::{Player, TrackerCommand};
 
+#[cfg(not(feature = "tracker"))]
 use crate::{Command, Synthesizer};
-use ringbuf::{HeapCons};
+use ringbuf::HeapCons;
 
 /// The core audio processor. Lives exclusively in the RT world.
 /// The behaviour of the AudioProcessor changes substrantially based on the "tracker" feature flag.
 pub struct AudioProcessor {
+    #[cfg(feature = "tracker")]
+    command_rx: HeapCons<TrackerCommand>,
+    #[cfg(not(feature = "tracker"))]
     command_rx: HeapCons<Command>,
+    #[cfg(not(feature = "tracker"))]
     synthesizer: Synthesizer,
     sample_rate: f32,
     channels: usize,

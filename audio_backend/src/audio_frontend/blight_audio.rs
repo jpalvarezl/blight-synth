@@ -1,13 +1,13 @@
 #![cfg(not(feature = "tracker"))]
 
+use super::BlightAudio;
 use crate::{
     effect_factory::EffectFactory, AudioProcessor, Command, ResourceManager, VoiceFactory,
 };
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use ringbuf::storage::Heap;
-use ringbuf::{HeapProd, SharedRb};
 use ringbuf::{traits::*, HeapRb};
-use super::BlightAudio;
+use ringbuf::{HeapProd, SharedRb};
 
 impl BlightAudio {
     pub fn new() -> Result<Self, anyhow::Error> {
@@ -23,7 +23,6 @@ impl BlightAudio {
         // let rb = HeapRb::<Command>::new(1024); // Capacity for 1024 commands
         let rb = SharedRb::<Heap<Command>>::new(1024);
         let (command_tx, command_rx) = rb.split();
-    
 
         // Create the real-time processor and move it into the audio thread.
         let mut audio_processor = AudioProcessor::new(command_rx, sample_rate as f32, channels);

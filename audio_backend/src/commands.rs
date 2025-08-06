@@ -1,7 +1,3 @@
-use std::sync::Arc;
-
-use sequencer::models::Song;
-
 use crate::{
     id::{EffectChainId, VoiceId},
     synths::Waveform,
@@ -9,11 +5,6 @@ use crate::{
 };
 
 pub enum Command {
-    // Playback Control
-    PlaySong {
-        song: Arc<Song>,
-    },
-    StopSong,
     // Note/Voice Control
     PlayNoteInstrument {
         voice_id: VoiceId,

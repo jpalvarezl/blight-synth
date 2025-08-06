@@ -1,5 +1,5 @@
-mod audio_processor;
 mod audio_frontend;
+mod audio_processor;
 mod commands;
 pub mod effects;
 mod factories;
@@ -11,8 +11,8 @@ mod result;
 mod synth_infra;
 mod synths;
 
-pub(crate) use audio_processor::*;
 pub use audio_frontend::*;
+pub(crate) use audio_processor::*;
 pub use commands::*;
 pub use factories::*;
 #[cfg(feature = "tracker")]

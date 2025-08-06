@@ -1,5 +1,8 @@
 #!cfg(feature = "tracker")
 
+pub(super) mod commands;
+mod synthesizer;
+
 use std::{collections::HashMap, sync::Arc};
 
 use ringbuf::{traits::*, HeapProd};
@@ -8,7 +11,7 @@ use sequencer::{
     timing::TimingState,
 };
 
-use crate::{Command, VoiceTrait};
+use crate::{Command, TrackerCommand, VoiceTrait};
 
 /// Holds the playback position for a single track.
 #[derive(Debug, Clone, Copy)]
@@ -55,26 +58,24 @@ pub struct Player {
     song: Arc<Song>,
     timing: TimingState,
     position: PlayerPosition,
-    command_tx: HeapProd<Command>,
     is_playing: bool,
-    instrument_bank: HashMap<u8, Box<dyn VoiceTrait>>,
+    pub synthesizer: synthesizer::Synthesizer,
 }
 
 impl Player {
-    pub fn new(song: Arc<Song>, command_tx: HeapProd<Command>, sample_rate: f64) -> Self {
+    pub fn new(song: Arc<Song>, sample_rate: f64) -> Self {
         let timing = TimingState::new_with_bpm_tpl(
             sample_rate,
-            0.0, // Initial BPM
-            0,   // Initial Ticks Per Line (TPL)
+            song.initial_bpm as f64,   // Initial BPM
+            song.initial_speed as u32, // Initial Ticks Per Line (TPL)
         );
 
         Self {
             song,
             timing,
             position: PlayerPosition::default(),
-            command_tx,
             is_playing: false,
-            instrument_bank: HashMap::new(),
+            synthesizer: synthesizer::Synthesizer::new(sample_rate as f32),
         }
     }
 
@@ -85,6 +86,19 @@ impl Player {
     pub fn stop(&mut self) {
         self.is_playing = false;
         // You might want to send NoteOff commands to all voices here.
+    }
+
+    pub fn handle_command(&mut self, command: TrackerCommand) {
+        match command {
+            TrackerCommand::PlaySong { song } => {
+                self.song = song;
+                self.position = PlayerPosition::default();
+                self.play();
+            }
+            TrackerCommand::StopSong => {
+                self.stop();
+            }
+        }
     }
 
     /// This is the main function to be called from your audio callback.
@@ -159,6 +173,11 @@ impl Player {
             let track_pos = &self.position.track_positions[i];
             let chain_index = current_song_row.chain_indices[i];
 
+            println!(
+                "Processing track {}: chain_index={}, chain_step={}, phrase_step={}",
+                i, chain_index, track_pos.chain_step, track_pos.phrase_step
+            );
+
             if chain_index == sequencer::models::EMPTY_CHAIN_SLOT {
                 continue;
             }
@@ -177,18 +196,26 @@ impl Player {
                         if event.note != NoteSentinelValues::NoNote as u8
                             && event.note != NoteSentinelValues::NoteOff as u8
                         {
+                            println!(
+                                "Playing note: {} on instrument: {} with velocity: {}",
+                                event.note, event.instrument_id, event.volume
+                            );
                             // TODO: A real implementation would also need to know which instrument to use.
                             // This is often implicit (the last one used on the track) or specified in the event.
                             // For now, we'll assume instrument 1.
                             // let instrument_id = 1;
-                            let result = self.command_tx.try_push(Command::PlayNoteInstrument {
-                                voice_id: event.instrument_id as u64,
-                                note: event.note,
-                                velocity: event.volume,
-                            });
-                            if result.is_err() {
-                                eprintln!("Failed to send PlayNoteInstrument command: {:?}", event);
-                            }
+                            self.synthesizer
+                                .handle_command(commands::PlayerCommand::PlayNote {
+                                    instrument_id: event.instrument_id as u64,
+                                    note: event.note,
+                                    velocity: event.volume,
+                                });
+                        } else if event.note == NoteSentinelValues::NoteOff as u8 {
+                            // Handle NoteOff events
+                            self.synthesizer
+                                .handle_command(commands::PlayerCommand::StopNote {
+                                    instrument_id: event.instrument_id as u64,
+                                });
                         }
                         // TODO: Handle NoteOff, effects, etc.
                     }

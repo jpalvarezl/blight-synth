@@ -10,6 +10,9 @@ pub const MAX_TRACKS: usize = 8;
 pub const EMPTY_PHRASE_SLOT: usize = usize::MAX;
 pub const EMPTY_CHAIN_SLOT: usize = usize::MAX;
 
+type ChainIndices = [usize; MAX_TRACKS];
+type PhraseIndices = [usize; DEFAULT_CHAIN_LENGTH];
+
 /// A Phrase is a fixed-size musical block for a single track.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode)]
 pub struct Phrase {
@@ -40,7 +43,7 @@ impl Phrase {
 /// We use a sentinel value (usize::MAX) to represent an empty slot for size efficiency.
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 pub struct Chain {
-    pub phrase_indices: [usize; DEFAULT_CHAIN_LENGTH],
+    pub phrase_indices: PhraseIndices,
 }
 
 impl Default for Chain {
@@ -51,11 +54,19 @@ impl Default for Chain {
     }
 }
 
+impl Chain {
+    pub fn new(phrases: PhraseIndices) -> Self {
+        Chain {
+            phrase_indices: phrases,
+        }
+    }
+}
+
 /// A SongRow represents a single step in the master arrangement,
 /// assigning a chain to each track.
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 pub struct SongRow {
-    pub chain_indices: [usize; MAX_TRACKS],
+    pub chain_indices: ChainIndices,
 }
 
 impl Default for SongRow {
@@ -67,7 +78,7 @@ impl Default for SongRow {
 }
 
 impl SongRow {
-    pub fn new(chains: [usize; MAX_TRACKS]) -> Self {
+    pub fn new(chains: ChainIndices) -> Self {
         SongRow {
             chain_indices: chains,
         }

@@ -2,16 +2,15 @@
 
 use std::sync::Arc;
 
-use ringbuf::{HeapCons, HeapProd, traits::*};
+use ringbuf::{traits::*, HeapCons};
 use sequencer::models::Song;
 
-use crate::{AudioProcessor, Command, Player, Synthesizer};
+use crate::{AudioProcessor, Player, TrackerCommand};
 
 impl AudioProcessor {
     pub fn new(
         song: Arc<Song>,
-        command_rx: HeapCons<Command>,
-        command_tx: HeapProd<Command>,
+        command_rx: HeapCons<TrackerCommand>,
         sample_rate: f32,
         channels: usize,
     ) -> Self {
@@ -19,12 +18,11 @@ impl AudioProcessor {
         const MAX_BUFFER_SIZE: usize = 4096;
         Self {
             command_rx,
-            synthesizer: Synthesizer::new(),
             sample_rate,
             channels,
             left_buf: vec![0.0; MAX_BUFFER_SIZE],
             right_buf: vec![0.0; MAX_BUFFER_SIZE],
-            player: Player::new(song, command_tx, sample_rate as f64),
+            player: Player::new(song, sample_rate as f64),
         }
     }
 
@@ -33,12 +31,13 @@ impl AudioProcessor {
         // frames in this block.
         let frame_count = output_buffer.len() / self.channels;
 
-        self.player.process(frame_count);
+        // drain commands
+        while let Some(command) = self.command_rx.try_pop() {
+            self.player.handle_command(command);
+        }
 
         // 1. Drain the command queue to update state. This is non-blocking.
-        while let Some(command) = self.command_rx.try_pop() {
-            self.synthesizer.handle_command(command);
-        }
+        self.player.process(frame_count);
 
         // Calculate the number of frames in this block.
         let (left, right) = (
@@ -51,7 +50,9 @@ impl AudioProcessor {
         right.fill(0.0);
 
         // 2. Process audio into our non-interleaved buffers.
-        self.synthesizer.process(left, right, self.sample_rate);
+        self.player
+            .synthesizer
+            .process(left, right, self.sample_rate);
 
         // 3. Re-interleave the processed audio back into the output buffer.
         for (i, frame) in output_buffer.chunks_mut(self.channels).enumerate() {
