@@ -6,8 +6,7 @@ use crate::tabs::{CurrentTab, arrangement::ArrangementTab, chains::ChainsTab, ph
 use crate::audio::AudioManager;
 use crate::file_ops::FileOperations;
 use crate::theme::ThemeManager;
-use crate::shortcuts::{ShortcutHandler, ShortcutAction};
-use crate::menu::{MenuRenderer, MenuActions};
+use crate::menu::{MenuRenderer, MenuActions, ShortcutHandler, ShortcutAction};
 use crate::ui_components::{SongInfoEditor, TabSelector};
 
 pub struct TrackerApp {
@@ -95,6 +94,12 @@ impl TrackerApp {
         match action {
             ShortcutAction::TogglePlayback => {
                 self.audio_manager.toggle_playback(&self.song);
+            }
+            ShortcutAction::NextTab => {
+                self.current_tab = self.current_tab.next();
+            }
+            ShortcutAction::PreviousTab => {
+                self.current_tab = self.current_tab.previous();
             }
             ShortcutAction::LoadSong => {
                 if let Some(song) = FileOperations::load_song() {
