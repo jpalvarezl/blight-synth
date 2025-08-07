@@ -48,4 +48,10 @@ impl Synthesizer {
     pub fn add_track_instrument(&mut self, track_id: usize, instrument: Box<dyn VoiceTrait>) {
         self.track_instruments.insert(track_id, instrument);
     }
+
+    pub fn stop_all_notes(&mut self) {
+        for instrument in self.track_instruments.values_mut() {
+            instrument.note_off();
+        }
+    }
 }
