@@ -1,4 +1,5 @@
 use eframe::egui;
+use egui_extras::{TableBuilder, Column};
 use sequencer::models::{Song, Phrase, EffectType};
 
 #[derive(Default)]
@@ -50,73 +51,65 @@ impl PhrasesTab {
         if self.selected_phrase < song.phrase_bank.len() {
             ui.label(format!("Editing Phrase {:02X}", self.selected_phrase));
             ui.separator();
-            
-            // Headers for the phrase editor
-            ui.horizontal(|ui| {
-                ui.label("Step");
-                ui.separator();
-                ui.label("Note");
-                ui.separator();
-                ui.label("Vol");
-            });
-            
-            ui.separator();
-            
             let phrase = &mut song.phrase_bank[self.selected_phrase];
+            let text_height = ui.text_style_height(&egui::TextStyle::Monospace);
             
-            egui::ScrollArea::vertical()
-                .max_height(400.0)
-                .show(ui, |ui| {
+            TableBuilder::new(ui)
+                .striped(true)
+                .column(Column::auto()) // step
+                .column(Column::auto()) // note
+                .column(Column::auto()) // vol
+                .header(20.0, |mut header| {
+                    header.col(|ui| { ui.label("Step"); });
+                    header.col(|ui| { ui.label("Note"); });
+                    header.col(|ui| { ui.label("Vol"); });
+                })
+                .body(|mut body| {
                     for (step, event) in phrase.events.iter_mut().enumerate() {
-                        ui.horizontal(|ui| {
-                            ui.label(format!("{:02X}:", step));
-                            ui.separator();
-                            
-                            // Note field
-                            let mut note_text = if event.note == 0 {
-                                "--".to_string()
-                            } else {
-                                format!("{:02X}", event.note)
-                            };
-                            
-                            let note_response = ui.add(
-                                egui::TextEdit::singleline(&mut note_text)
-                                    .desired_width(40.0)
-                                    .font(egui::TextStyle::Monospace)
-                            );
-                            
-                            if note_response.changed() {
-                                if note_text == "--" || note_text.is_empty() {
-                                    event.note = 0;
-                                } else if let Ok(parsed) = u8::from_str_radix(&note_text, 16) {
-                                    event.note = parsed;
+                        body.row(text_height + 4.0, |mut row| {
+                            // Step
+                            row.col(|ui| { ui.label(format!("{:02X}", step)); });
+                            // Note editable
+                            row.col(|ui| {
+                                let mut note_text = if event.note == 0 {
+                                    "--".to_string()
+                                } else {
+                                    format!("{:02X}", event.note)
+                                };
+                                let response = ui.add(
+                                    egui::TextEdit::singleline(&mut note_text)
+                                        .desired_width(text_height * 2.4)
+                                        .font(egui::TextStyle::Monospace)
+                                );
+                                if response.changed() {
+                                    if note_text == "--" || note_text.is_empty() {
+                                        event.note = 0;
+                                    } else if let Ok(parsed) = u8::from_str_radix(&note_text, 16) {
+                                        event.note = parsed;
+                                    }
                                 }
-                            }
-                            
-                            ui.separator();
-                            
-                            // Volume field
-                            let mut vol_text = if event.volume == 0 {
-                                "--".to_string()
-                            } else {
-                                format!("{:02X}", event.volume)
-                            };
-                            
-                            let vol_response = ui.add(
-                                egui::TextEdit::singleline(&mut vol_text)
-                                    .desired_width(40.0)
-                                    .font(egui::TextStyle::Monospace)
-                            );
-                            
-                            if vol_response.changed() {
-                                if vol_text == "--" || vol_text.is_empty() {
-                                    event.volume = 0;
-                                } else if let Ok(parsed) = u8::from_str_radix(&vol_text, 16) {
-                                    event.volume = parsed;
+                            });
+                            // Volume editable
+                            row.col(|ui| {
+                                let mut vol_text = if event.volume == 0 {
+                                    "--".to_string()
+                                } else {
+                                    format!("{:02X}", event.volume)
+                                };
+                                let response = ui.add(
+                                    egui::TextEdit::singleline(&mut vol_text)
+                                        .desired_width(text_height * 2.4)
+                                        .font(egui::TextStyle::Monospace)
+                                );
+                                if response.changed() {
+                                    if vol_text == "--" || vol_text.is_empty() {
+                                        event.volume = 0;
+                                    } else if let Ok(parsed) = u8::from_str_radix(&vol_text, 16) {
+                                        event.volume = parsed;
+                                    }
                                 }
-                            }
-                            
-                            // Keep effect as default (no effect)
+                            });
+                            // fix effect default
                             event.effect = EffectType::Arpeggio;
                             event.effect_param = 0;
                         });

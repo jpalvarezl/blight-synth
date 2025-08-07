@@ -1,4 +1,5 @@
 use eframe::egui;
+use egui_extras::{TableBuilder, Column};
 use sequencer::models::{Song, Chain, EMPTY_PHRASE_SLOT};
 
 #[derive(Default)]
@@ -52,33 +53,41 @@ impl ChainsTab {
             ui.separator();
             
             let chain = &mut song.chain_bank[self.selected_chain];
+            let text_height = ui.text_style_height(&egui::TextStyle::Monospace);
             
-            egui::ScrollArea::vertical()
-                .max_height(400.0)
-                .show(ui, |ui| {
+            TableBuilder::new(ui)
+                .striped(true)
+                .column(Column::auto())
+                .column(Column::auto())
+                .header(20.0, |mut header| {
+                    header.col(|ui| { ui.label("Step"); });
+                    header.col(|ui| { ui.label("Phrase"); });
+                })
+                .body(|mut body| {
                     for (step, phrase_idx) in chain.phrase_indices.iter_mut().enumerate() {
-                        ui.horizontal(|ui| {
-                            ui.label(format!("{:02X}:", step));
-                            
-                            let mut phrase_text = if *phrase_idx == EMPTY_PHRASE_SLOT {
-                                "--".to_string()
-                            } else {
-                                format!("{:02X}", *phrase_idx)
-                            };
-                            
-                            let response = ui.add(
-                                egui::TextEdit::singleline(&mut phrase_text)
-                                    .desired_width(50.0)
-                                    .font(egui::TextStyle::Monospace)
-                            );
-                            
-                            if response.changed() {
-                                if phrase_text == "--" || phrase_text.is_empty() {
-                                    *phrase_idx = EMPTY_PHRASE_SLOT;
-                                } else if let Ok(parsed) = u8::from_str_radix(&phrase_text, 16) {
-                                    *phrase_idx = parsed as usize;
+                        body.row(text_height + 4.0, |mut row| {
+                            row.col(|ui| {
+                                ui.label(format!("{:02X}", step));
+                            });
+                            row.col(|ui| {
+                                let mut phrase_text = if *phrase_idx == EMPTY_PHRASE_SLOT {
+                                    "--".to_string()
+                                } else {
+                                    format!("{:02X}", *phrase_idx)
+                                };
+                                let response = ui.add(
+                                    egui::TextEdit::singleline(&mut phrase_text)
+                                        .desired_width(text_height * 2.4)
+                                        .font(egui::TextStyle::Monospace)
+                                );
+                                if response.changed() {
+                                    if phrase_text == "--" || phrase_text.is_empty() {
+                                        *phrase_idx = EMPTY_PHRASE_SLOT;
+                                    } else if let Ok(parsed) = u8::from_str_radix(&phrase_text, 16) {
+                                        *phrase_idx = parsed as usize;
+                                    }
                                 }
-                            }
+                            });
                         });
                     }
                 });

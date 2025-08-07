@@ -13,6 +13,7 @@ pub struct TrackerApp {
     pub bpm: String,
     pub speed: String,
     pub current_tab: CurrentTab,
+    pub is_dark_mode: bool,
     
     // Tab handlers
     pub arrangement_tab: ArrangementTab,
@@ -25,6 +26,28 @@ pub struct TrackerApp {
 }
 
 impl TrackerApp {
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        let mut app = Self::default();
+        app.is_dark_mode = true;
+        app.apply_theme(&cc.egui_ctx);
+        app
+    }
+
+    fn apply_theme(&self, ctx: &egui::Context) {
+        // Use default fonts (monospace primary)
+        ctx.set_fonts(egui::FontDefinitions::default());
+
+        // Base visuals
+        let mut style = (*ctx.style()).clone();
+        style.visuals = if self.is_dark_mode {
+            egui::Visuals::dark()
+        } else {
+            egui::Visuals::light()
+        };
+        style.spacing.item_spacing = egui::vec2(4.0, 2.0);
+        style.visuals.selection.bg_fill = egui::Color32::from_rgb(40, 120, 200);
+        ctx.set_style(style);
+    }
     pub fn save_song(&mut self, format: FileFormat) {
         let filter_name = match format {
             FileFormat::Json => "JSON files",
@@ -192,6 +215,7 @@ impl Default for TrackerApp {
             phrases_tab: PhrasesTab::default(),
             audio: None,
             is_playing: false,
+            is_dark_mode: true,
         }
     }
 }
@@ -233,6 +257,15 @@ impl eframe::App for TrackerApp {
                     }
                 });
                 
+                ui.menu_button("View", |ui| {
+                    let theme_label = if self.is_dark_mode { "Switch to Light" } else { "Switch to Dark" };
+                    if ui.button(theme_label).clicked() {
+                        self.is_dark_mode = !self.is_dark_mode;
+                        self.apply_theme(ctx);
+                        ui.close_menu();
+                    }
+                });
+
                 ui.menu_button("Playback", |ui| {
                     let play_text = if self.is_playing { "⏸ Stop" } else { "▶ Play" };
                     

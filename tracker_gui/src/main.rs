@@ -9,7 +9,8 @@ fn main() -> Result<(), eframe::Error> {
 
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([800.0, 600.0])
+.with_inner_size([1000.0, 750.0])
+            .with_min_inner_size([800.0, 650.0])
             .with_title("Blight Tracker"),
         ..Default::default()
     };
@@ -20,7 +21,7 @@ fn main() -> Result<(), eframe::Error> {
         Box::new(|cc| {
             // This gives us image support:
             egui_extras::install_image_loaders(&cc.egui_ctx);
-            Ok(Box::new(TrackerApp::default()))
+            Ok(Box::new(TrackerApp::new(&cc)))
         }),
     )
 }
