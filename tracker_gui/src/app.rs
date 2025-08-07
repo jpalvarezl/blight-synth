@@ -256,15 +256,6 @@ impl eframe::App for TrackerApp {
                         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                     }
                 });
-                
-                ui.menu_button("View", |ui| {
-                    let theme_label = if self.is_dark_mode { "Switch to Light" } else { "Switch to Dark" };
-                    if ui.button(theme_label).clicked() {
-                        self.is_dark_mode = !self.is_dark_mode;
-                        self.apply_theme(ctx);
-                        ui.close_menu();
-                    }
-                });
 
                 ui.menu_button("Playback", |ui| {
                     let play_text = if self.is_playing { "⏸ Stop" } else { "▶ Play" };
@@ -283,6 +274,20 @@ impl eframe::App for TrackerApp {
                     if ui.button("🔄 Initialize Audio").clicked() {
                         self.init_audio();
                         ui.close_menu();
+                    }
+                });
+                
+                // Push theme toggle to the right side of the menu bar
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    let theme_emoji = if self.is_dark_mode { "☀" } else { "🌙" };
+                    let theme_tooltip = if self.is_dark_mode { "Switch to light mode" } else { "Switch to dark mode" };
+                    
+                    if ui.button(theme_emoji)
+                        .on_hover_text(theme_tooltip)
+                        .clicked() 
+                    {
+                        self.is_dark_mode = !self.is_dark_mode;
+                        self.apply_theme(ctx);
                     }
                 });
             });
