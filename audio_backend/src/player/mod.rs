@@ -1,4 +1,4 @@
-#!cfg(feature = "tracker")
+#![cfg(feature = "tracker")]
 
 pub(super) mod commands;
 mod synthesizer;

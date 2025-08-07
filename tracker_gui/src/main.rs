@@ -1,5 +1,11 @@
 mod app;
 mod tabs;
+mod audio;
+mod file_ops;
+mod theme;
+mod shortcuts;
+mod menu;
+mod ui_components;
 
 use eframe::egui;
 use app::TrackerApp;
