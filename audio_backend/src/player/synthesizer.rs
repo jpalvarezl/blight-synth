@@ -33,9 +33,6 @@ impl Synthesizer {
                     instrument.note_off();
                 }
             }
-            _ => {
-                // Handle other commands as needed.
-            }
         }
     }
 

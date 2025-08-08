@@ -6,9 +6,7 @@ pub struct ThemeManager {
 
 impl Default for ThemeManager {
     fn default() -> Self {
-        Self {
-            is_dark_mode: true,
-        }
+        Self { is_dark_mode: true }
     }
 }
 
@@ -28,17 +26,21 @@ impl ThemeManager {
         style.visuals.selection.bg_fill = egui::Color32::from_rgb(40, 120, 200);
         ctx.set_style(style);
     }
-    
+
     pub fn toggle_theme(&mut self, ctx: &egui::Context) {
         self.is_dark_mode = !self.is_dark_mode;
         self.apply_theme(ctx);
     }
-    
+
     pub fn theme_button_emoji(&self) -> &str {
         if self.is_dark_mode { "☀" } else { "🌙" }
     }
-    
+
     pub fn theme_button_tooltip(&self) -> &str {
-        if self.is_dark_mode { "Switch to light mode" } else { "Switch to dark mode" }
+        if self.is_dark_mode {
+            "Switch to light mode"
+        } else {
+            "Switch to dark mode"
+        }
     }
 }

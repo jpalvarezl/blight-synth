@@ -3902,6 +3902,7 @@ dependencies = [
  "eframe",
  "egui_extras",
  "env_logger",
+ "log",
  "rfd",
  "sequencer",
 ]

@@ -18,7 +18,7 @@ impl CurrentTab {
             CurrentTab::Phrases => CurrentTab::Arrangement,
         }
     }
-    
+
     /// Cycle to the previous tab (right to left)
     pub fn previous(&self) -> Self {
         match self {

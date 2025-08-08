@@ -7,6 +7,7 @@ edition = "2024"
 eframe = { workspace = true }
 egui_extras = { workspace = true }
 env_logger = { workspace = true }
+log = { workspace = true }
 rfd = { workspace = true }
 sequencer = { workspace = true }
 audio_backend = { workspace = true, features = ["tracker"] }
