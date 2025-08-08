@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use sequencer::models::MAX_TRACKS;
 
-use crate::{player::commands::PlayerCommand, VoiceTrait};
+use crate::{player::commands::PlayerCommand, MonoEffect, VoiceTrait};
 
 /// Specific implementation of a synthesizer for `tracker` mode.
 /// Instruments are pre-allocated to prevent RT contract violations.
@@ -44,6 +44,12 @@ impl Synthesizer {
 
     pub fn add_track_instrument(&mut self, track_id: usize, instrument: Box<dyn VoiceTrait>) {
         self.track_instruments.insert(track_id, instrument);
+    }
+
+    pub fn add_effect_to_track(&mut self, track_id: usize, effect: Box<dyn MonoEffect>) {
+        if let Some(instrument) = self.track_instruments.get_mut(&track_id) {
+            instrument.add_effect(effect);
+        }
     }
 
     pub fn stop_all_notes(&mut self) {

@@ -105,6 +105,9 @@ impl Player {
             } => {
                 self.synthesizer.add_track_instrument(track_id, instrument);
             }
+            TrackerCommand::AddEffectToTrack { track_id, effect } => {
+                self.synthesizer.add_effect_to_track(track_id, effect);
+            }
         }
     }
 
