@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
-members = ["audio_backend", "utils", "sequencer"]
-default-members = ["audio_backend"]
+members = ["audio_backend", "utils", "sequencer", "tracker_gui"]
+default-members = ["tracker_gui"]
 
 [workspace.dependencies]
 bincode = "2.0.1"
@@ -16,6 +16,9 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_with = "3.14"
 hound = "3.5"
+eframe = "0.29"
+egui_extras = "0.29"
+rfd = "0.15"
 
 sequencer = { path = "sequencer" }
 utils = { path = "utils" }

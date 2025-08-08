@@ -1,4 +1,4 @@
-#!cfg(feature = "tracker")
+#![cfg(feature = "tracker")]
 
 pub(super) mod commands;
 mod synthesizer;
@@ -85,7 +85,8 @@ impl Player {
 
     pub fn stop(&mut self) {
         self.is_playing = false;
-        // You might want to send NoteOff commands to all voices here.
+        self.position = PlayerPosition::default(); // Reset position
+        self.synthesizer.stop_all_notes(); // Stop all notes when stopping playback
     }
 
     pub fn handle_command(&mut self, command: TrackerCommand) {
