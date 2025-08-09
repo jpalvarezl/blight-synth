@@ -1,6 +1,7 @@
 use eframe::egui;
 use sequencer::cli::FileFormat;
 use sequencer::models::Song;
+use std::collections::HashMap;
 
 use crate::audio::AudioManager;
 use crate::file_ops::FileOperations;
@@ -9,7 +10,10 @@ use crate::tabs::{
     CurrentTab, arrangement::ArrangementTab, chains::ChainsTab, phrases::PhrasesTab,
 };
 use crate::theme::ThemeManager;
-use crate::ui_components::{AvailableInstrument, SidePanel, SongInfoEditor, TabSelector};
+use crate::ui_components::{
+    AvailableInstrument, EffectChain, EffectItem, EffectType, InstrumentStub, SidePanel,
+    SongInfoEditor, TabSelector,
+};
 
 pub struct TrackerApp {
     // Song data
@@ -31,6 +35,12 @@ pub struct TrackerApp {
     // UI state
     pub show_shortcuts_window: bool,
     pub side_panel: SidePanel,
+
+    // GUI-side banks and assignments (mock only)
+    pub instrument_bank: Vec<InstrumentStub>,
+    pub effect_chain_bank: Vec<EffectChain>,
+    pub instrument_assignments: HashMap<(usize, usize), String>, // (phrase_idx, step_idx) -> instrument_id
+    pub chain_assignments: HashMap<(usize, usize), String>, // (phrase_idx, step_idx) -> chain_id
 }
 
 impl TrackerApp {
@@ -119,21 +129,17 @@ impl TrackerApp {
         }
     }
 
-    fn handle_instrument_selection(&mut self, instrument: AvailableInstrument, track_id: usize) {
+    fn handle_instrument_selection(&mut self, instrument: AvailableInstrument) {
         if let Some(instrument_def) = instrument.to_instrument_definition() {
             match self
                 .audio_manager
-                .set_track_instrument(track_id, instrument_def)
+                .set_track_instrument(instrument.get_instrument_id(), instrument_def)
             {
                 Ok(_) => {
-                    log::info!(
-                        "Set track {} to instrument: {:?}",
-                        track_id + 1,
-                        instrument.name()
-                    );
+                    log::info!("Set instrument: {:?}", instrument.name());
                 }
                 Err(error) => {
-                    log::error!("Failed to set track {} instrument: {}", track_id + 1, error);
+                    log::error!("Failed to set instrument: {}", error);
                     // TODO: Consider showing this error in the UI as well
                 }
             }
@@ -143,6 +149,26 @@ impl TrackerApp {
 
 impl Default for TrackerApp {
     fn default() -> Self {
+        // Mock banks
+        let instrument_bank = vec![
+            InstrumentStub {
+                id: "osc".to_string(),
+                name: "Oscillator".to_string(),
+            },
+            InstrumentStub {
+                id: "sample".to_string(),
+                name: "Sample Player".to_string(),
+            },
+        ];
+        let effect_chain_bank = vec![EffectChain {
+            id: "default".to_string(),
+            name: "Default Chain".to_string(),
+            items: EffectType::all()
+                .into_iter()
+                .map(|e| EffectItem { effect: e })
+                .collect(),
+        }];
+
         Self {
             song: Song::new("New Song"),
             song_name: "New Song".to_string(),
@@ -156,6 +182,10 @@ impl Default for TrackerApp {
             theme_manager: ThemeManager::default(),
             show_shortcuts_window: false,
             side_panel: SidePanel::default(),
+            instrument_bank,
+            effect_chain_bank,
+            instrument_assignments: HashMap::new(),
+            chain_assignments: HashMap::new(),
         }
     }
 }
@@ -180,8 +210,20 @@ impl eframe::App for TrackerApp {
         let current_track = self.arrangement_tab.current_track;
 
         // Side panel (must be shown before CentralPanel)
-        if let Some(selected_instrument) = self.side_panel.show(ctx, current_track) {
-            self.handle_instrument_selection(selected_instrument, current_track);
+        let event_selection = self
+            .phrases_tab
+            .selected_event_step
+            .map(|step| (self.phrases_tab.selected_phrase, step));
+        if let Some(selected_instrument) = self.side_panel.show(
+            ctx,
+            current_track,
+            event_selection,
+            &mut self.instrument_bank,
+            &mut self.effect_chain_bank,
+            &mut self.instrument_assignments,
+            &mut self.chain_assignments,
+        ) {
+            self.handle_instrument_selection(selected_instrument);
         }
 
         // Main content area

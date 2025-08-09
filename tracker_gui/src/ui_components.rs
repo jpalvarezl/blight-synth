@@ -3,7 +3,9 @@ use eframe::egui;
 use sequencer::models::Song;
 
 pub mod side_panel;
-pub use side_panel::{AvailableInstrument, SidePanel};
+pub use side_panel::{
+    AvailableInstrument, EffectChain, EffectItem, EffectType, InstrumentStub, SidePanel,
+};
 
 pub struct SongInfoEditor;
 

@@ -1,6 +1,8 @@
-use audio_backend::{BlightAudio, InstrumentDefinition, TrackerCommand};
-use sequencer::models::{MAX_TRACKS, Song};
+use audio_backend::{BlightAudio, InstrumentDefinition, TrackerCommand, id::InstrumentId};
+use sequencer::models::Song;
 use std::sync::Arc;
+
+use crate::ui_components::AvailableInstrument;
 
 pub struct AudioManager {
     pub audio: Option<BlightAudio>,
@@ -21,17 +23,7 @@ impl AudioManager {
         if self.audio.is_none() {
             match BlightAudio::new(Arc::new(song.clone())) {
                 Ok(mut audio) => {
-                    // Add some default instruments to each track
-                    for track_id in 0..MAX_TRACKS {
-                        audio.send_command(TrackerCommand::AddTrackInstrument {
-                            track_id,
-                            instrument: audio.get_voice_factory().create_voice(
-                                track_id as u64,
-                                InstrumentDefinition::Oscillator,
-                                0.0,
-                            ),
-                        });
-                    }
+                    self.add_all_default_instruments(&mut audio);
                     self.audio = Some(audio);
                     log::info!("Audio system initialized successfully");
                 }
@@ -70,24 +62,41 @@ impl AudioManager {
         }
     }
 
+    // This method shouldn't be used. We should initialize instruments from the stored "instrument_bank" JSON key.
+    pub fn add_all_default_instruments(&self, audio: &mut BlightAudio) {
+        // Add default instruments to the synthesizer
+        AvailableInstrument::all().iter().for_each(|instrument| {
+            if let Some(instrument_def) = instrument.to_instrument_definition() {
+                audio.send_command(TrackerCommand::AddTrackInstrument {
+                    instrument_id: instrument.get_instrument_id(),
+                    instrument: audio.get_voice_factory().create_voice(
+                        instrument.get_instrument_id(),
+                        instrument_def,
+                        0.0, // Center pan
+                    ),
+                });
+            }
+        });
+    }
+
     pub fn set_track_instrument(
         &mut self,
-        track_id: usize,
+        instrument_id: InstrumentId,
         instrument_def: InstrumentDefinition,
     ) -> Result<(), String> {
         if let Some(audio) = &mut self.audio {
             let instrument = audio.get_voice_factory().create_voice(
-                track_id as u64,
+                instrument_id,
                 instrument_def,
                 0.0, // Center pan
             );
             // Adding reverb just for test
             audio.send_command(TrackerCommand::AddTrackInstrument {
-                track_id,
+                instrument_id,
                 instrument,
             });
 
-            log::info!("Updated track {} instrument", track_id);
+            log::info!("Updated track {} instrument", instrument_id);
             Ok(())
         } else {
             Err("Audio system not initialized. Please initialize audio first using the Playback menu.".to_string())

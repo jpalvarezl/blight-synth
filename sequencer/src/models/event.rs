@@ -8,6 +8,7 @@ use crate::models::EffectType;
 pub struct Event {
     pub note: u8,
     pub volume: u8,
+    pub instrument_id: u8,
     pub effect: EffectType,
     pub effect_param: u8,
 }
@@ -18,6 +19,7 @@ impl Default for Event {
             note: 0,
             volume: 0,
             // effect == EffectType::Arpeggio && effect_param == 0 => no effect
+            instrument_id: 0,
             effect: EffectType::Arpeggio,
             effect_param: 0,
         }

@@ -26,17 +26,34 @@ pub struct SampleParams {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+/// Parameters for a simple oscillator instrument.
+pub struct SimpleOscillatorParams {
+    pub waveform: Waveform,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+/// Waveform types for the simple oscillator.
+pub enum Waveform {
+    Sine,
+    Square,
+    Sawtooth,
+    Triangle,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 /// An enum to hold the specific data for an instrument, allowing for multiple
 /// types of sound generation.
 pub enum InstrumentData {
     Sample(SampleParams),
     Synth(SynthParams),
+    SimpleOscillator(SimpleOscillatorParams),
     // This can be extended in the future, e.g., for FM synthesis.
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 /// The main instrument structure.
 pub struct Instrument {
+    /// This ID for now will match the Track number using this Instrument.
     pub id: usize,
     pub name: String,
     pub data: InstrumentData,

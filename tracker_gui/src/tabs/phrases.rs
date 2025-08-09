@@ -5,11 +5,13 @@ use sequencer::models::{EffectType, Phrase, Song};
 #[derive(Default)]
 pub struct PhrasesTab {
     pub selected_phrase: usize,
+    pub selected_event_step: Option<usize>,
 }
 
 impl PhrasesTab {
     pub fn reset(&mut self) {
         self.selected_phrase = 0;
+        self.selected_event_step = None;
     }
 
     pub fn show(&mut self, ui: &mut egui::Ui, song: &mut Song) {
@@ -46,6 +48,8 @@ impl PhrasesTab {
                     .clicked()
                 {
                     self.selected_phrase = i;
+                    // Changing phrase clears event selection
+                    self.selected_event_step = None;
                 }
             }
         });
@@ -78,9 +82,20 @@ impl PhrasesTab {
                 .body(|mut body| {
                     for (step, event) in phrase.events.iter_mut().enumerate() {
                         body.row(text_height + 4.0, |mut row| {
-                            // Step
+                            // Step (click to select this event)
                             row.col(|ui| {
-                                ui.label(format!("{:02X}", step));
+                                let is_selected = self.selected_event_step == Some(step);
+                                if ui
+                                    .selectable_label(is_selected, format!("{:02X}", step))
+                                    .clicked()
+                                {
+                                    if is_selected {
+                                        // Toggle off selection if clicking again
+                                        self.selected_event_step = None;
+                                    } else {
+                                        self.selected_event_step = Some(step);
+                                    }
+                                }
                             });
                             // Note editable
                             row.col(|ui| {

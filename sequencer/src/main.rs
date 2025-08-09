@@ -9,18 +9,21 @@ fn main() {
         Event {
             note: 60,
             volume: 100,
+            instrument_id: 1,
             effect: EffectType::Arpeggio,
             effect_param: 0,
         },
         Event {
             note: 60,
             volume: 0,
+            instrument_id: 1,
             effect: EffectType::Arpeggio,
             effect_param: 0,
         },
         Event {
             note: 60,
             volume: 127,
+            instrument_id: 1,
             effect: EffectType::Arpeggio,
             effect_param: 1,
         },
