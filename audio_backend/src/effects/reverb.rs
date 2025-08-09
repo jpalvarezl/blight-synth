@@ -25,6 +25,14 @@ impl CombFilter {
         self.pos = (self.pos + 1) % self.buffer.len();
         output
     }
+
+    fn set_feedback(&mut self, feedback: f32) {
+        self.feedback = feedback.clamp(0.0, 1.0);
+    }
+
+    fn set_damping(&mut self, damping: f32) {
+        self.damping = damping.clamp(0.0, 1.0);
+    }
 }
 
 // Building Block 2: All-Pass Filter
@@ -132,20 +140,41 @@ impl MonoEffect for Reverb {
         }
     }
 
-    fn set_parameter(&mut self, _index: u32, _value: f32) {
-        todo!("Implement parameter control for reverb effect");
+    fn set_parameter(&mut self, index: u32, value: f32) {
+        match index {
+            0 => self.wet_level = value,
+            1 => self.wet_dry_mix = value,
+            2 => self.comb_filters.iter_mut().for_each(|f| f.set_feedback(value)),
+            3 => self.comb_filters.iter_mut().for_each(|f| f.set_damping(value)),
+            _ => (),
+        }
+    }
+}
+
+pub struct StereoReverb {
+    left: Reverb,
+    right: Reverb,
+}
+
+impl StereoReverb {
+    pub fn new(sample_rate: f32) -> Self {
+        Self {
+            left: Reverb::new(sample_rate),
+            right: Reverb::new(sample_rate),
+        }
     }
 }
 
 // This might be too lazy of an implementation. Need to look into this topic some more.
-impl StereoEffect for Reverb {
+impl StereoEffect for StereoReverb {
     fn process(&mut self, left_buf: &mut [f32], right_buf: &mut [f32], sample_rate: f32) {
         // Process left and right channels independently
-        MonoEffect::process(self, left_buf, sample_rate);
-        MonoEffect::process(self, right_buf, sample_rate);
+        self.left.process(left_buf, sample_rate);
+        self.right.process(right_buf, sample_rate);
     }
 
-    fn set_parameter(&mut self, _index: u32, _value: f32) {
-        todo!("Implement parameter control for reverb effect");
+    fn set_parameter(&mut self, index: u32, value: f32) {
+        self.left.set_parameter(index, value);
+        self.right.set_parameter(index, value);
     }
 }

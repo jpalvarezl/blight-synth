@@ -1,4 +1,4 @@
-use crate::effects::{Delay, Distortion, DistortionType, Filter, FilterType, Gain, Reverb};
+use crate::effects::{Delay, Distortion, DistortionType, Filter, FilterType, Gain, Reverb, StereoReverb};
 use crate::{MonoEffect, StereoEffect};
 
 pub struct EffectFactory {
@@ -17,7 +17,7 @@ impl EffectFactory {
 
     /// Create a stereo reverb effect
     pub fn create_stereo_reverb(&self) -> Box<dyn StereoEffect> {
-        Box::new(Reverb::new(self.sample_rate))
+        Box::new(StereoReverb::new(self.sample_rate))
     }
 
     /// Create a mono delay effect
