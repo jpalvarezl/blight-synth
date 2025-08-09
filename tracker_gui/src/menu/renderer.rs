@@ -40,38 +40,38 @@ impl MenuRenderer {
     ) -> MenuActions {
         let mut actions = MenuActions::default();
 
-        egui::menu::bar(ui, |ui| {
+        egui::MenuBar::new().ui(ui, |ui| {
             // File menu
             ui.menu_button("File", |ui| {
                 if ui.button("New Song").clicked() {
                     actions.new_song = true;
-                    ui.close_menu();
+                    ui.close();
                 }
 
                 ui.separator();
 
                 if ui.button("Load Song").clicked() {
                     actions.load_song = true;
-                    ui.close_menu();
+                    ui.close();
                 }
 
                 ui.separator();
 
                 if ui.button("Export as JSON").clicked() {
                     actions.save_json = true;
-                    ui.close_menu();
+                    ui.close();
                 }
 
                 if ui.button("Export as Binary").clicked() {
                     actions.save_binary = true;
-                    ui.close_menu();
+                    ui.close();
                 }
 
                 ui.separator();
 
                 if ui.button("Quit").clicked() {
                     actions.quit = true;
-                    ui.close_menu();
+                    ui.close();
                 }
             });
 
@@ -81,14 +81,14 @@ impl MenuRenderer {
 
                 if ui.button(play_text).clicked() {
                     actions.toggle_playback = true;
-                    ui.close_menu();
+                    ui.close();
                 }
 
                 ui.separator();
 
                 if ui.button("🔄 Initialize Audio").clicked() {
                     actions.init_audio = true;
-                    ui.close_menu();
+                    ui.close();
                 }
             });
 
@@ -96,7 +96,7 @@ impl MenuRenderer {
             ui.menu_button("Help", |ui| {
                 if ui.button("Shortcuts").clicked() {
                     actions.show_shortcuts = true;
-                    ui.close_menu();
+                    ui.close();
                 }
             });
 

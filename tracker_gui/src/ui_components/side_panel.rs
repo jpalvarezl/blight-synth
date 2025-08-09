@@ -1,6 +1,5 @@
 use audio_backend::{InstrumentDefinition, id::InstrumentId};
 use eframe::egui;
-use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum AvailableInstrument {
