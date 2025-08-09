@@ -108,9 +108,7 @@ impl SidePanel {
         ctx: &egui::Context,
         current_track: usize,
         event_selection: Option<(usize, usize)>, // (phrase_idx, step_idx)
-        instrument_bank: &mut Vec<InstrumentStub>,
         effect_chain_bank: &mut Vec<EffectChain>,
-        instrument_assignments: &mut HashMap<(usize, usize), String>,
         chain_assignments: &mut HashMap<(usize, usize), String>,
     ) -> Option<AvailableInstrument> {
         let mut selected_instrument = None;
@@ -154,6 +152,7 @@ impl SidePanel {
                             ui.add_space(5.0);
 
                             egui::ScrollArea::vertical()
+                                .id_salt(egui::Id::new("instruments_scroll"))
                                 .auto_shrink([false, true])
                                 .show(ui, |ui| {
                                     selected_instrument = self.show_instrument_selector(ui);
@@ -163,11 +162,11 @@ impl SidePanel {
 
                     ui.add_space(5.0);
 
-                    // Bottom half: Inspector
+                    // Bottom half: Effects
                     ui.group(|ui| {
                         ui.set_height(half_height);
                         ui.vertical(|ui| {
-                            ui.heading("Inspector");
+                            ui.heading("Effects");
                             ui.separator();
 
                             match event_selection {
@@ -177,42 +176,6 @@ impl SidePanel {
                                         phrase_idx, step_idx
                                     ));
                                     ui.add_space(6.0);
-
-                                    // Instrument assignment dropdown
-                                    ui.label("Instrument:");
-                                    let current_instr_id = instrument_assignments
-                                        .get(&(phrase_idx, step_idx))
-                                        .cloned();
-                                    let mut selected_instr_index: usize = current_instr_id
-                                        .as_ref()
-                                        .and_then(|id| {
-                                            instrument_bank.iter().position(|i| &i.id == id)
-                                        })
-                                        .unwrap_or(0);
-                                    egui::ComboBox::from_id_source("event_instrument_combo")
-                                        .width(180.0)
-                                        .selected_text(
-                                            instrument_bank
-                                                .get(selected_instr_index)
-                                                .map(|i| i.name.as_str())
-                                                .unwrap_or("<none>"),
-                                        )
-                                        .show_ui(ui, |ui| {
-                                            for (idx, inst) in instrument_bank.iter().enumerate() {
-                                                ui.selectable_value(
-                                                    &mut selected_instr_index,
-                                                    idx,
-                                                    &inst.name,
-                                                );
-                                            }
-                                        });
-                                    if let Some(inst) = instrument_bank.get(selected_instr_index) {
-                                        instrument_assignments
-                                            .insert((phrase_idx, step_idx), inst.id.clone());
-                                        // TODO: Apply instrument assignment to backend event when available
-                                    }
-
-                                    ui.add_space(8.0);
 
                                     // Effect Chain assignment dropdown
                                     ui.label("Effect Chain:");
@@ -224,7 +187,7 @@ impl SidePanel {
                                             effect_chain_bank.iter().position(|c| &c.id == id)
                                         })
                                         .unwrap_or(0);
-                                    egui::ComboBox::from_id_source("event_chain_combo")
+                                    egui::ComboBox::from_id_salt("event_chain_combo")
                                         .width(180.0)
                                         .selected_text(
                                             effect_chain_bank
@@ -255,6 +218,7 @@ impl SidePanel {
                                     // Read-only chain preview
                                     ui.label("Chain Preview:");
                                     egui::ScrollArea::vertical()
+                                        .id_salt(egui::Id::new(("inspector_chain_preview", phrase_idx, step_idx)))
                                         .auto_shrink([false, true])
                                         .show(ui, |ui| {
                                             if let Some(chain_id) =

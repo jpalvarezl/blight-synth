@@ -11,8 +11,8 @@ use crate::tabs::{
 };
 use crate::theme::ThemeManager;
 use crate::ui_components::{
-    AvailableInstrument, EffectChain, EffectItem, EffectType, InstrumentStub, SidePanel,
-    SongInfoEditor, TabSelector,
+    AvailableInstrument, EffectChain, EffectItem, EffectType, SidePanel, SongInfoEditor,
+    TabSelector,
 };
 
 pub struct TrackerApp {
@@ -37,9 +37,7 @@ pub struct TrackerApp {
     pub side_panel: SidePanel,
 
     // GUI-side banks and assignments (mock only)
-    pub instrument_bank: Vec<InstrumentStub>,
     pub effect_chain_bank: Vec<EffectChain>,
-    pub instrument_assignments: HashMap<(usize, usize), String>, // (phrase_idx, step_idx) -> instrument_id
     pub chain_assignments: HashMap<(usize, usize), String>, // (phrase_idx, step_idx) -> chain_id
 }
 
@@ -150,16 +148,6 @@ impl TrackerApp {
 impl Default for TrackerApp {
     fn default() -> Self {
         // Mock banks
-        let instrument_bank = vec![
-            InstrumentStub {
-                id: "osc".to_string(),
-                name: "Oscillator".to_string(),
-            },
-            InstrumentStub {
-                id: "sample".to_string(),
-                name: "Sample Player".to_string(),
-            },
-        ];
         let effect_chain_bank = vec![EffectChain {
             id: "default".to_string(),
             name: "Default Chain".to_string(),
@@ -182,9 +170,7 @@ impl Default for TrackerApp {
             theme_manager: ThemeManager::default(),
             show_shortcuts_window: false,
             side_panel: SidePanel::default(),
-            instrument_bank,
             effect_chain_bank,
-            instrument_assignments: HashMap::new(),
             chain_assignments: HashMap::new(),
         }
     }
@@ -218,9 +204,7 @@ impl eframe::App for TrackerApp {
             ctx,
             current_track,
             event_selection,
-            &mut self.instrument_bank,
             &mut self.effect_chain_bank,
-            &mut self.instrument_assignments,
             &mut self.chain_assignments,
         ) {
             self.handle_instrument_selection(selected_instrument);
