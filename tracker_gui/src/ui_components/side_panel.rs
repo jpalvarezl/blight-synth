@@ -70,21 +70,14 @@ impl EffectType {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct EffectItem {
-    pub effect: EffectType,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct EffectChain {
-    pub id: String,
-    pub name: String,
-    pub items: Vec<EffectItem>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
 pub struct InstrumentStub {
     pub id: String,
     pub name: String,
+}
+
+pub enum SidePanelAction {
+    InstrumentChanged(AvailableInstrument),
+    AddEffect(EffectType),
 }
 
 pub struct SidePanel {
@@ -108,10 +101,8 @@ impl SidePanel {
         ctx: &egui::Context,
         current_track: usize,
         event_selection: Option<(usize, usize)>, // (phrase_idx, step_idx)
-        effect_chain_bank: &mut Vec<EffectChain>,
-        chain_assignments: &mut HashMap<(usize, usize), String>,
-    ) -> Option<AvailableInstrument> {
-        let mut selected_instrument = None;
+    ) -> Option<SidePanelAction> {
+        let mut action: Option<SidePanelAction> = None;
 
         // Only show the panel if expanded
         if self.is_expanded {
@@ -155,7 +146,9 @@ impl SidePanel {
                                 .id_salt(egui::Id::new("instruments_scroll"))
                                 .auto_shrink([false, true])
                                 .show(ui, |ui| {
-                                    selected_instrument = self.show_instrument_selector(ui);
+                                    if let Some(instr) = self.show_instrument_selector(ui) {
+                                        action = Some(SidePanelAction::InstrumentChanged(instr));
+                                    }
                                 });
                         });
                     });
@@ -169,78 +162,37 @@ impl SidePanel {
                             ui.heading("Effects");
                             ui.separator();
 
+                            // Single-effect selection per event/instrument
                             match event_selection {
-                                Some((phrase_idx, step_idx)) => {
-                                    ui.label(format!(
-                                        "Selected Event: Phrase {:02X}, Step {:02X}",
-                                        phrase_idx, step_idx
-                                    ));
-                                    ui.add_space(6.0);
-
-                                    // Effect Chain assignment dropdown
-                                    ui.label("Effect Chain:");
-                                    let current_chain_id =
-                                        chain_assignments.get(&(phrase_idx, step_idx)).cloned();
-                                    let mut selected_chain_index: usize = current_chain_id
-                                        .as_ref()
-                                        .and_then(|id| {
-                                            effect_chain_bank.iter().position(|c| &c.id == id)
-                                        })
-                                        .unwrap_or(0);
-                                    egui::ComboBox::from_id_salt("event_chain_combo")
+                                Some((_phrase_idx, _step_idx)) => {
+                                    ui.label("Effect:");
+                                    let effects = EffectType::all();
+                                    let mut selected_idx = 0usize;
+                                    egui::ComboBox::from_id_salt("event_effect_combo")
                                         .width(180.0)
                                         .selected_text(
-                                            effect_chain_bank
-                                                .get(selected_chain_index)
-                                                .map(|c| c.name.as_str())
-                                                .unwrap_or("<none>"),
+                                            effects
+                                                .get(selected_idx)
+                                                .map(|e| e.name())
+                                                .unwrap_or("<none>")
                                         )
                                         .show_ui(ui, |ui| {
-                                            for (idx, chain) in effect_chain_bank.iter().enumerate()
-                                            {
-                                                ui.selectable_value(
-                                                    &mut selected_chain_index,
-                                                    idx,
-                                                    &chain.name,
-                                                );
+                                            for (idx, eff) in effects.iter().enumerate() {
+                                                let enabled = matches!(eff, EffectType::Reverb);
+                                                ui.add_enabled_ui(enabled, |ui| {
+                                                    if ui.selectable_label(selected_idx == idx, eff.name()).clicked() && enabled {
+                                                        selected_idx = idx;
+                                                        if let EffectType::Reverb = eff {
+                                                            action = Some(SidePanelAction::AddEffect(*eff));
+                                                        }
+                                                    }
+                                                });
                                             }
                                         });
-                                    if let Some(chain) = effect_chain_bank.get(selected_chain_index)
-                                    {
-                                        chain_assignments
-                                            .insert((phrase_idx, step_idx), chain.id.clone());
-                                        // TODO: Apply effect chain assignment to backend event when available
-                                    }
 
                                     ui.add_space(8.0);
                                     ui.separator();
-
-                                    // Read-only chain preview
-                                    ui.label("Chain Preview:");
-                                    egui::ScrollArea::vertical()
-                                        .id_salt(egui::Id::new(("inspector_chain_preview", phrase_idx, step_idx)))
-                                        .auto_shrink([false, true])
-                                        .show(ui, |ui| {
-                                            if let Some(chain_id) =
-                                                chain_assignments.get(&(phrase_idx, step_idx))
-                                            {
-                                                if let Some(chain) = effect_chain_bank
-                                                    .iter()
-                                                    .find(|c| &c.id == chain_id)
-                                                {
-                                                    for item in &chain.items {
-                                                        ui.label(format!(
-                                                            "• {}",
-                                                            item.effect.name()
-                                                        ));
-                                                    }
-                                                } else {
-                                                    ui.label("<no chain>");
-                                                }
-                                            } else {
-                                                ui.label("<no chain>");
-                                            }
-                                        });
+                                    ui.label("Only Reverb is available for now.");
                                 }
                                 None => {
                                     ui.label(
@@ -266,7 +218,7 @@ impl SidePanel {
                 });
         }
 
-        selected_instrument
+        action
     }
 
     fn show_instrument_selector(&mut self, ui: &mut egui::Ui) -> Option<AvailableInstrument> {

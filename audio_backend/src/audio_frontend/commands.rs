@@ -11,7 +11,7 @@ pub enum TrackerCommand {
         instrument_id: InstrumentId,
         instrument: Box<dyn VoiceTrait>,
     },
-    AddEffectToTrack {
+    AddEffectToInstrument {
         instrument_id: InstrumentId,
         effect: Box<dyn MonoEffect>,
     },

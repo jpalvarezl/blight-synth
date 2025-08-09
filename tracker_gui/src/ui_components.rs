@@ -4,7 +4,7 @@ use sequencer::models::Song;
 
 pub mod side_panel;
 pub use side_panel::{
-    AvailableInstrument, EffectChain, EffectItem, EffectType, SidePanel,
+    AvailableInstrument, EffectType, SidePanel, SidePanelAction,
 };
 
 pub struct SongInfoEditor;

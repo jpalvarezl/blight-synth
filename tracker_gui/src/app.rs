@@ -1,7 +1,6 @@
 use eframe::egui;
 use sequencer::cli::FileFormat;
 use sequencer::models::Song;
-use std::collections::HashMap;
 
 use crate::audio::AudioManager;
 use crate::file_ops::FileOperations;
@@ -11,8 +10,7 @@ use crate::tabs::{
 };
 use crate::theme::ThemeManager;
 use crate::ui_components::{
-    AvailableInstrument, EffectChain, EffectItem, EffectType, SidePanel, SongInfoEditor,
-    TabSelector,
+    AvailableInstrument, EffectType, SidePanel, SidePanelAction, SongInfoEditor, TabSelector,
 };
 
 pub struct TrackerApp {
@@ -36,9 +34,7 @@ pub struct TrackerApp {
     pub show_shortcuts_window: bool,
     pub side_panel: SidePanel,
 
-    // GUI-side banks and assignments (mock only)
-    pub effect_chain_bank: Vec<EffectChain>,
-    pub chain_assignments: HashMap<(usize, usize), String>, // (phrase_idx, step_idx) -> chain_id
+    // GUI-side state (mock only)
 }
 
 impl TrackerApp {
@@ -143,19 +139,31 @@ impl TrackerApp {
             }
         }
     }
+
+    fn handle_effect_selection(&mut self, effect: EffectType, current_track: usize) {
+        if let Some(audio) = &mut self.audio_manager.audio {
+            match effect {
+                EffectType::Reverb => {
+                    let fx = audio.get_effect_factory().create_mono_reverb();
+                    audio.send_command(audio_backend::TrackerCommand::AddEffectToInstrument {
+                        instrument_id: audio_backend::id::InstrumentId::from(current_track as u32 + 1),
+                        effect: fx,
+                    });
+                    log::info!("Added Reverb to instrument {}", current_track + 1);
+                }
+                _ => {
+                    // Not supported yet
+                }
+            }
+        } else {
+            log::warn!("Audio not initialized; cannot add effects. Use Playback -> Initialize Audio.");
+        }
+    }
 }
 
 impl Default for TrackerApp {
     fn default() -> Self {
-        // Mock banks
-        let effect_chain_bank = vec![EffectChain {
-            id: "default".to_string(),
-            name: "Default Chain".to_string(),
-            items: EffectType::all()
-                .into_iter()
-                .map(|e| EffectItem { effect: e })
-                .collect(),
-        }];
+        // No effect bank needed for single effect UI
 
         Self {
             song: Song::new("New Song"),
@@ -170,8 +178,6 @@ impl Default for TrackerApp {
             theme_manager: ThemeManager::default(),
             show_shortcuts_window: false,
             side_panel: SidePanel::default(),
-            effect_chain_bank,
-            chain_assignments: HashMap::new(),
         }
     }
 }
@@ -200,14 +206,19 @@ impl eframe::App for TrackerApp {
             .phrases_tab
             .selected_event_step
             .map(|step| (self.phrases_tab.selected_phrase, step));
-        if let Some(selected_instrument) = self.side_panel.show(
+        if let Some(action) = self.side_panel.show(
             ctx,
             current_track,
             event_selection,
-            &mut self.effect_chain_bank,
-            &mut self.chain_assignments,
         ) {
-            self.handle_instrument_selection(selected_instrument);
+            match action {
+                SidePanelAction::InstrumentChanged(instr) => {
+                    self.handle_instrument_selection(instr);
+                }
+                SidePanelAction::AddEffect(effect) => {
+                    self.handle_effect_selection(effect, current_track);
+                }
+            }
         }
 
         // Main content area

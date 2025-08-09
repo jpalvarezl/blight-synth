@@ -106,7 +106,7 @@ impl Player {
             } => {
                 self.synthesizer.add_instrument(instrument_id, instrument);
             }
-            TrackerCommand::AddEffectToTrack {
+            TrackerCommand::AddEffectToInstrument {
                 instrument_id,
                 effect,
             } => {
