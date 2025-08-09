@@ -174,16 +174,25 @@ impl SidePanel {
                                             effects
                                                 .get(selected_idx)
                                                 .map(|e| e.name())
-                                                .unwrap_or("<none>")
+                                                .unwrap_or("<none>"),
                                         )
                                         .show_ui(ui, |ui| {
                                             for (idx, eff) in effects.iter().enumerate() {
                                                 let enabled = matches!(eff, EffectType::Reverb);
                                                 ui.add_enabled_ui(enabled, |ui| {
-                                                    if ui.selectable_label(selected_idx == idx, eff.name()).clicked() && enabled {
+                                                    if ui
+                                                        .selectable_label(
+                                                            selected_idx == idx,
+                                                            eff.name(),
+                                                        )
+                                                        .clicked()
+                                                        && enabled
+                                                    {
                                                         selected_idx = idx;
                                                         if let EffectType::Reverb = eff {
-                                                            action = Some(SidePanelAction::AddEffect(*eff));
+                                                            action = Some(
+                                                                SidePanelAction::AddEffect(*eff),
+                                                            );
                                                         }
                                                     }
                                                 });

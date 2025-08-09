@@ -33,7 +33,6 @@ pub struct TrackerApp {
     // UI state
     pub show_shortcuts_window: bool,
     pub side_panel: SidePanel,
-
     // GUI-side state (mock only)
 }
 
@@ -146,7 +145,9 @@ impl TrackerApp {
                 EffectType::Reverb => {
                     let fx = audio.get_effect_factory().create_mono_reverb();
                     audio.send_command(audio_backend::TrackerCommand::AddEffectToInstrument {
-                        instrument_id: audio_backend::id::InstrumentId::from(current_track as u32 + 1),
+                        instrument_id: audio_backend::id::InstrumentId::from(
+                            current_track as u32 + 1,
+                        ),
                         effect: fx,
                     });
                     log::info!("Added Reverb to instrument {}", current_track + 1);
@@ -156,7 +157,9 @@ impl TrackerApp {
                 }
             }
         } else {
-            log::warn!("Audio not initialized; cannot add effects. Use Playback -> Initialize Audio.");
+            log::warn!(
+                "Audio not initialized; cannot add effects. Use Playback -> Initialize Audio."
+            );
         }
     }
 }
@@ -206,11 +209,7 @@ impl eframe::App for TrackerApp {
             .phrases_tab
             .selected_event_step
             .map(|step| (self.phrases_tab.selected_phrase, step));
-        if let Some(action) = self.side_panel.show(
-            ctx,
-            current_track,
-            event_selection,
-        ) {
+        if let Some(action) = self.side_panel.show(ctx, current_track, event_selection) {
             match action {
                 SidePanelAction::InstrumentChanged(instr) => {
                     self.handle_instrument_selection(instr);
