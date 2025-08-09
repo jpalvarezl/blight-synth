@@ -81,7 +81,7 @@ impl AudioManager {
                 instrument_def,
                 0.0, // Center pan
             );
-
+            // Adding reverb just for test
             audio.send_command(TrackerCommand::AddTrackInstrument {
                 track_id,
                 instrument,
