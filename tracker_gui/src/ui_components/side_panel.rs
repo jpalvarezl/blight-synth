@@ -1,4 +1,4 @@
-use audio_backend::{InstrumentDefinition, id::InstrumentId};
+use audio_backend::InstrumentDefinition;
 use eframe::egui;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -22,12 +22,6 @@ impl AvailableInstrument {
         }
     }
 
-    pub fn get_instrument_id(&self) -> InstrumentId {
-        match self {
-            AvailableInstrument::Oscillator => InstrumentId::from(1u32),
-            AvailableInstrument::SamplePlayer => InstrumentId::from(0u32),
-        }
-    }
 
     pub fn all() -> Vec<Self> {
         vec![Self::Oscillator, Self::SamplePlayer]
@@ -75,14 +69,20 @@ pub struct InstrumentStub {
 }
 
 pub enum SidePanelAction {
-    InstrumentChanged(AvailableInstrument),
+    AssignInstrumentToSelectedEvent(AvailableInstrument),
     AddEffect(EffectType),
+}
+
+enum InstrumentAction {
+    None,
+    ApplyToEvent(AvailableInstrument),
 }
 
 pub struct SidePanel {
     pub is_expanded: bool,
     pub panel_width: f32,
     pub selected_instrument: AvailableInstrument,
+    pub selected_effect: EffectType,
 }
 impl Default for SidePanel {
     fn default() -> Self {
@@ -90,6 +90,7 @@ impl Default for SidePanel {
             is_expanded: true,
             panel_width: 250.0,
             selected_instrument: AvailableInstrument::Oscillator,
+            selected_effect: EffectType::Reverb,
         }
     }
 }
@@ -145,8 +146,11 @@ impl SidePanel {
                                 .id_salt(egui::Id::new("instruments_scroll"))
                                 .auto_shrink([false, true])
                                 .show(ui, |ui| {
-                                    if let Some(instr) = self.show_instrument_selector(ui) {
-                                        action = Some(SidePanelAction::InstrumentChanged(instr));
+                                    match self.show_instrument_selector(ui) {
+                                        InstrumentAction::ApplyToEvent(instr) => {
+                                            action = Some(SidePanelAction::AssignInstrumentToSelectedEvent(instr));
+                                        }
+                                        InstrumentAction::None => {}
                                     }
                                 });
                         });
@@ -166,7 +170,11 @@ impl SidePanel {
                                 Some((_phrase_idx, _step_idx)) => {
                                     ui.label("Effect:");
                                     let effects = EffectType::all();
-                                    let mut selected_idx = 0usize;
+                                    // Map current selection to index
+                                    let mut selected_idx = effects
+                                        .iter()
+                                        .position(|e| *e == self.selected_effect)
+                                        .unwrap_or(0);
                                     egui::ComboBox::from_id_salt("event_effect_combo")
                                         .width(180.0)
                                         .selected_text(
@@ -179,24 +187,25 @@ impl SidePanel {
                                             for (idx, eff) in effects.iter().enumerate() {
                                                 let enabled = matches!(eff, EffectType::Reverb);
                                                 ui.add_enabled_ui(enabled, |ui| {
-                                                    if ui
-                                                        .selectable_label(
-                                                            selected_idx == idx,
-                                                            eff.name(),
-                                                        )
-                                                        .clicked()
-                                                        && enabled
-                                                    {
+                                                    if ui.selectable_label(selected_idx == idx, eff.name()).clicked() {
                                                         selected_idx = idx;
-                                                        if let EffectType::Reverb = eff {
-                                                            action = Some(
-                                                                SidePanelAction::AddEffect(*eff),
-                                                            );
-                                                        }
                                                     }
                                                 });
                                             }
                                         });
+                                    // Update stored effect selection
+                                    if let Some(sel) = effects.get(selected_idx) {
+                                        self.selected_effect = *sel;
+                                    }
+
+                                    ui.add_space(8.0);
+                                    // Apply button (only Reverb supported for now)
+                                    let can_apply = matches!(self.selected_effect, EffectType::Reverb);
+                                    ui.add_enabled_ui(can_apply, |ui| {
+                                        if ui.button("Apply to Selected Event").clicked() {
+                                            action = Some(SidePanelAction::AddEffect(self.selected_effect));
+                                        }
+                                    });
 
                                     ui.add_space(8.0);
                                     ui.separator();
@@ -229,8 +238,8 @@ impl SidePanel {
         action
     }
 
-    fn show_instrument_selector(&mut self, ui: &mut egui::Ui) -> Option<AvailableInstrument> {
-        let mut instrument_changed = None;
+    fn show_instrument_selector(&mut self, ui: &mut egui::Ui) -> InstrumentAction {
+        let mut apply_to_event: Option<AvailableInstrument> = None;
 
         for instrument in AvailableInstrument::all() {
             let is_available = instrument.to_instrument_definition().is_some();
@@ -240,7 +249,6 @@ impl SidePanel {
                 // Show selection radio button
                 if ui.radio(is_selected, "").clicked() && is_available {
                     self.selected_instrument = instrument.clone();
-                    instrument_changed = Some(instrument.clone());
                 }
 
                 // Instrument name with availability indication
@@ -266,14 +274,14 @@ impl SidePanel {
 
         ui.add_space(10.0);
 
-        // "Apply to Track" button
+        // Per-event apply button
         let can_apply = self
             .selected_instrument
             .to_instrument_definition()
             .is_some();
         ui.add_enabled_ui(can_apply, |ui| {
-            if ui.button("Apply to Current Track").clicked() {
-                instrument_changed = Some(self.selected_instrument.clone());
+            if ui.button("Apply to Selected Event").clicked() {
+                apply_to_event = Some(self.selected_instrument.clone());
             }
         });
 
@@ -285,6 +293,9 @@ impl SidePanel {
             );
         }
 
-        instrument_changed
+        if let Some(instr) = apply_to_event {
+            return InstrumentAction::ApplyToEvent(instr);
+        }
+        InstrumentAction::None
     }
 }

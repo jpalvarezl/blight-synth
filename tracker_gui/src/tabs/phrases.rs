@@ -1,6 +1,6 @@
 use eframe::egui;
 use egui_extras::{Column, TableBuilder};
-use sequencer::models::{EffectType, Phrase, Song};
+use sequencer::models::{Phrase, Song};
 
 #[derive(Default)]
 pub struct PhrasesTab {
@@ -68,6 +68,7 @@ impl PhrasesTab {
                 .column(Column::auto()) // step
                 .column(Column::auto()) // note
                 .column(Column::auto()) // vol
+                .column(Column::auto()) // instr/effect (read-only)
                 .header(20.0, |mut header| {
                     header.col(|ui| {
                         ui.label("Step");
@@ -77,6 +78,9 @@ impl PhrasesTab {
                     });
                     header.col(|ui| {
                         ui.label("Vol");
+                    });
+                    header.col(|ui| {
+                        ui.label("Instr/FX");
                     });
                 })
                 .body(|mut body| {
@@ -137,9 +141,14 @@ impl PhrasesTab {
                                     }
                                 }
                             });
-                            // fix effect default
-                            event.effect = EffectType::Arpeggio;
-                            event.effect_param = 0;
+                            // Read-only instrument/effect column
+                            row.col(|ui| {
+                                ui.label(format!(
+                                    "{:02X} / {:?}",
+                                    event.instrument_id,
+                                    event.effect
+                                ));
+                            });
                         });
                     }
                 });
