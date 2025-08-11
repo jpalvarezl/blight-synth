@@ -1,4 +1,6 @@
-use crate::effects::{Delay, Distortion, DistortionType, Filter, FilterType, Gain, Reverb, StereoReverb};
+use crate::effects::{
+    Delay, Distortion, DistortionType, Filter, FilterType, Gain, Reverb, StereoReverb,
+};
 use crate::{MonoEffect, StereoEffect};
 
 pub struct EffectFactory {

@@ -1,4 +1,4 @@
-pub type VoiceId = u64;
-pub type SampleId = u64;
-pub type InstrumentId = u64;
-pub type EffectChainId = u64;
+pub type VoiceId = u32;
+pub type SampleId = u32;
+pub type InstrumentId = u32;
+pub type EffectChainId = u32;

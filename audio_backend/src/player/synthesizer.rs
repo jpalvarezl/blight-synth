@@ -1,35 +1,38 @@
 use std::collections::HashMap;
 
+use log::debug;
 use sequencer::models::MAX_TRACKS;
 
-use crate::{player::commands::PlayerCommand, MonoEffect, VoiceTrait};
+use crate::{id::InstrumentId, player::commands::PlayerCommand, MonoEffect, VoiceTrait};
 
 /// Specific implementation of a synthesizer for `tracker` mode.
 /// Instruments are pre-allocated to prevent RT contract violations.
 pub struct Synthesizer {
-    pub track_instruments: HashMap<usize, Box<dyn VoiceTrait>>,
+    pub instrument_bank: HashMap<InstrumentId, Box<dyn VoiceTrait>>,
 }
 
 impl Synthesizer {
     pub fn new() -> Self {
         Self {
-            track_instruments: HashMap::with_capacity(MAX_TRACKS),
+            instrument_bank: HashMap::with_capacity(MAX_TRACKS),
         }
     }
 
     pub fn handle_command(&mut self, command: PlayerCommand) {
         match command {
             PlayerCommand::PlayNote {
-                track_id,
+                instrument_id,
                 note,
                 velocity,
             } => {
-                if let Some(instrument) = self.track_instruments.get_mut(&track_id) {
+                debug!("Playing note: {} on instrument: {}", note, instrument_id);
+                debug!("Available instruments: {:?}", self.instrument_bank.keys());
+                if let Some(instrument) = self.instrument_bank.get_mut(&instrument_id) {
                     instrument.note_on(note, velocity);
                 }
             }
-            PlayerCommand::StopNote { track_id } => {
-                if let Some(instrument) = self.track_instruments.get_mut(&track_id) {
+            PlayerCommand::StopNote { instrument_id } => {
+                if let Some(instrument) = self.instrument_bank.get_mut(&instrument_id) {
                     instrument.note_off();
                 }
             }
@@ -37,23 +40,27 @@ impl Synthesizer {
     }
 
     pub fn process(&mut self, left: &mut [f32], right: &mut [f32], sample_rate: f32) {
-        for instrument in self.track_instruments.values_mut() {
+        for instrument in self.instrument_bank.values_mut() {
             instrument.process(left, right, sample_rate);
         }
     }
 
-    pub fn add_track_instrument(&mut self, track_id: usize, instrument: Box<dyn VoiceTrait>) {
-        self.track_instruments.insert(track_id, instrument);
+    pub fn add_instrument(&mut self, instrument_id: InstrumentId, instrument: Box<dyn VoiceTrait>) {
+        self.instrument_bank.insert(instrument_id, instrument);
     }
 
-    pub fn add_effect_to_track(&mut self, track_id: usize, effect: Box<dyn MonoEffect>) {
-        if let Some(instrument) = self.track_instruments.get_mut(&track_id) {
+    pub fn add_effect_to_instrument(
+        &mut self,
+        instrument_id: InstrumentId,
+        effect: Box<dyn MonoEffect>,
+    ) {
+        if let Some(instrument) = self.instrument_bank.get_mut(&instrument_id) {
             instrument.add_effect(effect);
         }
     }
 
     pub fn stop_all_notes(&mut self) {
-        for instrument in self.track_instruments.values_mut() {
+        for instrument in self.instrument_bank.values_mut() {
             instrument.note_off();
         }
     }

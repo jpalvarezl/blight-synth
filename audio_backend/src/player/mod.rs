@@ -11,7 +11,7 @@ use sequencer::{
     timing::TimingState,
 };
 
-use crate::TrackerCommand;
+use crate::{id::InstrumentId, TrackerCommand};
 
 /// Holds the playback position for a single track.
 #[derive(Debug, Clone, Copy)]
@@ -92,6 +92,7 @@ impl Player {
     pub fn handle_command(&mut self, command: TrackerCommand) {
         match command {
             TrackerCommand::PlaySong { song } => {
+                debug!("Playing song: {}", song.name);
                 self.song = song;
                 self.position = PlayerPosition::default();
                 self.play();
@@ -100,14 +101,19 @@ impl Player {
                 self.stop();
             }
             TrackerCommand::AddTrackInstrument {
-                track_id,
+                instrument_id,
                 instrument,
             } => {
-                self.synthesizer.add_track_instrument(track_id, instrument);
+                self.synthesizer.add_instrument(instrument_id, instrument);
             }
-            TrackerCommand::AddEffectToTrack { track_id, effect } => {
-                self.synthesizer.add_effect_to_track(track_id, effect);
+            TrackerCommand::AddEffectToInstrument {
+                instrument_id,
+                effect,
+            } => {
+                self.synthesizer
+                    .add_effect_to_instrument(instrument_id, effect);
             }
+            TrackerCommand::PlayLastSong => self.play(),
         }
     }
 
@@ -203,12 +209,14 @@ impl Player {
                     if let Some(event) = phrase.events.get(track_pos.phrase_step as usize) {
                         // We have an event! Process it.
                         // For now, we only care about NoteOn events.
+                        let instrument_id = event.instrument_id as InstrumentId;
+
                         if event.note != NoteSentinelValues::NoNote as u8
                             && event.note != NoteSentinelValues::NoteOff as u8
                         {
                             debug!(
-                                "Playing note: {} on track: {} with velocity: {}",
-                                event.note, track_index, event.volume
+                                "Playing note: {} on track: {} with velocity: {} and instrument_id: {}",
+                                event.note, track_index, event.volume, instrument_id
                             );
                             // TODO: A real implementation would also need to know which instrument to use.
                             // This is often implicit (the last one used on the track) or specified in the event.
@@ -216,7 +224,7 @@ impl Player {
                             // let instrument_id = 1;
                             self.synthesizer
                                 .handle_command(commands::PlayerCommand::PlayNote {
-                                    track_id: track_index,
+                                    instrument_id,
                                     note: event.note,
                                     velocity: event.volume,
                                 });
@@ -224,7 +232,7 @@ impl Player {
                             // Handle NoteOff events
                             self.synthesizer
                                 .handle_command(commands::PlayerCommand::StopNote {
-                                    track_id: track_index,
+                                    instrument_id,
                                 });
                         }
                         // TODO: Handle NoteOff, effects, etc.

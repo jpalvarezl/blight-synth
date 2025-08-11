@@ -1,5 +1,5 @@
 use audio_backend::{BlightAudio, InstrumentDefinition, TrackerCommand};
-use sequencer::models::{MAX_TRACKS, Song};
+use sequencer::models::{InstrumentData, Song};
 use std::sync::Arc;
 
 pub struct AudioManager {
@@ -21,17 +21,7 @@ impl AudioManager {
         if self.audio.is_none() {
             match BlightAudio::new(Arc::new(song.clone())) {
                 Ok(mut audio) => {
-                    // Add some default instruments to each track
-                    for track_id in 0..MAX_TRACKS {
-                        audio.send_command(TrackerCommand::AddTrackInstrument {
-                            track_id,
-                            instrument: audio.get_voice_factory().create_voice(
-                                track_id as u64,
-                                InstrumentDefinition::Oscillator,
-                                0.0,
-                            ),
-                        });
-                    }
+                    self.hydrate_from_song(&mut audio, song);
                     self.audio = Some(audio);
                     log::info!("Audio system initialized successfully");
                 }
@@ -70,27 +60,27 @@ impl AudioManager {
         }
     }
 
-    pub fn set_track_instrument(
-        &mut self,
-        track_id: usize,
-        instrument_def: InstrumentDefinition,
-    ) -> Result<(), String> {
-        if let Some(audio) = &mut self.audio {
-            let instrument = audio.get_voice_factory().create_voice(
-                track_id as u64,
-                instrument_def,
-                0.0, // Center pan
-            );
-            // Adding reverb just for test
-            audio.send_command(TrackerCommand::AddTrackInstrument {
-                track_id,
-                instrument,
-            });
-
-            log::info!("Updated track {} instrument", track_id);
-            Ok(())
-        } else {
-            Err("Audio system not initialized. Please initialize audio first using the Playback menu.".to_string())
+    fn map_instrument_definition(data: &InstrumentData) -> Option<InstrumentDefinition> {
+        match data {
+            InstrumentData::SimpleOscillator(_) => Some(InstrumentDefinition::Oscillator),
+            // Extend mapping as new instrument types become supported in the backend
+            _ => None,
         }
     }
+
+    pub fn hydrate_from_song(&self, audio: &mut BlightAudio, song: &Song) {
+        for inst in &song.instrument_bank {
+            if let Some(def) = Self::map_instrument_definition(&inst.data) {
+                let iid = audio_backend::id::InstrumentId::from(inst.id as u32);
+                let voice = audio.get_voice_factory().create_voice(iid, def, 0.0);
+                audio.send_command(TrackerCommand::AddTrackInstrument {
+                    instrument_id: iid,
+                    instrument: voice,
+                });
+            } else {
+                log::warn!("Skipping unsupported instrument id={} when hydrating audio", inst.id);
+            }
+        }
+    }
+
 }

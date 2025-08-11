@@ -55,7 +55,7 @@ impl AllPassFilter {
 pub struct Reverb {
     comb_filters: [CombFilter; 4],       // Example: 4 parallel comb filters
     allpass_filters: [AllPassFilter; 2], // Example: 2 series all-pass filters
-    wet_level: f32, // Gain compensation for the wet signal
+    wet_level: f32,                      // Gain compensation for the wet signal
     wet_dry_mix: f32,
 }
 
@@ -105,7 +105,7 @@ impl Reverb {
         Self {
             comb_filters,
             allpass_filters,
-            wet_level: 0.25, // Default to full wet
+            wet_level: 0.25,  // Default to full wet
             wet_dry_mix: 0.3, // Default to a subtle mix
         }
     }
@@ -144,8 +144,14 @@ impl MonoEffect for Reverb {
         match index {
             0 => self.wet_level = value,
             1 => self.wet_dry_mix = value,
-            2 => self.comb_filters.iter_mut().for_each(|f| f.set_feedback(value)),
-            3 => self.comb_filters.iter_mut().for_each(|f| f.set_damping(value)),
+            2 => self
+                .comb_filters
+                .iter_mut()
+                .for_each(|f| f.set_feedback(value)),
+            3 => self
+                .comb_filters
+                .iter_mut()
+                .for_each(|f| f.set_damping(value)),
             _ => (),
         }
     }

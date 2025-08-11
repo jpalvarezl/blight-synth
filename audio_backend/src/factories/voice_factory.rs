@@ -66,7 +66,7 @@ impl VoiceFactory {
     }
 
     fn create_instrument(
-        voice_id: u64,
+        voice_id: VoiceId,
         instrument: InstrumentDefinition,
         pan: f32,
         envelope: Envelope,

@@ -1,34 +1,32 @@
 use eframe::egui;
 use sequencer::cli::FileFormat;
-use sequencer::models::Song;
+use sequencer::models::{Instrument, InstrumentData, SimpleOscillatorParams, Song, Waveform};
 
 use crate::audio::AudioManager;
 use crate::file_ops::FileOperations;
 use crate::menu::{MenuActions, MenuRenderer, ShortcutAction, ShortcutHandler};
 use crate::tabs::{
-    CurrentTab, arrangement::ArrangementTab, chains::ChainsTab, phrases::PhrasesTab,
+    arrangement::ArrangementTab, chains::ChainsTab, phrases::PhrasesTab, CurrentTab,
 };
 use crate::theme::ThemeManager;
-use crate::ui_components::{AvailableInstrument, SidePanel, SongInfoEditor, TabSelector};
+use crate::ui_components::{
+    AvailableInstrument, EffectType, SidePanel, SidePanelAction, SongInfoEditor, TabSelector,
+};
 
 pub struct TrackerApp {
-    // Song data
     pub song: Song,
     pub song_name: String,
     pub bpm: String,
     pub speed: String,
     pub current_tab: CurrentTab,
 
-    // Tab handlers
     pub arrangement_tab: ArrangementTab,
     pub chains_tab: ChainsTab,
     pub phrases_tab: PhrasesTab,
 
-    // System managers
     pub audio_manager: AudioManager,
     pub theme_manager: ThemeManager,
 
-    // UI state
     pub show_shortcuts_window: bool,
     pub side_panel: SidePanel,
 }
@@ -93,51 +91,132 @@ impl TrackerApp {
 
     fn handle_shortcuts(&mut self, ctx: &egui::Context) {
         let action = ShortcutHandler::handle_shortcuts(ctx);
-
         match action {
-            ShortcutAction::TogglePlayback => {
-                self.audio_manager.toggle_playback(&self.song);
-            }
-            ShortcutAction::NextTab => {
-                self.current_tab = self.current_tab.next();
-            }
-            ShortcutAction::PreviousTab => {
-                self.current_tab = self.current_tab.previous();
-            }
+            ShortcutAction::TogglePlayback => self.audio_manager.toggle_playback(&self.song),
+            ShortcutAction::NextTab => self.current_tab = self.current_tab.next(),
+            ShortcutAction::PreviousTab => self.current_tab = self.current_tab.previous(),
             ShortcutAction::LoadSong => {
                 if let Some(song) = FileOperations::load_song() {
                     self.load_song_data(song);
                 }
             }
-            ShortcutAction::SaveSong => {
-                FileOperations::save_song(&self.song, FileFormat::Json);
-            }
-            ShortcutAction::QuitApplication => {
-                ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-            }
+            ShortcutAction::SaveSong => FileOperations::save_song(&self.song, FileFormat::Json),
+            ShortcutAction::QuitApplication => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
             ShortcutAction::None => {}
         }
     }
 
-    fn handle_instrument_selection(&mut self, instrument: AvailableInstrument, track_id: usize) {
-        if let Some(instrument_def) = instrument.to_instrument_definition() {
-            match self
-                .audio_manager
-                .set_track_instrument(track_id, instrument_def)
+    fn handle_effect_selection(
+        &mut self,
+        effect: EffectType,
+        _current_track: usize,
+        event_selection: Option<(usize, usize)>,
+    ) {
+        // Update the sequencer model so the UI reflects the effect immediately
+        if let (EffectType::Reverb, Some((phrase_idx, step_idx))) = (effect, event_selection) {
+            if phrase_idx < self.song.phrase_bank.len()
+                && step_idx < self.song.phrase_bank[phrase_idx].events.len()
             {
-                Ok(_) => {
-                    log::info!(
-                        "Set track {} to instrument: {:?}",
-                        track_id + 1,
-                        instrument.name()
-                    );
-                }
-                Err(error) => {
-                    log::error!("Failed to set track {} instrument: {}", track_id + 1, error);
-                    // TODO: Consider showing this error in the UI as well
+                let event = &mut self.song.phrase_bank[phrase_idx].events[step_idx];
+                event.effect = sequencer::models::EffectType::SetReverb;
+                if event.effect_param == 0 {
+                    event.effect_param = 1;
                 }
             }
         }
+
+        if let Some(audio) = &mut self.audio_manager.audio {
+            match (effect, event_selection) {
+                (EffectType::Reverb, Some((phrase_idx, step_idx))) => {
+                    if phrase_idx < self.song.phrase_bank.len()
+                        && step_idx < self.song.phrase_bank[phrase_idx].events.len()
+                    {
+                        let inst_id = self.song.phrase_bank[phrase_idx].events[step_idx].instrument_id as u32;
+                        if inst_id != 0 {
+                            let fx = audio.get_effect_factory().create_mono_reverb();
+                            audio.send_command(audio_backend::TrackerCommand::AddEffectToInstrument {
+                                instrument_id: audio_backend::id::InstrumentId::from(inst_id),
+                                effect: fx,
+                            });
+                            log::info!("Added Reverb to instrument {}", inst_id);
+                        } else {
+                            log::warn!(
+                                "Cannot add effect: selected event has no instrument (inherit)"
+                            );
+                        }
+                    }
+                }
+                _ => {}
+            }
+        } else {
+            log::warn!(
+                "Audio not initialized; cannot add effects. Use Playback -> Initialize Audio."
+            );
+        }
+    }
+
+    fn apply_instrument_to_selected_event(
+        &mut self,
+        instr: AvailableInstrument,
+        event_selection: Option<(usize, usize)>,
+    ) {
+        if let Some((phrase_idx, step_idx)) = event_selection {
+            if phrase_idx < self.song.phrase_bank.len()
+                && step_idx < self.song.phrase_bank[phrase_idx].events.len()
+            {
+                // Determine or allocate instrument id without holding a mutable borrow across self calls
+                let mut id_u8 = self.song.phrase_bank[phrase_idx].events[step_idx].instrument_id;
+                if id_u8 == 0 {
+                    let new_id = self.next_free_instrument_id();
+                    self.song.phrase_bank[phrase_idx].events[step_idx].instrument_id = new_id;
+                    id_u8 = new_id;
+                }
+                let id_usize = id_u8 as usize;
+
+                // Upsert instrument in song.instrument_bank
+                if !self.song.instrument_bank.iter().any(|i| i.id == id_usize) {
+                    let name = instr.name().to_string();
+                    let data = match instr {
+                        AvailableInstrument::Oscillator => {
+                            InstrumentData::SimpleOscillator(SimpleOscillatorParams { waveform: Waveform::Sine })
+                        }
+                        AvailableInstrument::SamplePlayer => {
+                            // Placeholder mapping; sample support pending
+                            InstrumentData::SimpleOscillator(SimpleOscillatorParams { waveform: Waveform::Sine })
+                        }
+                    };
+                    self.song
+                        .instrument_bank
+                        .push(Instrument { id: id_usize, name, data });
+                }
+
+                // If audio is running, ensure instrument exists in engine
+                if let Some(audio) = &mut self.audio_manager.audio {
+                    if let Some(def) = instr.to_instrument_definition() {
+                        let iid = audio_backend::id::InstrumentId::from(id_u8 as u32);
+                        let voice = audio.get_voice_factory().create_voice(iid, def, 0.0);
+                        audio.send_command(audio_backend::TrackerCommand::AddTrackInstrument {
+                            instrument_id: iid,
+                            instrument: voice,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    fn next_free_instrument_id(&self) -> u8 {
+        for id in 1u16..=255u16 {
+            if !self
+                .song
+                .instrument_bank
+                .iter()
+                .any(|i| i.id == id as usize)
+            {
+                return id as u8;
+            }
+        }
+        1
     }
 }
 
@@ -162,10 +241,8 @@ impl Default for TrackerApp {
 
 impl eframe::App for TrackerApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Handle keyboard shortcuts first
         self.handle_shortcuts(ctx);
 
-        // Menu bar
         egui::TopBottomPanel::top("menu_bar").show(ctx, |ui| {
             let actions = MenuRenderer::show_menu_bar(
                 ui,
@@ -176,34 +253,33 @@ impl eframe::App for TrackerApp {
             self.handle_menu_actions(actions, ctx);
         });
 
-        // Get current track from arrangement tab
         let current_track = self.arrangement_tab.current_track;
 
-        // Side panel (must be shown before CentralPanel)
-        if let Some(selected_instrument) = self.side_panel.show(ctx, current_track) {
-            self.handle_instrument_selection(selected_instrument, current_track);
+        let event_selection = self
+            .phrases_tab
+            .selected_event_step
+            .map(|step| (self.phrases_tab.selected_phrase, step));
+        if let Some(action) = self.side_panel.show(ctx, current_track, event_selection) {
+            match action {
+                SidePanelAction::AssignInstrumentToSelectedEvent(instr) => {
+                    self.apply_instrument_to_selected_event(instr, event_selection);
+                }
+                SidePanelAction::AddEffect(effect) => {
+                    self.handle_effect_selection(effect, current_track, event_selection);
+                }
+            }
         }
 
-        // Main content area
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Blight Tracker - M8 Style Interface");
             ui.separator();
 
-            // Song info editor
-            SongInfoEditor::show(
-                ui,
-                &mut self.song,
-                &mut self.song_name,
-                &mut self.bpm,
-                &mut self.speed,
-            );
+            SongInfoEditor::show(ui, &mut self.song, &mut self.song_name, &mut self.bpm, &mut self.speed);
             ui.separator();
 
-            // Tab selector
             TabSelector::show(ui, &mut self.current_tab);
             ui.separator();
 
-            // Tab content
             match self.current_tab {
                 CurrentTab::Arrangement => self.arrangement_tab.show(ui, &mut self.song),
                 CurrentTab::Chains => self.chains_tab.show(ui, &mut self.song),
@@ -211,7 +287,6 @@ impl eframe::App for TrackerApp {
             }
         });
 
-        // Show shortcuts window if requested
         ShortcutHandler::show_shortcuts_window(ctx, &mut self.show_shortcuts_window);
     }
 }

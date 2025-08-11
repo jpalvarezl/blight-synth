@@ -15,7 +15,7 @@ pub enum EffectType {
     VibratoVolumeSlide = 0x6,
     Tremolo = 0x7,
     SetPanning = 0x8,
-    SetSampleOffset = 0x9,
+    SetReverb = 0x9,
     VolumeSlide = 0xA,
     PositionJump = 0xB,
     SetVolume = 0xC,
