@@ -78,9 +78,11 @@ impl AudioManager {
                     instrument: voice,
                 });
             } else {
-                log::warn!("Skipping unsupported instrument id={} when hydrating audio", inst.id);
+                log::warn!(
+                    "Skipping unsupported instrument id={} when hydrating audio",
+                    inst.id
+                );
             }
         }
     }
-
 }

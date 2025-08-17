@@ -1,8 +1,14 @@
-use crate::{synth_infra::voice::VoiceManager, Command, StereoEffectChain, SynthCommand};
+use std::collections::HashMap;
+
+use crate::{
+    id::InstrumentId, synth_infra::voice::VoiceManager, Command, InstrumentTrait,
+    StereoEffectChain, SynthCommand,
+};
 
 pub struct Synthesizer {
     // pub sample_rate: f32,
     voice_manager: VoiceManager,
+    instruments: HashMap<InstrumentId, Box<dyn InstrumentTrait>>,
     // Add more fields as needed for synthesizer state.
     master_effect_chain: StereoEffectChain,
 }
@@ -10,6 +16,7 @@ pub struct Synthesizer {
 impl Synthesizer {
     pub fn new() -> Self {
         Self {
+            instruments: HashMap::with_capacity(64), // pre-alloc 64 instrument slots
             voice_manager: VoiceManager::new(),
             master_effect_chain: StereoEffectChain::new(10), // Pre-allocate space for 10 effects.
         }

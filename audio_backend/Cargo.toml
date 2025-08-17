@@ -17,4 +17,5 @@ hound = { workspace = true}
 
 tracker = []
 no_sequencer = []
-default = ["tracker"]
+# default = ["tracker"]
+default = ["no_sequencer"] # TODO revert
