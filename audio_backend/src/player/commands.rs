@@ -9,4 +9,10 @@ pub enum PlayerCommand {
     StopNote {
         instrument_id: InstrumentId,
     },
+    ChangeInstrumentParam {
+        instrument_id: InstrumentId,
+        parameter: InstrumentParameter,
+    },
 }
+
+pub enum InstrumentParameter {}

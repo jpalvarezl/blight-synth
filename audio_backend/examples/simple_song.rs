@@ -2,7 +2,7 @@
 
 use std::{sync::Arc, thread, time::Duration};
 
-use audio_backend::{id::InstrumentId, BlightAudio, InstrumentDefinition, TrackerCommand};
+use audio_backend::{id::InstrumentId, BlightAudio, TrackerCommand};
 use sequencer::models::{Chain, EffectType, Event, Phrase, Song, SongRow, EMPTY_CHAIN_SLOT};
 
 pub fn main() {
@@ -12,19 +12,15 @@ pub fn main() {
         Ok(audio) => {
             audio.send_command(TrackerCommand::AddTrackInstrument {
                 instrument_id: lead_instrument_id,
-                instrument: audio.get_voice_factory().create_voice(
-                    lead_instrument_id,
-                    InstrumentDefinition::Oscillator,
-                    0.0,
-                ),
+                instrument: audio
+                    .get_instrument_factory()
+                    .create_simple_oscillator(lead_instrument_id, 0.0),
             });
             audio.send_command(TrackerCommand::AddTrackInstrument {
                 instrument_id: bass_instrument_id,
-                instrument: audio.get_voice_factory().create_voice(
-                    bass_instrument_id,
-                    InstrumentDefinition::Oscillator,
-                    0.0,
-                ),
+                instrument: audio
+                    .get_instrument_factory()
+                    .create_simple_oscillator(lead_instrument_id, 0.0),
             });
             audio.send_command(TrackerCommand::PlayLastSong);
             thread::sleep(Duration::from_millis(20000));

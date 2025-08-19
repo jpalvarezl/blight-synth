@@ -134,7 +134,7 @@ impl TrackerApp {
                         let inst_id =
                             self.song.phrase_bank[phrase_idx].events[step_idx].instrument_id as u32;
                         if inst_id != 0 {
-                            let fx = audio.get_effect_factory().create_mono_reverb();
+                            let fx = audio.get_effect_factory().create_stereo_reverb();
                             audio.send_command(
                                 audio_backend::TrackerCommand::AddEffectToInstrument {
                                     instrument_id: audio_backend::id::InstrumentId::from(inst_id),

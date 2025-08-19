@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use crate::{effect_factory::EffectFactory, AudioProcessor, ResourceManager, VoiceFactory};
+use crate::{AudioProcessor, EffectFactory, InstrumentFactory, ResourceManager, VoiceFactory};
 use crate::{BlightAudio, TrackerCommand};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use ringbuf::storage::Heap;
@@ -42,6 +42,7 @@ impl BlightAudio {
         let resource_manager = ResourceManager::new();
         let voice_factory = VoiceFactory::new(sample_rate as f32);
         let effect_factory = EffectFactory::new(sample_rate as f32);
+        let instrument_factory = InstrumentFactory::new(sample_rate as f32);
 
         stream.play()?;
 
@@ -50,6 +51,7 @@ impl BlightAudio {
             voice_factory,
             resource_manager,
             effect_factory,
+            instrument_factory,
             _stream: stream,
         })
     }
@@ -72,5 +74,9 @@ impl BlightAudio {
 
     pub fn get_effect_factory(&self) -> &EffectFactory {
         &self.effect_factory
+    }
+
+    pub fn get_instrument_factory(&self) -> &InstrumentFactory {
+        &self.instrument_factory
     }
 }
