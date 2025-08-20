@@ -3,7 +3,9 @@
 use std::{sync::Arc, thread, time::Duration};
 
 use audio_backend::{id::InstrumentId, BlightAudio, TrackerCommand};
-use sequencer::models::{Chain, EffectType, Event, NoteSentinelValues, Phrase, Song, SongRow, EMPTY_CHAIN_SLOT};
+use sequencer::models::{
+    Chain, EffectType, Event, NoteSentinelValues, Phrase, Song, SongRow, EMPTY_CHAIN_SLOT,
+};
 
 pub fn main() {
     env_logger::init();
@@ -20,7 +22,7 @@ pub fn main() {
                 ),
             });
             audio.send_command(TrackerCommand::PlayLastSong);
-            thread::sleep(Duration::from_millis(10000));
+            thread::sleep(Duration::from_millis(5000));
         }
         Err(e) => {
             eprintln!("Failed to initialize BlightAudio: {}", e);
@@ -67,15 +69,13 @@ pub fn load_song(lead_instrument_id: InstrumentId) -> Song {
         },
     ];
 
-    let phrase_2 = vec![
-        Event {
-            note: NoteSentinelValues::NoteOff as u8,
-            volume: 100,
-            instrument_id: lead_instrument_id as u8,
-            effect: EffectType::Arpeggio,
-            effect_param: 0,
-        },
-    ];
+    let phrase_2 = vec![Event {
+        note: NoteSentinelValues::NoteOff as u8,
+        volume: 100,
+        instrument_id: lead_instrument_id as u8,
+        effect: EffectType::Arpeggio,
+        effect_param: 0,
+    }];
 
     let mut song = Song::new("Test song");
     song.phrase_bank = vec![Phrase::from_events(phrase_1), Phrase::from_events(phrase_2)];

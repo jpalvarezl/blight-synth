@@ -60,9 +60,7 @@ impl Chain {
             phrase_indices: phrases,
         }
     }
-}
 
-impl Chain {
     pub fn from_phrases<I>(phrases: I) -> Self
     where
         I: IntoIterator<Item = usize>,
