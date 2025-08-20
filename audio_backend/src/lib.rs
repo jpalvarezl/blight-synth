@@ -15,7 +15,6 @@ pub use audio_frontend::*;
 pub(crate) use audio_processor::*;
 pub use commands::*;
 pub use factories::*;
-pub use factories::*;
 pub use instruments::*;
 #[cfg(feature = "tracker")]
 pub(crate) use player::*;
