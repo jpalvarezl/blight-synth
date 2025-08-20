@@ -62,6 +62,20 @@ impl Chain {
     }
 }
 
+impl Chain {
+    pub fn from_phrases<I>(phrases: I) -> Self
+    where
+        I: IntoIterator<Item = usize>,
+    {
+        let mut phrases_iter = phrases.into_iter();
+        Chain {
+            phrase_indices: std::array::from_fn(|_| {
+                phrases_iter.next().unwrap_or(EMPTY_PHRASE_SLOT)
+            }),
+        }
+    }
+}
+
 /// A SongRow represents a single step in the master arrangement,
 /// assigning a chain to each track.
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]

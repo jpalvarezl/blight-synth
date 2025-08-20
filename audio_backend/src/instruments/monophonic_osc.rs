@@ -1,6 +1,6 @@
 use crate::id::InstrumentId;
 use crate::{instruments::VoiceSlot, OscillatorNode};
-use crate::{Envelope, InstrumentTrait, MonoEffectChain, SynthNode, Voice, VoiceTrait};
+use crate::{Envelope, InstrumentTrait, MonoEffectChain, Voice, VoiceTrait};
 
 pub struct MonophonicOscillator {
     instrument_id: InstrumentId,
@@ -17,7 +17,11 @@ impl MonophonicOscillator {
             pan,
             MonoEffectChain::new(10),
         );
-        let voice = VoiceSlot { synth_node: voice };
+        // Note ID is unused in a monophonic instrument.
+        let voice = VoiceSlot {
+            inner: voice,
+            note_id: None,
+        };
         MonophonicOscillator {
             instrument_id,
             voice,
@@ -31,23 +35,23 @@ impl InstrumentTrait for MonophonicOscillator {
     }
 
     fn note_on(&mut self, note: u8, velocity: u8) {
-        VoiceTrait::note_on(&mut self.voice.synth_node, note, velocity);
+        VoiceTrait::note_on(&mut self.voice.inner, note, velocity);
     }
 
     fn note_off(&mut self) {
-        VoiceTrait::note_off(&mut self.voice.synth_node);
+        VoiceTrait::note_off(&mut self.voice.inner);
     }
 
     fn process(&mut self, left_buf: &mut [f32], right_buf: &mut [f32], sample_rate: f32) {
-        VoiceTrait::process(&mut self.voice.synth_node, left_buf, right_buf, sample_rate);
+        VoiceTrait::process(&mut self.voice.inner, left_buf, right_buf, sample_rate);
     }
 
     fn set_pan(&mut self, pan: f32) {
-        todo!()
+        VoiceTrait::set_pan(&mut self.voice.inner, pan);
     }
 
-    fn add_effect(&mut self, effect: Box<dyn crate::StereoEffect>) {
-        todo!()
-        // self.voice.synth_node.node.add_effect(effect);
+    fn add_effect(&mut self, _effect: Box<dyn crate::StereoEffect>) {
+        // TODO: reconcile per voice MonoEffect and InstrumentEffect
+        // VoiceTrait::add_effect(&mut self.voice.inner, effect);
     }
 }
