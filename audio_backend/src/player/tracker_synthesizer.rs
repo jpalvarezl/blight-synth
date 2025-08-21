@@ -3,18 +3,23 @@ use std::collections::HashMap;
 use log::debug;
 use sequencer::models::MAX_TRACKS;
 
-use crate::{id::InstrumentId, player::commands::PlayerCommand, MonoEffect, VoiceTrait};
+use crate::{
+    id::InstrumentId, player::commands::PlayerCommand, InstrumentTrait, MonoEffect, StereoEffect,
+    VoiceTrait,
+};
 
 /// Specific implementation of a synthesizer for `tracker` mode.
 /// Instruments are pre-allocated to prevent RT contract violations.
 pub struct Synthesizer {
-    pub instrument_bank: HashMap<InstrumentId, Box<dyn VoiceTrait>>,
+    pub instrument_bank: HashMap<InstrumentId, Box<dyn InstrumentTrait>>,
+    pub track_instrument: HashMap<usize, InstrumentId>, // cache the active instrument for each track
 }
 
 impl Synthesizer {
     pub fn new() -> Self {
         Self {
-            instrument_bank: HashMap::with_capacity(MAX_TRACKS),
+            instrument_bank: HashMap::with_capacity(64),
+            track_instrument: HashMap::with_capacity(MAX_TRACKS),
         }
     }
 
@@ -45,14 +50,18 @@ impl Synthesizer {
         }
     }
 
-    pub fn add_instrument(&mut self, instrument_id: InstrumentId, instrument: Box<dyn VoiceTrait>) {
+    pub fn add_instrument(
+        &mut self,
+        instrument_id: InstrumentId,
+        instrument: Box<dyn InstrumentTrait>,
+    ) {
         self.instrument_bank.insert(instrument_id, instrument);
     }
 
     pub fn add_effect_to_instrument(
         &mut self,
         instrument_id: InstrumentId,
-        effect: Box<dyn MonoEffect>,
+        effect: Box<dyn StereoEffect>,
     ) {
         if let Some(instrument) = self.instrument_bank.get_mut(&instrument_id) {
             instrument.add_effect(effect);

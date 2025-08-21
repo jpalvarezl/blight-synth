@@ -1,9 +1,7 @@
 #![cfg(not(feature = "tracker"))]
 
 use super::BlightAudio;
-use crate::{
-    effect_factory::EffectFactory, AudioProcessor, Command, ResourceManager, VoiceFactory,
-};
+use crate::{AudioProcessor, Command, EffectFactory, ResourceManager, VoiceFactory};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use ringbuf::storage::Heap;
 use ringbuf::traits::*;

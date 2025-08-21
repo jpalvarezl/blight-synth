@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use crate::{
     id::VoiceId,
+    instruments::{OscillatorNode, SamplePlayerNode},
     synth_infra::{Voice, VoiceTrait},
-    synths::{OscillatorNode, SamplePlayerNode},
     Envelope, MonoEffectChain, SampleData,
 };
 

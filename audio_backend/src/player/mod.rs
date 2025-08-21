@@ -1,7 +1,7 @@
 #![cfg(feature = "tracker")]
 
 pub(super) mod commands;
-mod synthesizer;
+mod tracker_synthesizer;
 
 use std::sync::Arc;
 
@@ -59,7 +59,7 @@ pub struct Player {
     timing: TimingState,
     position: PlayerPosition,
     is_playing: bool,
-    pub synthesizer: synthesizer::Synthesizer,
+    pub synthesizer: tracker_synthesizer::Synthesizer,
 }
 
 impl Player {
@@ -75,7 +75,7 @@ impl Player {
             timing,
             position: PlayerPosition::default(),
             is_playing: false,
-            synthesizer: synthesizer::Synthesizer::new(),
+            synthesizer: tracker_synthesizer::Synthesizer::new(),
         }
     }
 
@@ -235,7 +235,7 @@ impl Player {
                                     instrument_id,
                                 });
                         }
-                        // TODO: Handle NoteOff, effects, etc.
+                        // TODO: effects, etc.
                     }
                 }
             }

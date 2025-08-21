@@ -16,6 +16,8 @@ use ringbuf::HeapCons;
 pub struct AudioProcessor {
     #[cfg(feature = "tracker")]
     command_rx: HeapCons<TrackerCommand>,
+    #[cfg(feature = "tracker")]
+    player: Player,
     #[cfg(not(feature = "tracker"))]
     command_rx: HeapCons<Command>,
     #[cfg(not(feature = "tracker"))]
@@ -25,7 +27,4 @@ pub struct AudioProcessor {
     // Pre-allocated, non-interleaved buffers for processing.
     left_buf: Vec<f32>,
     right_buf: Vec<f32>,
-    // Player
-    #[cfg(feature = "tracker")]
-    player: Player,
 }

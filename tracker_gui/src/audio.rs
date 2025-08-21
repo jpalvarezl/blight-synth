@@ -72,15 +72,19 @@ impl AudioManager {
         for inst in &song.instrument_bank {
             if let Some(def) = Self::map_instrument_definition(&inst.data) {
                 let iid = audio_backend::id::InstrumentId::from(inst.id as u32);
-                let voice = audio.get_voice_factory().create_voice(iid, def, 0.0);
+                let instrument = audio
+                    .get_instrument_factory()
+                    .create_simple_oscillator(iid, def, 0.0);
                 audio.send_command(TrackerCommand::AddTrackInstrument {
                     instrument_id: iid,
-                    instrument: voice,
+                    instrument,
                 });
             } else {
-                log::warn!("Skipping unsupported instrument id={} when hydrating audio", inst.id);
+                log::warn!(
+                    "Skipping unsupported instrument id={} when hydrating audio",
+                    inst.id
+                );
             }
         }
     }
-
 }

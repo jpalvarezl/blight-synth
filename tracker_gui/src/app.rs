@@ -6,7 +6,7 @@ use crate::audio::AudioManager;
 use crate::file_ops::FileOperations;
 use crate::menu::{MenuActions, MenuRenderer, ShortcutAction, ShortcutHandler};
 use crate::tabs::{
-    arrangement::ArrangementTab, chains::ChainsTab, phrases::PhrasesTab, CurrentTab,
+    CurrentTab, arrangement::ArrangementTab, chains::ChainsTab, phrases::PhrasesTab,
 };
 use crate::theme::ThemeManager;
 use crate::ui_components::{
@@ -131,13 +131,16 @@ impl TrackerApp {
                     if phrase_idx < self.song.phrase_bank.len()
                         && step_idx < self.song.phrase_bank[phrase_idx].events.len()
                     {
-                        let inst_id = self.song.phrase_bank[phrase_idx].events[step_idx].instrument_id as u32;
+                        let inst_id =
+                            self.song.phrase_bank[phrase_idx].events[step_idx].instrument_id as u32;
                         if inst_id != 0 {
-                            let fx = audio.get_effect_factory().create_mono_reverb();
-                            audio.send_command(audio_backend::TrackerCommand::AddEffectToInstrument {
-                                instrument_id: audio_backend::id::InstrumentId::from(inst_id),
-                                effect: fx,
-                            });
+                            let fx = audio.get_effect_factory().create_stereo_reverb();
+                            audio.send_command(
+                                audio_backend::TrackerCommand::AddEffectToInstrument {
+                                    instrument_id: audio_backend::id::InstrumentId::from(inst_id),
+                                    effect: fx,
+                                },
+                            );
                             log::info!("Added Reverb to instrument {}", inst_id);
                         } else {
                             log::warn!(
@@ -178,16 +181,22 @@ impl TrackerApp {
                     let name = instr.name().to_string();
                     let data = match instr {
                         AvailableInstrument::Oscillator => {
-                            InstrumentData::SimpleOscillator(SimpleOscillatorParams { waveform: Waveform::Sine })
+                            InstrumentData::SimpleOscillator(SimpleOscillatorParams {
+                                waveform: Waveform::Sine,
+                            })
                         }
                         AvailableInstrument::SamplePlayer => {
                             // Placeholder mapping; sample support pending
-                            InstrumentData::SimpleOscillator(SimpleOscillatorParams { waveform: Waveform::Sine })
+                            InstrumentData::SimpleOscillator(SimpleOscillatorParams {
+                                waveform: Waveform::Sine,
+                            })
                         }
                     };
-                    self.song
-                        .instrument_bank
-                        .push(Instrument { id: id_usize, name, data });
+                    self.song.instrument_bank.push(Instrument {
+                        id: id_usize,
+                        name,
+                        data,
+                    });
                 }
 
                 // If audio is running, ensure instrument exists in engine
@@ -274,7 +283,13 @@ impl eframe::App for TrackerApp {
             ui.heading("Blight Tracker - M8 Style Interface");
             ui.separator();
 
-            SongInfoEditor::show(ui, &mut self.song, &mut self.song_name, &mut self.bpm, &mut self.speed);
+            SongInfoEditor::show(
+                ui,
+                &mut self.song,
+                &mut self.song_name,
+                &mut self.bpm,
+                &mut self.speed,
+            );
             ui.separator();
 
             TabSelector::show(ui, &mut self.current_tab);

@@ -1,6 +1,6 @@
 use crate::{
     id::{EffectChainId, VoiceId},
-    synths::Waveform,
+    instruments::Waveform,
     MonoEffect, StereoEffect, VoiceTrait,
 };
 

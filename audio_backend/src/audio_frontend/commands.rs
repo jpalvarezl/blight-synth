@@ -4,16 +4,16 @@ use std::sync::Arc;
 
 use sequencer::models::Song;
 
-use crate::{id::InstrumentId, MonoEffect, VoiceTrait};
+use crate::{id::InstrumentId, InstrumentTrait, StereoEffect};
 
 pub enum TrackerCommand {
     AddTrackInstrument {
         instrument_id: InstrumentId,
-        instrument: Box<dyn VoiceTrait>,
+        instrument: Box<dyn InstrumentTrait>,
     },
     AddEffectToInstrument {
         instrument_id: InstrumentId,
-        effect: Box<dyn MonoEffect>,
+        effect: Box<dyn StereoEffect>,
     },
     PlaySong {
         song: Arc<Song>,

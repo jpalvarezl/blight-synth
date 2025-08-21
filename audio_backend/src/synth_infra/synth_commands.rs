@@ -1,4 +1,4 @@
-use crate::Waveform;
+use crate::instruments::Waveform;
 
 #[derive(Debug, Clone, Copy)]
 pub enum SynthCommand {

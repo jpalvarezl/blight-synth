@@ -145,8 +145,7 @@ impl PhrasesTab {
                             row.col(|ui| {
                                 ui.label(format!(
                                     "{:02X} / {:?}",
-                                    event.instrument_id,
-                                    event.effect
+                                    event.instrument_id, event.effect
                                 ));
                             });
                         });

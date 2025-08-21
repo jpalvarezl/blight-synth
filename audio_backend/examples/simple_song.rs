@@ -2,8 +2,10 @@
 
 use std::{sync::Arc, thread, time::Duration};
 
-use audio_backend::{id::InstrumentId, BlightAudio, InstrumentDefinition, TrackerCommand};
-use sequencer::models::{Chain, EffectType, Event, Phrase, Song, SongRow, EMPTY_CHAIN_SLOT};
+use audio_backend::{id::InstrumentId, BlightAudio, TrackerCommand};
+use sequencer::models::{
+    Chain, EffectType, Event, NoteSentinelValues, Phrase, Song, SongRow, EMPTY_CHAIN_SLOT,
+};
 
 pub fn main() {
     let lead_instrument_id: InstrumentId = 0;
@@ -12,19 +14,15 @@ pub fn main() {
         Ok(audio) => {
             audio.send_command(TrackerCommand::AddTrackInstrument {
                 instrument_id: lead_instrument_id,
-                instrument: audio.get_voice_factory().create_voice(
-                    lead_instrument_id,
-                    InstrumentDefinition::Oscillator,
-                    0.0,
-                ),
+                instrument: audio
+                    .get_instrument_factory()
+                    .create_simple_oscillator(lead_instrument_id, 0.0),
             });
             audio.send_command(TrackerCommand::AddTrackInstrument {
                 instrument_id: bass_instrument_id,
-                instrument: audio.get_voice_factory().create_voice(
-                    bass_instrument_id,
-                    InstrumentDefinition::Oscillator,
-                    0.0,
-                ),
+                instrument: audio
+                    .get_instrument_factory()
+                    .create_simple_oscillator(bass_instrument_id, 0.0),
             });
             audio.send_command(TrackerCommand::PlayLastSong);
             thread::sleep(Duration::from_millis(20000));
@@ -58,6 +56,13 @@ pub fn load_song(lead_instrument_id: InstrumentId, bass_instrument_id: Instrumen
             effect: EffectType::Arpeggio,
             effect_param: 1,
         },
+        Event {
+            note: NoteSentinelValues::NoteOff as u8,
+            volume: 0,
+            instrument_id: lead_instrument_id as u8,
+            effect: EffectType::Arpeggio,
+            effect_param: 0,
+        },
     ];
 
     let phrase_2 = vec![
@@ -82,6 +87,13 @@ pub fn load_song(lead_instrument_id: InstrumentId, bass_instrument_id: Instrumen
             effect: EffectType::Arpeggio,
             effect_param: 1,
         },
+        Event {
+            note: NoteSentinelValues::NoteOff as u8,
+            volume: 0,
+            instrument_id: lead_instrument_id as u8,
+            effect: EffectType::Arpeggio,
+            effect_param: 0,
+        },
     ];
 
     let event_1 = Event {
@@ -93,7 +105,7 @@ pub fn load_song(lead_instrument_id: InstrumentId, bass_instrument_id: Instrumen
     };
     let event_2 = Event {
         note: 43,
-        volume: 0,
+        volume: 100,
         instrument_id: bass_instrument_id as u8,
         effect: EffectType::Arpeggio,
         effect_param: 0,

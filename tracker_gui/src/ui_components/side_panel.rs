@@ -22,7 +22,6 @@ impl AvailableInstrument {
         }
     }
 
-
     pub fn all() -> Vec<Self> {
         vec![Self::Oscillator, Self::SamplePlayer]
     }
@@ -145,13 +144,13 @@ impl SidePanel {
                             egui::ScrollArea::vertical()
                                 .id_salt(egui::Id::new("instruments_scroll"))
                                 .auto_shrink([false, true])
-                                .show(ui, |ui| {
-                                    match self.show_instrument_selector(ui) {
-                                        InstrumentAction::ApplyToEvent(instr) => {
-                                            action = Some(SidePanelAction::AssignInstrumentToSelectedEvent(instr));
-                                        }
-                                        InstrumentAction::None => {}
+                                .show(ui, |ui| match self.show_instrument_selector(ui) {
+                                    InstrumentAction::ApplyToEvent(instr) => {
+                                        action = Some(
+                                            SidePanelAction::AssignInstrumentToSelectedEvent(instr),
+                                        );
                                     }
+                                    InstrumentAction::None => {}
                                 });
                         });
                     });
@@ -187,7 +186,13 @@ impl SidePanel {
                                             for (idx, eff) in effects.iter().enumerate() {
                                                 let enabled = matches!(eff, EffectType::Reverb);
                                                 ui.add_enabled_ui(enabled, |ui| {
-                                                    if ui.selectable_label(selected_idx == idx, eff.name()).clicked() {
+                                                    if ui
+                                                        .selectable_label(
+                                                            selected_idx == idx,
+                                                            eff.name(),
+                                                        )
+                                                        .clicked()
+                                                    {
                                                         selected_idx = idx;
                                                     }
                                                 });
@@ -200,10 +205,13 @@ impl SidePanel {
 
                                     ui.add_space(8.0);
                                     // Apply button (only Reverb supported for now)
-                                    let can_apply = matches!(self.selected_effect, EffectType::Reverb);
+                                    let can_apply =
+                                        matches!(self.selected_effect, EffectType::Reverb);
                                     ui.add_enabled_ui(can_apply, |ui| {
                                         if ui.button("Apply to Selected Event").clicked() {
-                                            action = Some(SidePanelAction::AddEffect(self.selected_effect));
+                                            action = Some(SidePanelAction::AddEffect(
+                                                self.selected_effect,
+                                            ));
                                         }
                                     });
 
