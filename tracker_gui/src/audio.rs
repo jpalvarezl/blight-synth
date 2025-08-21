@@ -71,14 +71,16 @@ impl AudioManager {
     pub fn hydrate_from_song(&self, audio: &mut BlightAudio, song: &Song) {
         for inst in &song.instrument_bank {
             if let Some(def) = Self::map_instrument_definition(&inst.data) {
-                let iid = audio_backend::id::InstrumentId::from(inst.id as u32);
-                let instrument = audio
-                    .get_instrument_factory()
-                    .create_simple_oscillator(iid, def, 0.0);
-                audio.send_command(TrackerCommand::AddTrackInstrument {
-                    instrument_id: iid,
-                    instrument,
-                });
+                match def {
+                    InstrumentDefinition::Oscillator => {
+                        let id = audio_backend::id::InstrumentId::from(inst.id as u32);
+                        let instrument = audio
+                            .get_instrument_factory()
+                            .create_simple_oscillator(id, 0.0);
+                        audio.send_command(TrackerCommand::AddTrackInstrument { instrument });
+                    }
+                    InstrumentDefinition::SamplePlayer(sample_data) => todo!(),
+                }
             } else {
                 log::warn!(
                     "Skipping unsupported instrument id={} when hydrating audio",

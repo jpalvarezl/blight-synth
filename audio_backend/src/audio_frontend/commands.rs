@@ -8,7 +8,6 @@ use crate::{id::InstrumentId, InstrumentTrait, StereoEffect};
 
 pub enum TrackerCommand {
     AddTrackInstrument {
-        instrument_id: InstrumentId,
         instrument: Box<dyn InstrumentTrait>,
     },
     AddEffectToInstrument {

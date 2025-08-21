@@ -100,11 +100,8 @@ impl Player {
             TrackerCommand::StopSong => {
                 self.stop();
             }
-            TrackerCommand::AddTrackInstrument {
-                instrument_id,
-                instrument,
-            } => {
-                self.synthesizer.add_instrument(instrument_id, instrument);
+            TrackerCommand::AddTrackInstrument { instrument } => {
+                self.synthesizer.add_instrument(instrument);
             }
             TrackerCommand::AddEffectToInstrument {
                 instrument_id,

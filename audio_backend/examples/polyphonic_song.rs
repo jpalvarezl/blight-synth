@@ -14,7 +14,6 @@ pub fn main() {
     match &mut BlightAudio::new(Arc::new(load_song(lead_instrument_id))) {
         Ok(audio) => {
             audio.send_command(TrackerCommand::AddTrackInstrument {
-                instrument_id: lead_instrument_id,
                 instrument: audio.get_instrument_factory().create_polyphonic_oscillator(
                     lead_instrument_id,
                     0.0,

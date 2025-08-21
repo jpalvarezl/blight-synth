@@ -13,13 +13,11 @@ pub fn main() {
     match &mut BlightAudio::new(Arc::new(load_song(lead_instrument_id, bass_instrument_id))) {
         Ok(audio) => {
             audio.send_command(TrackerCommand::AddTrackInstrument {
-                instrument_id: lead_instrument_id,
                 instrument: audio
                     .get_instrument_factory()
                     .create_simple_oscillator(lead_instrument_id, 0.0),
             });
             audio.send_command(TrackerCommand::AddTrackInstrument {
-                instrument_id: bass_instrument_id,
                 instrument: audio
                     .get_instrument_factory()
                     .create_simple_oscillator(bass_instrument_id, 0.0),

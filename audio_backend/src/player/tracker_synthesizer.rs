@@ -50,12 +50,8 @@ impl Synthesizer {
         }
     }
 
-    pub fn add_instrument(
-        &mut self,
-        instrument_id: InstrumentId,
-        instrument: Box<dyn InstrumentTrait>,
-    ) {
-        self.instrument_bank.insert(instrument_id, instrument);
+    pub fn add_instrument(&mut self, instrument: Box<dyn InstrumentTrait>) {
+        self.instrument_bank.insert(instrument.id(), instrument);
     }
 
     pub fn add_effect_to_instrument(
