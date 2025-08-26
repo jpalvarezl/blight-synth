@@ -26,7 +26,7 @@ impl AudioManager {
                     log::info!("Audio system initialized successfully");
                 }
                 Err(e) => {
-                    eprintln!("Failed to initialize audio system: {}", e);
+                    log::error!("Failed to initialize audio system: {}", e);
                 }
             }
         }
