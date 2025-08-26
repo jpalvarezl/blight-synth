@@ -10,7 +10,7 @@ use sequencer::{
     timing::TimingState,
 };
 
-use crate::{id::InstrumentId, Command};
+use crate::{id::InstrumentId, Command, SequencerCmd, TransportCmd};
 
 /// Holds the playback position for a single track.
 #[derive(Debug, Clone, Copy)]
@@ -90,26 +90,23 @@ impl Player {
 
     pub fn handle_command(&mut self, command: Command) {
         match command {
-            Command::PlaySong { song } => {
+            Command::Sequencer(SequencerCmd::PlaySong { song }) => {
                 debug!("Playing song: {}", song.name);
                 self.song = song;
                 self.position = PlayerPosition::default();
                 self.play();
             }
-            Command::StopSong => {
+            Command::Transport(TransportCmd::StopSong) => {
                 self.stop();
             }
-            Command::AddTrackInstrument { instrument } => {
+            Command::Sequencer(SequencerCmd::AddTrackInstrument { instrument }) => {
                 self.synthesizer.add_instrument(instrument);
             }
-            Command::AddEffectToInstrument {
-                instrument_id,
-                effect,
-            } => {
+            Command::Sequencer(SequencerCmd::AddEffectToInstrument { instrument_id, effect }) => {
                 self.synthesizer
                     .add_effect_to_instrument(instrument_id, effect);
             }
-            Command::PlayLastSong => self.play(),
+            Command::Transport(TransportCmd::PlayLastSong) => self.play(),
             _ => {}
         }
     }

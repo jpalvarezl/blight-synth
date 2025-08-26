@@ -136,12 +136,12 @@ impl TrackerApp {
                             self.song.phrase_bank[phrase_idx].events[step_idx].instrument_id as u32;
                         if inst_id != 0 {
                             let fx = audio.get_effect_factory().create_stereo_reverb();
-                            audio.send_command(
-                                audio_backend::Command::AddEffectToInstrument {
+                            audio.send_command(audio_backend::Command::Sequencer(
+                                audio_backend::SequencerCmd::AddEffectToInstrument {
                                     instrument_id: audio_backend::id::InstrumentId::from(inst_id),
                                     effect: fx,
                                 },
-                            );
+                            ));
                             log::info!("Added Reverb to instrument {}", inst_id);
                         } else {
                             log::warn!(
@@ -209,11 +209,11 @@ impl TrackerApp {
                                 let instrument = audio
                                     .get_instrument_factory()
                                     .create_simple_oscillator(id, 0.0);
-                                audio.send_command(
-                                    audio_backend::Command::AddTrackInstrument {
+                                audio.send_command(audio_backend::Command::Sequencer(
+                                    audio_backend::SequencerCmd::AddTrackInstrument {
                                         instrument,
                                     },
-                                );
+                                ));
                             }
                             InstrumentDefinition::SamplePlayer(sample_data) => todo!(),
                         }

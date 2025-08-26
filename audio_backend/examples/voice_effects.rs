@@ -1,14 +1,14 @@
 #![cfg(not(feature = "tracker"))]
 use std::thread;
 
-use audio_backend::{BlightAudio, Command, InstrumentDefinition};
+use audio_backend::{BlightAudio, Command, InstrumentDefinition, SynthCmd};
 
 pub fn main() {
     match &mut BlightAudio::new() {
         Ok(audio) => {
             println!("BlightAudio initialized successfully!");
 
-            audio.send_command(Command::PlayNote {
+            audio.send_command(Command::Synth(SynthCmd::PlayNote {
                 note: 60,
                 voice: audio.get_voice_factory().create_voice(
                     0,
@@ -16,21 +16,21 @@ pub fn main() {
                     0.0,
                 ),
                 velocity: 127,
-            });
-            audio.send_command(Command::AddVoiceEffect {
+            }));
+            audio.send_command(Command::Synth(SynthCmd::AddVoiceEffect {
                 voice_id: 0,
                 effect: audio.get_effect_factory().create_mono_gain(1.0),
-            });
+            }));
 
             // Play a very short note - 200ms
             thread::sleep(std::time::Duration::from_millis(200));
-            audio.send_command(Command::StopNote { voice_id: 0 });
+            audio.send_command(Command::Synth(SynthCmd::StopNote { voice_id: 0 }));
 
             // Wait to hear the release decay
             thread::sleep(std::time::Duration::from_millis(3000));
 
             // Play a chord
-            audio.send_command(Command::PlayNote {
+            audio.send_command(Command::Synth(SynthCmd::PlayNote {
                 note: 60, // C
                 voice: audio.get_voice_factory().create_voice(
                     1,
@@ -38,14 +38,14 @@ pub fn main() {
                     0.0,
                 ),
                 velocity: 100,
-            });
-            audio.send_command(Command::AddVoiceEffect {
+            }));
+            audio.send_command(Command::Synth(SynthCmd::AddVoiceEffect {
                 voice_id: 1,
                 effect: audio.get_effect_factory().create_mono_gain(0.1),
-            });
+            }));
             thread::sleep(std::time::Duration::from_millis(500));
 
-            audio.send_command(Command::PlayNote {
+            audio.send_command(Command::Synth(SynthCmd::PlayNote {
                 note: 64, // E
                 voice: audio.get_voice_factory().create_voice(
                     2,
@@ -53,14 +53,14 @@ pub fn main() {
                     0.0,
                 ),
                 velocity: 100,
-            });
-            audio.send_command(Command::AddVoiceEffect {
+            }));
+            audio.send_command(Command::Synth(SynthCmd::AddVoiceEffect {
                 voice_id: 2,
                 effect: audio.get_effect_factory().create_mono_gain(0.5),
-            });
+            }));
             thread::sleep(std::time::Duration::from_millis(500));
 
-            audio.send_command(Command::PlayNote {
+            audio.send_command(Command::Synth(SynthCmd::PlayNote {
                 note: 67, // G
                 voice: audio.get_voice_factory().create_voice(
                     3,
@@ -68,17 +68,17 @@ pub fn main() {
                     0.0,
                 ),
                 velocity: 100,
-            });
-            audio.send_command(Command::AddVoiceEffect {
+            }));
+            audio.send_command(Command::Synth(SynthCmd::AddVoiceEffect {
                 voice_id: 3,
                 effect: audio.get_effect_factory().create_mono_gain(1.0),
-            });
+            }));
             thread::sleep(std::time::Duration::from_millis(500));
 
             // Stop all notes
-            audio.send_command(Command::StopNote { voice_id: 1 });
-            audio.send_command(Command::StopNote { voice_id: 2 });
-            audio.send_command(Command::StopNote { voice_id: 3 });
+            audio.send_command(Command::Synth(SynthCmd::StopNote { voice_id: 1 }));
+            audio.send_command(Command::Synth(SynthCmd::StopNote { voice_id: 2 }));
+            audio.send_command(Command::Synth(SynthCmd::StopNote { voice_id: 3 }));
 
             // Listen to the release tail
             thread::sleep(std::time::Duration::from_millis(3000));

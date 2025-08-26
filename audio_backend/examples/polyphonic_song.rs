@@ -13,14 +13,14 @@ pub fn main() {
     let lead_instrument_id: InstrumentId = 1;
     match &mut BlightAudio::new(Arc::new(load_song(lead_instrument_id))) {
         Ok(audio) => {
-            audio.send_command(Command::AddTrackInstrument {
+            audio.send_command(Command::Sequencer(audio_backend::SequencerCmd::AddTrackInstrument {
                 instrument: audio.get_instrument_factory().create_polyphonic_oscillator(
                     lead_instrument_id,
                     0.0,
                     5,
                 ),
-            });
-            audio.send_command(Command::PlayLastSong);
+            }));
+            audio.send_command(Command::Transport(audio_backend::TransportCmd::PlayLastSong));
             thread::sleep(Duration::from_millis(5000));
         }
         Err(e) => {
