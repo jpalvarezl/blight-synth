@@ -45,5 +45,42 @@ The `audio_backend` crate is responsible for all audio processing and device man
 - The synthesis engine (within `audio_backend`) supports multiple waveforms and envelopes, and is designed for extensibility.
 - The `sequencer` provides timing and pattern-based composition capabilities like traditional trackers.
 
+### Audio backend API (quick start)
+
+- Unified command enum with domain subtypes:
+  - Command::Transport(TransportCmd)
+  - Command::Sequencer(SequencerCmd)
+  - Command::Synth(SynthCmd)
+  - Command::Mixer(MixerCmd)
+- You can send subcommands directly using From, e.g. SynthCmd::PlayNote { ... }.into().
+
+Instrument mode (no tracker feature at runtime):
+
+```rust
+// create engine
+let mut audio = audio_backend::BlightAudio::new().unwrap();
+// play a note
+use audio_backend::SynthCmd;
+audio.send_command(SynthCmd::PlayNote { voice: audio.get_voice_factory().create_voice(0, audio_backend::InstrumentDefinition::Oscillator, 0.0), note: 60, velocity: 127 }.into());
+// stop
+audio.send_command(SynthCmd::StopNote { voice_id: 0 }.into());
+```
+
+Tracker mode (sequencer-driven):
+
+```rust
+use std::sync::Arc;
+use audio_backend::{SequencerCmd, TransportCmd};
+let song = Arc::new(sequencer::models::Song::new("My Song"));
+let mut audio = audio_backend::BlightAudio::with_song(song.clone()).unwrap();
+audio.send_command(SequencerCmd::PlaySong { song }.into());
+audio.send_command(TransportCmd::StopSong.into());
+```
+
+Feature flags
+- Default features enable tracker integration. Non-tracker examples use `--no-default-features`.
+- Example:
+  - cargo run -p audio_backend --example cycle_waveforms --no-default-features
+
 ---
 For more details, see the documentation in each subfolder.

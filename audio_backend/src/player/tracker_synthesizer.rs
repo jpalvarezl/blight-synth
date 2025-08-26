@@ -3,44 +3,34 @@ use std::collections::HashMap;
 use log::debug;
 use sequencer::models::MAX_TRACKS;
 
-use crate::{
-    id::InstrumentId, player::commands::PlayerCommand, InstrumentTrait, MonoEffect, StereoEffect,
-    VoiceTrait,
-};
+use crate::{id::InstrumentId, InstrumentTrait, StereoEffect};
 
 /// Specific implementation of a synthesizer for `tracker` mode.
 /// Instruments are pre-allocated to prevent RT contract violations.
 pub struct Synthesizer {
     pub instrument_bank: HashMap<InstrumentId, Box<dyn InstrumentTrait>>,
-    pub track_instrument: HashMap<usize, InstrumentId>, // cache the active instrument for each track
+    pub _track_instrument: HashMap<usize, InstrumentId>, // cache the active instrument for each track
 }
 
 impl Synthesizer {
     pub fn new() -> Self {
         Self {
             instrument_bank: HashMap::with_capacity(64),
-            track_instrument: HashMap::with_capacity(MAX_TRACKS),
+            _track_instrument: HashMap::with_capacity(MAX_TRACKS),
         }
     }
 
-    pub fn handle_command(&mut self, command: PlayerCommand) {
-        match command {
-            PlayerCommand::PlayNote {
-                instrument_id,
-                note,
-                velocity,
-            } => {
-                debug!("Playing note: {} on instrument: {}", note, instrument_id);
-                debug!("Available instruments: {:?}", self.instrument_bank.keys());
-                if let Some(instrument) = self.instrument_bank.get_mut(&instrument_id) {
-                    instrument.note_on(note, velocity);
-                }
-            }
-            PlayerCommand::StopNote { instrument_id } => {
-                if let Some(instrument) = self.instrument_bank.get_mut(&instrument_id) {
-                    instrument.note_off();
-                }
-            }
+    pub fn note_on(&mut self, instrument_id: InstrumentId, note: u8, velocity: u8) {
+        debug!("Playing note: {} on instrument: {}", note, instrument_id);
+        debug!("Available instruments: {:?}", self.instrument_bank.keys());
+        if let Some(instrument) = self.instrument_bank.get_mut(&instrument_id) {
+            instrument.note_on(note, velocity);
+        }
+    }
+
+    pub fn note_off(&mut self, instrument_id: InstrumentId) {
+        if let Some(instrument) = self.instrument_bank.get_mut(&instrument_id) {
+            instrument.note_off();
         }
     }
 
@@ -50,12 +40,8 @@ impl Synthesizer {
         }
     }
 
-    pub fn add_instrument(
-        &mut self,
-        instrument_id: InstrumentId,
-        instrument: Box<dyn InstrumentTrait>,
-    ) {
-        self.instrument_bank.insert(instrument_id, instrument);
+    pub fn add_instrument(&mut self, instrument: Box<dyn InstrumentTrait>) {
+        self.instrument_bank.insert(instrument.id(), instrument);
     }
 
     pub fn add_effect_to_instrument(

@@ -1,6 +1,5 @@
 #![cfg(feature = "tracker")]
 
-pub(super) mod commands;
 mod tracker_synthesizer;
 
 use std::sync::Arc;
@@ -11,7 +10,7 @@ use sequencer::{
     timing::TimingState,
 };
 
-use crate::{id::InstrumentId, TrackerCommand};
+use crate::{id::InstrumentId, Command, SequencerCmd, TransportCmd};
 
 /// Holds the playback position for a single track.
 #[derive(Debug, Clone, Copy)]
@@ -89,31 +88,29 @@ impl Player {
         self.synthesizer.stop_all_notes(); // Stop all notes when stopping playback
     }
 
-    pub fn handle_command(&mut self, command: TrackerCommand) {
+    pub fn handle_command(&mut self, command: Command) {
         match command {
-            TrackerCommand::PlaySong { song } => {
+            Command::Sequencer(SequencerCmd::PlaySong { song }) => {
                 debug!("Playing song: {}", song.name);
                 self.song = song;
                 self.position = PlayerPosition::default();
                 self.play();
             }
-            TrackerCommand::StopSong => {
+            Command::Transport(TransportCmd::StopSong) => {
                 self.stop();
             }
-            TrackerCommand::AddTrackInstrument {
-                instrument_id,
-                instrument,
-            } => {
-                self.synthesizer.add_instrument(instrument_id, instrument);
+            Command::Sequencer(SequencerCmd::AddTrackInstrument { instrument }) => {
+                self.synthesizer.add_instrument(instrument);
             }
-            TrackerCommand::AddEffectToInstrument {
+            Command::Sequencer(SequencerCmd::AddEffectToInstrument {
                 instrument_id,
                 effect,
-            } => {
+            }) => {
                 self.synthesizer
                     .add_effect_to_instrument(instrument_id, effect);
             }
-            TrackerCommand::PlayLastSong => self.play(),
+            Command::Transport(TransportCmd::PlayLastSong) => self.play(),
+            _ => {}
         }
     }
 
@@ -223,17 +220,10 @@ impl Player {
                             // For now, we'll assume instrument 1.
                             // let instrument_id = 1;
                             self.synthesizer
-                                .handle_command(commands::PlayerCommand::PlayNote {
-                                    instrument_id,
-                                    note: event.note,
-                                    velocity: event.volume,
-                                });
+                                .note_on(instrument_id, event.note, event.volume);
                         } else if event.note == NoteSentinelValues::NoteOff as u8 {
                             // Handle NoteOff events
-                            self.synthesizer
-                                .handle_command(commands::PlayerCommand::StopNote {
-                                    instrument_id,
-                                });
+                            self.synthesizer.note_off(instrument_id);
                         }
                         // TODO: effects, etc.
                     }

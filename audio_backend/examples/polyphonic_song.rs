@@ -2,7 +2,7 @@
 
 use std::{sync::Arc, thread, time::Duration};
 
-use audio_backend::{id::InstrumentId, BlightAudio, TrackerCommand};
+use audio_backend::{id::InstrumentId, BlightAudio};
 use sequencer::models::{
     Chain, EffectType, Event, NoteSentinelValues, Phrase, Song, SongRow, EMPTY_CHAIN_SLOT,
 };
@@ -11,17 +11,19 @@ pub fn main() {
     env_logger::init();
 
     let lead_instrument_id: InstrumentId = 1;
-    match &mut BlightAudio::new(Arc::new(load_song(lead_instrument_id))) {
+    match &mut BlightAudio::with_song(Arc::new(load_song(lead_instrument_id))) {
         Ok(audio) => {
-            audio.send_command(TrackerCommand::AddTrackInstrument {
-                instrument_id: lead_instrument_id,
-                instrument: audio.get_instrument_factory().create_polyphonic_oscillator(
-                    lead_instrument_id,
-                    0.0,
-                    5,
-                ),
-            });
-            audio.send_command(TrackerCommand::PlayLastSong);
+            audio.send_command(
+                audio_backend::SequencerCmd::AddTrackInstrument {
+                    instrument: audio.get_instrument_factory().create_polyphonic_oscillator(
+                        lead_instrument_id,
+                        0.0,
+                        5,
+                    ),
+                }
+                .into(),
+            );
+            audio.send_command(audio_backend::TransportCmd::PlayLastSong.into());
             thread::sleep(Duration::from_millis(5000));
         }
         Err(e) => {

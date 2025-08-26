@@ -2,7 +2,7 @@
 
 use std::thread;
 
-use audio_backend::{BlightAudio, Command, InstrumentDefinition, Waveform};
+use audio_backend::{BlightAudio, InstrumentDefinition, SynthCmd, Waveform};
 
 fn main() {
     // This is a placeholder for the main function.
@@ -12,30 +12,42 @@ fn main() {
             println!("BlightAudio initialized successfully!");
             let voice_id = 0;
             // You can now use `audio` to send commands, etc.
-            audio.send_command(Command::PlayNote {
-                note: 60,
-                voice: audio.get_voice_factory().create_voice(
+            audio.send_command(
+                SynthCmd::PlayNote {
+                    note: 60,
+                    voice: audio.get_voice_factory().create_voice(
+                        voice_id,
+                        InstrumentDefinition::Oscillator,
+                        0.0,
+                    ),
+                    velocity: 127,
+                }
+                .into(),
+            );
+            thread::sleep(std::time::Duration::from_millis(1000));
+            audio.send_command(
+                SynthCmd::ChangeWaveform {
                     voice_id,
-                    InstrumentDefinition::Oscillator,
-                    0.0,
-                ),
-                velocity: 127,
-            });
+                    waveform: Waveform::Sawtooth,
+                }
+                .into(),
+            );
             thread::sleep(std::time::Duration::from_millis(1000));
-            audio.send_command(Command::ChangeWaveform {
-                voice_id,
-                waveform: Waveform::Sawtooth,
-            });
+            audio.send_command(
+                SynthCmd::ChangeWaveform {
+                    voice_id,
+                    waveform: Waveform::Square,
+                }
+                .into(),
+            );
             thread::sleep(std::time::Duration::from_millis(1000));
-            audio.send_command(Command::ChangeWaveform {
-                voice_id,
-                waveform: Waveform::Square,
-            });
-            thread::sleep(std::time::Duration::from_millis(1000));
-            audio.send_command(Command::ChangeWaveform {
-                voice_id,
-                waveform: Waveform::Triangle,
-            });
+            audio.send_command(
+                SynthCmd::ChangeWaveform {
+                    voice_id,
+                    waveform: Waveform::Triangle,
+                }
+                .into(),
+            );
             thread::sleep(std::time::Duration::from_millis(1000));
         }
         Err(e) => eprintln!("Failed to initialize BlightAudio: {}", e),

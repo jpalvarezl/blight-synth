@@ -18,10 +18,10 @@ impl FileOperations {
         {
             match write_song_to_file(song, &path, &format) {
                 Ok(_) => {
-                    println!("Song saved successfully to: {}", path.display());
+                    log::info!("Song saved successfully to: {}", path.display());
                 }
                 Err(e) => {
-                    eprintln!("Failed to save song: {}", e);
+                    log::error!("Failed to save song: {}", e);
                 }
             }
         }
@@ -38,18 +38,18 @@ impl FileOperations {
                 Some("json") => FileFormat::Json,
                 Some("bin") => FileFormat::Binary,
                 _ => {
-                    eprintln!("Unknown file format. Trying JSON format...");
+                    log::warn!("Unknown file format. Trying JSON format as fallback");
                     FileFormat::Json
                 }
             };
 
             match open_song_from_file(&path, &format) {
                 Ok(song) => {
-                    println!("Song loaded successfully from: {}", path.display());
+                    log::info!("Song loaded successfully from: {}", path.display());
                     Some(song)
                 }
                 Err(e) => {
-                    eprintln!("Failed to load song: {}", e);
+                    log::error!("Failed to load song: {}", e);
                     None
                 }
             }

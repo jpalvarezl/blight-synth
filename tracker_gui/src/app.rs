@@ -1,3 +1,4 @@
+use audio_backend::InstrumentDefinition;
 use eframe::egui;
 use sequencer::cli::FileFormat;
 use sequencer::models::{Instrument, InstrumentData, SimpleOscillatorParams, Song, Waveform};
@@ -136,10 +137,11 @@ impl TrackerApp {
                         if inst_id != 0 {
                             let fx = audio.get_effect_factory().create_stereo_reverb();
                             audio.send_command(
-                                audio_backend::TrackerCommand::AddEffectToInstrument {
+                                audio_backend::SequencerCmd::AddEffectToInstrument {
                                     instrument_id: audio_backend::id::InstrumentId::from(inst_id),
                                     effect: fx,
-                                },
+                                }
+                                .into(),
                             );
                             log::info!("Added Reverb to instrument {}", inst_id);
                         } else {
@@ -202,12 +204,19 @@ impl TrackerApp {
                 // If audio is running, ensure instrument exists in engine
                 if let Some(audio) = &mut self.audio_manager.audio {
                     if let Some(def) = instr.to_instrument_definition() {
-                        let iid = audio_backend::id::InstrumentId::from(id_u8 as u32);
-                        let voice = audio.get_voice_factory().create_voice(iid, def, 0.0);
-                        audio.send_command(audio_backend::TrackerCommand::AddTrackInstrument {
-                            instrument_id: iid,
-                            instrument: voice,
-                        });
+                        match def {
+                            InstrumentDefinition::Oscillator => {
+                                let id = audio_backend::id::InstrumentId::from(id_u8 as u32);
+                                let instrument = audio
+                                    .get_instrument_factory()
+                                    .create_simple_oscillator(id, 0.0);
+                                audio.send_command(
+                                    audio_backend::SequencerCmd::AddTrackInstrument { instrument }
+                                        .into(),
+                                );
+                            }
+                            InstrumentDefinition::SamplePlayer(_sample_data) => todo!(),
+                        }
                     }
                 }
             }

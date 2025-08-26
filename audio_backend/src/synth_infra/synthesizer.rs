@@ -1,4 +1,6 @@
-use crate::{synth_infra::voice::VoiceManager, Command, StereoEffectChain, SynthCommand};
+use crate::{
+    synth_infra::voice::VoiceManager, Command, MixerCmd, StereoEffectChain, SynthCmd, SynthCommand,
+};
 
 pub struct Synthesizer {
     // pub sample_rate: f32,
@@ -17,37 +19,32 @@ impl Synthesizer {
 
     pub fn handle_command(&mut self, command: Command) {
         match command {
-            Command::PlayNote {
+            Command::Synth(SynthCmd::PlayNote {
                 voice,
                 note,
                 velocity,
-            } => {
-                // Create a new voice and add it to the manager.
-                let voice_id = voice.id(); // Assuming Voice has an id field.
+            }) => {
+                let voice_id = voice.id();
                 self.voice_manager.add_voice(voice);
                 self.voice_manager
                     .find_voice_mut(voice_id)
                     .expect("Voice should be added")
                     .note_on(note, velocity);
             }
-            Command::StopNote { voice_id } => {
-                // Find the voice by ID and stop it.
-                self.voice_manager.find_voice_mut(voice_id).map(|voice| {
+            Command::Synth(SynthCmd::StopNote { voice_id }) => {
+                if let Some(voice) = self.voice_manager.find_voice_mut(voice_id) {
                     voice.note_off();
-                });
+                }
             }
-            Command::ChangeWaveform { voice_id, waveform } => {
-                // Find the voice and change its waveform.
+            Command::Synth(SynthCmd::ChangeWaveform { voice_id, waveform }) => {
                 if let Some(voice) = self.voice_manager.find_voice_mut(voice_id) {
                     voice.try_handle_command(&SynthCommand::SetWaveform(waveform));
                 }
             }
-            Command::AddMasterEffect { effect } => {
-                // Add a new effect to the master effect chain.
+            Command::Mixer(MixerCmd::AddMasterEffect { effect }) => {
                 self.master_effect_chain.add_effect(effect);
             }
-            Command::AddVoiceEffect { voice_id, effect } => {
-                // Find the voice by ID and add the effect.
+            Command::Synth(SynthCmd::AddVoiceEffect { voice_id, effect }) => {
                 if let Some(voice) = self.voice_manager.find_voice_mut(voice_id) {
                     voice.add_effect(effect);
                 }

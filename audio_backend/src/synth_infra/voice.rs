@@ -133,10 +133,12 @@ impl<S: SynthNode> VoiceTrait for Voice<S> {
 }
 
 // Manages a heterogeneous collection of voices using dynamic dispatch.
+#[cfg(not(feature = "tracker"))]
 pub struct VoiceManager {
     voices: Vec<Box<dyn VoiceTrait>>,
 }
 
+#[cfg(not(feature = "tracker"))]
 impl VoiceManager {
     pub fn new() -> Self {
         Self {

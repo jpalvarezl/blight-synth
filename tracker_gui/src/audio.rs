@@ -1,4 +1,4 @@
-use audio_backend::{BlightAudio, InstrumentDefinition, TrackerCommand};
+use audio_backend::{BlightAudio, InstrumentDefinition, SequencerCmd, TransportCmd};
 use sequencer::models::{InstrumentData, Song};
 use std::sync::Arc;
 
@@ -19,14 +19,14 @@ impl Default for AudioManager {
 impl AudioManager {
     pub fn init_audio(&mut self, song: &Song) {
         if self.audio.is_none() {
-            match BlightAudio::new(Arc::new(song.clone())) {
+            match BlightAudio::with_song(Arc::new(song.clone())) {
                 Ok(mut audio) => {
                     self.hydrate_from_song(&mut audio, song);
                     self.audio = Some(audio);
                     log::info!("Audio system initialized successfully");
                 }
                 Err(e) => {
-                    eprintln!("Failed to initialize audio system: {}", e);
+                    log::error!("Failed to initialize audio system: {}", e);
                 }
             }
         }
@@ -36,9 +36,12 @@ impl AudioManager {
         self.init_audio(song);
 
         if let Some(audio) = &mut self.audio {
-            audio.send_command(TrackerCommand::PlaySong {
-                song: Arc::new(song.clone()),
-            });
+            audio.send_command(
+                SequencerCmd::PlaySong {
+                    song: Arc::new(song.clone()),
+                }
+                .into(),
+            );
             self.is_playing = true;
             log::info!("Playing song: {}", song.name);
         }
@@ -46,7 +49,7 @@ impl AudioManager {
 
     pub fn stop_song(&mut self) {
         if let Some(audio) = &mut self.audio {
-            audio.send_command(TrackerCommand::StopSong);
+            audio.send_command(TransportCmd::StopSong.into());
             self.is_playing = false;
             log::info!("Stopped song");
         }
@@ -71,14 +74,16 @@ impl AudioManager {
     pub fn hydrate_from_song(&self, audio: &mut BlightAudio, song: &Song) {
         for inst in &song.instrument_bank {
             if let Some(def) = Self::map_instrument_definition(&inst.data) {
-                let iid = audio_backend::id::InstrumentId::from(inst.id as u32);
-                let instrument = audio
-                    .get_instrument_factory()
-                    .create_simple_oscillator(iid, def, 0.0);
-                audio.send_command(TrackerCommand::AddTrackInstrument {
-                    instrument_id: iid,
-                    instrument,
-                });
+                match def {
+                    InstrumentDefinition::Oscillator => {
+                        let id = audio_backend::id::InstrumentId::from(inst.id as u32);
+                        let instrument = audio
+                            .get_instrument_factory()
+                            .create_simple_oscillator(id, 0.0);
+                        audio.send_command(SequencerCmd::AddTrackInstrument { instrument }.into());
+                    }
+                    InstrumentDefinition::SamplePlayer(_sample_data) => todo!(),
+                }
             } else {
                 log::warn!(
                     "Skipping unsupported instrument id={} when hydrating audio",

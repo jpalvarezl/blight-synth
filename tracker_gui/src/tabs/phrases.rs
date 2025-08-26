@@ -1,3 +1,4 @@
+use crate::ui_components::hex_u8_editor;
 use eframe::egui;
 use egui_extras::{Column, TableBuilder};
 use sequencer::models::{Phrase, Song};
@@ -103,42 +104,18 @@ impl PhrasesTab {
                             });
                             // Note editable
                             row.col(|ui| {
-                                let mut note_text = if event.note == 0 {
-                                    "--".to_string()
-                                } else {
-                                    format!("{:02X}", event.note)
-                                };
-                                let response = ui.add(
-                                    egui::TextEdit::singleline(&mut note_text)
-                                        .desired_width(text_height * 2.4)
-                                        .font(egui::TextStyle::Monospace),
-                                );
+                                let mut v = event.note;
+                                let response = hex_u8_editor(ui, &mut v, text_height * 2.4);
                                 if response.changed() {
-                                    if note_text == "--" || note_text.is_empty() {
-                                        event.note = 0;
-                                    } else if let Ok(parsed) = u8::from_str_radix(&note_text, 16) {
-                                        event.note = parsed;
-                                    }
+                                    event.note = v;
                                 }
                             });
                             // Volume editable
                             row.col(|ui| {
-                                let mut vol_text = if event.volume == 0 {
-                                    "--".to_string()
-                                } else {
-                                    format!("{:02X}", event.volume)
-                                };
-                                let response = ui.add(
-                                    egui::TextEdit::singleline(&mut vol_text)
-                                        .desired_width(text_height * 2.4)
-                                        .font(egui::TextStyle::Monospace),
-                                );
+                                let mut v = event.volume;
+                                let response = hex_u8_editor(ui, &mut v, text_height * 2.4);
                                 if response.changed() {
-                                    if vol_text == "--" || vol_text.is_empty() {
-                                        event.volume = 0;
-                                    } else if let Ok(parsed) = u8::from_str_radix(&vol_text, 16) {
-                                        event.volume = parsed;
-                                    }
+                                    event.volume = v;
                                 }
                             });
                             // Read-only instrument/effect column

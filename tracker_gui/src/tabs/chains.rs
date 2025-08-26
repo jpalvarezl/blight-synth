@@ -1,3 +1,4 @@
+use crate::ui_components::hex_usize_with_sentinel_editor;
 use eframe::egui;
 use egui_extras::{Column, TableBuilder};
 use sequencer::models::{Chain, EMPTY_PHRASE_SLOT, Song};
@@ -77,24 +78,13 @@ impl ChainsTab {
                                 ui.label(format!("{:02X}", step));
                             });
                             row.col(|ui| {
-                                let mut phrase_text = if *phrase_idx == EMPTY_PHRASE_SLOT {
-                                    "--".to_string()
-                                } else {
-                                    format!("{:02X}", *phrase_idx)
-                                };
-                                let response = ui.add(
-                                    egui::TextEdit::singleline(&mut phrase_text)
-                                        .desired_width(text_height * 2.4)
-                                        .font(egui::TextStyle::Monospace),
+                                let response = hex_usize_with_sentinel_editor(
+                                    ui,
+                                    phrase_idx,
+                                    EMPTY_PHRASE_SLOT,
+                                    text_height * 2.4,
                                 );
-                                if response.changed() {
-                                    if phrase_text == "--" || phrase_text.is_empty() {
-                                        *phrase_idx = EMPTY_PHRASE_SLOT;
-                                    } else if let Ok(parsed) = u8::from_str_radix(&phrase_text, 16)
-                                    {
-                                        *phrase_idx = parsed as usize;
-                                    }
-                                }
+                                let _ = response; // we only care that potential changes are applied
                             });
                         });
                     }

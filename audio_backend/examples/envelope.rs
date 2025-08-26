@@ -2,7 +2,7 @@
 
 use std::{thread, time::Duration};
 
-use audio_backend::{BlightAudio, Command, InstrumentDefinition};
+use audio_backend::{BlightAudio, InstrumentDefinition, SynthCmd};
 
 fn main() {
     match &mut BlightAudio::new() {
@@ -17,13 +17,16 @@ fn main() {
                 0.8,
                 0.5,
             );
-            audio.send_command(Command::PlayNote {
-                voice,
-                note: 60,
-                velocity: 127,
-            });
+            audio.send_command(
+                SynthCmd::PlayNote {
+                    voice,
+                    note: 60,
+                    velocity: 127,
+                }
+                .into(),
+            );
             thread::sleep(Duration::from_millis(600));
-            audio.send_command(Command::StopNote { voice_id });
+            audio.send_command(SynthCmd::StopNote { voice_id }.into());
             thread::sleep(Duration::from_millis(800));
 
             // slow attack and release
@@ -37,13 +40,16 @@ fn main() {
                 0.8,
                 2.0,
             );
-            audio.send_command(Command::PlayNote {
-                voice,
-                note: 60,
-                velocity: 127,
-            });
+            audio.send_command(
+                SynthCmd::PlayNote {
+                    voice,
+                    note: 60,
+                    velocity: 127,
+                }
+                .into(),
+            );
             thread::sleep(Duration::from_millis(2200));
-            audio.send_command(Command::StopNote { voice_id });
+            audio.send_command(SynthCmd::StopNote { voice_id }.into());
             thread::sleep(Duration::from_millis(4000)); // wait for release to finish so the voice gets evicted from the voice manager
 
             // quick attack and release
@@ -57,13 +63,16 @@ fn main() {
                 0.8,
                 0.1,
             );
-            audio.send_command(Command::PlayNote {
-                voice,
-                note: 60,
-                velocity: 127,
-            });
+            audio.send_command(
+                SynthCmd::PlayNote {
+                    voice,
+                    note: 60,
+                    velocity: 127,
+                }
+                .into(),
+            );
             thread::sleep(Duration::from_millis(200));
-            audio.send_command(Command::StopNote { voice_id });
+            audio.send_command(SynthCmd::StopNote { voice_id }.into());
             thread::sleep(Duration::from_millis(1000));
         }
         Err(e) => {
