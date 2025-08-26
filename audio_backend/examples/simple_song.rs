@@ -12,18 +12,24 @@ pub fn main() {
     let bass_instrument_id: InstrumentId = 1;
     match &mut BlightAudio::with_song(Arc::new(load_song(lead_instrument_id, bass_instrument_id))) {
         Ok(audio) => {
-            audio.send_command(Command::Sequencer(audio_backend::SequencerCmd::AddTrackInstrument {
-                instrument: audio
-                    .get_instrument_factory()
-                    .create_simple_oscillator(lead_instrument_id, 0.0),
-            }));
+            audio.send_command(
+                audio_backend::SequencerCmd::AddTrackInstrument {
+                    instrument: audio
+                        .get_instrument_factory()
+                        .create_simple_oscillator(lead_instrument_id, 0.0),
+                }
+                .into(),
+            );
 
-            audio.send_command(Command::Sequencer(audio_backend::SequencerCmd::AddTrackInstrument {
-                instrument: audio
-                    .get_instrument_factory()
-                    .create_simple_oscillator(bass_instrument_id, 0.0),
-            });
-            audio.send_command(Command::Transport(audio_backend::TransportCmd::PlayLastSong));
+            audio.send_command(
+                audio_backend::SequencerCmd::AddTrackInstrument {
+                    instrument: audio
+                        .get_instrument_factory()
+                        .create_simple_oscillator(bass_instrument_id, 0.0),
+                }
+                .into(),
+            );
+            audio.send_command(audio_backend::TransportCmd::PlayLastSong.into());
             thread::sleep(Duration::from_millis(20000));
         }
         Err(e) => {

@@ -2,8 +2,10 @@
 
 use std::sync::Arc;
 
-use crate::{AudioProcessor, EffectFactory, InstrumentFactory, ResourceManager, VoiceFactory, Command};
 use crate::BlightAudio;
+use crate::{
+    AudioProcessor, Command, EffectFactory, InstrumentFactory, ResourceManager, VoiceFactory,
+};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use ringbuf::storage::Heap;
 use ringbuf::traits::*;

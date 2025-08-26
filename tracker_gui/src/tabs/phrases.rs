@@ -1,7 +1,7 @@
+use crate::ui_components::hex_u8_editor;
 use eframe::egui;
 use egui_extras::{Column, TableBuilder};
 use sequencer::models::{Phrase, Song};
-use crate::ui_components::hex_u8_editor;
 
 #[derive(Default)]
 pub struct PhrasesTab {

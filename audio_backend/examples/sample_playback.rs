@@ -5,7 +5,7 @@ use std::thread;
 use audio_backend::BlightAudio;
 use audio_backend::InstrumentDefinition;
 use audio_backend::Result;
-use audio_backend::{Command, SynthCmd};
+use audio_backend::SynthCmd;
 
 fn main() -> Result<()> {
     match &mut BlightAudio::new() {
@@ -21,13 +21,16 @@ fn main() -> Result<()> {
                 resource_manager.get_sample_unsafe(sample_id).clone(),
             );
 
-            audio.send_command(Command::Synth(SynthCmd::PlayNote {
-                voice: audio
-                    .get_voice_factory()
-                    .create_voice_with_envelope(0, instrument, 0.0, 0.0, 0.0, 1.0, 0.0),
-                note: 60,
-                velocity: 127,
-            }));
+            audio.send_command(
+                SynthCmd::PlayNote {
+                    voice: audio
+                        .get_voice_factory()
+                        .create_voice_with_envelope(0, instrument, 0.0, 0.0, 0.0, 1.0, 0.0),
+                    note: 60,
+                    velocity: 127,
+                }
+                .into(),
+            );
 
             thread::sleep(std::time::Duration::from_millis(2000));
         }

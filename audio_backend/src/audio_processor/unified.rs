@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "tracker"), allow(dead_code))]
 
-use ringbuf::HeapCons;
 use ringbuf::traits::*;
+use ringbuf::HeapCons;
 
 use crate::Command;
 
@@ -11,9 +11,9 @@ use crate::Player;
 use crate::Synthesizer;
 
 #[cfg(feature = "tracker")]
-use std::sync::Arc;
-#[cfg(feature = "tracker")]
 use sequencer::models::Song;
+#[cfg(feature = "tracker")]
+use std::sync::Arc;
 
 const MAX_BUFFER_SIZE: usize = 4096;
 
@@ -114,7 +114,7 @@ impl AudioProcessor {
 
             // 2. Process audio into our non-interleaved buffers.
             self.synthesizer.process(left, right, self.sample_rate);
-            
+
             // 3. Re-interleave the processed audio back into the output buffer.
             for (i, frame) in output_buffer.chunks_mut(self.channels).enumerate() {
                 frame[0] = left[i];
@@ -125,4 +125,3 @@ impl AudioProcessor {
         }
     }
 }
-

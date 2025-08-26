@@ -1,7 +1,7 @@
+use crate::ui_components::hex_usize_with_sentinel_editor;
 use eframe::egui;
 use egui_extras::{Column, TableBuilder};
 use sequencer::models::{MAX_TRACKS, Song};
-use crate::ui_components::hex_usize_with_sentinel_editor;
 
 pub struct ArrangementTab {
     pub current_row: usize,

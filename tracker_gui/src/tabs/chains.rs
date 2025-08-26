@@ -1,7 +1,7 @@
+use crate::ui_components::hex_usize_with_sentinel_editor;
 use eframe::egui;
 use egui_extras::{Column, TableBuilder};
 use sequencer::models::{Chain, EMPTY_PHRASE_SLOT, Song};
-use crate::ui_components::hex_usize_with_sentinel_editor;
 
 #[derive(Default)]
 pub struct ChainsTab {

@@ -29,10 +29,12 @@ pub trait StereoEffect: Send + Sync {
 }
 
 /// A chain of audio effects that are processed in sequence.
+#[cfg(not(feature = "tracker"))]
 pub struct StereoEffectChain {
     effects: Vec<Box<dyn StereoEffect>>,
 }
 
+#[cfg(not(feature = "tracker"))]
 impl StereoEffectChain {
     /// Creates a new, empty effect chain with a pre-allocated capacity.
     pub fn new(capacity: usize) -> Self {

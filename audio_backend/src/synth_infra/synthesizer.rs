@@ -1,4 +1,6 @@
-use crate::{synth_infra::voice::VoiceManager, Command, StereoEffectChain, SynthCommand, SynthCmd, MixerCmd};
+use crate::{
+    synth_infra::voice::VoiceManager, Command, MixerCmd, StereoEffectChain, SynthCmd, SynthCommand,
+};
 
 pub struct Synthesizer {
     // pub sample_rate: f32,
@@ -17,7 +19,11 @@ impl Synthesizer {
 
     pub fn handle_command(&mut self, command: Command) {
         match command {
-            Command::Synth(SynthCmd::PlayNote { voice, note, velocity }) => {
+            Command::Synth(SynthCmd::PlayNote {
+                voice,
+                note,
+                velocity,
+            }) => {
                 let voice_id = voice.id();
                 self.voice_manager.add_voice(voice);
                 self.voice_manager

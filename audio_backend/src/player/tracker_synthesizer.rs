@@ -3,22 +3,20 @@ use std::collections::HashMap;
 use log::debug;
 use sequencer::models::MAX_TRACKS;
 
-use crate::{
-    id::InstrumentId, InstrumentTrait, StereoEffect,
-};
+use crate::{id::InstrumentId, InstrumentTrait, StereoEffect};
 
 /// Specific implementation of a synthesizer for `tracker` mode.
 /// Instruments are pre-allocated to prevent RT contract violations.
 pub struct Synthesizer {
     pub instrument_bank: HashMap<InstrumentId, Box<dyn InstrumentTrait>>,
-    pub track_instrument: HashMap<usize, InstrumentId>, // cache the active instrument for each track
+    pub _track_instrument: HashMap<usize, InstrumentId>, // cache the active instrument for each track
 }
 
 impl Synthesizer {
     pub fn new() -> Self {
         Self {
             instrument_bank: HashMap::with_capacity(64),
-            track_instrument: HashMap::with_capacity(MAX_TRACKS),
+            _track_instrument: HashMap::with_capacity(MAX_TRACKS),
         }
     }
 

@@ -62,4 +62,3 @@ pub fn hex_usize_with_sentinel_editor(
 
     response
 }
-

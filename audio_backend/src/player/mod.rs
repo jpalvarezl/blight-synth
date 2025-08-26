@@ -102,7 +102,10 @@ impl Player {
             Command::Sequencer(SequencerCmd::AddTrackInstrument { instrument }) => {
                 self.synthesizer.add_instrument(instrument);
             }
-            Command::Sequencer(SequencerCmd::AddEffectToInstrument { instrument_id, effect }) => {
+            Command::Sequencer(SequencerCmd::AddEffectToInstrument {
+                instrument_id,
+                effect,
+            }) => {
                 self.synthesizer
                     .add_effect_to_instrument(instrument_id, effect);
             }
@@ -216,7 +219,8 @@ impl Player {
                             // This is often implicit (the last one used on the track) or specified in the event.
                             // For now, we'll assume instrument 1.
                             // let instrument_id = 1;
-                            self.synthesizer.note_on(instrument_id, event.note, event.volume);
+                            self.synthesizer
+                                .note_on(instrument_id, event.note, event.volume);
                         } else if event.note == NoteSentinelValues::NoteOff as u8 {
                             // Handle NoteOff events
                             self.synthesizer.note_off(instrument_id);
