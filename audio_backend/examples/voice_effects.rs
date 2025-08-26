@@ -94,7 +94,7 @@ pub fn main() {
             thread::sleep(std::time::Duration::from_millis(500));
 
             // Stop all notes
-            audio.send_command(SynthCmd::StopNote { voice_id: 0 }.into());
+            audio.send_command(SynthCmd::StopNote { voice_id: 1 }.into());
             audio.send_command(SynthCmd::StopNote { voice_id: 2 }.into());
             audio.send_command(SynthCmd::StopNote { voice_id: 3 }.into());
 
