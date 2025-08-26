@@ -2,10 +2,9 @@
 mod tracker;
 #[cfg(feature = "tracker")]
 use ringbuf::HeapProd;
+
 #[cfg(feature = "tracker")]
-mod commands;
-#[cfg(feature = "tracker")]
-pub use commands::*;
+use crate::Command;
 
 #[cfg(not(feature = "tracker"))]
 mod blight_audio;
@@ -19,11 +18,8 @@ use crate::{ResourceManager, VoiceFactory};
 
 /// The public-facing API for the audio backend. Lives in the NRT (not real-time) world.
 pub struct BlightAudio {
-    #[cfg(not(feature = "tracker"))]
     /// The producer end of the command queue.
     command_tx: HeapProd<Command>,
-    #[cfg(feature = "tracker")]
-    command_tx: HeapProd<TrackerCommand>,
     #[cfg(feature = "tracker")]
     /// Instrument factory for creating and managing instruments.
     instrument_factory: crate::factories::InstrumentFactory,

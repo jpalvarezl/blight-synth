@@ -2,8 +2,8 @@
 
 use std::sync::Arc;
 
-use crate::{AudioProcessor, EffectFactory, InstrumentFactory, ResourceManager, VoiceFactory};
-use crate::{BlightAudio, TrackerCommand};
+use crate::{AudioProcessor, EffectFactory, InstrumentFactory, ResourceManager, VoiceFactory, Command};
+use crate::BlightAudio;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use ringbuf::storage::Heap;
 use ringbuf::traits::*;
@@ -22,7 +22,7 @@ impl BlightAudio {
 
         // Create the SPSC ring buffer for commands using a heap-allocated buffer.
         // let rb = HeapRb::<Command>::new(1024); // Capacity for 1024 commands
-        let rb = SharedRb::<Heap<TrackerCommand>>::new(1024);
+        let rb = SharedRb::<Heap<Command>>::new(1024);
         let (command_tx, command_rx) = rb.split();
 
         // Create the real-time processor and move it into the audio thread.
@@ -57,7 +57,7 @@ impl BlightAudio {
     }
 
     /// Public method to send a command to the audio thread.
-    pub fn send_command(&mut self, command: TrackerCommand) {
+    pub fn send_command(&mut self, command: Command) {
         if self.command_tx.try_push(command).is_err() {
             // In a real app, handle this more gracefully (e.g., log, drop command).
             eprintln!("Command queue is full. Command dropped.");

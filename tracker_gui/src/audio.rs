@@ -1,4 +1,4 @@
-use audio_backend::{BlightAudio, InstrumentDefinition, TrackerCommand};
+use audio_backend::{BlightAudio, InstrumentDefinition, Command};
 use sequencer::models::{InstrumentData, Song};
 use std::sync::Arc;
 
@@ -36,7 +36,7 @@ impl AudioManager {
         self.init_audio(song);
 
         if let Some(audio) = &mut self.audio {
-            audio.send_command(TrackerCommand::PlaySong {
+            audio.send_command(Command::PlaySong {
                 song: Arc::new(song.clone()),
             });
             self.is_playing = true;
@@ -46,7 +46,7 @@ impl AudioManager {
 
     pub fn stop_song(&mut self) {
         if let Some(audio) = &mut self.audio {
-            audio.send_command(TrackerCommand::StopSong);
+            audio.send_command(Command::StopSong);
             self.is_playing = false;
             log::info!("Stopped song");
         }
@@ -77,7 +77,7 @@ impl AudioManager {
                         let instrument = audio
                             .get_instrument_factory()
                             .create_simple_oscillator(id, 0.0);
-                        audio.send_command(TrackerCommand::AddTrackInstrument { instrument });
+                        audio.send_command(Command::AddTrackInstrument { instrument });
                     }
                     InstrumentDefinition::SamplePlayer(sample_data) => todo!(),
                 }

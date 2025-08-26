@@ -5,7 +5,7 @@ mod no_sequencer;
 mod tracker;
 
 #[cfg(feature = "tracker")]
-use crate::{Player, TrackerCommand};
+use crate::{Player, Command};
 
 #[cfg(not(feature = "tracker"))]
 use crate::{Command, Synthesizer};
@@ -15,7 +15,7 @@ use ringbuf::HeapCons;
 /// The behaviour of the AudioProcessor changes substrantially based on the "tracker" feature flag.
 pub struct AudioProcessor {
     #[cfg(feature = "tracker")]
-    command_rx: HeapCons<TrackerCommand>,
+    command_rx: HeapCons<Command>,
     #[cfg(feature = "tracker")]
     player: Player,
     #[cfg(not(feature = "tracker"))]

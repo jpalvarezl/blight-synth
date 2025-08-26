@@ -11,7 +11,7 @@ use sequencer::{
     timing::TimingState,
 };
 
-use crate::{id::InstrumentId, TrackerCommand};
+use crate::{id::InstrumentId, Command};
 
 /// Holds the playback position for a single track.
 #[derive(Debug, Clone, Copy)]
@@ -89,28 +89,29 @@ impl Player {
         self.synthesizer.stop_all_notes(); // Stop all notes when stopping playback
     }
 
-    pub fn handle_command(&mut self, command: TrackerCommand) {
+    pub fn handle_command(&mut self, command: Command) {
         match command {
-            TrackerCommand::PlaySong { song } => {
+            Command::PlaySong { song } => {
                 debug!("Playing song: {}", song.name);
                 self.song = song;
                 self.position = PlayerPosition::default();
                 self.play();
             }
-            TrackerCommand::StopSong => {
+            Command::StopSong => {
                 self.stop();
             }
-            TrackerCommand::AddTrackInstrument { instrument } => {
+            Command::AddTrackInstrument { instrument } => {
                 self.synthesizer.add_instrument(instrument);
             }
-            TrackerCommand::AddEffectToInstrument {
+            Command::AddEffectToInstrument {
                 instrument_id,
                 effect,
             } => {
                 self.synthesizer
                     .add_effect_to_instrument(instrument_id, effect);
             }
-            TrackerCommand::PlayLastSong => self.play(),
+            Command::PlayLastSong => self.play(),
+            _ => {}
         }
     }
 

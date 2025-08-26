@@ -137,7 +137,7 @@ impl TrackerApp {
                         if inst_id != 0 {
                             let fx = audio.get_effect_factory().create_stereo_reverb();
                             audio.send_command(
-                                audio_backend::TrackerCommand::AddEffectToInstrument {
+                                audio_backend::Command::AddEffectToInstrument {
                                     instrument_id: audio_backend::id::InstrumentId::from(inst_id),
                                     effect: fx,
                                 },
@@ -210,7 +210,7 @@ impl TrackerApp {
                                     .get_instrument_factory()
                                     .create_simple_oscillator(id, 0.0);
                                 audio.send_command(
-                                    audio_backend::TrackerCommand::AddTrackInstrument {
+                                    audio_backend::Command::AddTrackInstrument {
                                         instrument,
                                     },
                                 );

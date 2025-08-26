@@ -5,12 +5,12 @@ use std::sync::Arc;
 use ringbuf::{traits::*, HeapCons};
 use sequencer::models::Song;
 
-use crate::{AudioProcessor, Player, TrackerCommand};
+use crate::{AudioProcessor, Player, Command};
 
 impl AudioProcessor {
     pub fn new(
         song: Arc<Song>,
-        command_rx: HeapCons<TrackerCommand>,
+        command_rx: HeapCons<Command>,
         sample_rate: f32,
         channels: usize,
     ) -> Self {

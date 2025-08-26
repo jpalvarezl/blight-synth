@@ -3,6 +3,9 @@ use crate::{
     instruments::Waveform,
     MonoEffect, StereoEffect, VoiceTrait,
 };
+use crate::{id::InstrumentId, InstrumentTrait};
+use std::sync::Arc;
+use sequencer::models::Song;
 
 pub enum Command {
     // Note/Voice Control
@@ -59,20 +62,18 @@ pub enum Command {
         voice_id: VoiceId,
         effect: Box<dyn MonoEffect>, // The Box is created in the NRT world
     },
-    // RemoveEffect {
-    //     target_chain: EffectChainId,
-    //     effect_index: usize,
-    // },
-    // ReorderEffects {
-    //     target_chain: EffectChainId,
-    //     from_index: usize,
-    //     to_index: usize,
-    // },
-    // SetEffectParameter {
-    //     target_chain: EffectChainId,
-    //     effect_index: usize,
-    //     param_index: u32,
-    //     value: f32,
-    // },
+    // Tracker/Sequencer control
+    AddTrackInstrument {
+        instrument: Box<dyn InstrumentTrait>,
+    },
+    AddEffectToInstrument {
+        instrument_id: InstrumentId,
+        effect: Box<dyn StereoEffect>,
+    },
+    PlaySong {
+        song: Arc<Song>,
+    },
+    PlayLastSong,
+    StopSong,
     // Add more commands as needed.
 }
