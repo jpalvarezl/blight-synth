@@ -1,6 +1,5 @@
 #![cfg(feature = "tracker")]
 
-pub(super) mod commands;
 mod tracker_synthesizer;
 
 use std::sync::Arc;
@@ -220,18 +219,10 @@ impl Player {
                             // This is often implicit (the last one used on the track) or specified in the event.
                             // For now, we'll assume instrument 1.
                             // let instrument_id = 1;
-                            self.synthesizer
-                                .handle_command(commands::PlayerCommand::PlayNote {
-                                    instrument_id,
-                                    note: event.note,
-                                    velocity: event.volume,
-                                });
+                            self.synthesizer.note_on(instrument_id, event.note, event.volume);
                         } else if event.note == NoteSentinelValues::NoteOff as u8 {
                             // Handle NoteOff events
-                            self.synthesizer
-                                .handle_command(commands::PlayerCommand::StopNote {
-                                    instrument_id,
-                                });
+                            self.synthesizer.note_off(instrument_id);
                         }
                         // TODO: effects, etc.
                     }

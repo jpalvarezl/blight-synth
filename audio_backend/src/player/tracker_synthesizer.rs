@@ -4,8 +4,7 @@ use log::debug;
 use sequencer::models::MAX_TRACKS;
 
 use crate::{
-    id::InstrumentId, player::commands::PlayerCommand, InstrumentTrait, MonoEffect, StereoEffect,
-    VoiceTrait,
+    id::InstrumentId, InstrumentTrait, StereoEffect,
 };
 
 /// Specific implementation of a synthesizer for `tracker` mode.
@@ -23,24 +22,17 @@ impl Synthesizer {
         }
     }
 
-    pub fn handle_command(&mut self, command: PlayerCommand) {
-        match command {
-            PlayerCommand::PlayNote {
-                instrument_id,
-                note,
-                velocity,
-            } => {
-                debug!("Playing note: {} on instrument: {}", note, instrument_id);
-                debug!("Available instruments: {:?}", self.instrument_bank.keys());
-                if let Some(instrument) = self.instrument_bank.get_mut(&instrument_id) {
-                    instrument.note_on(note, velocity);
-                }
-            }
-            PlayerCommand::StopNote { instrument_id } => {
-                if let Some(instrument) = self.instrument_bank.get_mut(&instrument_id) {
-                    instrument.note_off();
-                }
-            }
+    pub fn note_on(&mut self, instrument_id: InstrumentId, note: u8, velocity: u8) {
+        debug!("Playing note: {} on instrument: {}", note, instrument_id);
+        debug!("Available instruments: {:?}", self.instrument_bank.keys());
+        if let Some(instrument) = self.instrument_bank.get_mut(&instrument_id) {
+            instrument.note_on(note, velocity);
+        }
+    }
+
+    pub fn note_off(&mut self, instrument_id: InstrumentId) {
+        if let Some(instrument) = self.instrument_bank.get_mut(&instrument_id) {
+            instrument.note_off();
         }
     }
 
