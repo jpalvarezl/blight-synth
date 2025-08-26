@@ -11,7 +11,7 @@ use ringbuf::SharedRb;
 use sequencer::models::Song;
 
 impl BlightAudio {
-    pub fn new(song: Arc<Song>) -> Result<Self, anyhow::Error> {
+    pub fn with_song(song: Arc<Song>) -> Result<Self, anyhow::Error> {
         let host = cpal::default_host();
         let device = host
             .default_output_device()

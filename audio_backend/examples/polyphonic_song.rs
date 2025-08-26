@@ -11,7 +11,7 @@ pub fn main() {
     env_logger::init();
 
     let lead_instrument_id: InstrumentId = 1;
-    match &mut BlightAudio::new(Arc::new(load_song(lead_instrument_id))) {
+    match &mut BlightAudio::with_song(Arc::new(load_song(lead_instrument_id))) {
         Ok(audio) => {
             audio.send_command(Command::Sequencer(audio_backend::SequencerCmd::AddTrackInstrument {
                 instrument: audio.get_instrument_factory().create_polyphonic_oscillator(

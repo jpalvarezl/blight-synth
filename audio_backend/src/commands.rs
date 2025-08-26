@@ -42,3 +42,16 @@ pub enum Command {
     Synth(SynthCmd),
     Mixer(MixerCmd),
 }
+
+impl From<TransportCmd> for Command {
+    fn from(value: TransportCmd) -> Self { Command::Transport(value) }
+}
+impl From<SequencerCmd> for Command {
+    fn from(value: SequencerCmd) -> Self { Command::Sequencer(value) }
+}
+impl From<SynthCmd> for Command {
+    fn from(value: SynthCmd) -> Self { Command::Synth(value) }
+}
+impl From<MixerCmd> for Command {
+    fn from(value: MixerCmd) -> Self { Command::Mixer(value) }
+}

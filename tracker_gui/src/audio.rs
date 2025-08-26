@@ -19,7 +19,7 @@ impl Default for AudioManager {
 impl AudioManager {
     pub fn init_audio(&mut self, song: &Song) {
         if self.audio.is_none() {
-            match BlightAudio::new(Arc::new(song.clone())) {
+            match BlightAudio::with_song(Arc::new(song.clone())) {
                 Ok(mut audio) => {
                     self.hydrate_from_song(&mut audio, song);
                     self.audio = Some(audio);
