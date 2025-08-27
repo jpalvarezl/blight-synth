@@ -1,5 +1,3 @@
-#![cfg(feature = "tracker")]
-
 use std::{sync::Arc, thread, time::Duration};
 
 use audio_backend::{id::InstrumentId, BlightAudio};

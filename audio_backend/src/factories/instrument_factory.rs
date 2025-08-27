@@ -1,5 +1,3 @@
-#![cfg(feature = "tracker")]
-
 use crate::{id::InstrumentId, InstrumentTrait, MonophonicOscillator, PolyphonicOscillator};
 
 pub struct InstrumentFactory {

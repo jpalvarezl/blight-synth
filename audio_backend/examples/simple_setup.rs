@@ -1,7 +1,6 @@
-#![cfg(not(feature = "tracker"))]
 use std::thread;
 
-use audio_backend::{BlightAudio, Command, InstrumentDefinition, MixerCmd, SynthCmd};
+use audio_backend::{BlightAudio, Command, InstrumentDefinition, SynthCmd};
 
 fn main() {
     // This is a placeholder for the main function.

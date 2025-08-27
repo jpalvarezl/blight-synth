@@ -1,16 +1,6 @@
-#[cfg(feature = "tracker")]
-mod tracker;
-#[cfg(feature = "tracker")]
-use ringbuf::HeapProd;
-
-#[cfg(feature = "tracker")]
-use crate::Command;
-
-#[cfg(not(feature = "tracker"))]
 mod blight_audio;
-#[cfg(not(feature = "tracker"))]
+
 use crate::Command;
-#[cfg(not(feature = "tracker"))]
 use ringbuf::HeapProd;
 
 use crate::EffectFactory;
@@ -20,7 +10,6 @@ use crate::{ResourceManager, VoiceFactory};
 pub struct BlightAudio {
     /// The producer end of the command queue.
     command_tx: HeapProd<Command>,
-    #[cfg(feature = "tracker")]
     /// Instrument factory for creating and managing instruments.
     instrument_factory: crate::factories::InstrumentFactory,
     /// Voice factory for creating and managing voices.

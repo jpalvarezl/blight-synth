@@ -1,5 +1,3 @@
-#![cfg(not(feature = "tracker"))]
-
 use std::thread;
 
 use audio_backend::{BlightAudio, InstrumentDefinition, SynthCmd, Waveform};

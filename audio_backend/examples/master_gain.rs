@@ -1,7 +1,6 @@
-#![cfg(not(feature = "tracker"))]
 use std::thread;
 
-use audio_backend::{BlightAudio, InstrumentDefinition, MixerCmd, SynthCmd};
+use audio_backend::{id::InstrumentId, BlightAudio, EngineCmd, MixerCmd, SequencerCmd};
 
 pub fn main() {
     match &mut BlightAudio::new() {
@@ -14,14 +13,15 @@ pub fn main() {
                 .into(),
             );
 
+            let inst_id: InstrumentId = 1;
+            let instrument = audio
+                .get_instrument_factory()
+                .create_simple_oscillator(inst_id, 0.0);
+            audio.send_command(SequencerCmd::AddTrackInstrument { instrument }.into());
             audio.send_command(
-                SynthCmd::PlayNote {
+                EngineCmd::NoteOn {
+                    instrument_id: inst_id,
                     note: 60,
-                    voice: audio.get_voice_factory().create_voice(
-                        0,
-                        InstrumentDefinition::Oscillator,
-                        0.0,
-                    ),
                     velocity: 127,
                 }
                 .into(),
@@ -29,45 +29,47 @@ pub fn main() {
 
             // Play a very short note - 200ms
             thread::sleep(std::time::Duration::from_millis(200));
-            audio.send_command(SynthCmd::StopNote { voice_id: 0 }.into());
+            audio.send_command(
+                EngineCmd::NoteOff {
+                    instrument_id: inst_id,
+                }
+                .into(),
+            );
 
             // Wait to hear the release decay
             thread::sleep(std::time::Duration::from_millis(3000));
 
             // Play a chord
+            let inst2: InstrumentId = 2;
+            let inst3: InstrumentId = 3;
+            let i2 = audio
+                .get_instrument_factory()
+                .create_simple_oscillator(inst2, 0.0);
+            let i3 = audio
+                .get_instrument_factory()
+                .create_simple_oscillator(inst3, 0.0);
+            audio.send_command(SequencerCmd::AddTrackInstrument { instrument: i2 }.into());
+            audio.send_command(SequencerCmd::AddTrackInstrument { instrument: i3 }.into());
             audio.send_command(
-                SynthCmd::PlayNote {
-                    note: 60, // C
-                    voice: audio.get_voice_factory().create_voice(
-                        1,
-                        InstrumentDefinition::Oscillator,
-                        0.0,
-                    ),
-                    velocity: 100,
-                }
-                .into(),
-            );
-
-            audio.send_command(
-                SynthCmd::PlayNote {
-                    note: 64, // E
-                    voice: audio.get_voice_factory().create_voice(
-                        2,
-                        InstrumentDefinition::Oscillator,
-                        0.0,
-                    ),
+                EngineCmd::NoteOn {
+                    instrument_id: inst_id,
+                    note: 60,
                     velocity: 100,
                 }
                 .into(),
             );
             audio.send_command(
-                SynthCmd::PlayNote {
-                    note: 67, // G
-                    voice: audio.get_voice_factory().create_voice(
-                        3,
-                        InstrumentDefinition::Oscillator,
-                        0.0,
-                    ),
+                EngineCmd::NoteOn {
+                    instrument_id: inst2,
+                    note: 64,
+                    velocity: 100,
+                }
+                .into(),
+            );
+            audio.send_command(
+                EngineCmd::NoteOn {
+                    instrument_id: inst3,
+                    note: 67,
                     velocity: 100,
                 }
                 .into(),
@@ -76,9 +78,24 @@ pub fn main() {
             thread::sleep(std::time::Duration::from_millis(500));
 
             // Stop all notes
-            audio.send_command(SynthCmd::StopNote { voice_id: 1 }.into());
-            audio.send_command(SynthCmd::StopNote { voice_id: 2 }.into());
-            audio.send_command(SynthCmd::StopNote { voice_id: 3 }.into());
+            audio.send_command(
+                EngineCmd::NoteOff {
+                    instrument_id: inst_id,
+                }
+                .into(),
+            );
+            audio.send_command(
+                EngineCmd::NoteOff {
+                    instrument_id: inst2,
+                }
+                .into(),
+            );
+            audio.send_command(
+                EngineCmd::NoteOff {
+                    instrument_id: inst3,
+                }
+                .into(),
+            );
 
             // Listen to the release tail
             thread::sleep(std::time::Duration::from_millis(5000));
