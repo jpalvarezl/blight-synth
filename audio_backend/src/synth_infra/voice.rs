@@ -132,13 +132,15 @@ impl<S: SynthNode> VoiceTrait for Voice<S> {
     }
 }
 
-// Manages a heterogeneous collection of voices using dynamic dispatch.
-#[cfg(not(feature = "tracker"))]
+/// Manages a heterogeneous collection of voices using dynamic dispatch.
+#[deprecated(note = "This is needs to be presented behind a feature flag")]
+#[allow(dead_code)]
 pub struct VoiceManager {
     voices: Vec<Box<dyn VoiceTrait>>,
 }
 
-#[cfg(not(feature = "tracker"))]
+#[deprecated(note = "This is needs to be presented behind a feature flag")]
+#[allow(dead_code, deprecated)]
 impl VoiceManager {
     pub fn new() -> Self {
         Self {

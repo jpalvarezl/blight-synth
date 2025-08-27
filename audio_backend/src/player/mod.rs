@@ -1,5 +1,3 @@
-#![cfg(feature = "tracker")]
-
 mod tracker_synthesizer;
 
 use std::sync::Arc;
@@ -110,6 +108,8 @@ impl Player {
                     .add_effect_to_instrument(instrument_id, effect);
             }
             Command::Transport(TransportCmd::PlayLastSong) => self.play(),
+            Command::Engine(engine_cmd) => self.synthesizer.handle_engine_command(engine_cmd),
+            Command::Mixer(mixer_cmd) => self.synthesizer.handle_mixer_command(mixer_cmd),
             _ => {}
         }
     }

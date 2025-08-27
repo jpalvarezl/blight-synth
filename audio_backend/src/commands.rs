@@ -79,11 +79,23 @@ pub enum MixerCmd {
     },
 }
 
+pub enum EngineCmd {
+    NoteOn {
+        instrument_id: InstrumentId,
+        note: u8,
+        velocity: u8,
+    },
+    NoteOff {
+        instrument_id: InstrumentId,
+    },
+}
+
 pub enum Command {
     Transport(TransportCmd),
     Sequencer(SequencerCmd),
     Synth(SynthCmd),
     Mixer(MixerCmd),
+    Engine(EngineCmd),
 }
 
 impl From<TransportCmd> for Command {
@@ -104,5 +116,10 @@ impl From<SynthCmd> for Command {
 impl From<MixerCmd> for Command {
     fn from(value: MixerCmd) -> Self {
         Command::Mixer(value)
+    }
+}
+impl From<EngineCmd> for Command {
+    fn from(value: EngineCmd) -> Self {
+        Command::Engine(value)
     }
 }

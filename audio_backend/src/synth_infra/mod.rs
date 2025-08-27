@@ -4,8 +4,8 @@ mod instruments;
 mod samples;
 mod synth_commands;
 mod synth_node;
-#[cfg(not(feature = "tracker"))]
-mod synthesizer;
+// TODO: Remove this deprecation once the feature flag is in place
+// mod synthesizer;
 mod voice;
 
 pub use effects::*;
@@ -14,6 +14,6 @@ pub use instruments::*;
 pub use samples::*;
 pub(crate) use synth_commands::*;
 pub use synth_node::*;
-#[cfg(not(feature = "tracker"))]
-pub use synthesizer::*;
+// TODO: Remove this deprecation once the feature flag is in place
+// pub use synthesizer::*;
 pub use voice::*;

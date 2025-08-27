@@ -1,8 +1,6 @@
-#![cfg(feature = "tracker")]
-
 use std::{sync::Arc, thread, time::Duration};
 
-use audio_backend::{id::InstrumentId, BlightAudio, Command};
+use audio_backend::{id::InstrumentId, BlightAudio};
 use sequencer::models::{
     Chain, EffectType, Event, NoteSentinelValues, Phrase, Song, SongRow, EMPTY_CHAIN_SLOT,
 };

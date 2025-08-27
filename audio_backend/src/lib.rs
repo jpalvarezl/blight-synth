@@ -5,7 +5,6 @@ pub mod effects;
 mod factories;
 pub mod id;
 mod instruments;
-#[cfg(feature = "tracker")]
 mod player;
 mod resources;
 mod result;
@@ -16,7 +15,6 @@ pub(crate) use audio_processor::*;
 pub use commands::*;
 pub use factories::*;
 pub use instruments::*;
-#[cfg(feature = "tracker")]
 pub(crate) use player::*;
 pub use resources::*;
 pub use result::*;

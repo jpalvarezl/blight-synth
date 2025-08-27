@@ -2,6 +2,7 @@ use crate::{
     synth_infra::voice::VoiceManager, Command, MixerCmd, StereoEffectChain, SynthCmd, SynthCommand,
 };
 
+#[deprecated(note = "This is needs to be presented behind a feature flag")]
 pub struct Synthesizer {
     // pub sample_rate: f32,
     voice_manager: VoiceManager,
@@ -9,6 +10,7 @@ pub struct Synthesizer {
     master_effect_chain: StereoEffectChain,
 }
 
+#[deprecated(note = "This is needs to be presented behind a feature flag")]
 impl Synthesizer {
     pub fn new() -> Self {
         Self {
