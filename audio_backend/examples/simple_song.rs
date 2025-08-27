@@ -1,6 +1,6 @@
 use std::{sync::Arc, thread, time::Duration};
 
-use audio_backend::{id::InstrumentId, BlightAudio};
+use audio_backend::{id::InstrumentId, BlightAudio, Waveform};
 use sequencer::models::{
     Chain, EffectType, Event, NoteSentinelValues, Phrase, Song, SongRow, EMPTY_CHAIN_SLOT,
 };
@@ -23,7 +23,7 @@ pub fn main() {
                 audio_backend::SequencerCmd::AddTrackInstrument {
                     instrument: audio
                         .get_instrument_factory()
-                        .create_simple_oscillator(bass_instrument_id, 0.0),
+                        .create_oscillator_with_waveform(bass_instrument_id, 0.0, Waveform::NesTriangle),
                 }
                 .into(),
             );

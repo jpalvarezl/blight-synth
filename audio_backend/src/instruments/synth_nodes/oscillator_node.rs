@@ -18,15 +18,21 @@ pub enum Waveform {
     Square,
     Sawtooth,
     Triangle,
+    /// 32-step, 4-bit NES triangle lookup table waveform
+    NesTriangle,
 }
 
 impl OscillatorNode {
     pub fn new() -> Self {
-        OscillatorNode {
+        Self {
             waveform: Waveform::Sine,
             frequency: 0.0,
             phase: 0.0,
         }
+    }
+
+    pub fn new_with_waveform(waveform: Waveform) -> Self {
+        Self { waveform, frequency: 0.0, phase: 0.0 }
     }
 
     pub fn set_waveform(&mut self, waveform: Waveform) {
@@ -39,6 +45,23 @@ impl OscillatorNode {
 
     pub fn reset(&mut self) {
         self.phase = 0.0;
+    }
+
+    #[inline]
+    fn nes_triangle_sample(phase: f32) -> f32 {
+        // NES APU triangle: 32-step repeating sequence (4-bit amplitude)
+        // Commonly represented as: 15..0, 0..15 (duplicate extremes) or phase-shifted equivalent.
+        // We'll use 0..15 ascending then 15..0 descending with duplicated endpoints for exact 32 steps.
+        const LUT_U4: [u8; 32] = [
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+            15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
+        ];
+        // Convert phase in [0, TAU) to index 0..31
+        let normalized_phase = phase / std::f32::consts::TAU; // [0,1)
+        let idx = (normalized_phase * 32.0) as usize; // truncation OK for [0,1)
+        let v = LUT_U4[idx & 31] as f32;
+        // Map 0..15 to -1..1 exactly
+        (v / 15.0) * 2.0 - 1.0
     }
 
     pub fn next_sample(&mut self, sample_rate: f32) -> f32 {
@@ -64,6 +87,7 @@ impl OscillatorNode {
                     3.0 - 4.0 * normalized_phase
                 }
             }
+            Waveform::NesTriangle => Self::nes_triangle_sample(self.phase),
         };
 
         self.phase += phase_inc;
