@@ -47,6 +47,14 @@ fn main() {
                 .into(),
             );
             thread::sleep(std::time::Duration::from_millis(1000));
+            audio.send_command(
+                SynthCmd::ChangeWaveform {
+                    voice_id,
+                    waveform: Waveform::NesTriangle,
+                }
+                .into(),
+            );
+            thread::sleep(std::time::Duration::from_millis(1000));
         }
         Err(e) => eprintln!("Failed to initialize BlightAudio: {}", e),
     };
