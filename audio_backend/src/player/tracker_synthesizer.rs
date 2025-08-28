@@ -4,7 +4,7 @@ use log::debug;
 use sequencer::models::MAX_TRACKS;
 
 use crate::{
-    id::InstrumentId, EngineCmd, InstrumentTrait, MixerCmd, StereoEffect, StereoEffectChain,
+    id::InstrumentId, EngineCmd, InstrumentTrait, MixerCmd, MonoEffect, StereoEffectChain,
 };
 
 /// Specific implementation of a synthesizer for `tracker` mode.
@@ -13,6 +13,8 @@ pub struct Synthesizer {
     pub instrument_bank: HashMap<InstrumentId, Box<dyn InstrumentTrait>>,
     pub _track_instrument: HashMap<usize, InstrumentId>, // cache the active instrument for each track
     pub master_effects: StereoEffectChain,
+    // TODO: future: consider per-instrument bus FX chains (StereoEffectChain per instrument)
+    // and support a SequencerCmd::AddStereoEffectToInstrument to process post-sum per instrument.
 }
 
 impl Synthesizer {
@@ -55,10 +57,20 @@ impl Synthesizer {
     pub fn add_effect_to_instrument(
         &mut self,
         instrument_id: InstrumentId,
-        effect: Box<dyn StereoEffect>,
+        effect: Box<dyn MonoEffect>,
     ) {
         if let Some(instrument) = self.instrument_bank.get_mut(&instrument_id) {
             instrument.add_effect(effect);
+        }
+    }
+
+    pub fn add_voice_effects_to_instrument(
+        &mut self,
+        instrument_id: InstrumentId,
+        effects: crate::VoiceEffects,
+    ) {
+        if let Some(instrument) = self.instrument_bank.get_mut(&instrument_id) {
+            instrument.add_voice_effects(effects);
         }
     }
 

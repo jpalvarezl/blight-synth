@@ -107,6 +107,13 @@ impl Player {
                 self.synthesizer
                     .add_effect_to_instrument(instrument_id, effect);
             }
+            Command::Sequencer(SequencerCmd::AddVoiceEffectsToInstrument {
+                instrument_id,
+                effects,
+            }) => {
+                self.synthesizer
+                    .add_voice_effects_to_instrument(instrument_id, effects);
+            }
             Command::Transport(TransportCmd::PlayLastSong) => self.play(),
             Command::Engine(engine_cmd) => self.synthesizer.handle_engine_command(engine_cmd),
             Command::Mixer(mixer_cmd) => self.synthesizer.handle_mixer_command(mixer_cmd),

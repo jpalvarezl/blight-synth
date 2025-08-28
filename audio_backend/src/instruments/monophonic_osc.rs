@@ -1,6 +1,6 @@
 use crate::id::InstrumentId;
 use crate::{instruments::VoiceSlot, OscillatorNode};
-use crate::{Envelope, InstrumentTrait, MonoEffectChain, Voice, VoiceTrait, Waveform};
+use crate::{Envelope, InstrumentTrait, MonoEffect, MonoEffectChain, Voice, VoiceTrait, Waveform};
 
 pub struct MonophonicOscillator {
     instrument_id: InstrumentId,
@@ -28,7 +28,12 @@ impl MonophonicOscillator {
         }
     }
 
-    pub fn new_with_waveform(instrument_id: InstrumentId, pan: f32, sample_rate: f32, waveform: Waveform) -> Self {
+    pub fn new_with_waveform(
+        instrument_id: InstrumentId,
+        pan: f32,
+        sample_rate: f32,
+        waveform: Waveform,
+    ) -> Self {
         let envelope = Envelope::new(sample_rate);
         let voice = Voice::new(
             0,
@@ -55,23 +60,22 @@ impl InstrumentTrait for MonophonicOscillator {
     }
 
     fn note_on(&mut self, note: u8, velocity: u8) {
-        VoiceTrait::note_on(&mut self.voice.inner, note, velocity);
+        self.voice.inner.note_on(note, velocity);
     }
 
     fn note_off(&mut self) {
-        VoiceTrait::note_off(&mut self.voice.inner);
+        self.voice.inner.note_off();
     }
 
     fn process(&mut self, left_buf: &mut [f32], right_buf: &mut [f32], sample_rate: f32) {
-        VoiceTrait::process(&mut self.voice.inner, left_buf, right_buf, sample_rate);
+        self.voice.inner.process(left_buf, right_buf, sample_rate);
     }
 
     fn set_pan(&mut self, pan: f32) {
-        VoiceTrait::set_pan(&mut self.voice.inner, pan);
+        self.voice.inner.set_pan(pan);
     }
 
-    fn add_effect(&mut self, _effect: Box<dyn crate::StereoEffect>) {
-        // TODO: reconcile per voice MonoEffect and InstrumentEffect
-        // VoiceTrait::add_effect(&mut self.voice.inner, effect);
+    fn add_effect(&mut self, effect: Box<dyn MonoEffect>) {
+        self.voice.inner.add_effect(effect);
     }
 }

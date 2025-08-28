@@ -155,6 +155,22 @@ impl MonoEffect for Reverb {
             _ => (),
         }
     }
+
+    fn reset(&mut self) {
+        for f in self.comb_filters.iter_mut() {
+            for s in f.buffer.iter_mut() {
+                *s = 0.0;
+            }
+            f.pos = 0;
+            f.lowpass_state = 0.0;
+        }
+        for ap in self.allpass_filters.iter_mut() {
+            for s in ap.buffer.iter_mut() {
+                *s = 0.0;
+            }
+            ap.pos = 0;
+        }
+    }
 }
 
 pub struct StereoReverb {
@@ -182,5 +198,10 @@ impl StereoEffect for StereoReverb {
     fn set_parameter(&mut self, index: u32, value: f32) {
         self.left.set_parameter(index, value);
         self.right.set_parameter(index, value);
+    }
+
+    fn reset(&mut self) {
+        self.left.reset();
+        self.right.reset();
     }
 }

@@ -32,7 +32,11 @@ impl OscillatorNode {
     }
 
     pub fn new_with_waveform(waveform: Waveform) -> Self {
-        Self { waveform, frequency: 0.0, phase: 0.0 }
+        Self {
+            waveform,
+            frequency: 0.0,
+            phase: 0.0,
+        }
     }
 
     pub fn set_waveform(&mut self, waveform: Waveform) {
@@ -53,8 +57,8 @@ impl OscillatorNode {
         // Commonly represented as: 15..0, 0..15 (duplicate extremes) or phase-shifted equivalent.
         // We'll use 0..15 ascending then 15..0 descending with duplicated endpoints for exact 32 steps.
         const LUT_U4: [u8; 32] = [
-            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
-            15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 15, 14, 13, 12, 11, 10, 9, 8, 7,
+            6, 5, 4, 3, 2, 1, 0,
         ];
         // Convert phase in [0, TAU) to index 0..31
         let normalized_phase = phase / std::f32::consts::TAU; // [0,1)

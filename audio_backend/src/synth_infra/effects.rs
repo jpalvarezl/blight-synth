@@ -26,6 +26,18 @@ pub trait StereoEffect: Send + Sync {
     /// * `index` - The zero-based index of the parameter to change.
     /// * `value` - The new value for the parameter.
     fn set_parameter(&mut self, index: u32, value: f32);
+
+    /// Reset the effect's internal state to an initial, silent condition.
+    ///
+    /// Why this is needed:
+    /// - When a voice is re-used for a new note (voice stealing or retrigger),
+    ///   insert effects (delays, reverbs, filters with internal state) may carry
+    ///   residual state ("tails" or past samples) into the next note and cause
+    ///   audible smearing or DC/state leakage across notes.
+    /// - Resetting at note start keeps per-voice inserts deterministic and clean.
+    ///
+    /// Default implementation is a no-op.
+    fn reset(&mut self) {}
 }
 
 /// A chain of audio effects that are processed in sequence.
@@ -59,6 +71,14 @@ impl StereoEffectChain {
             effect.process(left_buf, right_buf, sample_rate);
         }
     }
+
+    /// Resets all effects in the chain. Useful when reinitializing the signal path.
+    #[allow(dead_code)]
+    pub fn reset(&mut self) {
+        for effect in &mut self.effects {
+            effect.reset();
+        }
+    }
 }
 
 /// A trait for mono audio effects. These are typically used for per-voice effects
@@ -83,6 +103,19 @@ pub trait MonoEffect: Send + Sync {
     /// * `index` - The zero-based index of the parameter to change.
     /// * `value` - The new value for the parameter.
     fn set_parameter(&mut self, index: u32, value: f32);
+
+    /// Reset the effect's internal state to an initial, silent condition.
+    ///
+    /// Why this is needed:
+    /// - When a voice is re-used for a new note (voice stealing or retrigger),
+    ///   insert effects (delays, reverbs, filters with internal state) may carry
+    ///   residual state ("tails" or past samples) into the next note and cause
+    ///   audible smearing or DC/state leakage across notes.
+    /// - Resetting at note start keeps per-voice inserts deterministic and clean.
+    ///
+    /// Default implementation is a no-op.
+    #[allow(dead_code)]
+    fn reset(&mut self) {}
 }
 
 /// A chain of mono audio effects for Voices.
@@ -116,4 +149,20 @@ impl MonoEffectChain {
             effect.process(buf, sample_rate);
         }
     }
+
+    /// Resets all effects in the chain. Called when a voice is re-used to avoid
+    /// carrying over tails or state from the previous note.
+    #[allow(dead_code)]
+    pub fn reset(&mut self) {
+        for effect in &mut self.effects {
+            effect.reset();
+        }
+    }
 }
+
+/// Maximum number of per-voice effects that can be sent in one command without heap allocation
+pub const MAX_VOICE_EFFECTS: usize = 64;
+
+/// Inline, fixed-capacity container for passing prebuilt per-voice effects from the
+/// non-real-time thread to the audio thread without causing deallocation on drop.
+pub type VoiceEffects = arrayvec::ArrayVec<Box<dyn MonoEffect>, MAX_VOICE_EFFECTS>;

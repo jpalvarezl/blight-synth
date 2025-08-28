@@ -1,7 +1,7 @@
 use crate::{
     id::{EffectChainId, InstrumentId, VoiceId},
     instruments::Waveform,
-    InstrumentTrait, MonoEffect, StereoEffect, VoiceTrait,
+    InstrumentTrait, MonoEffect, StereoEffect, VoiceEffects, VoiceTrait,
 };
 use sequencer::models::Song;
 use std::sync::Arc;
@@ -18,9 +18,16 @@ pub enum SequencerCmd {
     AddTrackInstrument {
         instrument: Box<dyn InstrumentTrait>,
     },
+    // TODO: consider a future AddStereoEffectToInstrument { instrument_id, effect: Box<dyn StereoEffect> }
+    // for per-instrument bus FX processed after summing all voices.
     AddEffectToInstrument {
         instrument_id: InstrumentId,
-        effect: Box<dyn StereoEffect>,
+        effect: Box<dyn MonoEffect>,
+    },
+    /// Install a batch of per-voice effects into an instrument in one RT-safe operation.
+    AddVoiceEffectsToInstrument {
+        instrument_id: InstrumentId,
+        effects: VoiceEffects,
     },
 }
 

@@ -59,4 +59,11 @@ impl MonoEffect for Delay {
     fn set_parameter(&mut self, _index: u32, _value: f32) {
         // not implemented yet
     }
+
+    fn reset(&mut self) {
+        for s in self.buffer.iter_mut() {
+            *s = 0.0;
+        }
+        self.write_index = 0;
+    }
 }

@@ -11,3 +11,4 @@ log = { workspace = true }
 rfd = { workspace = true }
 sequencer = { workspace = true }
 audio_backend = { workspace = true }
+arrayvec = { workspace = true }

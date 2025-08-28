@@ -530,6 +530,7 @@ name = "audio_backend"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "arrayvec",
  "cpal",
  "env_logger",
  "hound",
@@ -3683,6 +3684,7 @@ dependencies = [
 name = "tracker_gui"
 version = "0.1.0"
 dependencies = [
+ "arrayvec",
  "audio_backend",
  "eframe",
  "egui_extras",
