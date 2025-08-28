@@ -1,10 +1,90 @@
 use audio_backend::InstrumentDefinition;
 use eframe::egui;
+use sequencer::models::{InstrumentData, Song, Waveform};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum AvailableInstrument {
     Oscillator,
     SamplePlayer, // We'll disable this for now since it needs file loading
+}
+
+impl SidePanel {
+    fn show_instrument_parameters(
+        &mut self,
+        ui: &mut egui::Ui,
+        event_selection: Option<(usize, usize)>,
+        song: &mut Song,
+        out_action: &mut Option<SidePanelAction>,
+    ) {
+        // We need a selected event to determine instrument id
+        let Some((phrase_idx, step_idx)) = event_selection else {
+            ui.label("No event selected. Select an event in Phrases to edit instrument parameters.");
+            return;
+        };
+        if phrase_idx >= song.phrase_bank.len() || step_idx >= song.phrase_bank[phrase_idx].events.len() {
+            ui.label("Selection out of range.");
+            return;
+        }
+        let inst_id_u8 = song.phrase_bank[phrase_idx].events[step_idx].instrument_id;
+        if inst_id_u8 == 0 {
+            ui.label("No instrument assigned to this event. Apply an instrument first.");
+            return;
+        }
+        let inst_id = inst_id_u8 as usize;
+        if let Some(inst) = song.instrument_bank.iter_mut().find(|i| i.id == inst_id) {
+            match &mut inst.data {
+                InstrumentData::SimpleOscillator(params) => {
+                    ui.label(format!("Instrument {}: {}", inst.id, inst.name));
+                    ui.horizontal(|ui| {
+                        ui.label("Waveform:");
+                        let options = [
+                            Waveform::Sine,
+                            Waveform::Square,
+                            Waveform::Sawtooth,
+                            Waveform::Triangle,
+                            Waveform::NesTriangle,
+                        ];
+                        let mut selected = params.waveform.clone();
+                        egui::ComboBox::from_id_salt("osc_waveform_combo")
+                            .width(180.0)
+                            .selected_text(waveform_name(&selected))
+                            .show_ui(ui, |ui| {
+                                for opt in options.iter() {
+                                    if ui
+                                        .selectable_label(*opt == selected, waveform_name(opt))
+                                        .clicked()
+                                    {
+                                        selected = opt.clone();
+                                    }
+                                }
+                            });
+                        if selected != params.waveform {
+                            params.waveform = selected.clone();
+                            *out_action = Some(SidePanelAction::SetOscillatorWaveform {
+                                instrument_id: inst_id_u8,
+                                waveform: selected,
+                            });
+                        }
+                    });
+                }
+                _ => {
+                    ui.label("Selected instrument has no editable parameters yet.");
+                }
+            }
+        } else {
+            ui.label("Instrument not found in song.");
+        }
+    }
+}
+
+fn waveform_name(w: &Waveform) -> &'static str {
+    match w {
+        Waveform::Sine => "Sine",
+        Waveform::Square => "Square",
+        Waveform::Sawtooth => "Sawtooth",
+        Waveform::Triangle => "Triangle",
+        Waveform::NesTriangle => "NES Triangle",
+    }
 }
 
 impl AvailableInstrument {
@@ -70,6 +150,7 @@ pub struct InstrumentStub {
 pub enum SidePanelAction {
     AssignInstrumentToSelectedEvent(AvailableInstrument),
     AddEffect(EffectType),
+    SetOscillatorWaveform { instrument_id: u8, waveform: Waveform },
 }
 
 enum InstrumentAction {
@@ -100,6 +181,7 @@ impl SidePanel {
         ctx: &egui::Context,
         current_track: usize,
         event_selection: Option<(usize, usize)>, // (phrase_idx, step_idx)
+        song: &mut Song,
     ) -> Option<SidePanelAction> {
         let mut action: Option<SidePanelAction> = None;
 
@@ -152,6 +234,11 @@ impl SidePanel {
                                     }
                                     InstrumentAction::None => {}
                                 });
+
+                            ui.add_space(8.0);
+                            ui.separator();
+                            ui.heading("Instrument Parameters");
+                            self.show_instrument_parameters(ui, event_selection, song, &mut action);
                         });
                     });
 

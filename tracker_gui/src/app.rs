@@ -214,11 +214,21 @@ impl TrackerApp {
                         match def {
                             InstrumentDefinition::Oscillator => {
                                 let id = audio_backend::id::InstrumentId::from(id_u8 as u32);
-                                // TODO: when adding polyphonic instruments from the GUI, also record
-                                // their polyphony locally so per-voice effect batches match voice count.
+                                // Determine waveform from song model for this instrument
+                                let waveform = self
+                                    .song
+                                    .instrument_bank
+                                    .iter()
+                                    .find(|i| i.id == id_usize)
+                                    .and_then(|i| match &i.data {
+                                        InstrumentData::SimpleOscillator(p) => Some(p.waveform.clone()),
+                                        _ => None,
+                                    })
+                                    .unwrap_or(Waveform::Sine);
+                                let backend_wave = map_waveform_to_backend(waveform);
                                 let instrument = audio
                                     .get_instrument_factory()
-                                    .create_simple_oscillator(id, 0.0);
+                                    .create_oscillator_with_waveform(id, 0.0, backend_wave);
                                 audio.send_command(
                                     audio_backend::SequencerCmd::AddTrackInstrument { instrument }
                                         .into(),
@@ -244,6 +254,44 @@ impl TrackerApp {
             }
         }
         1
+    }
+}
+
+fn map_waveform_to_backend(w: Waveform) -> audio_backend::Waveform {
+    match w {
+        Waveform::Sine => audio_backend::Waveform::Sine,
+        Waveform::Square => audio_backend::Waveform::Square,
+        Waveform::Sawtooth => audio_backend::Waveform::Sawtooth,
+        Waveform::Triangle => audio_backend::Waveform::Triangle,
+        Waveform::NesTriangle => audio_backend::Waveform::NesTriangle,
+    }
+}
+
+impl TrackerApp {
+    fn set_oscillator_waveform(&mut self, instrument_id: u8, waveform: Waveform) {
+        let inst_id_usize = instrument_id as usize;
+        // Update song model
+        if let Some(inst) = self
+            .song
+            .instrument_bank
+            .iter_mut()
+            .find(|i| i.id == inst_id_usize)
+        {
+            if let InstrumentData::SimpleOscillator(params) = &mut inst.data {
+                params.waveform = waveform.clone();
+            }
+        }
+        // Update audio engine instrument if running
+        if let Some(audio) = &mut self.audio_manager.audio {
+            let backend_wave = map_waveform_to_backend(waveform);
+            let id = audio_backend::id::InstrumentId::from(instrument_id as u32);
+            let instrument = audio
+                .get_instrument_factory()
+                .create_oscillator_with_waveform(id, 0.0, backend_wave);
+            audio.send_command(
+                audio_backend::SequencerCmd::AddTrackInstrument { instrument }.into(),
+            );
+        }
     }
 }
 
@@ -286,13 +334,19 @@ impl eframe::App for TrackerApp {
             .phrases_tab
             .selected_event_step
             .map(|step| (self.phrases_tab.selected_phrase, step));
-        if let Some(action) = self.side_panel.show(ctx, current_track, event_selection) {
+        if let Some(action) = self
+            .side_panel
+            .show(ctx, current_track, event_selection, &mut self.song)
+        {
             match action {
                 SidePanelAction::AssignInstrumentToSelectedEvent(instr) => {
                     self.apply_instrument_to_selected_event(instr, event_selection);
                 }
                 SidePanelAction::AddEffect(effect) => {
                     self.handle_effect_selection(effect, current_track, event_selection);
+                }
+                SidePanelAction::SetOscillatorWaveform { instrument_id, waveform } => {
+                    self.set_oscillator_waveform(instrument_id, waveform);
                 }
             }
         }
