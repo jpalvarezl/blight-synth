@@ -4,7 +4,7 @@ use log::debug;
 use sequencer::models::MAX_TRACKS;
 
 use crate::{
-    id::InstrumentId, EngineCmd, InstrumentTrait, MixerCmd, StereoEffect, StereoEffectChain,
+    id::InstrumentId, EngineCmd, InstrumentTrait, MixerCmd, MonoEffect, StereoEffect, StereoEffectChain
 };
 
 /// Specific implementation of a synthesizer for `tracker` mode.
@@ -55,7 +55,7 @@ impl Synthesizer {
     pub fn add_effect_to_instrument(
         &mut self,
         instrument_id: InstrumentId,
-        effect: Box<dyn StereoEffect>,
+        effect: Box<dyn MonoEffect>,
     ) {
         if let Some(instrument) = self.instrument_bank.get_mut(&instrument_id) {
             instrument.add_effect(effect);

@@ -20,7 +20,7 @@ pub enum SequencerCmd {
     },
     AddEffectToInstrument {
         instrument_id: InstrumentId,
-        effect: Box<dyn StereoEffect>,
+        effect: Box<dyn MonoEffect>,
     },
 }
 

@@ -1,4 +1,4 @@
-use crate::{id::InstrumentId, StereoEffect};
+use crate::{id::InstrumentId, MonoEffect};
 
 /// A trait for a complete instrument, which is responsible for managing
 /// its own voices and polyphony according to its specific behavior.
@@ -24,6 +24,6 @@ pub trait InstrumentTrait: Send + Sync {
     // fn handle_command(&mut self, command: &PlayerCommand);
 
     // TODO: reconsider if the we should only handle planar data
-    /// Add a stereo effect to this voice's effect chain.
-    fn add_effect(&mut self, effect: Box<dyn StereoEffect>);
+    /// Add a mono effect to this voice's effect chain. Instruments process planar audio
+    fn add_effect(&mut self, effect: Box<dyn MonoEffect>);
 }
