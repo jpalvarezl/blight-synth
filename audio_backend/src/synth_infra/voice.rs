@@ -106,6 +106,8 @@ impl<S: SynthNode> VoiceTrait for Voice<S> {
     }
 
     fn note_on(&mut self, note: u8, velocity: u8) {
+        // Reset per-voice insert effects to avoid carrying state between notes
+        // self.effect_chain.reset();
         self.node.note_on(note, velocity);
         self.envelope.gate(true);
     }

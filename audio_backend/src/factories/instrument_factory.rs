@@ -1,4 +1,6 @@
-use crate::{id::InstrumentId, InstrumentTrait, MonophonicOscillator, PolyphonicOscillator, Waveform};
+use crate::{
+    id::InstrumentId, InstrumentTrait, MonophonicOscillator, PolyphonicOscillator, Waveform,
+};
 
 pub struct InstrumentFactory {
     sample_rate: f32,
@@ -25,11 +27,14 @@ impl InstrumentFactory {
         &self,
         instrument_id: InstrumentId,
         pan: f32,
-        waveform: Waveform
-    ) -> Box<dyn InstrumentTrait>{
-        Box::new(
-            MonophonicOscillator::new_with_waveform(instrument_id, pan, self.sample_rate, waveform)
-        )
+        waveform: Waveform,
+    ) -> Box<dyn InstrumentTrait> {
+        Box::new(MonophonicOscillator::new_with_waveform(
+            instrument_id,
+            pan,
+            self.sample_rate,
+            waveform,
+        ))
     }
 
     pub fn create_polyphonic_oscillator(

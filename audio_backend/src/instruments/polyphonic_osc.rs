@@ -1,6 +1,8 @@
 use crate::id::InstrumentId;
 use crate::{instruments::VoiceSlot, OscillatorNode};
-use crate::{Envelope, InstrumentTrait, MonoEffect, MonoEffectChain, Voice, VoiceTrait};
+use crate::{
+    Envelope, InstrumentTrait, MonoEffect, MonoEffectChain, Voice, VoiceEffects, VoiceTrait,
+};
 
 pub struct PolyphonicOscillator {
     instrument_id: InstrumentId,
@@ -100,7 +102,18 @@ impl InstrumentTrait for PolyphonicOscillator {
     }
 
     fn add_effect(&mut self, _effect: Box<dyn MonoEffect>) {
-        // TODO: each voice has its effect chain. Receiving one effect means we need to clone across voices.
-        // self.effects.add_effect(effect);
+        // Polyphonic instruments require one effect instance per voice.
+        // Use add_voice_effects with pre-constructed per-voice effects instead.
+        log::warn!("PolyphonicOscillator: add_effect is a no-op; use add_voice_effects instead");
+    }
+
+    fn add_voice_effects(&mut self, effects: VoiceEffects) {
+        for (slot, effect) in self.voices.iter_mut().zip(effects.into_iter()) {
+            slot.inner.add_effect(effect);
+        }
+    }
+
+    fn polyphony(&self) -> usize {
+        self.voices.len()
     }
 }

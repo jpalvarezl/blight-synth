@@ -23,7 +23,11 @@ pub fn main() {
                 audio_backend::SequencerCmd::AddTrackInstrument {
                     instrument: audio
                         .get_instrument_factory()
-                        .create_oscillator_with_waveform(bass_instrument_id, 0.0, Waveform::NesTriangle),
+                        .create_oscillator_with_waveform(
+                            bass_instrument_id,
+                            0.0,
+                            Waveform::NesTriangle,
+                        ),
                 }
                 .into(),
             );

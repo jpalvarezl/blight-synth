@@ -12,3 +12,4 @@ ringbuf = {workspace = true}
 sequencer = {workspace = true}
 utils = {workspace = true}
 hound = { workspace = true}
+arrayvec = { workspace = true }

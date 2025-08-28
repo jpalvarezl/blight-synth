@@ -166,4 +166,11 @@ impl MonoEffect for Filter {
         //     _ => (),
         // }
     }
+
+    fn reset(&mut self) {
+        self.x1 = 0.0;
+        self.x2 = 0.0;
+        self.y1 = 0.0;
+        self.y2 = 0.0;
+    }
 }

@@ -11,13 +11,23 @@ pub fn main() {
     let lead_instrument_id: InstrumentId = 1;
     match &mut BlightAudio::with_song(Arc::new(load_song(lead_instrument_id))) {
         Ok(audio) => {
+            let max_voices = 5;
             audio.send_command(
                 audio_backend::SequencerCmd::AddTrackInstrument {
                     instrument: audio.get_instrument_factory().create_polyphonic_oscillator(
                         lead_instrument_id,
                         0.0,
-                        5,
+                        max_voices,
                     ),
+                }
+                .into(),
+            );
+
+            let reverbs = (0..max_voices).map(|_| audio.get_effect_factory().create_mono_reverb());
+            audio.send_command(
+                audio_backend::SequencerCmd::AddVoiceEffectsToInstrument {
+                    instrument_id: lead_instrument_id,
+                    effects: reverbs.collect(),
                 }
                 .into(),
             );
