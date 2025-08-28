@@ -73,6 +73,7 @@ impl StereoEffectChain {
     }
 
     /// Resets all effects in the chain. Useful when reinitializing the signal path.
+    #[allow(dead_code)]
     pub fn reset(&mut self) {
         for effect in &mut self.effects {
             effect.reset();
@@ -113,6 +114,7 @@ pub trait MonoEffect: Send + Sync {
     /// - Resetting at note start keeps per-voice inserts deterministic and clean.
     ///
     /// Default implementation is a no-op.
+    #[allow(dead_code)]
     fn reset(&mut self) {}
 }
 
@@ -150,6 +152,7 @@ impl MonoEffectChain {
 
     /// Resets all effects in the chain. Called when a voice is re-used to avoid
     /// carrying over tails or state from the previous note.
+    #[allow(dead_code)]
     pub fn reset(&mut self) {
         for effect in &mut self.effects {
             effect.reset();
