@@ -31,7 +31,7 @@ pub struct SimpleOscillatorParams {
     pub waveform: Waveform,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
 /// Waveform types for the simple oscillator.
 pub enum Waveform {
     Sine,

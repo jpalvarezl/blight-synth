@@ -1,5 +1,6 @@
 mod app;
 mod audio;
+mod audio_utils;
 mod file_ops;
 mod menu;
 mod tabs;

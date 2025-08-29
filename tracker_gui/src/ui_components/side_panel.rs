@@ -18,10 +18,14 @@ impl SidePanel {
     ) {
         // We need a selected event to determine instrument id
         let Some((phrase_idx, step_idx)) = event_selection else {
-            ui.label("No event selected. Select an event in Phrases to edit instrument parameters.");
+            ui.label(
+                "No event selected. Select an event in Phrases to edit instrument parameters.",
+            );
             return;
         };
-        if phrase_idx >= song.phrase_bank.len() || step_idx >= song.phrase_bank[phrase_idx].events.len() {
+        if phrase_idx >= song.phrase_bank.len()
+            || step_idx >= song.phrase_bank[phrase_idx].events.len()
+        {
             ui.label("Selection out of range.");
             return;
         }
@@ -44,7 +48,7 @@ impl SidePanel {
                             Waveform::Triangle,
                             Waveform::NesTriangle,
                         ];
-                        let mut selected = params.waveform.clone();
+                        let mut selected = params.waveform;
                         egui::ComboBox::from_id_salt("osc_waveform_combo")
                             .width(180.0)
                             .selected_text(waveform_name(&selected))
@@ -54,12 +58,12 @@ impl SidePanel {
                                         .selectable_label(*opt == selected, waveform_name(opt))
                                         .clicked()
                                     {
-                                        selected = opt.clone();
+                                        selected = *opt;
                                     }
                                 }
                             });
                         if selected != params.waveform {
-                            params.waveform = selected.clone();
+                            params.waveform = selected;
                             *out_action = Some(SidePanelAction::SetOscillatorWaveform {
                                 instrument_id: inst_id_u8,
                                 waveform: selected,
@@ -150,7 +154,10 @@ pub struct InstrumentStub {
 pub enum SidePanelAction {
     AssignInstrumentToSelectedEvent(AvailableInstrument),
     AddEffect(EffectType),
-    SetOscillatorWaveform { instrument_id: u8, waveform: Waveform },
+    SetOscillatorWaveform {
+        instrument_id: u8,
+        waveform: Waveform,
+    },
 }
 
 enum InstrumentAction {

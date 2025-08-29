@@ -4,6 +4,7 @@ use sequencer::cli::FileFormat;
 use sequencer::models::{Instrument, InstrumentData, SimpleOscillatorParams, Song, Waveform};
 
 use crate::audio::AudioManager;
+use crate::audio_utils::map_waveform_to_backend;
 use crate::file_ops::FileOperations;
 use crate::menu::{MenuActions, MenuRenderer, ShortcutAction, ShortcutHandler};
 use crate::tabs::{
@@ -221,7 +222,7 @@ impl TrackerApp {
                                     .iter()
                                     .find(|i| i.id == id_usize)
                                     .and_then(|i| match &i.data {
-                                        InstrumentData::SimpleOscillator(p) => Some(p.waveform.clone()),
+                                        InstrumentData::SimpleOscillator(p) => Some(p.waveform),
                                         _ => None,
                                     })
                                     .unwrap_or(Waveform::Sine);
@@ -257,16 +258,6 @@ impl TrackerApp {
     }
 }
 
-fn map_waveform_to_backend(w: Waveform) -> audio_backend::Waveform {
-    match w {
-        Waveform::Sine => audio_backend::Waveform::Sine,
-        Waveform::Square => audio_backend::Waveform::Square,
-        Waveform::Sawtooth => audio_backend::Waveform::Sawtooth,
-        Waveform::Triangle => audio_backend::Waveform::Triangle,
-        Waveform::NesTriangle => audio_backend::Waveform::NesTriangle,
-    }
-}
-
 impl TrackerApp {
     fn set_oscillator_waveform(&mut self, instrument_id: u8, waveform: Waveform) {
         let inst_id_usize = instrument_id as usize;
@@ -278,7 +269,7 @@ impl TrackerApp {
             .find(|i| i.id == inst_id_usize)
         {
             if let InstrumentData::SimpleOscillator(params) = &mut inst.data {
-                params.waveform = waveform.clone();
+                params.waveform = waveform;
             }
         }
         // Update audio engine instrument if running
@@ -334,9 +325,9 @@ impl eframe::App for TrackerApp {
             .phrases_tab
             .selected_event_step
             .map(|step| (self.phrases_tab.selected_phrase, step));
-        if let Some(action) = self
-            .side_panel
-            .show(ctx, current_track, event_selection, &mut self.song)
+        if let Some(action) =
+            self.side_panel
+                .show(ctx, current_track, event_selection, &mut self.song)
         {
             match action {
                 SidePanelAction::AssignInstrumentToSelectedEvent(instr) => {
@@ -345,7 +336,10 @@ impl eframe::App for TrackerApp {
                 SidePanelAction::AddEffect(effect) => {
                     self.handle_effect_selection(effect, current_track, event_selection);
                 }
-                SidePanelAction::SetOscillatorWaveform { instrument_id, waveform } => {
+                SidePanelAction::SetOscillatorWaveform {
+                    instrument_id,
+                    waveform,
+                } => {
                     self.set_oscillator_waveform(instrument_id, waveform);
                 }
             }
