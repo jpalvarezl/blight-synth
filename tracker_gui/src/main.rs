@@ -6,7 +6,7 @@ mod menu;
 mod tabs;
 mod theme;
 mod ui_components;
-
+mod ui_state;
 use app::TrackerApp;
 use eframe::egui;
 

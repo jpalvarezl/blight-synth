@@ -1,4 +1,5 @@
 use crate::ui_components::hex_usize_with_sentinel_editor;
+use crate::ui_state::UiState;
 use eframe::egui;
 use egui_extras::{Column, TableBuilder};
 use sequencer::models::{Chain, EMPTY_PHRASE_SLOT, Song};
@@ -13,7 +14,7 @@ impl ChainsTab {
         self.selected_chain = 0;
     }
 
-    pub fn show(&mut self, ui: &mut egui::Ui, song: &mut Song) {
+    pub fn show(&mut self, ui: &mut egui::Ui, song: &mut Song, ui_state: &mut UiState) {
         ui.horizontal(|ui| {
             ui.label(format!("Chains: {} total", song.chain_bank.len()));
             if ui.button("Add Chain").clicked() {
@@ -78,13 +79,21 @@ impl ChainsTab {
                                 ui.label(format!("{:02X}", step));
                             });
                             row.col(|ui| {
-                                let response = hex_usize_with_sentinel_editor(
+                                let key = (self.selected_chain, step);
+                                let buf = ui_state.chains_phrase.entry(key).or_insert_with(|| {
+                                    if *phrase_idx == EMPTY_PHRASE_SLOT {
+                                        String::new()
+                                    } else {
+                                        format!("{:X}", *phrase_idx as u8)
+                                    }
+                                });
+                                let _response = hex_usize_with_sentinel_editor(
                                     ui,
+                                    buf,
                                     phrase_idx,
                                     EMPTY_PHRASE_SLOT,
                                     text_height * 2.4,
                                 );
-                                let _ = response; // we only care that potential changes are applied
                             });
                         });
                     }

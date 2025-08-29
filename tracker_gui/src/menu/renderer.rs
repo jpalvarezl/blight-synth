@@ -8,7 +8,6 @@ pub struct MenuActions {
     pub save_binary: bool,
     pub quit: bool,
     pub toggle_playback: bool,
-    pub init_audio: bool,
     pub show_shortcuts: bool,
     pub toggle_theme: bool,
 }
@@ -22,7 +21,6 @@ impl Default for MenuActions {
             save_binary: false,
             quit: false,
             toggle_playback: false,
-            init_audio: false,
             show_shortcuts: false,
             toggle_theme: false,
         }
@@ -81,13 +79,6 @@ impl MenuRenderer {
 
                 if ui.button(play_text).clicked() {
                     actions.toggle_playback = true;
-                    ui.close();
-                }
-
-                ui.separator();
-
-                if ui.button("🔄 Initialize Audio").clicked() {
-                    actions.init_audio = true;
                     ui.close();
                 }
             });

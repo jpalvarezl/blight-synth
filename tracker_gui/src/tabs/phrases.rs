@@ -1,4 +1,5 @@
 use crate::ui_components::hex_u8_editor;
+use crate::ui_state::UiState;
 use eframe::egui;
 use egui_extras::{Column, TableBuilder};
 use sequencer::models::{Phrase, Song};
@@ -15,7 +16,7 @@ impl PhrasesTab {
         self.selected_event_step = None;
     }
 
-    pub fn show(&mut self, ui: &mut egui::Ui, song: &mut Song) {
+    pub fn show(&mut self, ui: &mut egui::Ui, song: &mut Song, ui_state: &mut UiState) {
         ui.horizontal(|ui| {
             ui.label(format!("Phrases: {} total", song.phrase_bank.len()));
             if ui.button("Add Phrase").clicked() {
@@ -104,19 +105,29 @@ impl PhrasesTab {
                             });
                             // Note editable
                             row.col(|ui| {
-                                let mut v = event.note;
-                                let response = hex_u8_editor(ui, &mut v, text_height * 2.4);
-                                if response.changed() {
-                                    event.note = v;
-                                }
+                                let key = (self.selected_phrase, step);
+                                let buf = ui_state.phrases_note.entry(key).or_insert_with(|| {
+                                    if event.note == 0 {
+                                        String::new()
+                                    } else {
+                                        format!("{:X}", event.note)
+                                    }
+                                });
+                                let _response =
+                                    hex_u8_editor(ui, buf, &mut event.note, text_height * 2.4);
                             });
                             // Volume editable
                             row.col(|ui| {
-                                let mut v = event.volume;
-                                let response = hex_u8_editor(ui, &mut v, text_height * 2.4);
-                                if response.changed() {
-                                    event.volume = v;
-                                }
+                                let key = (self.selected_phrase, step);
+                                let buf = ui_state.phrases_vol.entry(key).or_insert_with(|| {
+                                    if event.volume == 0 {
+                                        String::new()
+                                    } else {
+                                        format!("{:X}", event.volume)
+                                    }
+                                });
+                                let _response =
+                                    hex_u8_editor(ui, buf, &mut event.volume, text_height * 2.4);
                             });
                             // Read-only instrument/effect column
                             row.col(|ui| {

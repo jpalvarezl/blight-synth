@@ -14,7 +14,7 @@ use crate::theme::ThemeManager;
 use crate::ui_components::{
     AvailableInstrument, EffectType, SidePanel, SidePanelAction, SongInfoEditor, TabSelector,
 };
-
+use crate::ui_state::UiState;
 pub struct TrackerApp {
     pub song: Song,
     pub song_name: String,
@@ -31,12 +31,15 @@ pub struct TrackerApp {
 
     pub show_shortcuts_window: bool,
     pub side_panel: SidePanel,
+    pub ui_state: UiState,
 }
 
 impl TrackerApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        let app = Self::default();
+        let mut app = Self::default();
         app.theme_manager.apply_theme(&cc.egui_ctx);
+        // Auto-initialize audio engine on startup (idempotent)
+        app.audio_manager.init_audio(&app.song);
         app
     }
 
@@ -46,23 +49,33 @@ impl TrackerApp {
         self.phrases_tab.reset();
     }
 
-    fn load_song_data(&mut self, song: Song) {
+    fn load_song_data(&mut self, song: Song, ctx: &egui::Context) {
         self.song = song;
         self.song_name = self.song.name.clone();
         self.bpm = self.song.initial_bpm.to_string();
         self.speed = self.song.initial_speed.to_string();
         self.reset_tab_states();
+
+        // Clear UI input buffers so editors reflect the new song
+        self.ui_state = UiState::default();
+        // Also clear egui memory to reset any lingering widget state
+        ctx.memory_mut(|mem| mem.data.clear());
+
+        // Rehydrate audio engine from the newly loaded song
+        if self.audio_manager.audio.is_some() {
+            self.audio_manager.reset_with_song(&self.song);
+        }
     }
 
     fn handle_menu_actions(&mut self, actions: MenuActions, ctx: &egui::Context) {
         if actions.new_song {
             let new_song = FileOperations::new_song();
-            self.load_song_data(new_song);
+            self.load_song_data(new_song, ctx);
         }
 
         if actions.load_song {
             if let Some(song) = FileOperations::load_song() {
-                self.load_song_data(song);
+                self.load_song_data(song, ctx);
             }
         }
 
@@ -76,10 +89,6 @@ impl TrackerApp {
 
         if actions.toggle_playback {
             self.audio_manager.toggle_playback(&self.song);
-        }
-
-        if actions.init_audio {
-            self.audio_manager.init_audio(&self.song);
         }
 
         if actions.show_shortcuts {
@@ -99,7 +108,7 @@ impl TrackerApp {
             ShortcutAction::PreviousTab => self.current_tab = self.current_tab.previous(),
             ShortcutAction::LoadSong => {
                 if let Some(song) = FileOperations::load_song() {
-                    self.load_song_data(song);
+                    self.load_song_data(song, ctx);
                 }
             }
             ShortcutAction::SaveSong => FileOperations::save_song(&self.song, FileFormat::Json),
@@ -162,9 +171,8 @@ impl TrackerApp {
                 _ => {}
             }
         } else {
-            log::warn!(
-                "Audio not initialized; cannot add effects. Use Playback -> Initialize Audio."
-            );
+            // Attempt to initialize audio silently for a smoother UX
+            self.audio_manager.init_audio(&self.song);
         }
     }
 
@@ -301,6 +309,7 @@ impl Default for TrackerApp {
             theme_manager: ThemeManager::default(),
             show_shortcuts_window: false,
             side_panel: SidePanel::default(),
+            ui_state: UiState::default(),
         }
     }
 }
@@ -362,9 +371,15 @@ impl eframe::App for TrackerApp {
             ui.separator();
 
             match self.current_tab {
-                CurrentTab::Arrangement => self.arrangement_tab.show(ui, &mut self.song),
-                CurrentTab::Chains => self.chains_tab.show(ui, &mut self.song),
-                CurrentTab::Phrases => self.phrases_tab.show(ui, &mut self.song),
+                CurrentTab::Arrangement => {
+                    self.arrangement_tab
+                        .show(ui, &mut self.song, &mut self.ui_state)
+                }
+                CurrentTab::Chains => self.chains_tab.show(ui, &mut self.song, &mut self.ui_state),
+                CurrentTab::Phrases => {
+                    self.phrases_tab
+                        .show(ui, &mut self.song, &mut self.ui_state)
+                }
             }
         });
 
