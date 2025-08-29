@@ -35,6 +35,7 @@ impl InstrumentManagerWindow {
             return;
         }
         let mut to_add_osc = false;
+        let mut wave_updates: Vec<(u8, Waveform)> = Vec::new();
         egui::Window::new("Instruments")
             .open(&mut self.open)
             .resizable(true)
@@ -98,7 +99,7 @@ impl InstrumentManagerWindow {
                                             });
                                         if wf != params.waveform {
                                             params.waveform = wf;
-                                            // defer backend update after UI block to avoid borrow issues
+                                            wave_updates.push((inst.id as u8, wf));
                                         }
                                     });
                                 }
@@ -120,6 +121,10 @@ impl InstrumentManagerWindow {
                 }),
             });
             ensure_backend_osc(audio_mgr, id as u8, Waveform::Sine);
+        }
+        // Apply waveform updates to backend after UI draw
+        for (id_u8, wf) in wave_updates {
+            ensure_backend_osc(audio_mgr, id_u8, wf);
         }
     }
 }

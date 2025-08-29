@@ -17,7 +17,7 @@ pub fn hex_u8_editor(
 
     if response.changed() {
         // Keep only hex chars and cap to 2
-        let mut filtered: String = text
+        let filtered: String = text
             .chars()
             .filter(|c| c.is_ascii_hexdigit())
             .take(2)
@@ -54,7 +54,7 @@ pub fn hex_usize_with_sentinel_editor(
 
     if response.changed() {
         // Keep only hex chars and cap to 2
-        let mut filtered: String = text
+        let filtered: String = text
             .chars()
             .filter(|c| c.is_ascii_hexdigit())
             .take(2)

@@ -1,10 +1,8 @@
-use audio_backend::InstrumentDefinition;
 use eframe::egui;
 use sequencer::cli::FileFormat;
-use sequencer::models::{Instrument, InstrumentData, SimpleOscillatorParams, Song, Waveform};
+use sequencer::models::Song;
 
 use crate::audio::AudioManager;
-use crate::audio_utils::map_waveform_to_backend;
 use crate::file_ops::FileOperations;
 use crate::instrument_manager::InstrumentManagerWindow;
 use crate::menu::{MenuActions, MenuRenderer, ShortcutAction, ShortcutHandler};
@@ -12,9 +10,7 @@ use crate::tabs::{
     CurrentTab, arrangement::ArrangementTab, chains::ChainsTab, phrases::PhrasesTab,
 };
 use crate::theme::ThemeManager;
-use crate::ui_components::{
-    AvailableInstrument, EffectType, SidePanel, SidePanelAction, SongInfoEditor, TabSelector,
-};
+use crate::ui_components::{EffectType, SidePanel, SidePanelAction, SongInfoEditor, TabSelector};
 use crate::ui_state::UiState;
 pub struct TrackerApp {
     pub song: Song,
@@ -181,123 +177,6 @@ impl TrackerApp {
             self.audio_manager.init_audio(&self.song);
         }
     }
-
-    fn apply_instrument_to_selected_event(
-        &mut self,
-        instr: AvailableInstrument,
-        event_selection: Option<(usize, usize)>,
-    ) {
-        if let Some((phrase_idx, step_idx)) = event_selection {
-            if phrase_idx < self.song.phrase_bank.len()
-                && step_idx < self.song.phrase_bank[phrase_idx].events.len()
-            {
-                // Determine or allocate instrument id without holding a mutable borrow across self calls
-                let mut id_u8 = self.song.phrase_bank[phrase_idx].events[step_idx].instrument_id;
-                if id_u8 == 0 {
-                    let new_id = self.next_free_instrument_id();
-                    self.song.phrase_bank[phrase_idx].events[step_idx].instrument_id = new_id;
-                    id_u8 = new_id;
-                }
-                let id_usize = id_u8 as usize;
-
-                // Upsert instrument in song.instrument_bank
-                if !self.song.instrument_bank.iter().any(|i| i.id == id_usize) {
-                    let name = instr.name().to_string();
-                    let data = match instr {
-                        AvailableInstrument::Oscillator => {
-                            InstrumentData::SimpleOscillator(SimpleOscillatorParams {
-                                waveform: Waveform::Sine,
-                            })
-                        }
-                        AvailableInstrument::SamplePlayer => {
-                            // Placeholder mapping; sample support pending
-                            InstrumentData::SimpleOscillator(SimpleOscillatorParams {
-                                waveform: Waveform::Sine,
-                            })
-                        }
-                    };
-                    self.song.instrument_bank.push(Instrument {
-                        id: id_usize,
-                        name,
-                        data,
-                    });
-                }
-
-                // If audio is running, ensure instrument exists in engine
-                if let Some(audio) = &mut self.audio_manager.audio {
-                    if let Some(def) = instr.to_instrument_definition() {
-                        match def {
-                            InstrumentDefinition::Oscillator => {
-                                let id = audio_backend::id::InstrumentId::from(id_u8 as u32);
-                                // Determine waveform from song model for this instrument
-                                let waveform = self
-                                    .song
-                                    .instrument_bank
-                                    .iter()
-                                    .find(|i| i.id == id_usize)
-                                    .and_then(|i| match &i.data {
-                                        InstrumentData::SimpleOscillator(p) => Some(p.waveform),
-                                        _ => None,
-                                    })
-                                    .unwrap_or(Waveform::Sine);
-                                let backend_wave = map_waveform_to_backend(waveform);
-                                let instrument = audio
-                                    .get_instrument_factory()
-                                    .create_oscillator_with_waveform(id, 0.0, backend_wave);
-                                audio.send_command(
-                                    audio_backend::SequencerCmd::AddTrackInstrument { instrument }
-                                        .into(),
-                                );
-                            }
-                            InstrumentDefinition::SamplePlayer(_sample_data) => todo!(),
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    fn next_free_instrument_id(&self) -> u8 {
-        for id in 1u16..=255u16 {
-            if !self
-                .song
-                .instrument_bank
-                .iter()
-                .any(|i| i.id == id as usize)
-            {
-                return id as u8;
-            }
-        }
-        1
-    }
-}
-
-impl TrackerApp {
-    fn set_oscillator_waveform(&mut self, instrument_id: u8, waveform: Waveform) {
-        let inst_id_usize = instrument_id as usize;
-        // Update song model
-        if let Some(inst) = self
-            .song
-            .instrument_bank
-            .iter_mut()
-            .find(|i| i.id == inst_id_usize)
-        {
-            if let InstrumentData::SimpleOscillator(params) = &mut inst.data {
-                params.waveform = waveform;
-            }
-        }
-        // Update audio engine instrument if running
-        if let Some(audio) = &mut self.audio_manager.audio {
-            let backend_wave = map_waveform_to_backend(waveform);
-            let id = audio_backend::id::InstrumentId::from(instrument_id as u32);
-            let instrument = audio
-                .get_instrument_factory()
-                .create_oscillator_with_waveform(id, 0.0, backend_wave);
-            audio.send_command(
-                audio_backend::SequencerCmd::AddTrackInstrument { instrument }.into(),
-            );
-        }
-    }
 }
 
 impl Default for TrackerApp {
@@ -346,17 +225,8 @@ impl eframe::App for TrackerApp {
                 .show(ctx, current_track, event_selection, &mut self.song)
         {
             match action {
-                SidePanelAction::AssignInstrumentToSelectedEvent(instr) => {
-                    self.apply_instrument_to_selected_event(instr, event_selection);
-                }
                 SidePanelAction::AddEffect(effect) => {
                     self.handle_effect_selection(effect, current_track, event_selection);
-                }
-                SidePanelAction::SetOscillatorWaveform {
-                    instrument_id,
-                    waveform,
-                } => {
-                    self.set_oscillator_waveform(instrument_id, waveform);
                 }
             }
         }
