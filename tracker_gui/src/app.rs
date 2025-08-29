@@ -6,6 +6,7 @@ use sequencer::models::{Instrument, InstrumentData, SimpleOscillatorParams, Song
 use crate::audio::AudioManager;
 use crate::audio_utils::map_waveform_to_backend;
 use crate::file_ops::FileOperations;
+use crate::instrument_manager::InstrumentManagerWindow;
 use crate::menu::{MenuActions, MenuRenderer, ShortcutAction, ShortcutHandler};
 use crate::tabs::{
     CurrentTab, arrangement::ArrangementTab, chains::ChainsTab, phrases::PhrasesTab,
@@ -32,6 +33,7 @@ pub struct TrackerApp {
     pub show_shortcuts_window: bool,
     pub side_panel: SidePanel,
     pub ui_state: UiState,
+    pub instrument_window: InstrumentManagerWindow,
 }
 
 impl TrackerApp {
@@ -97,6 +99,10 @@ impl TrackerApp {
 
         if actions.toggle_theme {
             self.theme_manager.toggle_theme(ctx);
+        }
+
+        if actions.show_instrument_manager {
+            self.instrument_window.open = true;
         }
     }
 
@@ -310,6 +316,7 @@ impl Default for TrackerApp {
             show_shortcuts_window: false,
             side_panel: SidePanel::default(),
             ui_state: UiState::default(),
+            instrument_window: InstrumentManagerWindow::default(),
         }
     }
 }
@@ -384,5 +391,9 @@ impl eframe::App for TrackerApp {
         });
 
         ShortcutHandler::show_shortcuts_window(ctx, &mut self.show_shortcuts_window);
+
+        // Instruments manager window
+        self.instrument_window
+            .show(ctx, &mut self.song, &mut self.audio_manager);
     }
 }

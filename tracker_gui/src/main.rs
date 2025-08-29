@@ -2,6 +2,7 @@ mod app;
 mod audio;
 mod audio_utils;
 mod file_ops;
+mod instrument_manager;
 mod menu;
 mod tabs;
 mod theme;

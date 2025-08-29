@@ -129,12 +129,44 @@ impl PhrasesTab {
                                 let _response =
                                     hex_u8_editor(ui, buf, &mut event.volume, text_height * 2.4);
                             });
-                            // Read-only instrument/effect column
+                            // Instrument assignment + effect display
                             row.col(|ui| {
-                                ui.label(format!(
-                                    "{:02X} / {:?}",
-                                    event.instrument_id, event.effect
-                                ));
+                                ui.horizontal(|ui| {
+                                    // Instrument selector
+                                    let current = event.instrument_id;
+                                    let selected_text = if current == 0 {
+                                        "--".to_string()
+                                    } else if let Some(inst) = song
+                                        .instrument_bank
+                                        .iter()
+                                        .find(|i| i.id == current as usize)
+                                    {
+                                        format!("{:02X} {}", current, inst.name)
+                                    } else {
+                                        format!("{:02X}", current)
+                                    };
+                                    egui::ComboBox::from_id_salt((
+                                        "evt_inst",
+                                        self.selected_phrase,
+                                        step,
+                                    ))
+                                    .width(140.0)
+                                    .selected_text(selected_text)
+                                    .show_ui(ui, |ui| {
+                                        if ui.selectable_label(current == 0, "--").clicked() {
+                                            event.instrument_id = 0;
+                                        }
+                                        for inst in &song.instrument_bank {
+                                            let id_u8 = (inst.id as u8).min(u8::MAX);
+                                            let label = format!("{:02X} {}", id_u8, inst.name);
+                                            let is_sel = current == id_u8;
+                                            if ui.selectable_label(is_sel, label).clicked() {
+                                                event.instrument_id = id_u8;
+                                            }
+                                        }
+                                    });
+                                    ui.label(format!("FX: {:?}", event.effect));
+                                });
                             });
                         });
                     }
