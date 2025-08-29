@@ -1,4 +1,7 @@
-use audio_backend::{BlightAudio, InstrumentDefinition, SequencerCmd, TransportCmd};
+use crate::audio_utils::map_waveform_to_backend;
+use audio_backend::{
+    BlightAudio, InstrumentDefinition, SequencerCmd, TransportCmd, Waveform as BackendWaveform,
+};
 use sequencer::models::{InstrumentData, Song};
 use std::sync::Arc;
 
@@ -77,9 +80,16 @@ impl AudioManager {
                 match def {
                     InstrumentDefinition::Oscillator => {
                         let id = audio_backend::id::InstrumentId::from(inst.id as u32);
+                        // Map waveform from sequencer model if present
+                        let wf = match &inst.data {
+                            InstrumentData::SimpleOscillator(p) => {
+                                map_waveform_to_backend(p.waveform)
+                            }
+                            _ => BackendWaveform::Sine,
+                        };
                         let instrument = audio
                             .get_instrument_factory()
-                            .create_simple_oscillator(id, 0.0);
+                            .create_oscillator_with_waveform(id, 0.0, wf);
                         audio.send_command(SequencerCmd::AddTrackInstrument { instrument }.into());
                     }
                     InstrumentDefinition::SamplePlayer(_sample_data) => todo!(),
