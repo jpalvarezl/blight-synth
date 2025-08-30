@@ -8,7 +8,7 @@ pub struct MenuActions {
     pub save_binary: bool,
     pub quit: bool,
     pub toggle_playback: bool,
-    pub init_audio: bool,
+    pub show_instrument_manager: bool,
     pub show_shortcuts: bool,
     pub toggle_theme: bool,
 }
@@ -22,7 +22,7 @@ impl Default for MenuActions {
             save_binary: false,
             quit: false,
             toggle_playback: false,
-            init_audio: false,
+            show_instrument_manager: false,
             show_shortcuts: false,
             toggle_theme: false,
         }
@@ -83,11 +83,12 @@ impl MenuRenderer {
                     actions.toggle_playback = true;
                     ui.close();
                 }
+            });
 
-                ui.separator();
-
-                if ui.button("🔄 Initialize Audio").clicked() {
-                    actions.init_audio = true;
+            // Instruments menu
+            ui.menu_button("Instruments", |ui| {
+                if ui.button("Manage Instruments…").clicked() {
+                    actions.show_instrument_manager = true;
                     ui.close();
                 }
             });

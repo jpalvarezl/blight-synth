@@ -1,4 +1,5 @@
 use crate::ui_components::hex_usize_with_sentinel_editor;
+use crate::ui_state::UiState;
 use eframe::egui;
 use egui_extras::{Column, TableBuilder};
 use sequencer::models::{MAX_TRACKS, Song};
@@ -25,7 +26,7 @@ impl ArrangementTab {
         self.current_track = 0;
     }
 
-    pub fn show(&mut self, ui: &mut egui::Ui, song: &mut Song) {
+    pub fn show(&mut self, ui: &mut egui::Ui, song: &mut Song, ui_state: &mut UiState) {
         ui.label(egui::RichText::new("Arrangement").heading());
         ui.add_space(4.0);
 
@@ -94,8 +95,18 @@ impl ArrangementTab {
                         for track in 0..MAX_TRACKS {
                             row.col(|ui| {
                                 let chain_idx = &mut song_row.chain_indices[track];
+                                let key = (row_idx, track);
+                                let buf =
+                                    ui_state.arrangement_chain.entry(key).or_insert_with(|| {
+                                        if *chain_idx == usize::MAX {
+                                            String::new()
+                                        } else {
+                                            format!("{:X}", *chain_idx as u8)
+                                        }
+                                    });
                                 let response = hex_usize_with_sentinel_editor(
                                     ui,
+                                    buf,
                                     chain_idx,
                                     usize::MAX,
                                     text_height * 2.4,

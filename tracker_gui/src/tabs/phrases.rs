@@ -1,4 +1,5 @@
 use crate::ui_components::hex_u8_editor;
+use crate::ui_state::UiState;
 use eframe::egui;
 use egui_extras::{Column, TableBuilder};
 use sequencer::models::{Phrase, Song};
@@ -15,7 +16,7 @@ impl PhrasesTab {
         self.selected_event_step = None;
     }
 
-    pub fn show(&mut self, ui: &mut egui::Ui, song: &mut Song) {
+    pub fn show(&mut self, ui: &mut egui::Ui, song: &mut Song, ui_state: &mut UiState) {
         ui.horizontal(|ui| {
             ui.label(format!("Phrases: {} total", song.phrase_bank.len()));
             if ui.button("Add Phrase").clicked() {
@@ -104,26 +105,68 @@ impl PhrasesTab {
                             });
                             // Note editable
                             row.col(|ui| {
-                                let mut v = event.note;
-                                let response = hex_u8_editor(ui, &mut v, text_height * 2.4);
-                                if response.changed() {
-                                    event.note = v;
-                                }
+                                let key = (self.selected_phrase, step);
+                                let buf = ui_state.phrases_note.entry(key).or_insert_with(|| {
+                                    if event.note == 0 {
+                                        String::new()
+                                    } else {
+                                        format!("{:X}", event.note)
+                                    }
+                                });
+                                let _response =
+                                    hex_u8_editor(ui, buf, &mut event.note, text_height * 2.4);
                             });
                             // Volume editable
                             row.col(|ui| {
-                                let mut v = event.volume;
-                                let response = hex_u8_editor(ui, &mut v, text_height * 2.4);
-                                if response.changed() {
-                                    event.volume = v;
-                                }
+                                let key = (self.selected_phrase, step);
+                                let buf = ui_state.phrases_vol.entry(key).or_insert_with(|| {
+                                    if event.volume == 0 {
+                                        String::new()
+                                    } else {
+                                        format!("{:X}", event.volume)
+                                    }
+                                });
+                                let _response =
+                                    hex_u8_editor(ui, buf, &mut event.volume, text_height * 2.4);
                             });
-                            // Read-only instrument/effect column
+                            // Instrument assignment + effect display
                             row.col(|ui| {
-                                ui.label(format!(
-                                    "{:02X} / {:?}",
-                                    event.instrument_id, event.effect
-                                ));
+                                ui.horizontal(|ui| {
+                                    // Instrument selector
+                                    let current = event.instrument_id;
+                                    let selected_text = if current == 0 {
+                                        "--".to_string()
+                                    } else if let Some(inst) = song
+                                        .instrument_bank
+                                        .iter()
+                                        .find(|i| i.id == current as usize)
+                                    {
+                                        format!("{:02X} {}", current, inst.name)
+                                    } else {
+                                        format!("{:02X}", current)
+                                    };
+                                    egui::ComboBox::from_id_salt((
+                                        "evt_inst",
+                                        self.selected_phrase,
+                                        step,
+                                    ))
+                                    .width(140.0)
+                                    .selected_text(selected_text)
+                                    .show_ui(ui, |ui| {
+                                        if ui.selectable_label(current == 0, "--").clicked() {
+                                            event.instrument_id = 0;
+                                        }
+                                        for inst in &song.instrument_bank {
+                                            let id_u8 = (inst.id as u8).min(u8::MAX);
+                                            let label = format!("{:02X} {}", id_u8, inst.name);
+                                            let is_sel = current == id_u8;
+                                            if ui.selectable_label(is_sel, label).clicked() {
+                                                event.instrument_id = id_u8;
+                                            }
+                                        }
+                                    });
+                                    ui.label(format!("FX: {:?}", event.effect));
+                                });
                             });
                         });
                     }

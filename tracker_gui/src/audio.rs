@@ -35,6 +35,20 @@ impl AudioManager {
         }
     }
 
+    pub fn reset_with_song(&mut self, song: &Song) {
+        match BlightAudio::with_song(Arc::new(song.clone())) {
+            Ok(mut audio) => {
+                self.hydrate_from_song(&mut audio, song);
+                self.audio = Some(audio);
+                self.is_playing = false;
+                log::info!("Audio system reset for loaded song");
+            }
+            Err(e) => {
+                log::error!("Failed to reset audio system: {}", e);
+            }
+        }
+    }
+
     pub fn play_song(&mut self, song: &Song) {
         self.init_audio(song);
 
