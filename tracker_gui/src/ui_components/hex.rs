@@ -22,13 +22,13 @@ pub fn hex_u8_editor(
             .filter(|c| c.is_ascii_hexdigit())
             .take(2)
             .collect();
-        if &filtered != buf {
-            *buf = filtered.clone();
-        }
         if filtered.is_empty() {
             *v = 0;
         } else if let Ok(parsed) = u8::from_str_radix(&filtered, 16) {
             *v = parsed;
+        }
+        if filtered != *buf {
+            *buf = filtered;
         }
     }
 
@@ -59,13 +59,13 @@ pub fn hex_usize_with_sentinel_editor(
             .filter(|c| c.is_ascii_hexdigit())
             .take(2)
             .collect();
-        if &filtered != buf {
-            *buf = filtered.clone();
-        }
         if filtered.is_empty() {
             *v = sentinel;
         } else if let Ok(parsed) = u8::from_str_radix(&filtered, 16) {
             *v = parsed as usize;
+        }
+        if filtered != *buf {
+            *buf = filtered;
         }
     }
 

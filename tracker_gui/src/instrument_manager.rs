@@ -20,6 +20,16 @@ fn ensure_backend_osc(audio_mgr: &mut AudioManager, id_u8: u8, wf: Waveform) {
     }
 }
 
+fn waveform_display_name(w: Waveform) -> &'static str {
+    match w {
+        Waveform::Sine => "Sine",
+        Waveform::Square => "Square",
+        Waveform::Sawtooth => "Sawtooth",
+        Waveform::Triangle => "Triangle",
+        Waveform::NesTriangle => "NES Triangle",
+    }
+}
+
 impl InstrumentManagerWindow {
     fn next_free_instrument_id(song: &Song) -> u8 {
         for id in 1u16..=255u16 {
@@ -62,14 +72,8 @@ impl InstrumentManagerWindow {
                                     ui.horizontal(|ui| {
                                         ui.label("Waveform:");
                                         let mut wf = params.waveform;
-                                        egui::ComboBox::from_id_salt(("wf", inst.id))
-                                            .selected_text(match wf {
-                                                Waveform::Sine => "Sine",
-                                                Waveform::Square => "Square",
-                                                Waveform::Sawtooth => "Sawtooth",
-                                                Waveform::Triangle => "Triangle",
-                                                Waveform::NesTriangle => "NES Triangle",
-                                            })
+egui::ComboBox::from_id_salt(("wf", inst.id))
+                                            .selected_text(waveform_display_name(wf))
                                             .show_ui(ui, |ui| {
                                                 for w in [
                                                     Waveform::Sine,
@@ -81,15 +85,7 @@ impl InstrumentManagerWindow {
                                                     if ui
                                                         .selectable_label(
                                                             wf == w,
-                                                            match w {
-                                                                Waveform::Sine => "Sine",
-                                                                Waveform::Square => "Square",
-                                                                Waveform::Sawtooth => "Sawtooth",
-                                                                Waveform::Triangle => "Triangle",
-                                                                Waveform::NesTriangle => {
-                                                                    "NES Triangle"
-                                                                }
-                                                            },
+waveform_display_name(w),
                                                         )
                                                         .clicked()
                                                     {
