@@ -72,7 +72,7 @@ impl InstrumentManagerWindow {
                                     ui.horizontal(|ui| {
                                         ui.label("Waveform:");
                                         let mut wf = params.waveform;
-egui::ComboBox::from_id_salt(("wf", inst.id))
+                                        egui::ComboBox::from_id_salt(("wf", inst.id))
                                             .selected_text(waveform_display_name(wf))
                                             .show_ui(ui, |ui| {
                                                 for w in [
@@ -85,7 +85,7 @@ egui::ComboBox::from_id_salt(("wf", inst.id))
                                                     if ui
                                                         .selectable_label(
                                                             wf == w,
-waveform_display_name(w),
+                                                            waveform_display_name(w),
                                                         )
                                                         .clicked()
                                                     {
