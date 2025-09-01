@@ -83,7 +83,7 @@ pub struct SampleData {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 pub enum AudioEffect {
-    Reverb { room_size: f32, damping: f32 },
+    Reverb { wet_mix: f32, dry_mix: f32, feedback: f32, damping: f32 },
     Delay { time: f32, feedback: f32 }
 //     Distortion { gain: f32, mix: f32 },
 //     Chorus { depth: f32, rate: f32 },
