@@ -114,6 +114,7 @@ impl InstrumentManagerWindow {
                 name: format!("Osc {:02X}", id as u8),
                 data: InstrumentData::SimpleOscillator(SimpleOscillatorParams {
                     waveform: Waveform::Sine,
+                    audio_effects: Vec::new(),
                 }),
             });
             ensure_backend_osc(audio_mgr, id as u8, Waveform::Sine);
