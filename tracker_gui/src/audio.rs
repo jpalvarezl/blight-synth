@@ -94,17 +94,40 @@ impl AudioManager {
                 match def {
                     InstrumentDefinition::Oscillator => {
                         let id = audio_backend::id::InstrumentId::from(inst.id as u32);
-                        // Map waveform from sequencer model if present
-                        let wf = match &inst.data {
+                        // Map waveform from sequencer model and capture effects
+                        let (wf, effects_cfg) = match &inst.data {
                             InstrumentData::SimpleOscillator(p) => {
-                                map_waveform_to_backend(p.waveform)
+                                (map_waveform_to_backend(p.waveform), Some(&p.audio_effects))
                             }
-                            _ => BackendWaveform::Sine,
+                            _ => (BackendWaveform::Sine, None),
                         };
                         let instrument = audio
                             .get_instrument_factory()
                             .create_oscillator_with_waveform(id, 0.0, wf);
+                        // Replace/add instrument
                         audio.send_command(SequencerCmd::AddTrackInstrument { instrument }.into());
+
+                        // Apply mono insert effects for this monophonic instrument
+                        if let Some(effects) = effects_cfg {
+                            for eff in effects.iter() {
+                                if let sequencer::models::AudioEffect::Reverb { wet_mix, dry_mix, feedback, damping } = eff {
+                                    let mut r = audio.get_effect_factory().create_mono_reverb();
+                                    let total = (wet_mix + dry_mix).max(1e-6);
+                                    let wet_ratio = (wet_mix / total).clamp(0.0, 1.0);
+                                    audio_backend::MonoEffect::set_parameter(&mut *r, 0, 1.0);
+                                    audio_backend::MonoEffect::set_parameter(&mut *r, 1, wet_ratio);
+                                    audio_backend::MonoEffect::set_parameter(&mut *r, 2, (*feedback).clamp(0.0, 0.99));
+                                    audio_backend::MonoEffect::set_parameter(&mut *r, 3, (*damping).clamp(0.0, 1.0));
+                                    audio.send_command(
+                                        SequencerCmd::AddEffectToInstrument {
+                                            instrument_id: id,
+                                            effect: r,
+                                        }
+                                        .into(),
+                                    );
+                                }
+                            }
+                        }
                     }
                     InstrumentDefinition::SamplePlayer(_sample_data) => todo!(),
                 }
