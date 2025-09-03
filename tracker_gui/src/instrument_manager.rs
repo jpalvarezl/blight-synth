@@ -1,5 +1,7 @@
 use eframe::egui;
-use sequencer::models::{AudioEffect, Instrument, InstrumentData, SimpleOscillatorParams, Song, Waveform};
+use sequencer::models::{
+    AudioEffect, Instrument, InstrumentData, SimpleOscillatorParams, Song, Waveform,
+};
 
 use crate::audio::AudioManager;
 use crate::audio_utils::map_waveform_to_backend;
@@ -27,7 +29,12 @@ fn ensure_backend_osc_with_params(
         // Configure mono insert effects from params
         for eff in &params.audio_effects {
             match eff {
-                AudioEffect::Reverb { wet_mix, dry_mix, feedback, damping } => {
+                AudioEffect::Reverb {
+                    wet_mix,
+                    dry_mix,
+                    feedback,
+                    damping,
+                } => {
                     let mut r = audio.get_effect_factory().create_mono_reverb();
                     // Compute wet/dry ratio
                     let total = (*wet_mix + *dry_mix).max(1e-6);
@@ -139,41 +146,70 @@ impl InstrumentManagerWindow {
                                     let mut has_reverb = false;
                                     let mut to_remove_reverb = false;
                                     for eff in params.audio_effects.iter_mut() {
-                                        if let AudioEffect::Reverb { wet_mix, dry_mix, feedback, damping } = eff {
+                                        if let AudioEffect::Reverb {
+                                            wet_mix,
+                                            dry_mix,
+                                            feedback,
+                                            damping,
+                                        } = eff
+                                        {
                                             has_reverb = true;
                                             // Namespace all inner widgets by instrument id to avoid ID clashes
                                             ui.push_id(("reverb", inst.id as u32), |ui| {
-                                                egui::CollapsingHeader::new(format!("Reverb {:02X}", inst.id as u8))
-                                                    .id_source(("reverb_hdr", inst.id as u32))
-                                                    .show(ui, |ui| {
-                                                        let mut changed = false;
-                                                        let mut w = *wet_mix;
-                                                        let mut d = *dry_mix;
-                                                        let mut fb = *feedback;
-                                                        let mut dp = *damping;
-                                                        ui.horizontal(|ui| {
-                                                            ui.label("Wet");
-                                                            changed |= ui.add(egui::Slider::new(&mut w, 0.0..=1.0)).changed();
-                                                            ui.label("Dry");
-                                                            changed |= ui.add(egui::Slider::new(&mut d, 0.0..=1.0)).changed();
-                                                        });
-                                                        ui.horizontal(|ui| {
-                                                            ui.label("Feedback");
-                                                            changed |= ui.add(egui::Slider::new(&mut fb, 0.0..=0.99)).changed();
-                                                            ui.label("Damping");
-                                                            changed |= ui.add(egui::Slider::new(&mut dp, 0.0..=1.0)).changed();
-                                                        });
-                                                        if changed {
-                                                            *wet_mix = w;
-                                                            *dry_mix = d;
-                                                            *feedback = fb;
-                                                            *damping = dp;
-                                                            rehydrate_ids.push(inst.id as u8);
-                                                        }
-                                                        if ui.button("Remove Reverb").clicked() {
-                                                            to_remove_reverb = true;
-                                                        }
+                                                egui::CollapsingHeader::new(format!(
+                                                    "Reverb {:02X}",
+                                                    inst.id as u8
+                                                ))
+                                                .id_source(("reverb_hdr", inst.id as u32))
+                                                .show(ui, |ui| {
+                                                    let mut changed = false;
+                                                    let mut w = *wet_mix;
+                                                    let mut d = *dry_mix;
+                                                    let mut fb = *feedback;
+                                                    let mut dp = *damping;
+                                                    ui.horizontal(|ui| {
+                                                        ui.label("Wet");
+                                                        changed |= ui
+                                                            .add(egui::Slider::new(
+                                                                &mut w,
+                                                                0.0..=1.0,
+                                                            ))
+                                                            .changed();
+                                                        ui.label("Dry");
+                                                        changed |= ui
+                                                            .add(egui::Slider::new(
+                                                                &mut d,
+                                                                0.0..=1.0,
+                                                            ))
+                                                            .changed();
                                                     });
+                                                    ui.horizontal(|ui| {
+                                                        ui.label("Feedback");
+                                                        changed |= ui
+                                                            .add(egui::Slider::new(
+                                                                &mut fb,
+                                                                0.0..=0.99,
+                                                            ))
+                                                            .changed();
+                                                        ui.label("Damping");
+                                                        changed |= ui
+                                                            .add(egui::Slider::new(
+                                                                &mut dp,
+                                                                0.0..=1.0,
+                                                            ))
+                                                            .changed();
+                                                    });
+                                                    if changed {
+                                                        *wet_mix = w;
+                                                        *dry_mix = d;
+                                                        *feedback = fb;
+                                                        *damping = dp;
+                                                        rehydrate_ids.push(inst.id as u8);
+                                                    }
+                                                    if ui.button("Remove Reverb").clicked() {
+                                                        to_remove_reverb = true;
+                                                    }
+                                                });
                                             });
                                         }
                                     }
@@ -218,7 +254,9 @@ impl InstrumentManagerWindow {
                 }),
             });
             // Create in backend with current params (no effects yet)
-            if let InstrumentData::SimpleOscillator(ref params) = song.instrument_bank.last().unwrap().data {
+            if let InstrumentData::SimpleOscillator(ref params) =
+                song.instrument_bank.last().unwrap().data
+            {
                 ensure_backend_osc_with_params(audio_mgr, id as u8, params);
             }
         }

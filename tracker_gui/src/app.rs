@@ -148,11 +148,11 @@ impl TrackerApp {
                             self.song.phrase_bank[phrase_idx].events[step_idx].instrument_id as u32;
                         if inst_id != 0 {
                             // Monophonic instrument: add a single reverb effect instance
-                            let r = audio.get_effect_factory().create_mono_reverb();
+                            let effect = audio.get_effect_factory().create_mono_reverb();
                             audio.send_command(
                                 audio_backend::SequencerCmd::AddEffectToInstrument {
                                     instrument_id: audio_backend::id::InstrumentId::from(inst_id),
-                                    effect: r,
+                                    effect,
                                 }
                                 .into(),
                             );

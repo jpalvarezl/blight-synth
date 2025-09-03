@@ -110,14 +110,28 @@ impl AudioManager {
                         // Apply mono insert effects for this monophonic instrument
                         if let Some(effects) = effects_cfg {
                             for eff in effects.iter() {
-                                if let sequencer::models::AudioEffect::Reverb { wet_mix, dry_mix, feedback, damping } = eff {
+                                if let sequencer::models::AudioEffect::Reverb {
+                                    wet_mix,
+                                    dry_mix,
+                                    feedback,
+                                    damping,
+                                } = eff
+                                {
                                     let mut r = audio.get_effect_factory().create_mono_reverb();
                                     let total = (wet_mix + dry_mix).max(1e-6);
                                     let wet_ratio = (wet_mix / total).clamp(0.0, 1.0);
                                     audio_backend::MonoEffect::set_parameter(&mut *r, 0, 1.0);
                                     audio_backend::MonoEffect::set_parameter(&mut *r, 1, wet_ratio);
-                                    audio_backend::MonoEffect::set_parameter(&mut *r, 2, (*feedback).clamp(0.0, 0.99));
-                                    audio_backend::MonoEffect::set_parameter(&mut *r, 3, (*damping).clamp(0.0, 1.0));
+                                    audio_backend::MonoEffect::set_parameter(
+                                        &mut *r,
+                                        2,
+                                        (*feedback).clamp(0.0, 0.99),
+                                    );
+                                    audio_backend::MonoEffect::set_parameter(
+                                        &mut *r,
+                                        3,
+                                        (*damping).clamp(0.0, 1.0),
+                                    );
                                     audio.send_command(
                                         SequencerCmd::AddEffectToInstrument {
                                             instrument_id: id,
