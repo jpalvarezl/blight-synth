@@ -117,6 +117,7 @@ impl Reverb {
     }
     
     // Adjust room size by scaling all delay times
+    // Warning: this method calls resize which is a violation of our realtime constraints.
     pub fn set_room_size(&mut self, size: f32, sample_rate: f32) {
         // size: 0.5 = small room, 1.0 = normal, 2.0 = large hall
         let base_delays_ms = [29.7, 37.1, 41.1, 43.7];
@@ -137,7 +138,7 @@ impl Reverb {
         }
     }
 
-        // Adjust high frequency damping (simulates air absorption)
+    // Adjust high frequency damping (simulates air absorption)
     pub fn set_damping(&mut self, damping: f32) {
         // damping: 0.0 = bright, 1.0 = very dark
         // Reduce feedback for shorter delays (higher frequencies) more than longer ones
