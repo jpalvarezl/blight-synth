@@ -6,7 +6,7 @@ pub mod side_panel;
 pub use side_panel::{EffectType, SidePanel, SidePanelAction};
 
 pub mod hex;
-pub use hex::{hex_u8_editor, hex_usize_with_sentinel_editor};
+pub use hex::{dec_u8_editor, hex_u8_editor, hex_usize_with_sentinel_editor};
 
 pub struct SongInfoEditor;
 
