@@ -37,9 +37,6 @@ pub trait InstrumentTrait: Send + Sync {
         // ArrayVec with fixed capacity, dropping it does not deallocate heap memory.
     }
 
-    /// Report instrument polyphony (number of simultaneously managed voices).
-    /// Default is 1 (monophonic).
-    fn polyphony(&self) -> usize {
-        1
-    }
+    /// Set a parameter on one of the instrument's effects.
+    fn set_effect_parameter(&mut self, effect_index: usize, param_index: u32, value: f32);
 }

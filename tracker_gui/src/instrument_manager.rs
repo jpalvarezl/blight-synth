@@ -30,20 +30,21 @@ fn ensure_backend_osc_with_params(
         for eff in &params.audio_effects {
             match eff {
                 AudioEffect::Reverb {
-                    wet_mix,
-                    dry_mix,
-                    feedback,
+                    wet_gain,
+                    dry_gain,
+                    decay_time,
+                    room_size,
+                    diffusion,
                     damping,
                 } => {
                     let mut r = audio.get_effect_factory().create_mono_reverb();
-                    // Compute wet/dry ratio
-                    let total = (*wet_mix + *dry_mix).max(1e-6);
-                    let wet_ratio = (*wet_mix / total).clamp(0.0, 1.0);
                     // Set parameters on the effect (MonoEffect trait is in audio_backend)
-                    audio_backend::MonoEffect::set_parameter(&mut *r, 0, 1.0); // wet level
-                    audio_backend::MonoEffect::set_parameter(&mut *r, 1, wet_ratio);
-                    audio_backend::MonoEffect::set_parameter(&mut *r, 2, feedback.clamp(0.0, 0.99));
-                    audio_backend::MonoEffect::set_parameter(&mut *r, 3, damping.clamp(0.0, 1.0));
+                    audio_backend::MonoEffect::set_parameter(&mut *r, 0, *wet_gain); // wet level
+                    audio_backend::MonoEffect::set_parameter(&mut *r, 1, *dry_gain);
+                    audio_backend::MonoEffect::set_parameter(&mut *r, 2, *decay_time);
+                    audio_backend::MonoEffect::set_parameter(&mut *r, 3, *room_size);
+                    audio_backend::MonoEffect::set_parameter(&mut *r, 4, *damping);
+                    audio_backend::MonoEffect::set_parameter(&mut *r, 5, *diffusion);
 
                     audio.send_command(
                         audio_backend::SequencerCmd::AddEffectToInstrument {
@@ -147,9 +148,11 @@ impl InstrumentManagerWindow {
                                     let mut to_remove_reverb = false;
                                     for eff in params.audio_effects.iter_mut() {
                                         if let AudioEffect::Reverb {
-                                            wet_mix,
-                                            dry_mix,
-                                            feedback,
+                                            wet_gain,
+                                            dry_gain,
+                                            decay_time,
+                                            room_size,
+                                            diffusion,
                                             damping,
                                         } = eff
                                         {
@@ -160,50 +163,70 @@ impl InstrumentManagerWindow {
                                                     "Reverb {:02X}",
                                                     inst.id as u8
                                                 ))
-                                                .id_source(("reverb_hdr", inst.id as u32))
+                                                .id_salt(("reverb_hdr", inst.id as u32))
                                                 .show(ui, |ui| {
                                                     let mut changed = false;
-                                                    let mut w = *wet_mix;
-                                                    let mut d = *dry_mix;
-                                                    let mut fb = *feedback;
-                                                    let mut dp = *damping;
+                                                    let mut wg = *wet_gain;
+                                                    let mut dg = *dry_gain;
+                                                    let mut dec = *decay_time;
+                                                    let mut rs = *room_size;
+                                                    let mut diff = *diffusion;
+                                                    let mut damp = *damping;
                                                     ui.horizontal(|ui| {
                                                         ui.label("Wet");
                                                         changed |= ui
                                                             .add(egui::Slider::new(
-                                                                &mut w,
+                                                                &mut wg,
                                                                 0.0..=1.0,
                                                             ))
                                                             .changed();
                                                         ui.label("Dry");
                                                         changed |= ui
                                                             .add(egui::Slider::new(
-                                                                &mut d,
+                                                                &mut dg,
                                                                 0.0..=1.0,
                                                             ))
                                                             .changed();
                                                     });
                                                     ui.horizontal(|ui| {
-                                                        ui.label("Feedback");
+                                                        ui.label("Decay");
                                                         changed |= ui
                                                             .add(egui::Slider::new(
-                                                                &mut fb,
-                                                                0.0..=0.99,
+                                                                &mut dec,
+                                                                0.0..=1.0,
                                                             ))
                                                             .changed();
                                                         ui.label("Damping");
                                                         changed |= ui
                                                             .add(egui::Slider::new(
-                                                                &mut dp,
+                                                                &mut damp,
+                                                                0.0..=1.0,
+                                                            ))
+                                                            .changed();
+                                                    });
+                                                    ui.horizontal(|ui| {
+                                                        ui.label("Room Size");
+                                                        changed |= ui
+                                                            .add(egui::Slider::new(
+                                                                &mut rs,
+                                                                0.5..=2.0,
+                                                            ))
+                                                            .changed();
+                                                        ui.label("Diffusion");
+                                                        changed |= ui
+                                                            .add(egui::Slider::new(
+                                                                &mut diff,
                                                                 0.0..=1.0,
                                                             ))
                                                             .changed();
                                                     });
                                                     if changed {
-                                                        *wet_mix = w;
-                                                        *dry_mix = d;
-                                                        *feedback = fb;
-                                                        *damping = dp;
+                                                        *wet_gain = wg;
+                                                        *dry_gain = dg;
+                                                        *decay_time = dec;
+                                                        *room_size = rs;
+                                                        *diffusion = diff;
+                                                        *damping = damp;
                                                         rehydrate_ids.push(inst.id as u8);
                                                     }
                                                     if ui.button("Remove Reverb").clicked() {
@@ -225,9 +248,11 @@ impl InstrumentManagerWindow {
                                         ui.push_id(("add_reverb", inst.id as u32), |ui| {
                                             if ui.button("Add Reverb").clicked() {
                                                 params.audio_effects.push(AudioEffect::Reverb {
-                                                    wet_mix: 0.3,
-                                                    dry_mix: 0.7,
-                                                    feedback: 0.6,
+                                                    wet_gain: 0.3,
+                                                    dry_gain: 0.7,
+                                                    decay_time: 0.6,
+                                                    room_size: 1.0,
+                                                    diffusion: 1.0,
                                                     damping: 0.2,
                                                 });
                                                 rehydrate_ids.push(inst.id as u8);
