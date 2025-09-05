@@ -80,6 +80,8 @@ impl InstrumentTrait for MonophonicOscillator {
     }
 
     fn set_effect_parameter(&mut self, effect_index: usize, param_index: u32, value: f32) {
-        self.voice.inner.set_effect_parameter(effect_index, param_index, value);
+        self.voice
+            .inner
+            .set_effect_parameter(effect_index, param_index, value);
     }
 }

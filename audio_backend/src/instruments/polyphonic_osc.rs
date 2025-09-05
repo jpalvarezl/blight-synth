@@ -115,7 +115,9 @@ impl InstrumentTrait for PolyphonicOscillator {
 
     fn set_effect_parameter(&mut self, effect_index: usize, param_index: u32, value: f32) {
         for voice in &mut self.voices {
-            voice.inner.set_effect_parameter(effect_index, param_index, value);
+            voice
+                .inner
+                .set_effect_parameter(effect_index, param_index, value);
         }
     }
 }

@@ -52,7 +52,11 @@ pub fn dec_u8_editor(
 
     if response.changed() {
         // Keep only digits and cap to 3
-        let filtered: String = text.chars().filter(|c| c.is_ascii_digit()).take(3).collect();
+        let filtered: String = text
+            .chars()
+            .filter(|c| c.is_ascii_digit())
+            .take(3)
+            .collect();
         if filtered.is_empty() {
             *v = 0;
         } else if let Ok(parsed) = filtered.parse::<u16>() {

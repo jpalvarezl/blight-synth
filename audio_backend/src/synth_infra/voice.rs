@@ -137,7 +137,8 @@ impl<S: SynthNode> VoiceTrait for Voice<S> {
     }
 
     fn set_effect_parameter(&mut self, effect_index: usize, param_index: u32, value: f32) {
-        self.effect_chain.set_effect_parameter(effect_index, param_index, value);
+        self.effect_chain
+            .set_effect_parameter(effect_index, param_index, value);
     }
 }
 
