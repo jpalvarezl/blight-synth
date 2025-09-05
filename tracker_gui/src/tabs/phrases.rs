@@ -1,4 +1,4 @@
-use crate::ui_components::hex_u8_editor;
+use crate::ui_components::{dec_u8_editor, hex_u8_editor};
 use crate::ui_state::UiState;
 use eframe::egui;
 use egui_extras::{Column, TableBuilder};
@@ -110,11 +110,11 @@ impl PhrasesTab {
                                     if event.note == 0 {
                                         String::new()
                                     } else {
-                                        format!("{:X}", event.note)
+                                        format!("{}", event.note)
                                     }
                                 });
                                 let _response =
-                                    hex_u8_editor(ui, buf, &mut event.note, text_height * 2.4);
+                                    dec_u8_editor(ui, buf, &mut event.note, text_height * 2.4);
                             });
                             // Volume editable
                             row.col(|ui| {

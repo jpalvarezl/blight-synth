@@ -1,12 +1,12 @@
 {
     "name": "New Song",
-    "initial_bpm": 120,
+    "initial_bpm": 180,
     "initial_speed": 6,
     "arrangement": [
         {
             "chain_indices": [
                 0,
-                1,
+                18446744073709551615,
                 18446744073709551615,
                 18446744073709551615,
                 18446744073709551615,
@@ -20,6 +20,27 @@
         {
             "events": [
                 {
+                    "note": 43,
+                    "volume": 0,
+                    "instrument_id": 1,
+                    "effect": "Arpeggio",
+                    "effect_param": 0
+                },
+                {
+                    "note": 50,
+                    "volume": 0,
+                    "instrument_id": 1,
+                    "effect": "Arpeggio",
+                    "effect_param": 0
+                },
+                {
+                    "note": 46,
+                    "volume": 0,
+                    "instrument_id": 1,
+                    "effect": "Arpeggio",
+                    "effect_param": 0
+                },
+                {
                     "note": 53,
                     "volume": 0,
                     "instrument_id": 1,
@@ -27,7 +48,7 @@
                     "effect_param": 0
                 },
                 {
-                    "note": 51,
+                    "note": 50,
                     "volume": 0,
                     "instrument_id": 1,
                     "effect": "Arpeggio",
@@ -41,35 +62,14 @@
                     "effect_param": 0
                 },
                 {
-                    "note": 0,
-                    "volume": 0,
-                    "instrument_id": 0,
-                    "effect": "Arpeggio",
-                    "effect_param": 0
-                },
-                {
-                    "note": 0,
-                    "volume": 0,
-                    "instrument_id": 0,
-                    "effect": "Arpeggio",
-                    "effect_param": 0
-                },
-                {
-                    "note": 0,
-                    "volume": 0,
-                    "instrument_id": 0,
-                    "effect": "Arpeggio",
-                    "effect_param": 0
-                },
-                {
-                    "note": 52,
+                    "note": 53,
                     "volume": 0,
                     "instrument_id": 1,
                     "effect": "Arpeggio",
                     "effect_param": 0
                 },
                 {
-                    "note": 54,
+                    "note": 58,
                     "volume": 0,
                     "instrument_id": 1,
                     "effect": "Arpeggio",
@@ -83,6 +83,27 @@
                     "effect_param": 0
                 },
                 {
+                    "note": 62,
+                    "volume": 0,
+                    "instrument_id": 1,
+                    "effect": "Arpeggio",
+                    "effect_param": 0
+                },
+                {
+                    "note": 58,
+                    "volume": 0,
+                    "instrument_id": 1,
+                    "effect": "Arpeggio",
+                    "effect_param": 0
+                },
+                {
+                    "note": 65,
+                    "volume": 0,
+                    "instrument_id": 1,
+                    "effect": "Arpeggio",
+                    "effect_param": 0
+                },
+                {
                     "note": 0,
                     "volume": 0,
                     "instrument_id": 0,
@@ -90,20 +111,6 @@
                     "effect_param": 0
                 },
                 {
-                    "note": 35,
-                    "volume": 0,
-                    "instrument_id": 1,
-                    "effect": "Arpeggio",
-                    "effect_param": 0
-                },
-                {
-                    "note": 34,
-                    "volume": 0,
-                    "instrument_id": 1,
-                    "effect": "Arpeggio",
-                    "effect_param": 0
-                },
-                {
                     "note": 0,
                     "volume": 0,
                     "instrument_id": 0,
@@ -111,16 +118,9 @@
                     "effect_param": 0
                 },
                 {
-                    "note": 37,
+                    "note": 0,
                     "volume": 0,
-                    "instrument_id": 1,
-                    "effect": "Arpeggio",
-                    "effect_param": 0
-                },
-                {
-                    "note": 38,
-                    "volume": 0,
-                    "instrument_id": 1,
+                    "instrument_id": 0,
                     "effect": "Arpeggio",
                     "effect_param": 0
                 },
@@ -136,58 +136,93 @@
         {
             "events": [
                 {
-                    "note": 67,
+                    "note": 45,
                     "volume": 0,
-                    "instrument_id": 2,
+                    "instrument_id": 1,
+                    "effect": "Arpeggio",
+                    "effect_param": 0
+                },
+                {
+                    "note": 52,
+                    "volume": 0,
+                    "instrument_id": 1,
+                    "effect": "Arpeggio",
+                    "effect_param": 0
+                },
+                {
+                    "note": 48,
+                    "volume": 0,
+                    "instrument_id": 1,
+                    "effect": "Arpeggio",
+                    "effect_param": 0
+                },
+                {
+                    "note": 55,
+                    "volume": 0,
+                    "instrument_id": 1,
+                    "effect": "Arpeggio",
+                    "effect_param": 0
+                },
+                {
+                    "note": 52,
+                    "volume": 0,
+                    "instrument_id": 1,
+                    "effect": "Arpeggio",
+                    "effect_param": 0
+                },
+                {
+                    "note": 57,
+                    "volume": 0,
+                    "instrument_id": 1,
+                    "effect": "Arpeggio",
+                    "effect_param": 0
+                },
+                {
+                    "note": 55,
+                    "volume": 0,
+                    "instrument_id": 1,
+                    "effect": "Arpeggio",
+                    "effect_param": 0
+                },
+                {
+                    "note": 60,
+                    "volume": 0,
+                    "instrument_id": 1,
+                    "effect": "Arpeggio",
+                    "effect_param": 0
+                },
+                {
+                    "note": 57,
+                    "volume": 0,
+                    "instrument_id": 1,
+                    "effect": "Arpeggio",
+                    "effect_param": 0
+                },
+                {
+                    "note": 64,
+                    "volume": 0,
+                    "instrument_id": 1,
+                    "effect": "Arpeggio",
+                    "effect_param": 0
+                },
+                {
+                    "note": 60,
+                    "volume": 0,
+                    "instrument_id": 1,
                     "effect": "Arpeggio",
                     "effect_param": 0
                 },
                 {
                     "note": 67,
                     "volume": 0,
-                    "instrument_id": 2,
-                    "effect": "Arpeggio",
-                    "effect_param": 0
-                },
-                {
-                    "note": 70,
-                    "volume": 0,
-                    "instrument_id": 2,
-                    "effect": "Arpeggio",
-                    "effect_param": 0
-                },
-                {
-                    "note": 68,
-                    "volume": 0,
-                    "instrument_id": 2,
+                    "instrument_id": 1,
                     "effect": "Arpeggio",
                     "effect_param": 0
                 },
                 {
                     "note": 0,
                     "volume": 0,
-                    "instrument_id": 0,
-                    "effect": "Arpeggio",
-                    "effect_param": 0
-                },
-                {
-                    "note": 0,
-                    "volume": 0,
-                    "instrument_id": 0,
-                    "effect": "Arpeggio",
-                    "effect_param": 0
-                },
-                {
-                    "note": 71,
-                    "volume": 0,
-                    "instrument_id": 2,
-                    "effect": "Arpeggio",
-                    "effect_param": 0
-                },
-                {
-                    "note": 72,
-                    "volume": 0,
-                    "instrument_id": 2,
+                    "instrument_id": 1,
                     "effect": "Arpeggio",
                     "effect_param": 0
                 },
@@ -211,39 +246,120 @@
                     "instrument_id": 0,
                     "effect": "Arpeggio",
                     "effect_param": 0
-                },
+                }
+            ]
+        },
+        {
+            "events": [
                 {
-                    "note": 69,
+                    "note": 50,
                     "volume": 0,
-                    "instrument_id": 2,
+                    "instrument_id": 1,
                     "effect": "Arpeggio",
                     "effect_param": 0
                 },
                 {
-                    "note": 0,
+                    "note": 57,
                     "volume": 0,
-                    "instrument_id": 0,
+                    "instrument_id": 1,
                     "effect": "Arpeggio",
                     "effect_param": 0
                 },
                 {
-                    "note": 66,
+                    "note": 53,
                     "volume": 0,
-                    "instrument_id": 2,
+                    "instrument_id": 1,
                     "effect": "Arpeggio",
                     "effect_param": 0
                 },
                 {
-                    "note": 0,
+                    "note": 60,
                     "volume": 0,
-                    "instrument_id": 0,
+                    "instrument_id": 1,
+                    "effect": "Arpeggio",
+                    "effect_param": 0
+                },
+                {
+                    "note": 57,
+                    "volume": 0,
+                    "instrument_id": 1,
+                    "effect": "Arpeggio",
+                    "effect_param": 0
+                },
+                {
+                    "note": 62,
+                    "volume": 0,
+                    "instrument_id": 1,
+                    "effect": "Arpeggio",
+                    "effect_param": 0
+                },
+                {
+                    "note": 60,
+                    "volume": 0,
+                    "instrument_id": 1,
                     "effect": "Arpeggio",
                     "effect_param": 0
                 },
                 {
                     "note": 65,
                     "volume": 0,
-                    "instrument_id": 2,
+                    "instrument_id": 1,
+                    "effect": "Arpeggio",
+                    "effect_param": 0
+                },
+                {
+                    "note": 62,
+                    "volume": 0,
+                    "instrument_id": 1,
+                    "effect": "Arpeggio",
+                    "effect_param": 0
+                },
+                {
+                    "note": 69,
+                    "volume": 0,
+                    "instrument_id": 1,
+                    "effect": "Arpeggio",
+                    "effect_param": 0
+                },
+                {
+                    "note": 65,
+                    "volume": 0,
+                    "instrument_id": 1,
+                    "effect": "Arpeggio",
+                    "effect_param": 0
+                },
+                {
+                    "note": 72,
+                    "volume": 0,
+                    "instrument_id": 1,
+                    "effect": "Arpeggio",
+                    "effect_param": 0
+                },
+                {
+                    "note": 0,
+                    "volume": 0,
+                    "instrument_id": 1,
+                    "effect": "Arpeggio",
+                    "effect_param": 0
+                },
+                {
+                    "note": 0,
+                    "volume": 0,
+                    "instrument_id": 0,
+                    "effect": "Arpeggio",
+                    "effect_param": 0
+                },
+                {
+                    "note": 0,
+                    "volume": 0,
+                    "instrument_id": 0,
+                    "effect": "Arpeggio",
+                    "effect_param": 0
+                },
+                {
+                    "note": 0,
+                    "volume": 0,
+                    "instrument_id": 0,
                     "effect": "Arpeggio",
                     "effect_param": 0
                 }
@@ -254,33 +370,13 @@
         {
             "phrase_indices": [
                 0,
-                18446744073709551615,
-                18446744073709551615,
-                18446744073709551615,
-                18446744073709551615,
-                18446744073709551615,
-                18446744073709551615,
-                18446744073709551615,
-                18446744073709551615,
-                18446744073709551615,
-                18446744073709551615,
-                18446744073709551615,
-                18446744073709551615,
-                18446744073709551615,
-                18446744073709551615,
-                18446744073709551615
-            ]
-        },
-        {
-            "phrase_indices": [
+                0,
                 1,
-                18446744073709551615,
-                18446744073709551615,
-                18446744073709551615,
-                18446744073709551615,
-                18446744073709551615,
-                18446744073709551615,
-                18446744073709551615,
+                1,
+                2,
+                2,
+                1,
+                1,
                 18446744073709551615,
                 18446744073709551615,
                 18446744073709551615,
@@ -295,20 +391,10 @@
     "instrument_bank": [
         {
             "id": 1,
-            "name": "NES bass",
+            "name": "Arpegiator",
             "data": {
                 "SimpleOscillator": {
-                    "waveform": "Sine",
-                    "audio_effects": []
-                }
-            }
-        },
-        {
-            "id": 2,
-            "name": "Lead",
-            "data": {
-                "SimpleOscillator": {
-                    "waveform": "Sawtooth",
+                    "waveform": "NesTriangle",
                     "audio_effects": []
                 }
             }

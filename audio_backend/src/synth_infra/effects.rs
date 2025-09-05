@@ -72,6 +72,13 @@ impl StereoEffectChain {
         }
     }
 
+    /// Sets a parameter on one of the effects in the chain.
+    pub fn set_effect_parameter(&mut self, effect_index: usize, param_index: u32, value: f32) {
+        if let Some(effect) = self.effects.get_mut(effect_index) {
+            effect.set_parameter(param_index, value);
+        }
+    }
+
     /// Resets all effects in the chain. Useful when reinitializing the signal path.
     #[allow(dead_code)]
     pub fn reset(&mut self) {
@@ -147,6 +154,13 @@ impl MonoEffectChain {
     pub fn process(&mut self, buf: &mut [f32], sample_rate: f32) {
         for effect in &mut self.effects {
             effect.process(buf, sample_rate);
+        }
+    }
+
+    /// Sets a parameter on one of the effects in the chain.
+    pub fn set_effect_parameter(&mut self, effect_index: usize, param_index: u32, value: f32) {
+        if let Some(effect) = self.effects.get_mut(effect_index) {
+            effect.set_parameter(param_index, value);
         }
     }
 

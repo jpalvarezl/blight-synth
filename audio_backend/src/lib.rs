@@ -19,4 +19,4 @@ pub(crate) use player::*;
 pub use resources::*;
 pub use result::*;
 pub use synth_infra::SampleData;
-pub(crate) use synth_infra::*;
+pub use synth_infra::*;

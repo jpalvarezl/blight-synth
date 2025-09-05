@@ -35,6 +35,41 @@ pub fn hex_u8_editor(
     response
 }
 
+/// Edit a u8 as 0-255 decimal with simple validation: allow only 0-9, max 3 chars.
+/// Updates the numeric value as you type. The caller owns the text buffer.
+pub fn dec_u8_editor(
+    ui: &mut egui::Ui,
+    buf: &mut String,
+    v: &mut u8,
+    width_px: f32,
+) -> egui::Response {
+    let mut text = buf.clone();
+    let response = ui.add(
+        egui::TextEdit::singleline(&mut text)
+            .desired_width(width_px)
+            .font(egui::TextStyle::Monospace),
+    );
+
+    if response.changed() {
+        // Keep only digits and cap to 3
+        let filtered: String = text
+            .chars()
+            .filter(|c| c.is_ascii_digit())
+            .take(3)
+            .collect();
+        if filtered.is_empty() {
+            *v = 0;
+        } else if let Ok(parsed) = filtered.parse::<u16>() {
+            *v = parsed.min(u8::MAX as u16) as u8;
+        }
+        if filtered != *buf {
+            *buf = filtered;
+        }
+    }
+
+    response
+}
+
 /// Edit a usize as 2-digit hex with simple validation and a sentinel for empty.
 /// - Only 0-9a-fA-F allowed, max 2 chars.
 /// - Empty string maps to `sentinel`. Caller owns the text buffer.

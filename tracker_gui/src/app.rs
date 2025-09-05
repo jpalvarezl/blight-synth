@@ -147,22 +147,16 @@ impl TrackerApp {
                         let inst_id =
                             self.song.phrase_bank[phrase_idx].events[step_idx].instrument_id as u32;
                         if inst_id != 0 {
-                            // Build a small batch of per-voice reverb instances off the audio thread
-                            let mut effects = arrayvec::ArrayVec::new();
-                            // TODO: size this batch from the instrument's known polyphony in the GUI
-                            // (track a per-instrument polyphony map when creating instruments).
-                            let count = 8; // default batch size; will be distributed across voices
-                            for _ in 0..count {
-                                effects.push(audio.get_effect_factory().create_mono_reverb());
-                            }
+                            // Monophonic instrument: add a single reverb effect instance
+                            let effect = audio.get_effect_factory().create_mono_reverb();
                             audio.send_command(
-                                audio_backend::SequencerCmd::AddVoiceEffectsToInstrument {
+                                audio_backend::SequencerCmd::AddEffectToInstrument {
                                     instrument_id: audio_backend::id::InstrumentId::from(inst_id),
-                                    effects,
+                                    effect,
                                 }
                                 .into(),
                             );
-                            log::info!("Added per-voice Reverb batch to instrument {}", inst_id);
+                            log::info!("Added Reverb to instrument {}", inst_id);
                         } else {
                             log::warn!(
                                 "Cannot add effect: selected event has no instrument (inherit)"

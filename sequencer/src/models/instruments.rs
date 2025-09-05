@@ -29,6 +29,7 @@ pub struct SampleParams {
 /// Parameters for a simple oscillator instrument.
 pub struct SimpleOscillatorParams {
     pub waveform: Waveform,
+    pub audio_effects: Vec<AudioEffect>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
@@ -78,4 +79,21 @@ pub struct SampleData {
     pub volume: u8,
     pub panning: u8,
     //... other metadata
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+pub enum AudioEffect {
+    Reverb {
+        wet_gain: f32,
+        dry_gain: f32,
+        decay_time: f32,
+        room_size: f32,
+        diffusion: f32,
+        damping: f32,
+    },
+    Delay {
+        time: f32,
+        feedback: f32,
+    }, //     Distortion { gain: f32, mix: f32 },
+       //     Chorus { depth: f32, rate: f32 },
 }

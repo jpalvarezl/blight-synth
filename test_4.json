@@ -298,8 +298,19 @@
             "name": "NES bass",
             "data": {
                 "SimpleOscillator": {
-                    "waveform": "Sine",
-                    "audio_effects": []
+                    "waveform": "NesTriangle",
+                    "audio_effects": [
+                        {
+                            "Reverb": {
+                                "wet_gain": 0.87,
+                                "dry_gain": 0.7,
+                                "decay_time": 0.93,
+                                "room_size": 1.62,
+                                "diffusion": 0.6,
+                                "damping": 0.5
+                            }
+                        }
+                    ]
                 }
             }
         },
@@ -309,7 +320,18 @@
             "data": {
                 "SimpleOscillator": {
                     "waveform": "Sawtooth",
-                    "audio_effects": []
+                    "audio_effects": [
+                        {
+                            "Reverb": {
+                                "wet_gain": 0.3,
+                                "dry_gain": 0.7,
+                                "decay_time": 0.6,
+                                "room_size": 1.0,
+                                "diffusion": 1.0,
+                                "damping": 0.2
+                            }
+                        }
+                    ]
                 }
             }
         }

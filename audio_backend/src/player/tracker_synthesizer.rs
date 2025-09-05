@@ -104,7 +104,16 @@ impl Synthesizer {
             MixerCmd::AddMasterEffect { effect } => self.master_effects.add_effect(effect),
             MixerCmd::RemoveEffect { .. } => {}
             MixerCmd::ReorderEffects { .. } => {}
-            MixerCmd::SetEffectParameter { .. } => {}
+            MixerCmd::SetEffectParameter {
+                instrument_id,
+                effect_index,
+                param_index,
+                value,
+            } => {
+                if let Some(inst) = self.instrument_bank.get_mut(&instrument_id) {
+                    inst.set_effect_parameter(effect_index, param_index, value);
+                }
+            }
         }
     }
 }

@@ -33,6 +33,9 @@ pub trait VoiceTrait: Send + Sync {
 
     /// Add a mono effect to this voice's effect chain.
     fn add_effect(&mut self, effect: Box<dyn MonoEffect>);
+
+    /// Set effect parameter
+    fn set_effect_parameter(&mut self, effect_index: usize, param_index: u32, value: f32);
 }
 
 /// A `Voice` represents a single, monophonic musical event. It bundles a sound
@@ -131,6 +134,11 @@ impl<S: SynthNode> VoiceTrait for Voice<S> {
 
     fn add_effect(&mut self, effect: Box<dyn MonoEffect>) {
         self.effect_chain.add_effect(effect);
+    }
+
+    fn set_effect_parameter(&mut self, effect_index: usize, param_index: u32, value: f32) {
+        self.effect_chain
+            .set_effect_parameter(effect_index, param_index, value);
     }
 }
 

@@ -79,7 +79,7 @@ pub enum MixerCmd {
         to_index: usize,
     },
     SetEffectParameter {
-        target_chain: EffectChainId,
+        instrument_id: InstrumentId,
         effect_index: usize,
         param_index: u32,
         value: f32,
