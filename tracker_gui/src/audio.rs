@@ -128,11 +128,31 @@ impl AudioManager {
 
                                     // Reverb parameter enums
                                     use audio_backend::effects::ReverbParameter as RP;
-                                    audio_backend::MonoEffect::set_parameter(&mut *r, RP::Mix.as_index(), mx);
-                                    audio_backend::MonoEffect::set_parameter(&mut *r, RP::Decay.as_index(), dec);
-                                    audio_backend::MonoEffect::set_parameter(&mut *r, RP::RoomSize.as_index(), rs);
-                                    audio_backend::MonoEffect::set_parameter(&mut *r, RP::Damping.as_index(), damp);
-                                    audio_backend::MonoEffect::set_parameter(&mut *r, RP::Diffusion.as_index(), diff);
+                                    audio_backend::MonoEffect::set_parameter(
+                                        &mut *r,
+                                        RP::Mix.as_index(),
+                                        mx,
+                                    );
+                                    audio_backend::MonoEffect::set_parameter(
+                                        &mut *r,
+                                        RP::Decay.as_index(),
+                                        dec,
+                                    );
+                                    audio_backend::MonoEffect::set_parameter(
+                                        &mut *r,
+                                        RP::RoomSize.as_index(),
+                                        rs,
+                                    );
+                                    audio_backend::MonoEffect::set_parameter(
+                                        &mut *r,
+                                        RP::Damping.as_index(),
+                                        damp,
+                                    );
+                                    audio_backend::MonoEffect::set_parameter(
+                                        &mut *r,
+                                        RP::Diffusion.as_index(),
+                                        diff,
+                                    );
 
                                     audio.send_command(
                                         SequencerCmd::AddEffectToInstrument {

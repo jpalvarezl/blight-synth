@@ -32,7 +32,6 @@ pub struct SimpleOscillatorParams {
     pub audio_effects: Vec<AudioEffect>,
 }
 
-
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
 /// Waveform types for the simple oscillator.
 pub enum Waveform {

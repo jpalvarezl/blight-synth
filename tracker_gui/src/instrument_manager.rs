@@ -79,9 +79,12 @@ fn ensure_backend_osc_with_params(
                     mix,
                 } => {
                     // Create a mono delay with the configured taps and mix
-                    let mut d = audio
-                        .get_effect_factory()
-                        .create_mono_delay(*time, *num_taps as usize, *feedback, *mix);
+                    let mut d = audio.get_effect_factory().create_mono_delay(
+                        *time,
+                        *num_taps as usize,
+                        *feedback,
+                        *mix,
+                    );
                     // Explicitly set parameters using enum indices
                     use audio_backend::effects::DelayParameter as DP;
                     audio_backend::MonoEffect::set_parameter(&mut *d, DP::Time.as_index(), *time);
