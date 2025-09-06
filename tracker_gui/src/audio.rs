@@ -111,8 +111,7 @@ impl AudioManager {
                         if let Some(effects) = effects_cfg {
                             for eff in effects.iter() {
                                 if let sequencer::models::AudioEffect::Reverb {
-                                    wet_gain,
-                                    dry_gain,
+                                    mix,
                                     decay_time,
                                     room_size,
                                     diffusion,
@@ -121,19 +120,18 @@ impl AudioManager {
                                 {
                                     let mut r = audio.get_effect_factory().create_mono_reverb();
                                     // Clamp to safe ranges consistent with UI/backend
-                                    let wg = (*wet_gain).clamp(0.0, 1.0);
-                                    let dg = (*dry_gain).clamp(0.0, 1.0);
+                                    let mx = (*mix).clamp(0.0, 1.0);
                                     let dec = (*decay_time).clamp(0.0, 1.0);
                                     let rs = (*room_size).clamp(0.5, 2.0);
                                     let damp = (*damping).clamp(0.0, 1.0);
                                     let diff = (*diffusion).clamp(0.0, 1.0);
 
-                                    audio_backend::MonoEffect::set_parameter(&mut *r, 0, wg);
-                                    audio_backend::MonoEffect::set_parameter(&mut *r, 1, dg);
-                                    audio_backend::MonoEffect::set_parameter(&mut *r, 2, dec);
-                                    audio_backend::MonoEffect::set_parameter(&mut *r, 3, rs);
-                                    audio_backend::MonoEffect::set_parameter(&mut *r, 4, damp);
-                                    audio_backend::MonoEffect::set_parameter(&mut *r, 5, diff);
+                                    // Reverb parameter indices (sequential): 0=mix,1=decay,2=room,3=damping,4=diffusion
+                                    audio_backend::MonoEffect::set_parameter(&mut *r, 0, mx);
+                                    audio_backend::MonoEffect::set_parameter(&mut *r, 1, dec);
+                                    audio_backend::MonoEffect::set_parameter(&mut *r, 2, rs);
+                                    audio_backend::MonoEffect::set_parameter(&mut *r, 3, damp);
+                                    audio_backend::MonoEffect::set_parameter(&mut *r, 4, diff);
 
                                     audio.send_command(
                                         SequencerCmd::AddEffectToInstrument {

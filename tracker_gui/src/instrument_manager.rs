@@ -30,21 +30,19 @@ fn ensure_backend_osc_with_params(
         for eff in &params.audio_effects {
             match eff {
                 AudioEffect::Reverb {
-                    wet_gain,
-                    dry_gain,
+                    mix,
                     decay_time,
                     room_size,
                     diffusion,
                     damping,
                 } => {
                     let mut r = audio.get_effect_factory().create_mono_reverb();
-                    // Set parameters on the effect (MonoEffect trait is in audio_backend)
-                    audio_backend::MonoEffect::set_parameter(&mut *r, 0, *wet_gain); // wet level
-                    audio_backend::MonoEffect::set_parameter(&mut *r, 1, *dry_gain);
-                    audio_backend::MonoEffect::set_parameter(&mut *r, 2, *decay_time);
-                    audio_backend::MonoEffect::set_parameter(&mut *r, 3, *room_size);
-                    audio_backend::MonoEffect::set_parameter(&mut *r, 4, *damping);
-                    audio_backend::MonoEffect::set_parameter(&mut *r, 5, *diffusion);
+                    // Reverb parameter indices (sequential): 0=mix,1=decay,2=room,3=damping,4=diffusion
+                    audio_backend::MonoEffect::set_parameter(&mut *r, 0, (*mix).clamp(0.0, 1.0));
+                    audio_backend::MonoEffect::set_parameter(&mut *r, 1, *decay_time);
+                    audio_backend::MonoEffect::set_parameter(&mut *r, 2, *room_size);
+                    audio_backend::MonoEffect::set_parameter(&mut *r, 3, *damping);
+                    audio_backend::MonoEffect::set_parameter(&mut *r, 4, *diffusion);
 
                     audio.send_command(
                         audio_backend::SequencerCmd::AddEffectToInstrument {
@@ -171,8 +169,7 @@ impl InstrumentManagerWindow {
                                     let mut to_remove_reverb = false;
                                     for (eff_idx, eff) in params.audio_effects.iter_mut().enumerate() {
                                         if let AudioEffect::Reverb {
-                                            wet_gain,
-                                            dry_gain,
+                                            mix,
                                             decay_time,
                                             room_size,
                                             diffusion,
@@ -189,24 +186,16 @@ impl InstrumentManagerWindow {
                                                 .id_salt(("reverb_hdr", inst.id as u32))
                                                 .show(ui, |ui| {
                                                     let mut changed = false;
-                                                    let mut wg = *wet_gain;
-                                                    let mut dg = *dry_gain;
+                                                    let mut mx = *mix;
                                                     let mut dec = *decay_time;
                                                     let mut rs = *room_size;
                                                     let mut diff = *diffusion;
                                                     let mut damp = *damping;
                                                     ui.horizontal(|ui| {
-                                                        ui.label("Wet");
+                                                        ui.label("Mix");
                                                         changed |= ui
                                                             .add(egui::Slider::new(
-                                                                &mut wg,
-                                                                0.0..=1.0,
-                                                            ))
-                                                            .changed();
-                                                        ui.label("Dry");
-                                                        changed |= ui
-                                                            .add(egui::Slider::new(
-                                                                &mut dg,
+                                                                &mut mx,
                                                                 0.0..=1.0,
                                                             ))
                                                             .changed();
@@ -245,8 +234,7 @@ impl InstrumentManagerWindow {
                                                     });
                                                     if changed {
                                                         // 1) Update the song model
-                                                        *wet_gain = wg;
-                                                        *dry_gain = dg;
+                                                        *mix = mx;
                                                         *decay_time = dec;
                                                         *room_size = rs;
                                                         *diffusion = diff;
@@ -255,13 +243,13 @@ impl InstrumentManagerWindow {
                                                         // 2) Live-update backend via MixerCmd
                                                         if let Some(audio) = &mut audio_mgr.audio {
                                                             let id = audio_backend::id::InstrumentId::from(inst.id as u32);
-                                                            // Indices map to Reverb::set_parameter
+                                                            // Reverb parameter indices (sequential): 0=mix,1=decay,2=room,3=damping,4=diffusion
                                                             audio.send_command(
                                                                 audio_backend::MixerCmd::SetEffectParameter {
                                                                     instrument_id: id,
                                                                     effect_index: eff_idx,
                                                                     param_index: 0,
-                                                                    value: wg,
+                                                                    value: mx,
                                                                 }
                                                                 .into(),
                                                             );
@@ -270,15 +258,6 @@ impl InstrumentManagerWindow {
                                                                     instrument_id: id,
                                                                     effect_index: eff_idx,
                                                                     param_index: 1,
-                                                                    value: dg,
-                                                                }
-                                                                .into(),
-                                                            );
-                                                            audio.send_command(
-                                                                audio_backend::MixerCmd::SetEffectParameter {
-                                                                    instrument_id: id,
-                                                                    effect_index: eff_idx,
-                                                                    param_index: 2,
                                                                     value: dec,
                                                                 }
                                                                 .into(),
@@ -287,7 +266,7 @@ impl InstrumentManagerWindow {
                                                                 audio_backend::MixerCmd::SetEffectParameter {
                                                                     instrument_id: id,
                                                                     effect_index: eff_idx,
-                                                                    param_index: 3,
+                                                                    param_index: 2,
                                                                     value: rs,
                                                                 }
                                                                 .into(),
@@ -296,7 +275,7 @@ impl InstrumentManagerWindow {
                                                                 audio_backend::MixerCmd::SetEffectParameter {
                                                                     instrument_id: id,
                                                                     effect_index: eff_idx,
-                                                                    param_index: 4,
+                                                                    param_index: 3,
                                                                     value: damp,
                                                                 }
                                                                 .into(),
@@ -305,7 +284,7 @@ impl InstrumentManagerWindow {
                                                                 audio_backend::MixerCmd::SetEffectParameter {
                                                                     instrument_id: id,
                                                                     effect_index: eff_idx,
-                                                                    param_index: 5,
+                                                                    param_index: 4,
                                                                     value: diff,
                                                                 }
                                                                 .into(),
@@ -331,8 +310,7 @@ impl InstrumentManagerWindow {
                                         ui.push_id(("add_reverb", inst.id as u32), |ui| {
                                             if ui.button("Add Reverb").clicked() {
                                                 params.audio_effects.push(AudioEffect::Reverb {
-                                                    wet_gain: 0.3,
-                                                    dry_gain: 0.7,
+                                                    mix: 0.3,
                                                     decay_time: 0.6,
                                                     room_size: 1.0,
                                                     diffusion: 1.0,
