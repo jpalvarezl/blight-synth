@@ -1,6 +1,21 @@
 use crate::MonoEffect;
 use log::warn;
 
+#[repr(u32)]
+#[derive(Clone, Copy, Debug)]
+pub enum DelayParameter {
+    Time = 0,
+    NumTaps = 1,
+    Feedback = 2,
+    Mix = 3,
+}
+
+impl DelayParameter {
+    pub fn as_index(self) -> u32 {
+        self as u32
+    }
+}
+
 pub struct Delay {
     sample_rate: f32,
     // Circular buffer to store delayed samples

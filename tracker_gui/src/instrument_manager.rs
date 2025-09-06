@@ -37,12 +37,32 @@ fn ensure_backend_osc_with_params(
                     damping,
                 } => {
                     let mut r = audio.get_effect_factory().create_mono_reverb();
-                    // Reverb parameter indices (sequential): 0=mix,1=decay,2=room,3=damping,4=diffusion
-                    audio_backend::MonoEffect::set_parameter(&mut *r, 0, (*mix).clamp(0.0, 1.0));
-                    audio_backend::MonoEffect::set_parameter(&mut *r, 1, *decay_time);
-                    audio_backend::MonoEffect::set_parameter(&mut *r, 2, *room_size);
-                    audio_backend::MonoEffect::set_parameter(&mut *r, 3, *damping);
-                    audio_backend::MonoEffect::set_parameter(&mut *r, 4, *diffusion);
+                    // Reverb parameter enums for clarity and safety
+                    audio_backend::MonoEffect::set_parameter(
+                        &mut *r,
+                        audio_backend::effects::ReverbParameter::Mix.as_index(),
+                        (*mix).clamp(0.0, 1.0),
+                    );
+                    audio_backend::MonoEffect::set_parameter(
+                        &mut *r,
+                        audio_backend::effects::ReverbParameter::Decay.as_index(),
+                        *decay_time,
+                    );
+                    audio_backend::MonoEffect::set_parameter(
+                        &mut *r,
+                        audio_backend::effects::ReverbParameter::RoomSize.as_index(),
+                        *room_size,
+                    );
+                    audio_backend::MonoEffect::set_parameter(
+                        &mut *r,
+                        audio_backend::effects::ReverbParameter::Damping.as_index(),
+                        *damping,
+                    );
+                    audio_backend::MonoEffect::set_parameter(
+                        &mut *r,
+                        audio_backend::effects::ReverbParameter::Diffusion.as_index(),
+                        *diffusion,
+                    );
 
                     audio.send_command(
                         audio_backend::SequencerCmd::AddEffectToInstrument {
@@ -62,11 +82,20 @@ fn ensure_backend_osc_with_params(
                     let mut d = audio
                         .get_effect_factory()
                         .create_mono_delay(*time, *num_taps as usize, *feedback, *mix);
-                    // Explicitly set parameters to mirror how Reverb is configured
-                    audio_backend::MonoEffect::set_parameter(&mut *d, 0, *time); // delay time (s)
-                    audio_backend::MonoEffect::set_parameter(&mut *d, 1, *num_taps as f32); // taps
-                    audio_backend::MonoEffect::set_parameter(&mut *d, 2, *feedback); // feedback
-                    audio_backend::MonoEffect::set_parameter(&mut *d, 3, *mix); // mix
+                    // Explicitly set parameters using enum indices
+                    use audio_backend::effects::DelayParameter as DP;
+                    audio_backend::MonoEffect::set_parameter(&mut *d, DP::Time.as_index(), *time);
+                    audio_backend::MonoEffect::set_parameter(
+                        &mut *d,
+                        DP::NumTaps.as_index(),
+                        *num_taps as f32,
+                    );
+                    audio_backend::MonoEffect::set_parameter(
+                        &mut *d,
+                        DP::Feedback.as_index(),
+                        *feedback,
+                    );
+                    audio_backend::MonoEffect::set_parameter(&mut *d, DP::Mix.as_index(), *mix);
 
                     audio.send_command(
                         audio_backend::SequencerCmd::AddEffectToInstrument {
@@ -243,12 +272,12 @@ impl InstrumentManagerWindow {
                                                         // 2) Live-update backend via MixerCmd
                                                         if let Some(audio) = &mut audio_mgr.audio {
                                                             let id = audio_backend::id::InstrumentId::from(inst.id as u32);
-                                                            // Reverb parameter indices (sequential): 0=mix,1=decay,2=room,3=damping,4=diffusion
+                                                            use audio_backend::effects::ReverbParameter as RP;
                                                             audio.send_command(
                                                                 audio_backend::MixerCmd::SetEffectParameter {
                                                                     instrument_id: id,
                                                                     effect_index: eff_idx,
-                                                                    param_index: 0,
+                                                                    param_index: RP::Mix.as_index(),
                                                                     value: mx,
                                                                 }
                                                                 .into(),
@@ -257,7 +286,7 @@ impl InstrumentManagerWindow {
                                                                 audio_backend::MixerCmd::SetEffectParameter {
                                                                     instrument_id: id,
                                                                     effect_index: eff_idx,
-                                                                    param_index: 1,
+                                                                    param_index: RP::Decay.as_index(),
                                                                     value: dec,
                                                                 }
                                                                 .into(),
@@ -266,7 +295,7 @@ impl InstrumentManagerWindow {
                                                                 audio_backend::MixerCmd::SetEffectParameter {
                                                                     instrument_id: id,
                                                                     effect_index: eff_idx,
-                                                                    param_index: 2,
+                                                                    param_index: RP::RoomSize.as_index(),
                                                                     value: rs,
                                                                 }
                                                                 .into(),
@@ -275,7 +304,7 @@ impl InstrumentManagerWindow {
                                                                 audio_backend::MixerCmd::SetEffectParameter {
                                                                     instrument_id: id,
                                                                     effect_index: eff_idx,
-                                                                    param_index: 3,
+                                                                    param_index: RP::Damping.as_index(),
                                                                     value: damp,
                                                                 }
                                                                 .into(),
@@ -284,7 +313,7 @@ impl InstrumentManagerWindow {
                                                                 audio_backend::MixerCmd::SetEffectParameter {
                                                                     instrument_id: id,
                                                                     effect_index: eff_idx,
-                                                                    param_index: 4,
+                                                                    param_index: RP::Diffusion.as_index(),
                                                                     value: diff,
                                                                 }
                                                                 .into(),
@@ -388,11 +417,12 @@ impl InstrumentManagerWindow {
                                                         // 2) Live-update backend via MixerCmd
                                                         if let Some(audio) = &mut audio_mgr.audio {
                                                             let id = audio_backend::id::InstrumentId::from(inst.id as u32);
+                                                            use audio_backend::effects::DelayParameter as DP;
                                                             audio.send_command(
                                                                 audio_backend::MixerCmd::SetEffectParameter {
                                                                     instrument_id: id,
                                                                     effect_index: eff_idx,
-                                                                    param_index: 0,
+                                                                    param_index: DP::Time.as_index(),
                                                                     value: t,
                                                                 }
                                                                 .into(),
@@ -401,7 +431,7 @@ impl InstrumentManagerWindow {
                                                                 audio_backend::MixerCmd::SetEffectParameter {
                                                                     instrument_id: id,
                                                                     effect_index: eff_idx,
-                                                                    param_index: 1,
+                                                                    param_index: DP::NumTaps.as_index(),
                                                                     value: tp as f32,
                                                                 }
                                                                 .into(),
@@ -410,7 +440,7 @@ impl InstrumentManagerWindow {
                                                                 audio_backend::MixerCmd::SetEffectParameter {
                                                                     instrument_id: id,
                                                                     effect_index: eff_idx,
-                                                                    param_index: 2,
+                                                                    param_index: DP::Feedback.as_index(),
                                                                     value: fb,
                                                                 }
                                                                 .into(),
@@ -419,7 +449,7 @@ impl InstrumentManagerWindow {
                                                                 audio_backend::MixerCmd::SetEffectParameter {
                                                                     instrument_id: id,
                                                                     effect_index: eff_idx,
-                                                                    param_index: 3,
+                                                                    param_index: DP::Mix.as_index(),
                                                                     value: mx,
                                                                 }
                                                                 .into(),

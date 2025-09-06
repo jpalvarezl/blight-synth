@@ -2,6 +2,22 @@ use log::warn;
 
 use crate::{MonoEffect, StereoEffect};
 
+#[repr(u32)]
+#[derive(Clone, Copy, Debug)]
+pub enum ReverbParameter {
+    Mix = 0,
+    Decay = 1,
+    RoomSize = 2,
+    Damping = 3,
+    Diffusion = 4,
+}
+
+impl ReverbParameter {
+    pub fn as_index(self) -> u32 {
+        self as u32
+    }
+}
+
 // The main Reverb effect
 pub struct Reverb {
     // We need to store the sample_rate to recalculate delay sizes if room size changes
