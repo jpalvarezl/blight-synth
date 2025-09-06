@@ -54,6 +54,30 @@ fn ensure_backend_osc_with_params(
                         .into(),
                     );
                 }
+                AudioEffect::Delay {
+                    time,
+                    num_taps,
+                    feedback,
+                    mix,
+                } => {
+                    // Create a mono delay with the configured taps and mix
+                    let mut d = audio
+                        .get_effect_factory()
+                        .create_mono_delay(*time, *num_taps as usize, *feedback, *mix);
+                    // Explicitly set parameters to mirror how Reverb is configured
+                    audio_backend::MonoEffect::set_parameter(&mut *d, 0, *time); // delay time (s)
+                    audio_backend::MonoEffect::set_parameter(&mut *d, 1, *num_taps as f32); // taps
+                    audio_backend::MonoEffect::set_parameter(&mut *d, 2, *feedback); // feedback
+                    audio_backend::MonoEffect::set_parameter(&mut *d, 3, *mix); // mix
+
+                    audio.send_command(
+                        audio_backend::SequencerCmd::AddEffectToInstrument {
+                            instrument_id: id,
+                            effect: d,
+                        }
+                        .into(),
+                    );
+                }
                 _ => {}
             }
         }
@@ -254,6 +278,99 @@ impl InstrumentManagerWindow {
                                                     room_size: 1.0,
                                                     diffusion: 1.0,
                                                     damping: 0.2,
+                                                });
+                                                rehydrate_ids.push(inst.id as u8);
+                                            }
+                                        });
+                                    }
+
+                                    // Delay controls (single instance per mono instrument)
+                                    let mut has_delay = false;
+                                    let mut to_remove_delay = false;
+                                    for eff in params.audio_effects.iter_mut() {
+                                        if let AudioEffect::Delay {
+                                            time,
+                                            num_taps,
+                                            feedback,
+                                            mix,
+                                        } = eff
+                                        {
+                                            has_delay = true;
+                                            // Namespace all inner widgets by instrument id to avoid ID clashes
+                                            ui.push_id(("delay", inst.id as u32), |ui| {
+                                                egui::CollapsingHeader::new(format!(
+                                                    "Delay {:02X}",
+                                                    inst.id as u8
+                                                ))
+                                                .id_salt(("delay_hdr", inst.id as u32))
+                                                .show(ui, |ui| {
+                                                    let mut changed = false;
+                                                    let mut t = *time;
+                                                    let mut tp = *num_taps;
+                                                    let mut fb = *feedback;
+                                                    let mut mx = *mix;
+                                                    ui.horizontal(|ui| {
+                                                        ui.label("Time (s)");
+                                                        changed |= ui
+                                                            .add(egui::Slider::new(
+                                                                &mut t,
+                                                                0.0..=audio_backend::effects::MAX_DELAY_SECONDS,
+                                                            ))
+                                                            .changed();
+                                                        ui.label("Feedback");
+                                                        changed |= ui
+                                                            .add(egui::Slider::new(
+                                                                &mut fb,
+                                                                0.0..=0.95,
+                                                            ))
+                                                            .changed();
+                                                    });
+                                                    ui.horizontal(|ui| {
+                                                        ui.label("Taps");
+                                                        changed |= ui
+                                                            .add(egui::Slider::new(
+                                                                &mut tp,
+                                                                1..=audio_backend::effects::MAX_TAPS as u8,
+                                                            ))
+                                                            .changed();
+                                                        ui.label("Mix");
+                                                        changed |= ui
+                                                            .add(egui::Slider::new(
+                                                                &mut mx,
+                                                                0.0..=1.0,
+                                                            ))
+                                                            .changed();
+                                                    });
+                                                    if changed {
+                                                        *time = t;
+                                                        *num_taps = tp;
+                                                        *feedback = fb;
+                                                        *mix = mx;
+                                                        rehydrate_ids.push(inst.id as u8);
+                                                    }
+                                                    if ui.button("Remove Delay").clicked() {
+                                                        to_remove_delay = true;
+                                                    }
+                                                });
+                                            });
+                                        }
+                                    }
+                                    if to_remove_delay {
+                                        params
+                                            .audio_effects
+                                            .retain(|e| !matches!(e, AudioEffect::Delay { .. }));
+                                        rehydrate_ids.push(inst.id as u8);
+                                    }
+
+                                    if !has_delay {
+                                        // Namespace the Add button too
+                                        ui.push_id(("add_delay", inst.id as u32), |ui| {
+                                            if ui.button("Add Delay").clicked() {
+                                                params.audio_effects.push(AudioEffect::Delay {
+                                                    time: 0.3,
+                                                    num_taps: 3,
+                                                    feedback: 0.3,
+                                                    mix: 0.35,
                                                 });
                                                 rehydrate_ids.push(inst.id as u8);
                                             }

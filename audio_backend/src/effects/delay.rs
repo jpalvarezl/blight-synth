@@ -17,8 +17,8 @@ pub struct Delay {
     mix: f32,
 }
 
-const MAX_DELAY_SECONDS: f32 = 25.0;
-const MAX_TAPS: usize = 5;
+pub const MAX_DELAY_SECONDS: f32 = 25.0;
+pub const MAX_TAPS: usize = 5;
 
 impl Delay {
     /// Creates a new Delay effect

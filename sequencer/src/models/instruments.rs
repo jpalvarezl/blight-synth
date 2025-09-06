@@ -32,6 +32,14 @@ pub struct SimpleOscillatorParams {
     pub audio_effects: Vec<AudioEffect>,
 }
 
+fn default_delay_num_taps() -> u8 {
+    3
+}
+
+fn default_delay_mix() -> f32 {
+    0.35
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
 /// Waveform types for the simple oscillator.
 pub enum Waveform {
@@ -93,7 +101,11 @@ pub enum AudioEffect {
     },
     Delay {
         time: f32,
+        #[serde(default = "default_delay_num_taps")]
+        num_taps: u8,
         feedback: f32,
+        #[serde(default = "default_delay_mix")]
+        mix: f32,
     }, //     Distortion { gain: f32, mix: f32 },
        //     Chorus { depth: f32, rate: f32 },
 }
