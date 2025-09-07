@@ -2,6 +2,22 @@ use log::warn;
 
 use crate::{MonoEffect, StereoEffect};
 
+#[repr(u32)]
+#[derive(Clone, Copy, Debug)]
+pub enum ReverbParameter {
+    Mix = 0,
+    Decay = 1,
+    RoomSize = 2,
+    Damping = 3,
+    Diffusion = 4,
+}
+
+impl ReverbParameter {
+    pub fn as_index(self) -> u32 {
+        self as u32
+    }
+}
+
 // The main Reverb effect
 pub struct Reverb {
     // We need to store the sample_rate to recalculate delay sizes if room size changes
@@ -19,9 +35,8 @@ pub struct Reverb {
     allpass_delays: [usize; 2],
     allpass_feedback: f32,
 
-    // Wet/dry mix
-    wet_gain: f32,
-    dry_gain: f32,
+    // Single mix control (0.0 = dry only, 1.0 = wet only)
+    mix: f32,
 }
 
 impl Reverb {
@@ -87,8 +102,7 @@ impl Reverb {
             allpass_delays: current_allpass_delays, // Initialize the new field
             allpass_feedback: 0.7,
 
-            wet_gain: 0.3,
-            dry_gain: 0.7,
+            mix: 0.3,
         }
     }
 
@@ -185,6 +199,10 @@ impl Reverb {
         let base_allpass_feedback = 0.7;
         self.allpass_feedback = base_allpass_feedback * diffusion.clamp(0.0, 0.95);
     }
+    // Adjust wet/dry mix with a single parameter
+    pub fn set_mix(&mut self, mix: f32) {
+        self.mix = mix.clamp(0.0, 1.0);
+    }
 }
 
 impl MonoEffect for Reverb {
@@ -207,19 +225,18 @@ impl MonoEffect for Reverb {
             output = self.allpass_filter(output, 0);
             output = self.allpass_filter(output, 1);
 
-            // Mix wet and dry signals
-            *sample = self.dry_gain * input + self.wet_gain * output;
+            // Mix wet and dry signals using single mix parameter
+            *sample = (1.0 - self.mix) * input + self.mix * output;
         }
     }
 
     fn set_parameter(&mut self, index: u32, value: f32) {
         match index {
-            0 => self.wet_gain = value,
-            1 => self.dry_gain = value,
-            2 => self.set_decay_time(value),
-            3 => self.set_room_size(value, self.sample_rate),
-            4 => self.set_damping(value),
-            5 => self.set_diffusion(value),
+            0 => self.set_mix(value),
+            1 => self.set_decay_time(value),
+            2 => self.set_room_size(value, self.sample_rate),
+            3 => self.set_damping(value),
+            4 => self.set_diffusion(value),
             _ => warn!("Invalid parameter index for reverb effect"),
         }
     }

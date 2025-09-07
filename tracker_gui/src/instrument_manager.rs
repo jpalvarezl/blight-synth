@@ -30,21 +30,39 @@ fn ensure_backend_osc_with_params(
         for eff in &params.audio_effects {
             match eff {
                 AudioEffect::Reverb {
-                    wet_gain,
-                    dry_gain,
+                    mix,
                     decay_time,
                     room_size,
                     diffusion,
                     damping,
                 } => {
                     let mut r = audio.get_effect_factory().create_mono_reverb();
-                    // Set parameters on the effect (MonoEffect trait is in audio_backend)
-                    audio_backend::MonoEffect::set_parameter(&mut *r, 0, *wet_gain); // wet level
-                    audio_backend::MonoEffect::set_parameter(&mut *r, 1, *dry_gain);
-                    audio_backend::MonoEffect::set_parameter(&mut *r, 2, *decay_time);
-                    audio_backend::MonoEffect::set_parameter(&mut *r, 3, *room_size);
-                    audio_backend::MonoEffect::set_parameter(&mut *r, 4, *damping);
-                    audio_backend::MonoEffect::set_parameter(&mut *r, 5, *diffusion);
+                    // Reverb parameter enums for clarity and safety
+                    audio_backend::MonoEffect::set_parameter(
+                        &mut *r,
+                        audio_backend::effects::ReverbParameter::Mix.as_index(),
+                        (*mix).clamp(0.0, 1.0),
+                    );
+                    audio_backend::MonoEffect::set_parameter(
+                        &mut *r,
+                        audio_backend::effects::ReverbParameter::Decay.as_index(),
+                        *decay_time,
+                    );
+                    audio_backend::MonoEffect::set_parameter(
+                        &mut *r,
+                        audio_backend::effects::ReverbParameter::RoomSize.as_index(),
+                        *room_size,
+                    );
+                    audio_backend::MonoEffect::set_parameter(
+                        &mut *r,
+                        audio_backend::effects::ReverbParameter::Damping.as_index(),
+                        *damping,
+                    );
+                    audio_backend::MonoEffect::set_parameter(
+                        &mut *r,
+                        audio_backend::effects::ReverbParameter::Diffusion.as_index(),
+                        *diffusion,
+                    );
 
                     audio.send_command(
                         audio_backend::SequencerCmd::AddEffectToInstrument {
@@ -54,7 +72,42 @@ fn ensure_backend_osc_with_params(
                         .into(),
                     );
                 }
-                _ => {}
+                AudioEffect::Delay {
+                    time,
+                    num_taps,
+                    feedback,
+                    mix,
+                } => {
+                    // Create a mono delay with the configured taps and mix
+                    let mut d = audio.get_effect_factory().create_mono_delay(
+                        *time,
+                        *num_taps as usize,
+                        *feedback,
+                        *mix,
+                    );
+                    // Explicitly set parameters using enum indices
+                    use audio_backend::effects::DelayParameter as DP;
+                    audio_backend::MonoEffect::set_parameter(&mut *d, DP::Time.as_index(), *time);
+                    audio_backend::MonoEffect::set_parameter(
+                        &mut *d,
+                        DP::NumTaps.as_index(),
+                        *num_taps as f32,
+                    );
+                    audio_backend::MonoEffect::set_parameter(
+                        &mut *d,
+                        DP::Feedback.as_index(),
+                        *feedback,
+                    );
+                    audio_backend::MonoEffect::set_parameter(&mut *d, DP::Mix.as_index(), *mix);
+
+                    audio.send_command(
+                        audio_backend::SequencerCmd::AddEffectToInstrument {
+                            instrument_id: id,
+                            effect: d,
+                        }
+                        .into(),
+                    );
+                }
             }
         }
     }
@@ -146,10 +199,9 @@ impl InstrumentManagerWindow {
                                     // Reverb controls (single instance per mono instrument)
                                     let mut has_reverb = false;
                                     let mut to_remove_reverb = false;
-                                    for eff in params.audio_effects.iter_mut() {
+                                    for (eff_idx, eff) in params.audio_effects.iter_mut().enumerate() {
                                         if let AudioEffect::Reverb {
-                                            wet_gain,
-                                            dry_gain,
+                                            mix,
                                             decay_time,
                                             room_size,
                                             diffusion,
@@ -166,24 +218,16 @@ impl InstrumentManagerWindow {
                                                 .id_salt(("reverb_hdr", inst.id as u32))
                                                 .show(ui, |ui| {
                                                     let mut changed = false;
-                                                    let mut wg = *wet_gain;
-                                                    let mut dg = *dry_gain;
+                                                    let mut mx = *mix;
                                                     let mut dec = *decay_time;
                                                     let mut rs = *room_size;
                                                     let mut diff = *diffusion;
                                                     let mut damp = *damping;
                                                     ui.horizontal(|ui| {
-                                                        ui.label("Wet");
+                                                        ui.label("Mix");
                                                         changed |= ui
                                                             .add(egui::Slider::new(
-                                                                &mut wg,
-                                                                0.0..=1.0,
-                                                            ))
-                                                            .changed();
-                                                        ui.label("Dry");
-                                                        changed |= ui
-                                                            .add(egui::Slider::new(
-                                                                &mut dg,
+                                                                &mut mx,
                                                                 0.0..=1.0,
                                                             ))
                                                             .changed();
@@ -221,13 +265,63 @@ impl InstrumentManagerWindow {
                                                             .changed();
                                                     });
                                                     if changed {
-                                                        *wet_gain = wg;
-                                                        *dry_gain = dg;
+                                                        // 1) Update the song model
+                                                        *mix = mx;
                                                         *decay_time = dec;
                                                         *room_size = rs;
                                                         *diffusion = diff;
                                                         *damping = damp;
-                                                        rehydrate_ids.push(inst.id as u8);
+
+                                                        // 2) Live-update backend via MixerCmd
+                                                        if let Some(audio) = &mut audio_mgr.audio {
+                                                            let id = audio_backend::id::InstrumentId::from(inst.id as u32);
+                                                            use audio_backend::effects::ReverbParameter as RP;
+                                                            audio.send_command(
+                                                                audio_backend::MixerCmd::SetEffectParameter {
+                                                                    instrument_id: id,
+                                                                    effect_index: eff_idx,
+                                                                    param_index: RP::Mix.as_index(),
+                                                                    value: mx,
+                                                                }
+                                                                .into(),
+                                                            );
+                                                            audio.send_command(
+                                                                audio_backend::MixerCmd::SetEffectParameter {
+                                                                    instrument_id: id,
+                                                                    effect_index: eff_idx,
+                                                                    param_index: RP::Decay.as_index(),
+                                                                    value: dec,
+                                                                }
+                                                                .into(),
+                                                            );
+                                                            audio.send_command(
+                                                                audio_backend::MixerCmd::SetEffectParameter {
+                                                                    instrument_id: id,
+                                                                    effect_index: eff_idx,
+                                                                    param_index: RP::RoomSize.as_index(),
+                                                                    value: rs,
+                                                                }
+                                                                .into(),
+                                                            );
+                                                            audio.send_command(
+                                                                audio_backend::MixerCmd::SetEffectParameter {
+                                                                    instrument_id: id,
+                                                                    effect_index: eff_idx,
+                                                                    param_index: RP::Damping.as_index(),
+                                                                    value: damp,
+                                                                }
+                                                                .into(),
+                                                            );
+                                                            audio.send_command(
+                                                                audio_backend::MixerCmd::SetEffectParameter {
+                                                                    instrument_id: id,
+                                                                    effect_index: eff_idx,
+                                                                    param_index: RP::Diffusion.as_index(),
+                                                                    value: diff,
+                                                                }
+                                                                .into(),
+                                                            );
+                                                        }
                                                     }
                                                     if ui.button("Remove Reverb").clicked() {
                                                         to_remove_reverb = true;
@@ -248,12 +342,146 @@ impl InstrumentManagerWindow {
                                         ui.push_id(("add_reverb", inst.id as u32), |ui| {
                                             if ui.button("Add Reverb").clicked() {
                                                 params.audio_effects.push(AudioEffect::Reverb {
-                                                    wet_gain: 0.3,
-                                                    dry_gain: 0.7,
+                                                    mix: 0.3,
                                                     decay_time: 0.6,
                                                     room_size: 1.0,
                                                     diffusion: 1.0,
                                                     damping: 0.2,
+                                                });
+                                                rehydrate_ids.push(inst.id as u8);
+                                            }
+                                        });
+                                    }
+
+                                    // Delay controls (single instance per mono instrument)
+                                    let mut has_delay = false;
+                                    let mut to_remove_delay = false;
+                                    for (eff_idx, eff) in params.audio_effects.iter_mut().enumerate() {
+                                        if let AudioEffect::Delay {
+                                            time,
+                                            num_taps,
+                                            feedback,
+                                            mix,
+                                        } = eff
+                                        {
+                                            has_delay = true;
+                                            // Namespace all inner widgets by instrument id to avoid ID clashes
+                                            ui.push_id(("delay", inst.id as u32), |ui| {
+                                                egui::CollapsingHeader::new(format!(
+                                                    "Delay {:02X}",
+                                                    inst.id as u8
+                                                ))
+                                                .id_salt(("delay_hdr", inst.id as u32))
+                                                .show(ui, |ui| {
+                                                    let mut changed = false;
+                                                    let mut t = *time;
+                                                    let mut tp = *num_taps;
+                                                    let mut fb = *feedback;
+                                                    let mut mx = *mix;
+                                                    ui.horizontal(|ui| {
+                                                        ui.label("Time (s)");
+                                                        changed |= ui
+                                                            .add(egui::Slider::new(
+                                                                &mut t,
+                                                                0.0..=audio_backend::effects::MAX_DELAY_SECONDS,
+                                                            ))
+                                                            .changed();
+                                                        ui.label("Feedback");
+                                                        changed |= ui
+                                                            .add(egui::Slider::new(
+                                                                &mut fb,
+                                                                0.0..=0.95,
+                                                            ))
+                                                            .changed();
+                                                    });
+                                                    ui.horizontal(|ui| {
+                                                        ui.label("Taps");
+                                                        changed |= ui
+                                                            .add(egui::Slider::new(
+                                                                &mut tp,
+                                                                1..=audio_backend::effects::MAX_TAPS as u8,
+                                                            ))
+                                                            .changed();
+                                                        ui.label("Mix");
+                                                        changed |= ui
+                                                            .add(egui::Slider::new(
+                                                                &mut mx,
+                                                                0.0..=1.0,
+                                                            ))
+                                                            .changed();
+                                                    });
+                                                    if changed {
+                                                        // 1) Update in the Song model
+                                                        *time = t;
+                                                        *num_taps = tp;
+                                                        *feedback = fb;
+                                                        *mix = mx;
+
+                                                        // 2) Live-update backend via MixerCmd
+                                                        if let Some(audio) = &mut audio_mgr.audio {
+                                                            let id = audio_backend::id::InstrumentId::from(inst.id as u32);
+                                                            use audio_backend::effects::DelayParameter as DP;
+                                                            audio.send_command(
+                                                                audio_backend::MixerCmd::SetEffectParameter {
+                                                                    instrument_id: id,
+                                                                    effect_index: eff_idx,
+                                                                    param_index: DP::Time.as_index(),
+                                                                    value: t,
+                                                                }
+                                                                .into(),
+                                                            );
+                                                            audio.send_command(
+                                                                audio_backend::MixerCmd::SetEffectParameter {
+                                                                    instrument_id: id,
+                                                                    effect_index: eff_idx,
+                                                                    param_index: DP::NumTaps.as_index(),
+                                                                    value: tp as f32,
+                                                                }
+                                                                .into(),
+                                                            );
+                                                            audio.send_command(
+                                                                audio_backend::MixerCmd::SetEffectParameter {
+                                                                    instrument_id: id,
+                                                                    effect_index: eff_idx,
+                                                                    param_index: DP::Feedback.as_index(),
+                                                                    value: fb,
+                                                                }
+                                                                .into(),
+                                                            );
+                                                            audio.send_command(
+                                                                audio_backend::MixerCmd::SetEffectParameter {
+                                                                    instrument_id: id,
+                                                                    effect_index: eff_idx,
+                                                                    param_index: DP::Mix.as_index(),
+                                                                    value: mx,
+                                                                }
+                                                                .into(),
+                                                            );
+                                                        }
+                                                    }
+                                                    if ui.button("Remove Delay").clicked() {
+                                                        to_remove_delay = true;
+                                                    }
+                                                });
+                                            });
+                                        }
+                                    }
+                                    if to_remove_delay {
+                                        params
+                                            .audio_effects
+                                            .retain(|e| !matches!(e, AudioEffect::Delay { .. }));
+                                        rehydrate_ids.push(inst.id as u8);
+                                    }
+
+                                    if !has_delay {
+                                        // Namespace the Add button too
+                                        ui.push_id(("add_delay", inst.id as u32), |ui| {
+                                            if ui.button("Add Delay").clicked() {
+                                                params.audio_effects.push(AudioEffect::Delay {
+                                                    time: 0.3,
+                                                    num_taps: 3,
+                                                    feedback: 0.3,
+                                                    mix: 0.35,
                                                 });
                                                 rehydrate_ids.push(inst.id as u8);
                                             }

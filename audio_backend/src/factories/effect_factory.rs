@@ -23,9 +23,20 @@ impl EffectFactory {
     }
 
     /// Create a mono delay effect
-    #[deprecated(note = "Doesn't work correctly")]
-    pub fn create_mono_delay(&self, delay_ms: f32, feedback: f32, mix: f32) -> Box<dyn MonoEffect> {
-        Box::new(Delay::new(self.sample_rate, delay_ms, feedback, mix))
+    pub fn create_mono_delay(
+        &self,
+        delay_seconds: f32,
+        num_taps: usize,
+        feedback: f32,
+        mix: f32,
+    ) -> Box<dyn MonoEffect> {
+        Box::new(Delay::new(
+            self.sample_rate,
+            delay_seconds,
+            num_taps,
+            feedback,
+            mix,
+        ))
     }
 
     /// Create a distortion effect
