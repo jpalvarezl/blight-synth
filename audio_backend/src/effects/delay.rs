@@ -83,7 +83,7 @@ impl Delay {
     }
 
     pub fn set_num_taps(&mut self, num_taps: usize) {
-        self.num_taps = num_taps.min(5).max(1);
+        self.num_taps = num_taps.min(MAX_TAPS).max(1);
     }
 
     /// Sets feedback amount (0.0 to 0.95)
