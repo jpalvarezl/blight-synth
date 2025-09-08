@@ -1,6 +1,7 @@
 mod monophonic_osc;
 mod polyphonic_osc;
 mod synth_nodes;
+mod hihat;
 
 pub use monophonic_osc::*;
 pub use polyphonic_osc::*;

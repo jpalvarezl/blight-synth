@@ -149,7 +149,7 @@ pub struct VoiceManager {
     voices: Vec<Box<dyn VoiceTrait>>,
 }
 
-#[deprecated(note = "This is needs to be presented behind a feature flag")]
+#[deprecated(note = "This is needs to be presented behind a feature flag. 'retain' usage is not realtime safe.")]
 #[allow(dead_code, deprecated)]
 impl VoiceManager {
     pub fn new() -> Self {
