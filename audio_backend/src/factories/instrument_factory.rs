@@ -1,5 +1,5 @@
 use crate::{
-    id::InstrumentId, InstrumentTrait, MonophonicOscillator, PolyphonicOscillator, Waveform,
+    id::InstrumentId, InstrumentTrait, MonophonicOscillator, PolyphonicOscillator, Waveform, HiHat,
 };
 
 pub struct InstrumentFactory {
@@ -49,5 +49,13 @@ impl InstrumentFactory {
             self.sample_rate,
             max_polyphony,
         ))
+    }
+
+    pub fn create_hihat(
+        &self,
+        instrument_id: InstrumentId,
+        pan: f32,
+    ) -> Box<dyn InstrumentTrait> {
+        Box::new(HiHat::new(instrument_id, pan, self.sample_rate))
     }
 }

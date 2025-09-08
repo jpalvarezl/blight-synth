@@ -6,6 +6,7 @@ mod hihat;
 pub use monophonic_osc::*;
 pub use polyphonic_osc::*;
 pub use synth_nodes::*;
+pub use hihat::*;
 
 use crate::{id::NoteId, SynthNode, Voice};
 

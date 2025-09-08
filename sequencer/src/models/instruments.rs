@@ -32,6 +32,12 @@ pub struct SimpleOscillatorParams {
     pub audio_effects: Vec<AudioEffect>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+/// Parameters for a Hi-Hat percussion instrument.
+pub struct HiHatParams {
+    pub audio_effects: Vec<AudioEffect>,
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
 /// Waveform types for the simple oscillator.
 pub enum Waveform {
@@ -49,6 +55,7 @@ pub enum InstrumentData {
     Sample(SampleParams),
     Synth(SynthParams),
     SimpleOscillator(SimpleOscillatorParams),
+    HiHat(HiHatParams),
     // This can be extended in the future, e.g., for FM synthesis.
 }
 

@@ -7,7 +7,9 @@ pub struct HiHat {
 
 impl HiHat {
     pub fn new(instrument_id: InstrumentId, pan: f32, sample_rate: f32) -> Self {
-        let envelope = Envelope::new(sample_rate);
+        let mut envelope = Envelope::new(sample_rate);
+        envelope.set_parameters(0.01, 0.05, 0.0, 0.1);
+        
         // Note ID is unused in a monophonic instrument.
         let voice = VoiceSlot {
             inner: Voice::new(
