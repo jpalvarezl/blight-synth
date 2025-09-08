@@ -38,6 +38,12 @@ pub struct HiHatParams {
     pub audio_effects: Vec<AudioEffect>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+/// Parameters for a Kick Drum percussion instrument.
+pub struct KickDrumParams {
+    pub audio_effects: Vec<AudioEffect>,
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
 /// Waveform types for the simple oscillator.
 pub enum Waveform {
@@ -56,6 +62,7 @@ pub enum InstrumentData {
     Synth(SynthParams),
     SimpleOscillator(SimpleOscillatorParams),
     HiHat(HiHatParams),
+    KickDrum(KickDrumParams),
     // This can be extended in the future, e.g., for FM synthesis.
 }
 

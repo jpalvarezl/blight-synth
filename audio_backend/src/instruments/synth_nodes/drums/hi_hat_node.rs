@@ -1,8 +1,10 @@
-use crate::{instruments::synth_nodes::drums::{noise_generator::NoiseGenerator}, Envelope, SynthNode};
+use crate::{
+    instruments::synth_nodes::drums::noise_generator::NoiseGenerator, Envelope, SynthNode,
+};
 
 pub struct HiHatVoice {
     noise: NoiseGenerator,
-    env: Envelope,   // very short decay
+    env: Envelope, // very short decay
     active: bool,
 }
 
@@ -25,7 +27,9 @@ impl HiHatVoice {
     }
 
     pub fn next_sample(&mut self) -> f32 {
-        if !self.active { return 0.0; }
+        if !self.active {
+            return 0.0;
+        }
 
         let s = self.noise.next_sample() * self.env.process(); // sample_rate unused if ADSR is normalized
 
@@ -55,5 +59,4 @@ impl SynthNode for HiHatVoice {
     fn is_active(&self) -> bool {
         self.active
     }
-
 }
