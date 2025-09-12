@@ -314,12 +314,40 @@ impl AudioManager {
                         }
                     }
                 }
-                _ => {
-                    log::warn!(
-                        "Skipping unsupported instrument id={} when hydrating audio",
-                        inst.id
-                    );
+                InstrumentData::SnareDrum(p) => {
+                    let instrument = audio.get_instrument_factory().create_snare_drum(id, 0.0);
+                    audio.send_command(SequencerCmd::AddTrackInstrument { instrument }.into());
+
+                    for eff in p.audio_effects.iter() {
+                        match eff {
+                            AudioEffect::Reverb { mix, decay_time, room_size, diffusion, damping } => {
+                                let mut r = audio.get_effect_factory().create_mono_reverb();
+                                let mx = (*mix).clamp(0.0, 1.0);
+                                let dec = (*decay_time).clamp(0.0, 1.0);
+                                let rs = (*room_size).clamp(0.5, 2.0);
+                                let damp = (*damping).clamp(0.0, 1.0);
+                                let diff = (*diffusion).clamp(0.0, 1.0);
+                                use audio_backend::effects::ReverbParameter as RP;
+                                audio_backend::MonoEffect::set_parameter(&mut *r, RP::Mix.as_index(), mx);
+                                audio_backend::MonoEffect::set_parameter(&mut *r, RP::Decay.as_index(), dec);
+                                audio_backend::MonoEffect::set_parameter(&mut *r, RP::RoomSize.as_index(), rs);
+                                audio_backend::MonoEffect::set_parameter(&mut *r, RP::Damping.as_index(), damp);
+                                audio_backend::MonoEffect::set_parameter(&mut *r, RP::Diffusion.as_index(), diff);
+                                audio.send_command(SequencerCmd::AddEffectToInstrument { instrument_id: id, effect: r }.into());
+                            }
+                            AudioEffect::Delay { time, num_taps, feedback, mix } => {
+                                let mut d = audio.get_effect_factory().create_mono_delay(*time, *num_taps as usize, *feedback, *mix);
+                                use audio_backend::effects::DelayParameter as DP;
+                                audio_backend::MonoEffect::set_parameter(&mut *d, DP::Time.as_index(), *time);
+                                audio_backend::MonoEffect::set_parameter(&mut *d, DP::NumTaps.as_index(), *num_taps as f32);
+                                audio_backend::MonoEffect::set_parameter(&mut *d, DP::Feedback.as_index(), *feedback);
+                                audio_backend::MonoEffect::set_parameter(&mut *d, DP::Mix.as_index(), *mix);
+                                audio.send_command(SequencerCmd::AddEffectToInstrument { instrument_id: id, effect: d }.into());
+                            }
+                        }
+                    }
                 }
+                _ => {}
             }
         }
     }
