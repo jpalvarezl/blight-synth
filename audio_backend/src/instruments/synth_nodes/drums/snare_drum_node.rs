@@ -2,7 +2,7 @@ use crate::{Envelope, NoiseGenerator, OscillatorNode, SynthNode};
 
 pub struct SnareDrumVoice {
     osc: OscillatorNode,   // triangle or square "body"
-    osc_env: Envelope,  // quick decay for body part
+    osc_env: Envelope,     // quick decay for body part
     noise: NoiseGenerator, // medium decay for sizzle part
     noise_env: Envelope,
 }
@@ -53,5 +53,7 @@ impl SynthNode for SnareDrumVoice {
         self.osc_env.is_active() || self.noise_env.is_active()
     }
 
-    fn try_handle_command(&mut self, _command: &crate::synth_infra::SynthCommand) -> bool { false }
+    fn try_handle_command(&mut self, _command: &crate::synth_infra::SynthCommand) -> bool {
+        false
+    }
 }

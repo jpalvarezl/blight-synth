@@ -1,5 +1,6 @@
 use crate::{
-    id::InstrumentId, HiHat, InstrumentTrait, KickDrum, MonophonicOscillator, PolyphonicOscillator, SnareDrum, Waveform,
+    id::InstrumentId, HiHat, InstrumentTrait, KickDrum, MonophonicOscillator, PolyphonicOscillator,
+    SnareDrum, Waveform,
 };
 
 pub struct InstrumentFactory {
@@ -55,11 +56,19 @@ impl InstrumentFactory {
         Box::new(HiHat::new(instrument_id, pan, self.sample_rate))
     }
 
-    pub fn create_kick_drum(&self, instrument_id: InstrumentId, pan: f32) -> Box<dyn InstrumentTrait> {
+    pub fn create_kick_drum(
+        &self,
+        instrument_id: InstrumentId,
+        pan: f32,
+    ) -> Box<dyn InstrumentTrait> {
         Box::new(KickDrum::new(instrument_id, pan, self.sample_rate))
     }
 
-    pub fn create_snare_drum(&self, instrument_id: InstrumentId, pan: f32) -> Box<dyn InstrumentTrait> {
+    pub fn create_snare_drum(
+        &self,
+        instrument_id: InstrumentId,
+        pan: f32,
+    ) -> Box<dyn InstrumentTrait> {
         Box::new(SnareDrum::new(instrument_id, pan, self.sample_rate))
     }
 }

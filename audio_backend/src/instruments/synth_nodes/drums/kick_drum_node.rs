@@ -1,6 +1,6 @@
-use utils::note::midi_to_frequency;
-use crate::{OscillatorNode, SynthNode};
 use crate::synth_infra::{EnvelopeLike, PitchEnvLike};
+use crate::{OscillatorNode, SynthNode};
+use utils::note::midi_to_frequency;
 
 pub struct KickDrumVoice<A: EnvelopeLike, P: PitchEnvLike> {
     osc: OscillatorNode, // sine or triangle wave
@@ -14,7 +14,7 @@ impl KickDrumVoice<crate::Envelope, crate::PitchEnvelope> {
         let mut env = crate::Envelope::new(sample_rate);
         env.set_parameters(0.0, 0.1, 0.0, 0.1);
         let pitch_env = crate::PitchEnvelope::new(100.0, env.clone());
-        let osc = OscillatorNode::new(); 
+        let osc = OscillatorNode::new();
         KickDrumVoice {
             osc,
             amp_env: env,
@@ -52,5 +52,7 @@ impl<A: EnvelopeLike, P: PitchEnvLike> SynthNode for KickDrumVoice<A, P> {
         self.osc.is_active() || self.amp_env.is_active() || self.pitch_env.is_active()
     }
 
-    fn try_handle_command(&mut self, _command: &crate::synth_infra::SynthCommand) -> bool { false }
+    fn try_handle_command(&mut self, _command: &crate::synth_infra::SynthCommand) -> bool {
+        false
+    }
 }

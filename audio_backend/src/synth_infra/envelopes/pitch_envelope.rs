@@ -7,10 +7,10 @@ pub struct PitchEnvelope {
 }
 
 impl PitchEnvelope {
-    pub fn new(freq_delta: f32, adsr: Envelope) -> Self {
+    pub fn new(freq_delta_hz: f32, adsr: Envelope) -> Self {
         Self {
             adsr,
-            freq_delta,
+            freq_delta: freq_delta_hz,
             start_freq: 0.0,
         }
     }

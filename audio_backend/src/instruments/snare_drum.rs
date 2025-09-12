@@ -1,4 +1,6 @@
-use crate::{id::InstrumentId, instruments::VoiceSlot, InstrumentTrait, SnareDrumVoice, Voice, VoiceTrait};
+use crate::{
+    id::InstrumentId, instruments::VoiceSlot, InstrumentTrait, SnareDrumVoice, Voice, VoiceTrait,
+};
 
 pub struct SnareDrum {
     instrument_id: InstrumentId,

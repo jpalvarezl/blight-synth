@@ -1,4 +1,7 @@
-use crate::{id::InstrumentId, instruments::VoiceSlot, Envelope, InstrumentTrait, KickDrumVoice, PitchEnvelope, Voice, VoiceTrait};
+use crate::{
+    id::InstrumentId, instruments::VoiceSlot, Envelope, InstrumentTrait, KickDrumVoice,
+    PitchEnvelope, Voice, VoiceTrait,
+};
 
 /// Kick:
 /// - Amp envelope → short decay (so the kick fades out).
