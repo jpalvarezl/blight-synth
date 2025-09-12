@@ -44,7 +44,7 @@ pub trait VoiceTrait: Send + Sync {
 pub struct Voice<S: SynthNode> {
     id: VoiceId,
     pub(crate) node: S,
-    envelope: Envelope,
+    envelope: Option<Envelope>,
     pan: f32, // -1.0 (L) to 1.0 (R)
     // Pre-allocated buffer for mono processing.
     mono_buf: Vec<f32>,
@@ -68,7 +68,28 @@ impl<S: SynthNode> Voice<S> {
         Self {
             id,
             node,
-            envelope,
+            envelope: Some(envelope),
+            pan,
+            mono_buf,
+            effect_chain,
+        }
+    }
+
+    pub fn new_no_envelope(
+        id: VoiceId,
+        node: S,
+        // sample_rate: f32,
+        pan: f32,
+        effect_chain: MonoEffectChain,
+    ) -> Self {
+        // Pre-allocate the internal mono buffer for the voice.
+        const MAX_BUFFER_SIZE: usize = 4096;
+        let mono_buf = vec![0.0; MAX_BUFFER_SIZE];
+
+        Self {
+            id,
+            node,
+            envelope: None,
             pan,
             mono_buf,
             effect_chain,
@@ -101,7 +122,11 @@ impl<S: SynthNode> VoiceTrait for Voice<S> {
 
         // 4. Apply envelope and panning, adding to the main stereo buffers.
         for i in 0..frame_count {
-            let envelope_val = self.envelope.process();
+            // use envelope if present, otherwise pass-through (1.0)
+            let envelope_val = match &mut self.envelope {
+                Some(env) => env.process(),
+                None => 1.0,
+            };
             let mono_sample = mono_processing_buf[i] * envelope_val;
             left_buf[i] += mono_sample * gain_left;
             right_buf[i] += mono_sample * gain_right;
@@ -112,16 +137,23 @@ impl<S: SynthNode> VoiceTrait for Voice<S> {
         // Reset per-voice insert effects to avoid carrying state between notes
         // self.effect_chain.reset();
         self.node.note_on(note, velocity);
-        self.envelope.gate(true);
+        if let Some(env) = &mut self.envelope {
+            env.gate(true);
+        }
     }
 
     fn note_off(&mut self) {
         self.node.note_off();
-        self.envelope.gate(false);
+        if let Some(env) = &mut self.envelope {
+            env.gate(false);
+        }
     }
 
     fn is_active(&self) -> bool {
-        self.envelope.is_active() && self.node.is_active()
+        match &self.envelope {
+            Some(env) => env.is_active() && self.node.is_active(),
+            None => self.node.is_active(),
+        }
     }
 
     fn set_pan(&mut self, pan: f32) {

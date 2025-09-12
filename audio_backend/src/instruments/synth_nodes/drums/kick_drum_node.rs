@@ -1,39 +1,45 @@
 use utils::note::midi_to_frequency;
+use crate::{OscillatorNode, SynthNode};
+use crate::synth_infra::{EnvelopeLike, PitchEnvLike};
 
-use crate::{Envelope, OscillatorNode, PitchEnvelope, SynthNode};
-
-pub struct KickDrumVoice {
-    osc: OscillatorNode, // sine or triangle osc
-    amp_env: Envelope,
-    pitch_env: PitchEnvelope,
+pub struct KickDrumVoice<A: EnvelopeLike, P: PitchEnvLike> {
+    osc: OscillatorNode, // sine or triangle wave
+    amp_env: A,
+    pitch_env: P,
 }
 
-impl KickDrumVoice {
+// Provide a convenience constructor for the concrete Envelope+PitchEnvelope combo:
+impl KickDrumVoice<crate::Envelope, crate::PitchEnvelope> {
     pub fn new(sample_rate: f32) -> Self {
-        let mut envelope = Envelope::new(sample_rate);
-        envelope.set_parameters(0.0, 0.1, 0.0, 0.1); // quick attack and decay
-        let pitch_env = PitchEnvelope::new(100.0, envelope.clone());
-
-        let osc = OscillatorNode::new();
-
+        let mut env = crate::Envelope::new(sample_rate);
+        env.set_parameters(0.0, 0.1, 0.0, 0.1);
+        let pitch_env = crate::PitchEnvelope::new(100.0, env.clone());
+        let osc = OscillatorNode::new(); 
         KickDrumVoice {
             osc,
-            amp_env: envelope,
+            amp_env: env,
             pitch_env,
         }
     }
 }
 
-impl SynthNode for KickDrumVoice {
+// Generic impl for audio path — no vtable calls
+impl<A: EnvelopeLike, P: PitchEnvLike> SynthNode for KickDrumVoice<A, P> {
     fn process(&mut self, mono_buf: &mut [f32], sample_rate: f32) {
         for sample in mono_buf.iter_mut() {
-            *sample = self.next_sample(sample_rate);
+            if !self.is_active() {
+                *sample = 0.0;
+                continue;
+            }
+            let freq = self.pitch_env.next_freq();
+            self.osc.set_frequency(freq);
+            *sample = self.osc.next_sample(sample_rate) * self.amp_env.process();
         }
     }
 
     fn note_on(&mut self, note: u8, _velocity: u8) {
-        let start_freq = midi_to_frequency(note);
-        self.pitch_env.note_on(start_freq);
+        let start = midi_to_frequency(note);
+        self.pitch_env.note_on(start);
         self.amp_env.gate(true);
     }
 
@@ -46,22 +52,5 @@ impl SynthNode for KickDrumVoice {
         self.osc.is_active() || self.amp_env.is_active() || self.pitch_env.is_active()
     }
 
-    fn try_handle_command(&mut self, _command: &crate::synth_infra::SynthCommand) -> bool {
-        false
-    }
-}
-
-impl KickDrumVoice {
-    pub fn next_sample(&mut self, sample_rate: f32) -> f32 {
-        if !SynthNode::is_active(self) {
-            return 0.0;
-        }
-
-        let freq = self.pitch_env.next_freq();
-        self.osc.set_frequency(freq);
-
-        let s = self.osc.next_sample(sample_rate) * self.amp_env.process();
-
-        s
-    }
+    fn try_handle_command(&mut self, _command: &crate::synth_infra::SynthCommand) -> bool { false }
 }

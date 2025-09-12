@@ -1,16 +1,15 @@
-use crate::{id::InstrumentId, instruments::VoiceSlot, Envelope, InstrumentTrait, KickDrumVoice, Voice, VoiceTrait};
+use crate::{id::InstrumentId, instruments::VoiceSlot, Envelope, InstrumentTrait, KickDrumVoice, PitchEnvelope, Voice, VoiceTrait};
 
 pub struct KickDrum {
     instrument_id: InstrumentId,
-    voice: VoiceSlot<KickDrumVoice>,
+    voice: VoiceSlot<KickDrumVoice<Envelope, PitchEnvelope>>,
 }
 
 impl KickDrum {
     pub fn new(instrument_id: InstrumentId, pan: f32, sample_rate: f32) -> Self {
-        let voice = Voice::new(
+        let voice = Voice::new_no_envelope(
             0,
             KickDrumVoice::new(sample_rate),
-            Envelope::new(sample_rate), // KickDrumVoice has its own envelope. Need to figure out how to handle this better.
             pan,
             crate::MonoEffectChain::new(10),
         );
