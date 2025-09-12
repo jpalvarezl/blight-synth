@@ -1,5 +1,9 @@
 use crate::{id::InstrumentId, instruments::VoiceSlot, Envelope, InstrumentTrait, KickDrumVoice, PitchEnvelope, Voice, VoiceTrait};
 
+/// Kick:
+/// - Amp envelope → short decay (so the kick fades out).
+/// - Pitch envelope → even shorter decay (for the downward sweep).
+/// - Oscillator → sine or triangle wave.
 pub struct KickDrum {
     instrument_id: InstrumentId,
     voice: VoiceSlot<KickDrumVoice<Envelope, PitchEnvelope>>,

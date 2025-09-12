@@ -3,12 +3,14 @@ mod monophonic_osc;
 mod polyphonic_osc;
 mod synth_nodes;
 mod kick_drum;
+mod snare_drum;
 
 pub use hihat::*;
 pub use monophonic_osc::*;
 pub use polyphonic_osc::*;
 pub use synth_nodes::*;
 pub use kick_drum::*;
+pub use snare_drum::*;
 
 use crate::{id::NoteId, SynthNode, Voice};
 
