@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use log::debug;
-use sequencer::models::MAX_TRACKS;
+use sequencer::models::{MAX_TRACKS, NO_INSTRUMENT};
 
 use crate::{
     id::InstrumentId, EngineCmd, InstrumentTrait, MixerCmd, MonoEffect, StereoEffectChain,
@@ -11,7 +11,7 @@ use crate::{
 /// Instruments are pre-allocated to prevent RT contract violations.
 pub struct Synthesizer {
     pub instrument_bank: HashMap<InstrumentId, Box<dyn InstrumentTrait>>,
-    pub _track_instrument: HashMap<usize, InstrumentId>, // cache the active instrument for each track
+    pub track_last_instrument: HashMap<usize, InstrumentId>, // cache the active instrument for each track
     pub master_effects: StereoEffectChain,
     // TODO: future: consider per-instrument bus FX chains (StereoEffectChain per instrument)
     // and support a SequencerCmd::AddStereoEffectToInstrument to process post-sum per instrument.
@@ -21,7 +21,7 @@ impl Synthesizer {
     pub fn new() -> Self {
         Self {
             instrument_bank: HashMap::with_capacity(64),
-            _track_instrument: HashMap::with_capacity(MAX_TRACKS),
+            track_last_instrument: HashMap::with_capacity(MAX_TRACKS),
             master_effects: StereoEffectChain::new(8),
         }
     }
@@ -115,5 +115,16 @@ impl Synthesizer {
                 }
             }
         }
+    }
+
+    pub fn get_last_instrument_for_track(&mut self, track_index: &usize) -> InstrumentId {
+        match self.track_last_instrument.get(track_index) {
+            Some(&inst_id) => inst_id,
+            None => NO_INSTRUMENT as InstrumentId, 
+        }
+    }
+
+    pub fn set_last_instrument_for_track(&mut self, track_index: usize, instrument_id: InstrumentId) {
+        self.track_last_instrument.insert(track_index, instrument_id);
     }
 }

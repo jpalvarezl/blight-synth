@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use log::debug;
 use sequencer::{
-    models::{NoteSentinelValues, Song, DEFAULT_CHAIN_LENGTH, DEFAULT_PHRASE_LENGTH, MAX_TRACKS},
+    models::{NoteSentinelValues, Song, DEFAULT_CHAIN_LENGTH, DEFAULT_PHRASE_LENGTH, MAX_TRACKS, NO_INSTRUMENT},
     timing::TimingState,
 };
 
@@ -214,8 +214,17 @@ impl Player {
                         // We have an event! Process it.
                         // For now, we only care about NoteOn events.
                         let instrument_id = event.instrument_id as InstrumentId;
-
-                        if event.note != NoteSentinelValues::NoNote as u8
+                        
+                        // Determine if there is an instrument_id cached for the track if not specified in the event
+                        let instrument_id = if instrument_id == NO_INSTRUMENT as InstrumentId {
+                            // If the event's instrument_id is 0, use the last instrument for this track
+                            self.synthesizer.get_last_instrument_for_track(&track_index)
+                        } else {
+                            self.synthesizer.set_last_instrument_for_track(track_index, instrument_id);
+                            instrument_id
+                        };
+                        
+                        if event.note != NoteSentinelValues::NoNote as u8 // for NoNote, we should still process effects
                             && event.note != NoteSentinelValues::NoteOff as u8
                         {
                             debug!(
