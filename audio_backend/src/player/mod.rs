@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use log::debug;
 use sequencer::{
-    models::{NoteSentinelValues, Song, DEFAULT_CHAIN_LENGTH, DEFAULT_PHRASE_LENGTH, MAX_TRACKS, NO_INSTRUMENT},
+    models::{NoteSentinelValues, Song, DEFAULT_CHAIN_LENGTH, DEFAULT_PHRASE_LENGTH, MAX_TRACKS},
     timing::TimingState,
 };
 
@@ -211,20 +211,12 @@ impl Player {
 
                 if let Some(phrase) = self.song.phrase_bank.get(phrase_index) {
                     if let Some(event) = phrase.events.get(track_pos.phrase_step as usize) {
-                        // We have an event! Process it.
-                        // For now, we only care about NoteOn events.
-                        let instrument_id = event.instrument_id as InstrumentId;
+
+                        // Fetch instrument_id if there is a track specified one
+                        let instrument_id = self.synthesizer.cache_instrument_id_for_track(track_index, event.instrument_id as InstrumentId);
                         
-                        // Determine if there is an instrument_id cached for the track if not specified in the event
-                        let instrument_id = if instrument_id == NO_INSTRUMENT as InstrumentId {
-                            // If the event's instrument_id is 0, use the last instrument for this track
-                            self.synthesizer.get_last_instrument_for_track(&track_index)
-                        } else {
-                            self.synthesizer.set_last_instrument_for_track(track_index, instrument_id);
-                            instrument_id
-                        };
-                        
-                        if event.note != NoteSentinelValues::NoNote as u8 // for NoNote, we should still process effects
+                        // For NoNote at some point, we should still process effects in the event.
+                        if event.note != NoteSentinelValues::NoNote as u8
                             && event.note != NoteSentinelValues::NoteOff as u8
                         {
                             debug!(

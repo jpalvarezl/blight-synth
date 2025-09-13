@@ -117,14 +117,31 @@ impl Synthesizer {
         }
     }
 
-    pub fn get_last_instrument_for_track(&mut self, track_index: &usize) -> InstrumentId {
-        match self.track_last_instrument.get(track_index) {
+    /// Determine if there is an instrument_id cached for the track if not specified in the event
+    pub fn cache_instrument_id_for_track(&mut self, track_index: usize, instrument_id: InstrumentId) -> InstrumentId {
+        if instrument_id == NO_INSTRUMENT as InstrumentId {
+            // If the event's instrument_id is 0, use the last instrument for this track
+            self.get_last_instrument_for_track(track_index)
+        } else {
+            self.set_last_instrument_for_track(track_index, instrument_id);
+            instrument_id
+        }
+    }
+
+    fn get_last_instrument_for_track(&self, track_index: usize) -> InstrumentId {
+        match self.track_last_instrument.get(&track_index) {
             Some(&inst_id) => inst_id,
             None => NO_INSTRUMENT as InstrumentId, 
         }
     }
 
-    pub fn set_last_instrument_for_track(&mut self, track_index: usize, instrument_id: InstrumentId) {
-        self.track_last_instrument.insert(track_index, instrument_id);
+    fn set_last_instrument_for_track(&mut self, track_index: usize, instrument_id: InstrumentId) {
+        match self.track_last_instrument.insert(track_index, instrument_id) {
+            Some(prev_id) => {
+                debug!("Track {}: Updated last instrument from {} to {}", track_index, prev_id, instrument_id);
+                self.note_off(prev_id);
+            },
+            None => debug!("Track {}: Set last instrument to {}", track_index, instrument_id),
+        };
     }
 }
