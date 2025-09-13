@@ -211,10 +211,11 @@ impl Player {
 
                 if let Some(phrase) = self.song.phrase_bank.get(phrase_index) {
                     if let Some(event) = phrase.events.get(track_pos.phrase_step as usize) {
-                        // We have an event! Process it.
-                        // For now, we only care about NoteOn events.
-                        let instrument_id = event.instrument_id as InstrumentId;
 
+                        // Fetch instrument_id if there is a track specified one
+                        let instrument_id = self.synthesizer.cache_instrument_id_for_track(track_index, event.instrument_id as InstrumentId);
+                        
+                        // For NoNote at some point, we should still process effects in the event.
                         if event.note != NoteSentinelValues::NoNote as u8
                             && event.note != NoteSentinelValues::NoteOff as u8
                         {
