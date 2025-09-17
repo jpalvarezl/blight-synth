@@ -30,6 +30,17 @@ pub struct PlayerPosition {
     pub track_positions: [TrackPosition; MAX_TRACKS],
 }
 
+impl PlayerPosition {
+    pub fn reset(&mut self) {
+        self.song_step = 0;
+        self.tick_counter = 0;
+        for track_pos in self.track_positions.iter_mut() {
+            track_pos.chain_step = 0;
+            track_pos.phrase_step = 0;
+        }
+    }
+}
+
 impl Default for PlayerPosition {
     fn default() -> Self {
         Self {
@@ -56,7 +67,8 @@ pub struct Player {
     timing: TimingState,
     position: PlayerPosition,
     is_playing: bool,
-    pub synthesizer: tracker_synthesizer::Synthesizer,
+    loop_enabled: bool,
+    synthesizer: tracker_synthesizer::Synthesizer,
 }
 
 impl Player {
@@ -72,6 +84,7 @@ impl Player {
             timing,
             position: PlayerPosition::default(),
             is_playing: false,
+            loop_enabled: false,
             synthesizer: tracker_synthesizer::Synthesizer::new(),
         }
     }
@@ -91,7 +104,7 @@ impl Player {
             Command::Sequencer(SequencerCmd::PlaySong { song }) => {
                 debug!("Playing song: {}", song.name);
                 self.song = song;
-                self.position = PlayerPosition::default();
+                self.position.reset();
                 self.play();
             }
             Command::Transport(TransportCmd::StopSong) => {
@@ -114,6 +127,9 @@ impl Player {
                 self.synthesizer
                     .add_voice_effects_to_instrument(instrument_id, effects);
             }
+            Command::Transport(TransportCmd::SetLooping { enabled }) => {
+                self.loop_enabled = enabled;
+            }
             Command::Transport(TransportCmd::PlayLastSong) => self.play(),
             Command::Engine(engine_cmd) => self.synthesizer.handle_engine_command(engine_cmd),
             Command::Mixer(mixer_cmd) => self.synthesizer.handle_mixer_command(mixer_cmd),
@@ -123,8 +139,8 @@ impl Player {
 
     /// This is the main function to be called from your audio callback.
     /// It processes a block of samples, advances the sequencer state,
-    /// and sends commands to the audio engine.
-    pub fn process(&mut self, buffer_len_samples: usize) {
+    /// and sends forwards audio buffers to the synthesizer.
+    pub fn process(&mut self, left: &mut [f32], right: &mut [f32], sample_rate: f32, buffer_len_samples: usize) {
         if !self.is_playing {
             return;
         }
@@ -134,6 +150,8 @@ impl Player {
         for _ in 0..ticks_to_process {
             self.advance_tick();
         }
+
+        self.synthesizer.process(left, right, sample_rate);
     }
 
     /// This is the heart of the sequencer. It processes a single tick,
@@ -173,9 +191,18 @@ impl Player {
 
             if song_step_needs_advancing {
                 self.position.song_step += 1;
-                // Loop the song if it reaches the end of the arrangement
                 if self.position.song_step >= self.song.arrangement.len() {
-                    self.position.song_step = 0; // Or a specific restart position
+                    // End of song reached
+                    if self.loop_enabled {
+                        // self.synthesizer.stop_all_notes();
+                        self.position.reset();
+                        self.timing.reset();
+                        debug!("Looping back to start of song");
+                    } else {
+                        // Stop playback and reset state
+                        self.stop();
+                        debug!("Reached end of song, stopping playback");
+                    }
                 }
             }
         }

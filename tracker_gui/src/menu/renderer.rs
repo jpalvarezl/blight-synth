@@ -8,6 +8,7 @@ pub struct MenuActions {
     pub save_binary: bool,
     pub quit: bool,
     pub toggle_playback: bool,
+    pub toggle_looping: bool,
     pub show_instrument_manager: bool,
     pub show_shortcuts: bool,
     pub toggle_theme: bool,
@@ -22,6 +23,7 @@ impl Default for MenuActions {
             save_binary: false,
             quit: false,
             toggle_playback: false,
+            toggle_looping: false,
             show_instrument_manager: false,
             show_shortcuts: false,
             toggle_theme: false,
@@ -36,6 +38,7 @@ impl MenuRenderer {
         ui: &mut egui::Ui,
         ctx: &egui::Context,
         is_playing: bool,
+        loop_enabled: bool,
         theme_manager: &ThemeManager,
     ) -> MenuActions {
         let mut actions = MenuActions::default();
@@ -81,6 +84,13 @@ impl MenuRenderer {
 
                 if ui.button(play_text).clicked() {
                     actions.toggle_playback = true;
+                    ui.close();
+                }
+
+                // Loop playback toggle
+                let mut loop_state = loop_enabled;
+                if ui.checkbox(&mut loop_state, "Loop playback").clicked() {
+                    actions.toggle_looping = true;
                     ui.close();
                 }
             });

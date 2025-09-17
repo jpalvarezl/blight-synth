@@ -89,6 +89,10 @@ impl TrackerApp {
             self.audio_manager.toggle_playback(&self.song);
         }
 
+        if actions.toggle_looping {
+            self.audio_manager.toggle_looping();
+        }
+
         if actions.show_shortcuts {
             self.show_shortcuts_window = true;
         }
@@ -203,6 +207,7 @@ impl eframe::App for TrackerApp {
                 ui,
                 ctx,
                 self.audio_manager.is_playing,
+                self.audio_manager.loop_enabled,
                 &self.theme_manager,
             );
             self.handle_menu_actions(actions, ctx);
