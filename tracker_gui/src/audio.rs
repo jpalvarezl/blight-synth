@@ -26,7 +26,12 @@ impl AudioManager {
                 Ok(mut audio) => {
                     self.hydrate_from_song(&mut audio, song);
                     // Ensure backend loop state matches UI preference
-                    audio.send_command(TransportCmd::SetLooping { enabled: self.loop_enabled }.into());
+                    audio.send_command(
+                        TransportCmd::SetLooping {
+                            enabled: self.loop_enabled,
+                        }
+                        .into(),
+                    );
                     self.audio = Some(audio);
                     log::info!("Audio system initialized successfully");
                 }
@@ -42,7 +47,12 @@ impl AudioManager {
             Ok(mut audio) => {
                 self.hydrate_from_song(&mut audio, song);
                 // Keep loop state in sync after reset
-                audio.send_command(TransportCmd::SetLooping { enabled: self.loop_enabled }.into());
+                audio.send_command(
+                    TransportCmd::SetLooping {
+                        enabled: self.loop_enabled,
+                    }
+                    .into(),
+                );
                 self.audio = Some(audio);
                 self.is_playing = false;
                 log::info!("Audio system reset for loaded song");

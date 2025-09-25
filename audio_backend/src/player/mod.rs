@@ -140,7 +140,13 @@ impl Player {
     /// This is the main function to be called from your audio callback.
     /// It processes a block of samples, advances the sequencer state,
     /// and sends forwards audio buffers to the synthesizer.
-    pub fn process(&mut self, left: &mut [f32], right: &mut [f32], sample_rate: f32, buffer_len_samples: usize) {
+    pub fn process(
+        &mut self,
+        left: &mut [f32],
+        right: &mut [f32],
+        sample_rate: f32,
+        buffer_len_samples: usize,
+    ) {
         if !self.is_playing {
             return;
         }
@@ -238,10 +244,12 @@ impl Player {
 
                 if let Some(phrase) = self.song.phrase_bank.get(phrase_index) {
                     if let Some(event) = phrase.events.get(track_pos.phrase_step as usize) {
-
                         // Fetch instrument_id if there is a track specified one
-                        let instrument_id = self.synthesizer.cache_instrument_id_for_track(track_index, event.instrument_id as InstrumentId);
-                        
+                        let instrument_id = self.synthesizer.cache_instrument_id_for_track(
+                            track_index,
+                            event.instrument_id as InstrumentId,
+                        );
+
                         // For NoNote at some point, we should still process effects in the event.
                         if event.note != NoteSentinelValues::NoNote as u8
                             && event.note != NoteSentinelValues::NoteOff as u8

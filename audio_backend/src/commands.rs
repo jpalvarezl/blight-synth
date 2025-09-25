@@ -9,9 +9,7 @@ use std::sync::Arc;
 pub enum TransportCmd {
     PlayLastSong,
     StopSong,
-    SetLooping {
-        enabled: bool,
-    },
+    SetLooping { enabled: bool },
 }
 
 pub enum SequencerCmd {

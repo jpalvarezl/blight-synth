@@ -72,9 +72,10 @@ impl AudioProcessor {
 
         // 2. We move the play-head by as many ticks, depending on the frames.
         // Namely, we progress our control rate, as oppose to our audio rate.
-        self.player.process(left, right, self.sample_rate,frame_count);
+        self.player
+            .process(left, right, self.sample_rate, frame_count);
 
-        //34. Re-interleave the processed buffers into the output buffer.
+        // 3. Re-interleave the processed buffers into the output buffer.
         for (i, frame) in output_buffer.chunks_mut(self.channels).enumerate() {
             frame[0] = left[i];
             if self.channels > 1 {
