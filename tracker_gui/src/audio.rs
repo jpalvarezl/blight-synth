@@ -6,6 +6,7 @@ use std::sync::Arc;
 pub struct AudioManager {
     pub audio: Option<BlightAudio>,
     pub is_playing: bool,
+    pub loop_enabled: bool,
 }
 
 impl Default for AudioManager {
@@ -13,6 +14,7 @@ impl Default for AudioManager {
         Self {
             audio: None,
             is_playing: false,
+            loop_enabled: false,
         }
     }
 }
@@ -23,6 +25,13 @@ impl AudioManager {
             match BlightAudio::with_song(Arc::new(song.clone())) {
                 Ok(mut audio) => {
                     self.hydrate_from_song(&mut audio, song);
+                    // Ensure backend loop state matches UI preference
+                    audio.send_command(
+                        TransportCmd::SetLooping {
+                            enabled: self.loop_enabled,
+                        }
+                        .into(),
+                    );
                     self.audio = Some(audio);
                     log::info!("Audio system initialized successfully");
                 }
@@ -37,6 +46,13 @@ impl AudioManager {
         match BlightAudio::with_song(Arc::new(song.clone())) {
             Ok(mut audio) => {
                 self.hydrate_from_song(&mut audio, song);
+                // Keep loop state in sync after reset
+                audio.send_command(
+                    TransportCmd::SetLooping {
+                        enabled: self.loop_enabled,
+                    }
+                    .into(),
+                );
                 self.audio = Some(audio);
                 self.is_playing = false;
                 log::info!("Audio system reset for loaded song");
@@ -76,6 +92,18 @@ impl AudioManager {
         } else {
             self.play_song(song);
         }
+    }
+
+    pub fn set_looping(&mut self, enabled: bool) {
+        self.loop_enabled = enabled;
+        if let Some(audio) = &mut self.audio {
+            audio.send_command(TransportCmd::SetLooping { enabled }.into());
+        }
+    }
+
+    pub fn toggle_looping(&mut self) {
+        let enabled = !self.loop_enabled;
+        self.set_looping(enabled);
     }
 
     pub fn hydrate_from_song(&self, audio: &mut BlightAudio, song: &Song) {

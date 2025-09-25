@@ -61,10 +61,6 @@ impl AudioProcessor {
             // for when we want to operate as an instrument and handle voice allocs through commands
         }
 
-        // 2. We move the play-head by as many ticks, depending on the frames.
-        // Namely, we progress our control rate, as oppose to our audio rate.
-        self.player.process(frame_count);
-
         // We allocate enough space and clear the left and right buffers.
         let (left, right) = (
             &mut self.left_buf[..frame_count],
@@ -74,12 +70,12 @@ impl AudioProcessor {
         left.fill(0.0);
         right.fill(0.0);
 
-        // 3. Process the synthesizer with the prepared buffers.
+        // 2. We move the play-head by as many ticks, depending on the frames.
+        // Namely, we progress our control rate, as oppose to our audio rate.
         self.player
-            .synthesizer
-            .process(left, right, self.sample_rate);
+            .process(left, right, self.sample_rate, frame_count);
 
-        // 4. Re-interleave the processed buffers into the output buffer.
+        // 3. Re-interleave the processed buffers into the output buffer.
         for (i, frame) in output_buffer.chunks_mut(self.channels).enumerate() {
             frame[0] = left[i];
             if self.channels > 1 {

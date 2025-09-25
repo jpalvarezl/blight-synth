@@ -67,6 +67,10 @@ impl TimingState {
     pub fn tpl(&self) -> u32 {
         self.tpl
     }
+
+    pub fn reset(&mut self) {
+        self.samples_until_next_tick = self.tick_duration_samples;
+    }
 }
 
 #[cfg(test)]
