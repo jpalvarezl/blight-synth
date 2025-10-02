@@ -2,7 +2,7 @@ use std::vec;
 
 use crate::{
     id::VoiceId, synth_infra::synth_node::SynthNode, Envelope, MonoEffect, MonoEffectChain,
-    SynthCommand,
+    commands::SynthCmd,
 };
 
 /// A trait for a generic, type-erased `Voice`. This is used for dynamic dispatch
@@ -29,7 +29,7 @@ pub trait VoiceTrait: Send + Sync {
     fn set_pan(&mut self, pan: f32);
 
     /// Try to handle a synth-specific command
-    fn try_handle_command(&mut self, command: &SynthCommand) -> bool;
+    fn try_handle_command(&mut self, command: &SynthCmd) -> bool;
 
     /// Add a mono effect to this voice's effect chain.
     fn add_effect(&mut self, effect: Box<dyn MonoEffect>);
@@ -160,7 +160,7 @@ impl<S: SynthNode> VoiceTrait for Voice<S> {
         self.pan = pan.clamp(-1.0, 1.0);
     }
 
-    fn try_handle_command(&mut self, command: &SynthCommand) -> bool {
+    fn try_handle_command(&mut self, command: &SynthCmd) -> bool {
         self.node.try_handle_command(command)
     }
 

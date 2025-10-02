@@ -1,6 +1,7 @@
+
 use utils::note::midi_to_frequency;
 
-use crate::SynthNode;
+use crate::{SynthNode};
 
 /// Represents a simple oscillator node for audio synthesis.
 /// It can generate different waveforms such as sine, square, sawtooth, and triangle
@@ -123,9 +124,9 @@ impl SynthNode for OscillatorNode {
         true
     }
 
-    fn try_handle_command(&mut self, command: &crate::synth_infra::SynthCommand) -> bool {
+    fn try_handle_command(&mut self, command: &crate::commands::SynthCmd) -> bool {
         let was_handled = match command {
-            crate::synth_infra::SynthCommand::SetWaveform(waveform) => {
+            crate::commands::SynthCmd::SetWaveform{voice_id: _,  waveform} => {
                 self.set_waveform(*waveform);
                 true
             }

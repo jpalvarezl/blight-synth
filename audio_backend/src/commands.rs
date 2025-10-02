@@ -56,7 +56,7 @@ pub enum SynthCmd {
         voice_id: VoiceId,
         detune: f32,
     },
-    ChangeWaveform {
+    SetWaveform {
         voice_id: VoiceId,
         waveform: Waveform,
     },
@@ -101,7 +101,7 @@ pub enum EngineCmd {
 pub enum Command {
     Transport(TransportCmd),
     Sequencer(SequencerCmd),
-    Synth(SynthCmd),
+    Instrument(SynthCmd),
     Mixer(MixerCmd),
     Engine(EngineCmd),
 }
@@ -118,7 +118,7 @@ impl From<SequencerCmd> for Command {
 }
 impl From<SynthCmd> for Command {
     fn from(value: SynthCmd) -> Self {
-        Command::Synth(value)
+        Command::Instrument(value)
     }
 }
 impl From<MixerCmd> for Command {

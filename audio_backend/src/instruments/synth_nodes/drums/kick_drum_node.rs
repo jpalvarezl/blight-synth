@@ -51,8 +51,4 @@ impl<A: EnvelopeLike, P: PitchEnvLike> SynthNode for KickDrumVoice<A, P> {
     fn is_active(&self) -> bool {
         self.osc.is_active() || self.amp_env.is_active() || self.pitch_env.is_active()
     }
-
-    fn try_handle_command(&mut self, _command: &crate::synth_infra::SynthCommand) -> bool {
-        false
-    }
 }

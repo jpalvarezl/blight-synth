@@ -52,8 +52,4 @@ impl SynthNode for SnareDrumVoice {
     fn is_active(&self) -> bool {
         self.osc_env.is_active() || self.noise_env.is_active()
     }
-
-    fn try_handle_command(&mut self, _command: &crate::synth_infra::SynthCommand) -> bool {
-        false
-    }
 }

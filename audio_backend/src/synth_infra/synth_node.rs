@@ -18,7 +18,7 @@ pub trait SynthNode: Send + Sync {
 
     /// Attempts to handle a command specific to this voice type.
     /// Returns `true` if the command was handled, `false` if not applicable.
-    fn try_handle_command(&mut self, _command: &crate::synth_infra::SynthCommand) -> bool {
+    fn try_handle_command(&mut self, _command: &crate::commands::SynthCmd) -> bool {
         false
     }
 }
