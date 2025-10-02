@@ -1,8 +1,8 @@
 use std::vec;
 
 use crate::{
-    id::VoiceId, synth_infra::synth_node::SynthNode, Envelope, MonoEffect, MonoEffectChain,
-    commands::SynthCmd,
+    commands::SynthCmd, id::VoiceId, synth_infra::synth_node::SynthNode, Envelope, MonoEffect,
+    MonoEffectChain,
 };
 
 /// A trait for a generic, type-erased `Voice`. This is used for dynamic dispatch

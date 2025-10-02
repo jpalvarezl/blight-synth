@@ -62,4 +62,8 @@ impl InstrumentTrait for KickDrum {
             .inner
             .set_effect_parameter(effect_index, param_index, value);
     }
+
+    fn try_handle_command(&mut self, cmd: &crate::SynthCmd) -> bool {
+        self.voice.inner.try_handle_command(cmd)
+    }
 }

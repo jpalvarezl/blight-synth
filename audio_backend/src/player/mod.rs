@@ -131,9 +131,8 @@ impl Player {
                 self.loop_enabled = enabled;
             }
             Command::Transport(TransportCmd::PlayLastSong) => self.play(),
-            Command::Engine(engine_cmd) => self.synthesizer.handle_engine_command(engine_cmd),
+            Command::Instrument(engine_cmd) => self.synthesizer.handle_engine_command(engine_cmd),
             Command::Mixer(mixer_cmd) => self.synthesizer.handle_mixer_command(mixer_cmd),
-            _ => {}
         }
     }
 

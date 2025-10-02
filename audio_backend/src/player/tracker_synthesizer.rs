@@ -4,7 +4,7 @@ use log::debug;
 use sequencer::models::{MAX_TRACKS, NO_INSTRUMENT};
 
 use crate::{
-    id::InstrumentId, EngineCmd, InstrumentTrait, MixerCmd, MonoEffect, StereoEffectChain,
+    id::InstrumentId, InstrumentCmd, InstrumentTrait, MixerCmd, MonoEffect, StereoEffectChain,
 };
 
 /// Specific implementation of a synthesizer for `tracker` mode.
@@ -80,9 +80,9 @@ impl Synthesizer {
         }
     }
 
-    pub fn handle_engine_command(&mut self, cmd: EngineCmd) {
+    pub fn handle_engine_command(&mut self, cmd: InstrumentCmd) {
         match cmd {
-            EngineCmd::NoteOn {
+            InstrumentCmd::NoteOn {
                 instrument_id,
                 note,
                 velocity,
@@ -91,9 +91,17 @@ impl Synthesizer {
                     inst.note_on(note, velocity);
                 }
             }
-            EngineCmd::NoteOff { instrument_id } => {
+            InstrumentCmd::NoteOff { instrument_id } => {
                 if let Some(inst) = self.instrument_bank.get_mut(&instrument_id) {
                     inst.note_off();
+                }
+            }
+            InstrumentCmd::PassOnSynthCmd {
+                instrument_id,
+                synth_cmd,
+            } => {
+                if let Some(inst) = self.instrument_bank.get_mut(&instrument_id) {
+                    inst.try_handle_command(&synth_cmd);
                 }
             }
         }

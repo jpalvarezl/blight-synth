@@ -39,4 +39,6 @@ pub trait InstrumentTrait: Send + Sync {
 
     /// Set a parameter on one of the instrument's effects.
     fn set_effect_parameter(&mut self, effect_index: usize, param_index: u32, value: f32);
+
+    fn try_handle_command(&mut self, cmd: &crate::SynthCmd) -> bool;
 }
