@@ -1,5 +1,5 @@
 use crate::{
-    id::{EffectChainId, InstrumentId, VoiceId},
+    id::{EffectChainId, EnvelopeId, InstrumentId, VoiceId},
     instruments::Waveform,
     InstrumentTrait, MonoEffect, StereoEffect, VoiceEffects, VoiceTrait,
 };
@@ -63,6 +63,22 @@ pub enum SynthCmd {
     AddVoiceEffect {
         voice_id: VoiceId,
         effect: Box<dyn MonoEffect>,
+    },
+    SetEnvAttack {
+        envelope_id: Option<EnvelopeId>,
+        attack: f32,
+    },
+    SetEnvDecay {
+        envelope_id: Option<EnvelopeId>,
+        decay: f32,
+    },
+    SetEnvSustain {
+        envelope_id: Option<EnvelopeId>,
+        sustain: f32,
+    },
+    SetEnvRelease {
+        envelope_id: Option<EnvelopeId>,
+        release: f32,
     },
 }
 
