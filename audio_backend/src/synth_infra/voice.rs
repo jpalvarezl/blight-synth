@@ -161,7 +161,47 @@ impl<S: SynthNode> VoiceTrait for Voice<S> {
     }
 
     fn try_handle_command(&mut self, command: &SynthCmd) -> bool {
-        self.node.try_handle_command(command)
+        let was_handled = match command {
+            SynthCmd::SetEnvAttack { envelope_id: _, attack } => {
+                if let Some(env) = &mut self.envelope {
+                    env.set_attack(*attack);
+                    true
+                } else {
+                    false
+                }
+            }
+            SynthCmd::SetEnvDecay { envelope_id: _, decay } => {
+                if let Some(env) = &mut self.envelope {
+                    env.set_decay(*decay);
+                    true
+                } else {
+                    false
+                }
+            }
+            SynthCmd::SetEnvSustain { envelope_id: _, sustain } => {
+                if let Some(env) = &mut self.envelope {
+                    env.set_sustain(*sustain);
+                    true
+                } else {
+                    false
+                }
+            }
+            SynthCmd::SetEnvRelease { envelope_id: _, release } => {
+                if let Some(env) = &mut self.envelope {
+                    env.set_release(*release);
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        };
+
+        if was_handled {
+            return true;
+        } else {
+            return self.node.try_handle_command(command);
+        }
     }
 
     fn add_effect(&mut self, effect: Box<dyn MonoEffect>) {

@@ -131,7 +131,7 @@ impl SynthNode for OscillatorNode {
             } => {
                 self.set_waveform(*waveform);
                 true
-            }
+            },
             _ => false,
         };
         was_handled

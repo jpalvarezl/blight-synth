@@ -1,80 +1,81 @@
-// use std::{thread, time::Duration};
+use std::{thread, time::Duration};
 
-// use audio_backend::{BlightAudio, InstrumentDefinition, SynthCmd};
+use audio_backend::{BlightAudio, InstrumentCmd, SynthCmd, TransportCmd};
 
-// fn main() {
-//     match &mut BlightAudio::new() {
-//         Ok(audio) => {
-//             let voice_id = 0;
-//             let voice = audio.get_voice_factory().create_voice_with_envelope(
-//                 voice_id,
-//                 InstrumentDefinition::Oscillator,
-//                 0.0,
-//                 0.4,
-//                 0.1,
-//                 0.8,
-//                 0.5,
-//             );
-//             audio.send_command(
-//                 SynthCmd::PlayNote {
-//                     voice,
-//                     note: 60,
-//                     velocity: 127,
-//                 }
-//                 .into(),
-//             );
-//             thread::sleep(Duration::from_millis(600));
-//             audio.send_command(SynthCmd::StopNote { voice_id }.into());
-//             thread::sleep(Duration::from_millis(800));
+fn main() {
+    match &mut BlightAudio::new() {
+        Ok(audio) => {
+            let instrument_id = 0;
+            audio.send_command(
+                audio_backend::SequencerCmd::AddTrackInstrument {
+                    instrument: audio
+                        .get_instrument_factory()
+                        .create_simple_oscillator(instrument_id, 0.0),
+                }
+                .into(),
+            );
+            audio.send_command(
+                InstrumentCmd::PassOnSynthCmd { instrument_id, synth_cmd: SynthCmd::SetEnvAttack { envelope_id: None, attack: 0.4 } }.into()
+            );
+            audio.send_command(
+                InstrumentCmd::PassOnSynthCmd { instrument_id, synth_cmd: SynthCmd::SetEnvDecay { envelope_id: None, decay: 0.1 } }.into()
+            );
+            audio.send_command(
+                InstrumentCmd::PassOnSynthCmd { instrument_id, synth_cmd: SynthCmd::SetEnvSustain { envelope_id: None, sustain: 0.8 } }.into()
+            );
+            audio.send_command(
+                InstrumentCmd::PassOnSynthCmd { instrument_id, synth_cmd: SynthCmd::SetEnvRelease { envelope_id: None, release: 0.5 } }.into()
+            );
+            audio.send_command(TransportCmd::PlayLastSong.into()); // There is no active song but this triggers the pumping of data into the audio thread
 
-//             // slow attack and release
-//             let voice_id = 0;
-//             let voice = audio.get_voice_factory().create_voice_with_envelope(
-//                 voice_id,
-//                 InstrumentDefinition::Oscillator,
-//                 0.0,
-//                 2.0,
-//                 0.1,
-//                 0.8,
-//                 2.0,
-//             );
-//             audio.send_command(
-//                 SynthCmd::PlayNote {
-//                     voice,
-//                     note: 60,
-//                     velocity: 127,
-//                 }
-//                 .into(),
-//             );
-//             thread::sleep(Duration::from_millis(2200));
-//             audio.send_command(SynthCmd::StopNote { voice_id }.into());
-//             thread::sleep(Duration::from_millis(4000)); // wait for release to finish so the voice gets evicted from the voice manager
+            audio.send_command(
+                InstrumentCmd::NoteOn { instrument_id, note: 60, velocity: 127 }.into(),
+            );
+            thread::sleep(Duration::from_millis(600));
+            audio.send_command(InstrumentCmd::NoteOff { instrument_id }.into());
+            thread::sleep(Duration::from_millis(1000));
 
-//             // quick attack and release
-//             let voice_id = 0;
-//             let voice = audio.get_voice_factory().create_voice_with_envelope(
-//                 voice_id,
-//                 InstrumentDefinition::Oscillator,
-//                 0.0,
-//                 0.01,
-//                 0.1,
-//                 0.8,
-//                 0.1,
-//             );
-//             audio.send_command(
-//                 SynthCmd::PlayNote {
-//                     voice,
-//                     note: 60,
-//                     velocity: 127,
-//                 }
-//                 .into(),
-//             );
-//             thread::sleep(Duration::from_millis(200));
-//             audio.send_command(SynthCmd::StopNote { voice_id }.into());
-//             thread::sleep(Duration::from_millis(1000));
-//         }
-//         Err(e) => {
-//             eprintln!("Error initializing audio: {}", e);
-//         }
-//     }
-// }
+
+            audio.send_command(
+                InstrumentCmd::PassOnSynthCmd { instrument_id, synth_cmd: SynthCmd::SetEnvAttack { envelope_id: None, attack: 2.0 } }.into()
+            );
+            audio.send_command(
+                InstrumentCmd::PassOnSynthCmd { instrument_id, synth_cmd: SynthCmd::SetEnvDecay { envelope_id: None, decay: 0.1 } }.into()
+            );
+            audio.send_command(
+                InstrumentCmd::PassOnSynthCmd { instrument_id, synth_cmd: SynthCmd::SetEnvSustain { envelope_id: None, sustain: 0.8 } }.into()
+            );
+            audio.send_command(
+                InstrumentCmd::PassOnSynthCmd { instrument_id, synth_cmd: SynthCmd::SetEnvRelease { envelope_id: None, release: 2.0 } }.into()
+            );
+            audio.send_command(
+                InstrumentCmd::NoteOn { instrument_id, note: 60, velocity: 127 }.into(),
+            );
+            thread::sleep(Duration::from_millis(2200));
+            audio.send_command(InstrumentCmd::NoteOff { instrument_id }.into());
+            thread::sleep(Duration::from_millis(4000)); // wait for release to finish so the voice gets evicted from the voice manager
+
+            audio.send_command(
+                InstrumentCmd::PassOnSynthCmd { instrument_id, synth_cmd: SynthCmd::SetEnvAttack { envelope_id: None, attack: 0.01 } }.into()
+            );
+            audio.send_command(
+                InstrumentCmd::PassOnSynthCmd { instrument_id, synth_cmd: SynthCmd::SetEnvDecay { envelope_id: None, decay: 0.1 } }.into()
+            );
+            audio.send_command(
+                InstrumentCmd::PassOnSynthCmd { instrument_id, synth_cmd: SynthCmd::SetEnvSustain { envelope_id: None, sustain: 0.8 } }.into()
+            );
+            audio.send_command(
+                InstrumentCmd::PassOnSynthCmd { instrument_id, synth_cmd: SynthCmd::SetEnvRelease { envelope_id: None, release: 0.1 } }.into()
+            );
+            audio.send_command(
+                InstrumentCmd::NoteOn { instrument_id, note: 60, velocity: 127 }.into(),
+            );
+            thread::sleep(Duration::from_millis(200));
+            audio.send_command(InstrumentCmd::NoteOff { instrument_id }.into());
+            thread::sleep(Duration::from_millis(1000));
+        }
+        Err(e) => {
+            eprintln!("Error initializing audio: {}", e);
+        }
+    }
+}
