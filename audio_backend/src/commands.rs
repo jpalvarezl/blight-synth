@@ -80,6 +80,12 @@ pub enum SynthCmd {
         envelope_id: Option<EnvelopeId>,
         release: f32,
     },
+    SetPitchEnvFreqDelta {
+        freq_delta: f32,
+    },
+    SetPitchEnvDecayTime {
+        decay_time: f32,
+    },
 }
 
 pub enum MixerCmd {

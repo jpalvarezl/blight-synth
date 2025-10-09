@@ -34,4 +34,19 @@ impl PitchEnvelope {
     pub fn is_active(&self) -> bool {
         self.adsr.is_active()
     }
+
+    pub fn set_freq_delta(&mut self, freq_delta: f32) {
+        self.freq_delta = freq_delta;
+    }
+
+    pub fn set_decay_time(&mut self, decay_time: f32) {
+        self.adsr.set_decay(decay_time);
+        self.adsr.set_attack(0.0); // Instant attack for pitch sweep
+        self.adsr.set_sustain(1.0); // Full sweep completion
+        self.adsr.set_release(0.0); // No release for pitch
+    }
+
+    pub fn set_parameters(&mut self, a: f32, d: f32, s: f32, r: f32) {
+        self.adsr.set_parameters(a, d, s, r);
+    }
 }

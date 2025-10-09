@@ -297,6 +297,62 @@ fn ensure_backend_kick_with_params(
                 }
             }
         }
+        
+        // Configure amplitude envelope parameters (envelope_id: Some(0))
+        audio.send_command(
+            audio_backend::InstrumentCmd::PassOnSynthCmd {
+                instrument_id: id,
+                synth_cmd: audio_backend::SynthCmd::SetEnvAttack {
+                    envelope_id: Some(0),
+                    attack: params.amp_envelope.attack,
+                },
+            }.into()
+        );
+        audio.send_command(
+            audio_backend::InstrumentCmd::PassOnSynthCmd {
+                instrument_id: id,
+                synth_cmd: audio_backend::SynthCmd::SetEnvDecay {
+                    envelope_id: Some(0),
+                    decay: params.amp_envelope.decay,
+                },
+            }.into()
+        );
+        audio.send_command(
+            audio_backend::InstrumentCmd::PassOnSynthCmd {
+                instrument_id: id,
+                synth_cmd: audio_backend::SynthCmd::SetEnvSustain {
+                    envelope_id: Some(0),
+                    sustain: params.amp_envelope.sustain,
+                },
+            }.into()
+        );
+        audio.send_command(
+            audio_backend::InstrumentCmd::PassOnSynthCmd {
+                instrument_id: id,
+                synth_cmd: audio_backend::SynthCmd::SetEnvRelease {
+                    envelope_id: Some(0),
+                    release: params.amp_envelope.release,
+                },
+            }.into()
+        );
+        
+        // Configure pitch envelope parameters (simplified for typical kick pitch sweep)
+        audio.send_command(
+            audio_backend::InstrumentCmd::PassOnSynthCmd {
+                instrument_id: id,
+                synth_cmd: audio_backend::SynthCmd::SetPitchEnvFreqDelta {
+                    freq_delta: params.pitch_envelope.freq_delta,
+                },
+            }.into()
+        );
+        audio.send_command(
+            audio_backend::InstrumentCmd::PassOnSynthCmd {
+                instrument_id: id,
+                synth_cmd: audio_backend::SynthCmd::SetPitchEnvDecayTime {
+                    decay_time: params.pitch_envelope.decay_time,
+                },
+            }.into()
+        );
     }
 }
 
@@ -1052,6 +1108,132 @@ impl InstrumentManagerWindow {
                                 InstrumentData::KickDrum(params) => {
                                     ui.label("Kick Drum");
                                     ui.separator();
+                                    
+                                    // Amplitude Envelope Controls
+                                    ui.push_id(("kd_envelope", inst.id as u32), |ui| {
+                                        egui::CollapsingHeader::new("Amplitude Envelope")
+                                            .id_salt(("kd_env_hdr", inst.id as u32))
+                                            .show(ui, |ui| {
+                                                let mut changed = false;
+                                                let mut atk = params.amp_envelope.attack;
+                                                let mut dec = params.amp_envelope.decay;
+                                                let mut sus = params.amp_envelope.sustain;
+                                                let mut rel = params.amp_envelope.release;
+                                                
+                                                ui.horizontal(|ui| {
+                                                    ui.label("Attack");
+                                                    changed |= ui.add(egui::Slider::new(&mut atk, 0.0..=2.0).suffix(" s")).changed();
+                                                });
+                                                ui.horizontal(|ui| {
+                                                    ui.label("Decay");
+                                                    changed |= ui.add(egui::Slider::new(&mut dec, 0.0..=2.0).suffix(" s")).changed();
+                                                });
+                                                ui.horizontal(|ui| {
+                                                    ui.label("Sustain");
+                                                    changed |= ui.add(egui::Slider::new(&mut sus, 0.0..=1.0)).changed();
+                                                });
+                                                ui.horizontal(|ui| {
+                                                    ui.label("Release");
+                                                    changed |= ui.add(egui::Slider::new(&mut rel, 0.0..=5.0).suffix(" s")).changed();
+                                                });
+                                                
+                                                if changed {
+                                                    params.amp_envelope.attack = atk;
+                                                    params.amp_envelope.decay = dec;
+                                                    params.amp_envelope.sustain = sus;
+                                                    params.amp_envelope.release = rel;
+                                                    
+                                                    // Send commands to backend with envelope_id: Some(0) for amplitude envelope
+                                                    if let Some(audio) = &mut audio_mgr.audio {
+                                                        let id = audio_backend::id::InstrumentId::from(inst.id as u32);
+                                                        audio.send_command(
+                                                            audio_backend::InstrumentCmd::PassOnSynthCmd {
+                                                                instrument_id: id,
+                                                                synth_cmd: audio_backend::SynthCmd::SetEnvAttack {
+                                                                    envelope_id: Some(0),
+                                                                    attack: atk,
+                                                                },
+                                                            }.into()
+                                                        );
+                                                        audio.send_command(
+                                                            audio_backend::InstrumentCmd::PassOnSynthCmd {
+                                                                instrument_id: id,
+                                                                synth_cmd: audio_backend::SynthCmd::SetEnvDecay {
+                                                                    envelope_id: Some(0),
+                                                                    decay: dec,
+                                                                },
+                                                            }.into()
+                                                        );
+                                                        audio.send_command(
+                                                            audio_backend::InstrumentCmd::PassOnSynthCmd {
+                                                                instrument_id: id,
+                                                                synth_cmd: audio_backend::SynthCmd::SetEnvSustain {
+                                                                    envelope_id: Some(0),
+                                                                    sustain: sus,
+                                                                },
+                                                            }.into()
+                                                        );
+                                                        audio.send_command(
+                                                            audio_backend::InstrumentCmd::PassOnSynthCmd {
+                                                                instrument_id: id,
+                                                                synth_cmd: audio_backend::SynthCmd::SetEnvRelease {
+                                                                    envelope_id: Some(0),
+                                                                    release: rel,
+                                                                },
+                                                            }.into()
+                                                        );
+                                                    }
+                                                }
+                                            });
+                                    });
+                                    
+                                    // Pitch Envelope Controls
+                                    ui.push_id(("kd_pitch_envelope", inst.id as u32), |ui| {
+                        egui::CollapsingHeader::new("Pitch Envelope")
+                                            .id_salt(("kd_pitch_env_hdr", inst.id as u32))
+                                            .show(ui, |ui| {
+                                                let mut changed = false;
+                                                let mut freq_delta = params.pitch_envelope.freq_delta;
+                                                let mut decay_time = params.pitch_envelope.decay_time;
+                                                
+                                                ui.horizontal(|ui| {
+                                                    ui.label("Freq Delta");
+                                                    changed |= ui.add(egui::Slider::new(&mut freq_delta, -500.0..=500.0).suffix(" Hz")).changed();
+                                                });
+                                                ui.horizontal(|ui| {
+                                                    ui.label("Decay Time");
+                                                    changed |= ui.add(egui::Slider::new(&mut decay_time, 0.001..=1.0).suffix(" s")).changed();
+                                                });
+                                                
+                                                if changed {
+                                                    params.pitch_envelope.freq_delta = freq_delta;
+                                                    params.pitch_envelope.decay_time = decay_time;
+                                                    
+                                                    // Send commands to backend for pitch envelope
+                                                    if let Some(audio) = &mut audio_mgr.audio {
+                                                        let id = audio_backend::id::InstrumentId::from(inst.id as u32);
+                                                        audio.send_command(
+                                                            audio_backend::InstrumentCmd::PassOnSynthCmd {
+                                                                instrument_id: id,
+                                                                synth_cmd: audio_backend::SynthCmd::SetPitchEnvFreqDelta {
+                                                                    freq_delta,
+                                                                },
+                                                            }.into()
+                                                        );
+                                                        audio.send_command(
+                                                            audio_backend::InstrumentCmd::PassOnSynthCmd {
+                                                                instrument_id: id,
+                                                                synth_cmd: audio_backend::SynthCmd::SetPitchEnvDecayTime {
+                                                                    decay_time,
+                                                                },
+                                                            }.into()
+                                                        );
+                                                    }
+                                                }
+                                            });
+                                    });
+                                    
+                                    ui.separator();
                                     ui.label("Effects:");
 
                                     // Reverb controls
@@ -1362,6 +1544,16 @@ impl InstrumentManagerWindow {
                 name: format!("Kick {:02X}", id as u8),
                 data: InstrumentData::KickDrum(KickDrumParams {
                     audio_effects: Vec::new(),
+                    amp_envelope: sequencer::models::AmpEnvelopeParams {
+                        attack: 0.01,
+                        decay: 0.1,
+                        sustain: 0.0,
+                        release: 0.1,
+                    },
+                    pitch_envelope: sequencer::models::PitchEnvelopeParams {
+                        freq_delta: -100.0,
+                        decay_time: 0.05,
+                    },
                 }),
             });
             if let InstrumentData::KickDrum(ref params) = song.instrument_bank.last().unwrap().data

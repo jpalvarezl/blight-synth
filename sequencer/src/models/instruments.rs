@@ -39,9 +39,27 @@ pub struct HiHatParams {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+/// ADSR envelope parameters for amplitude control.
+pub struct AmpEnvelopeParams {
+    pub attack: f32,
+    pub decay: f32,
+    pub sustain: f32,
+    pub release: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+/// Pitch envelope parameters for pitch sweep control (typical for kick drums).
+pub struct PitchEnvelopeParams {
+    pub freq_delta: f32,
+    pub decay_time: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 /// Parameters for a Kick Drum percussion instrument.
 pub struct KickDrumParams {
     pub audio_effects: Vec<AudioEffect>,
+    pub amp_envelope: AmpEnvelopeParams,
+    pub pitch_envelope: PitchEnvelopeParams,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
