@@ -30,24 +30,59 @@ pub struct SampleParams {
 pub struct SimpleOscillatorParams {
     pub waveform: Waveform,
     pub audio_effects: Vec<AudioEffect>,
+    #[serde(default)]
+    pub amp_envelope: AmpEnvelopeParams,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 /// Parameters for a Hi-Hat percussion instrument.
 pub struct HiHatParams {
     pub audio_effects: Vec<AudioEffect>,
+    #[serde(default)]
+    pub amp_envelope: AmpEnvelopeParams,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+/// ADSR envelope parameters for amplitude control.
+pub struct AmpEnvelopeParams {
+    pub attack: f32,
+    pub decay: f32,
+    pub sustain: f32,
+    pub release: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+/// Pitch envelope parameters for pitch sweep control (typical for kick drums).
+pub struct PitchEnvelopeParams {
+    pub freq_delta: f32,
+    pub decay_time: f32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 /// Parameters for a Kick Drum percussion instrument.
 pub struct KickDrumParams {
     pub audio_effects: Vec<AudioEffect>,
+    pub amp_envelope: AmpEnvelopeParams,
+    pub pitch_envelope: PitchEnvelopeParams,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 /// Parameters for a Snare Drum percussion instrument.
 pub struct SnareDrumParams {
     pub audio_effects: Vec<AudioEffect>,
+    #[serde(default)]
+    pub amp_envelope: AmpEnvelopeParams,
+}
+
+impl Default for AmpEnvelopeParams {
+    fn default() -> Self {
+        Self {
+            attack: 0.01,
+            decay: 0.1,
+            sustain: 0.8,
+            release: 0.2,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]

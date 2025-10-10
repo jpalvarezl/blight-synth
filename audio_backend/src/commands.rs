@@ -1,5 +1,5 @@
 use crate::{
-    id::{EffectChainId, InstrumentId, VoiceId},
+    id::{EffectChainId, EnvelopeId, InstrumentId, VoiceId},
     instruments::Waveform,
     InstrumentTrait, MonoEffect, StereoEffect, VoiceEffects, VoiceTrait,
 };
@@ -56,13 +56,32 @@ pub enum SynthCmd {
         voice_id: VoiceId,
         detune: f32,
     },
-    ChangeWaveform {
+    SetWaveform {
         voice_id: VoiceId,
         waveform: Waveform,
     },
     AddVoiceEffect {
         voice_id: VoiceId,
         effect: Box<dyn MonoEffect>,
+    },
+    SetEnvAttack {
+        envelope_id: Option<EnvelopeId>,
+        attack: f32,
+    },
+    SetEnvDecay {
+        envelope_id: Option<EnvelopeId>,
+        decay: f32,
+    },
+    SetEnvSustain {
+        envelope_id: Option<EnvelopeId>,
+        sustain: f32,
+    },
+    SetEnvRelease {
+        envelope_id: Option<EnvelopeId>,
+        release: f32,
+    },
+    SetPitchEnvFreqDelta {
+        freq_delta: f32,
     },
 }
 
@@ -87,7 +106,7 @@ pub enum MixerCmd {
     },
 }
 
-pub enum EngineCmd {
+pub enum InstrumentCmd {
     NoteOn {
         instrument_id: InstrumentId,
         note: u8,
@@ -96,14 +115,17 @@ pub enum EngineCmd {
     NoteOff {
         instrument_id: InstrumentId,
     },
+    PassOnSynthCmd {
+        instrument_id: InstrumentId,
+        synth_cmd: SynthCmd,
+    },
 }
 
 pub enum Command {
     Transport(TransportCmd),
     Sequencer(SequencerCmd),
-    Synth(SynthCmd),
     Mixer(MixerCmd),
-    Engine(EngineCmd),
+    Instrument(InstrumentCmd),
 }
 
 impl From<TransportCmd> for Command {
@@ -116,18 +138,13 @@ impl From<SequencerCmd> for Command {
         Command::Sequencer(value)
     }
 }
-impl From<SynthCmd> for Command {
-    fn from(value: SynthCmd) -> Self {
-        Command::Synth(value)
-    }
-}
 impl From<MixerCmd> for Command {
     fn from(value: MixerCmd) -> Self {
         Command::Mixer(value)
     }
 }
-impl From<EngineCmd> for Command {
-    fn from(value: EngineCmd) -> Self {
-        Command::Engine(value)
+impl From<InstrumentCmd> for Command {
+    fn from(value: InstrumentCmd) -> Self {
+        Command::Instrument(value)
     }
 }

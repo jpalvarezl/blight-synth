@@ -1,14 +1,17 @@
 // TODO: think of a better place for this module
 
+use utils::note::velocity_to_amplitude;
+
 use crate::SynthNode;
 
 pub struct NoiseGenerator {
     state: u32,
+    volume: f32,
 }
 
 impl NoiseGenerator {
     pub fn new(seed: u32) -> Self {
-        Self { state: seed }
+        Self { state: seed, volume: 0.7 }
     }
 
     #[inline(always)]
@@ -33,12 +36,12 @@ impl SynthNode for NoiseGenerator {
     fn process(&mut self, mono_buf: &mut [f32], _sample_rate: f32) {
         // Implementation of oscillator processing logic
         for sample in mono_buf.iter_mut() {
-            *sample = self.next_sample();
+            *sample = self.volume * self.next_sample();
         }
     }
 
-    fn note_on(&mut self, _note: u8, _velocity: u8) {
-        // ignored for noise
+    fn note_on(&mut self, _note: u8, velocity: u8) {
+        self.volume = velocity_to_amplitude(velocity);
     }
 
     fn note_off(&mut self) {

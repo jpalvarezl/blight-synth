@@ -41,15 +41,10 @@ impl Envelope {
     pub fn set_parameters(&mut self, attack_s: f32, decay_s: f32, sustain: f32, release_s: f32) {
         // Pre-calculate coefficients to avoid expensive math in the audio loop.
         // This formula creates an exponential curve.
-        fn time_to_coef(time_s: f32, sample_rate: f32) -> f32 {
-            if time_s <= 0.0 {
-                return 0.0;
-            }
-            (-1.0 / (time_s * sample_rate)).exp()
-        }
-        self.attack_coef = time_to_coef(attack_s, self.sample_rate);
-        self.decay_coef = time_to_coef(decay_s, self.sample_rate);
-        self.release_coef = time_to_coef(release_s, self.sample_rate);
+
+        self.attack_coef = Self::time_to_coef(attack_s, self.sample_rate);
+        self.decay_coef = Self::time_to_coef(decay_s, self.sample_rate);
+        self.release_coef = Self::time_to_coef(release_s, self.sample_rate);
         self.sustain_level = sustain.clamp(0.0, 1.0);
     }
 
@@ -99,5 +94,40 @@ impl Envelope {
     /// This is the primary indicator of whether a voice should be kept alive.
     pub fn is_active(&self) -> bool {
         self.state != EnvelopeState::Idle
+    }
+
+    pub fn set_attack(&mut self, attack_s: f32) {
+        self.attack_coef = Self::time_to_coef(attack_s, self.sample_rate);
+        if self.state == EnvelopeState::Attack {
+            self.coefficient = self.attack_coef;
+        }
+    }
+
+    pub fn set_decay(&mut self, decay_s: f32) {
+        self.decay_coef = Self::time_to_coef(decay_s, self.sample_rate);
+        if self.state == EnvelopeState::Decay {
+            self.coefficient = self.decay_coef;
+        }
+    }
+
+    pub fn set_sustain(&mut self, sustain: f32) {
+        self.sustain_level = sustain.clamp(0.0, 1.0);
+        if self.state == EnvelopeState::Decay || self.state == EnvelopeState::Sustain {
+            self.target = self.sustain_level;
+        }
+    }
+
+    pub fn set_release(&mut self, release_s: f32) {
+        self.release_coef = Self::time_to_coef(release_s, self.sample_rate);
+        if self.state == EnvelopeState::Release {
+            self.coefficient = self.release_coef;
+        }
+    }
+
+    fn time_to_coef(time_s: f32, sample_rate: f32) -> f32 {
+        if time_s <= 0.0 {
+            return 0.0;
+        }
+        (-1.0 / (time_s * sample_rate)).exp()
     }
 }

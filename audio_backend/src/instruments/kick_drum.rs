@@ -1,6 +1,5 @@
 use crate::{
-    id::InstrumentId, instruments::VoiceSlot, Envelope, InstrumentTrait, KickDrumVoice,
-    PitchEnvelope, Voice, VoiceTrait,
+    id::InstrumentId, instruments::VoiceSlot, InstrumentTrait, KickDrumVoice, Voice, VoiceTrait,
 };
 
 /// Kick:
@@ -9,7 +8,7 @@ use crate::{
 /// - Oscillator → sine or triangle wave.
 pub struct KickDrum {
     instrument_id: InstrumentId,
-    voice: VoiceSlot<KickDrumVoice<Envelope, PitchEnvelope>>,
+    voice: VoiceSlot<KickDrumVoice>,
 }
 
 impl KickDrum {
@@ -61,5 +60,9 @@ impl InstrumentTrait for KickDrum {
         self.voice
             .inner
             .set_effect_parameter(effect_index, param_index, value);
+    }
+
+    fn try_handle_command(&mut self, cmd: &crate::SynthCmd) -> bool {
+        self.voice.inner.try_handle_command(cmd)
     }
 }

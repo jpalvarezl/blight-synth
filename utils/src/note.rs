@@ -54,6 +54,10 @@ pub fn midi_to_frequency(midi: u8) -> f32 {
     440.0 * 2f32.powf((midi as f32 - 69.0) / 12.0)
 }
 
+pub fn velocity_to_amplitude(velocity: u8) -> f32 {
+    f32::min(velocity as f32 / 127.0, 1.0)
+}
+
 // TODO remove
 impl Note {
     pub fn new() -> Self {

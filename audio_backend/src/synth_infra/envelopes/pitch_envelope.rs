@@ -34,4 +34,12 @@ impl PitchEnvelope {
     pub fn is_active(&self) -> bool {
         self.adsr.is_active()
     }
+
+    pub fn set_freq_delta(&mut self, freq_delta: f32) {
+        self.freq_delta = freq_delta;
+    }
+
+    pub fn set_parameters(&mut self, a: f32, d: f32, s: f32, r: f32) {
+        self.adsr.set_parameters(a, d, s, r);
+    }
 }

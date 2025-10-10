@@ -1,6 +1,6 @@
 use std::thread;
 
-use audio_backend::{BlightAudio, InstrumentDefinition, SynthCmd, Waveform};
+use audio_backend::{BlightAudio, InstrumentCmd, SynthCmd, TransportCmd, Waveform};
 
 fn main() {
     // This is a placeholder for the main function.
@@ -8,49 +8,67 @@ fn main() {
     match &mut BlightAudio::new() {
         Ok(audio) => {
             println!("BlightAudio initialized successfully!");
-            let voice_id = 0;
             // You can now use `audio` to send commands, etc.
+
+            let instrument_id = 0;
             audio.send_command(
-                SynthCmd::PlayNote {
+                audio_backend::SequencerCmd::AddTrackInstrument {
+                    instrument: audio
+                        .get_instrument_factory()
+                        .create_simple_oscillator(instrument_id, 0.0),
+                }
+                .into(),
+            );
+            audio.send_command(TransportCmd::PlayLastSong.into()); // There is no active song but this triggers the pumping of data into the audio thread
+            audio.send_command(
+                InstrumentCmd::NoteOn {
+                    instrument_id,
                     note: 60,
-                    voice: audio.get_voice_factory().create_voice(
-                        voice_id,
-                        InstrumentDefinition::Oscillator,
-                        0.0,
-                    ),
                     velocity: 127,
                 }
                 .into(),
             );
             thread::sleep(std::time::Duration::from_millis(1000));
             audio.send_command(
-                SynthCmd::ChangeWaveform {
-                    voice_id,
-                    waveform: Waveform::Sawtooth,
+                InstrumentCmd::PassOnSynthCmd {
+                    instrument_id,
+                    synth_cmd: SynthCmd::SetWaveform {
+                        voice_id: 0,
+                        waveform: Waveform::Sawtooth,
+                    },
                 }
                 .into(),
             );
             thread::sleep(std::time::Duration::from_millis(1000));
             audio.send_command(
-                SynthCmd::ChangeWaveform {
-                    voice_id,
-                    waveform: Waveform::Square,
+                InstrumentCmd::PassOnSynthCmd {
+                    instrument_id,
+                    synth_cmd: SynthCmd::SetWaveform {
+                        voice_id: 0,
+                        waveform: Waveform::Square,
+                    },
                 }
                 .into(),
             );
             thread::sleep(std::time::Duration::from_millis(1000));
             audio.send_command(
-                SynthCmd::ChangeWaveform {
-                    voice_id,
-                    waveform: Waveform::Triangle,
+                InstrumentCmd::PassOnSynthCmd {
+                    instrument_id,
+                    synth_cmd: SynthCmd::SetWaveform {
+                        voice_id: 0,
+                        waveform: Waveform::Triangle,
+                    },
                 }
                 .into(),
             );
             thread::sleep(std::time::Duration::from_millis(1000));
             audio.send_command(
-                SynthCmd::ChangeWaveform {
-                    voice_id,
-                    waveform: Waveform::NesTriangle,
+                InstrumentCmd::PassOnSynthCmd {
+                    instrument_id,
+                    synth_cmd: SynthCmd::SetWaveform {
+                        voice_id: 0,
+                        waveform: Waveform::NesTriangle,
+                    },
                 }
                 .into(),
             );

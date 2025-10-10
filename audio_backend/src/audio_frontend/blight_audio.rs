@@ -2,6 +2,7 @@ use super::BlightAudio;
 use crate::factories::InstrumentFactory;
 use crate::{AudioProcessor, Command, EffectFactory, ResourceManager, VoiceFactory};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+use log::info;
 use ringbuf::storage::Heap;
 use ringbuf::traits::*;
 use ringbuf::SharedRb;
@@ -61,6 +62,11 @@ impl BlightAudio {
         let config = device.default_output_config()?.config();
         let sample_rate = config.sample_rate.0;
         let channels = config.channels as usize;
+
+        info!("Audio output device: {}", device.name()?);
+        info!("Default output config: {:?}", config);
+        info!("Sample rate: {}", sample_rate);
+        info!("Channels: {}", channels);
 
         // Create the SPSC ring buffer for commands using a heap-allocated buffer.
         let rb = SharedRb::<Heap<Command>>::new(1024);

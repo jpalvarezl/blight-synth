@@ -123,12 +123,15 @@ impl SynthNode for OscillatorNode {
         true
     }
 
-    fn try_handle_command(&mut self, command: &crate::synth_infra::SynthCommand) -> bool {
+    fn try_handle_command(&mut self, command: &crate::commands::SynthCmd) -> bool {
         let was_handled = match command {
-            crate::synth_infra::SynthCommand::SetWaveform(waveform) => {
+            crate::commands::SynthCmd::SetWaveform {
+                voice_id: _,
+                waveform,
+            } => {
                 self.set_waveform(*waveform);
                 true
-            }
+            },
             _ => false,
         };
         was_handled

@@ -1,6 +1,6 @@
 use std::thread;
 
-use audio_backend::{id::InstrumentId, BlightAudio, EngineCmd, MixerCmd, SequencerCmd};
+use audio_backend::{id::InstrumentId, BlightAudio, InstrumentCmd, MixerCmd, SequencerCmd};
 
 pub fn main() {
     match &mut BlightAudio::new() {
@@ -19,7 +19,7 @@ pub fn main() {
                 .create_simple_oscillator(inst_id, 0.0);
             audio.send_command(SequencerCmd::AddTrackInstrument { instrument }.into());
             audio.send_command(
-                EngineCmd::NoteOn {
+                InstrumentCmd::NoteOn {
                     instrument_id: inst_id,
                     note: 60,
                     velocity: 127,
@@ -30,7 +30,7 @@ pub fn main() {
             // Play a very short note - 200ms
             thread::sleep(std::time::Duration::from_millis(200));
             audio.send_command(
-                EngineCmd::NoteOff {
+                InstrumentCmd::NoteOff {
                     instrument_id: inst_id,
                 }
                 .into(),
@@ -51,7 +51,7 @@ pub fn main() {
             audio.send_command(SequencerCmd::AddTrackInstrument { instrument: i2 }.into());
             audio.send_command(SequencerCmd::AddTrackInstrument { instrument: i3 }.into());
             audio.send_command(
-                EngineCmd::NoteOn {
+                InstrumentCmd::NoteOn {
                     instrument_id: inst_id,
                     note: 60,
                     velocity: 100,
@@ -59,7 +59,7 @@ pub fn main() {
                 .into(),
             );
             audio.send_command(
-                EngineCmd::NoteOn {
+                InstrumentCmd::NoteOn {
                     instrument_id: inst2,
                     note: 64,
                     velocity: 100,
@@ -67,7 +67,7 @@ pub fn main() {
                 .into(),
             );
             audio.send_command(
-                EngineCmd::NoteOn {
+                InstrumentCmd::NoteOn {
                     instrument_id: inst3,
                     note: 67,
                     velocity: 100,
@@ -79,19 +79,19 @@ pub fn main() {
 
             // Stop all notes
             audio.send_command(
-                EngineCmd::NoteOff {
+                InstrumentCmd::NoteOff {
                     instrument_id: inst_id,
                 }
                 .into(),
             );
             audio.send_command(
-                EngineCmd::NoteOff {
+                InstrumentCmd::NoteOff {
                     instrument_id: inst2,
                 }
                 .into(),
             );
             audio.send_command(
-                EngineCmd::NoteOff {
+                InstrumentCmd::NoteOff {
                     instrument_id: inst3,
                 }
                 .into(),

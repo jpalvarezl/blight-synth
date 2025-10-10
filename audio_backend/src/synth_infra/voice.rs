@@ -1,8 +1,8 @@
 use std::vec;
 
 use crate::{
-    id::VoiceId, synth_infra::synth_node::SynthNode, Envelope, MonoEffect, MonoEffectChain,
-    SynthCommand,
+    commands::SynthCmd, id::VoiceId, synth_infra::synth_node::SynthNode, Envelope, MonoEffect,
+    MonoEffectChain,
 };
 
 /// A trait for a generic, type-erased `Voice`. This is used for dynamic dispatch
@@ -29,7 +29,7 @@ pub trait VoiceTrait: Send + Sync {
     fn set_pan(&mut self, pan: f32);
 
     /// Try to handle a synth-specific command
-    fn try_handle_command(&mut self, command: &SynthCommand) -> bool;
+    fn try_handle_command(&mut self, command: &SynthCmd) -> bool;
 
     /// Add a mono effect to this voice's effect chain.
     fn add_effect(&mut self, effect: Box<dyn MonoEffect>);
@@ -160,8 +160,48 @@ impl<S: SynthNode> VoiceTrait for Voice<S> {
         self.pan = pan.clamp(-1.0, 1.0);
     }
 
-    fn try_handle_command(&mut self, command: &SynthCommand) -> bool {
-        self.node.try_handle_command(command)
+    fn try_handle_command(&mut self, command: &SynthCmd) -> bool {
+        let was_handled = match command {
+            SynthCmd::SetEnvAttack { envelope_id: _, attack } => {
+                if let Some(env) = &mut self.envelope {
+                    env.set_attack(*attack);
+                    true
+                } else {
+                    false
+                }
+            }
+            SynthCmd::SetEnvDecay { envelope_id: _, decay } => {
+                if let Some(env) = &mut self.envelope {
+                    env.set_decay(*decay);
+                    true
+                } else {
+                    false
+                }
+            }
+            SynthCmd::SetEnvSustain { envelope_id: _, sustain } => {
+                if let Some(env) = &mut self.envelope {
+                    env.set_sustain(*sustain);
+                    true
+                } else {
+                    false
+                }
+            }
+            SynthCmd::SetEnvRelease { envelope_id: _, release } => {
+                if let Some(env) = &mut self.envelope {
+                    env.set_release(*release);
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        };
+
+        if was_handled {
+            return true;
+        } else {
+            return self.node.try_handle_command(command);
+        }
     }
 
     fn add_effect(&mut self, effect: Box<dyn MonoEffect>) {

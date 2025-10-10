@@ -120,4 +120,14 @@ impl InstrumentTrait for PolyphonicOscillator {
                 .set_effect_parameter(effect_index, param_index, value);
         }
     }
+
+    fn try_handle_command(&mut self, cmd: &crate::SynthCmd) -> bool {
+        let mut handled = false;
+        for voice in &mut self.voices {
+            if voice.inner.try_handle_command(cmd) {
+                handled = true;
+            }
+        }
+        handled
+    }
 }
