@@ -1,6 +1,5 @@
 use crate::{
-    id::InstrumentId, instruments::VoiceSlot, Envelope, InstrumentTrait, KickDrumVoice,
-    PitchEnvelope, Voice, VoiceTrait,
+    id::InstrumentId, instruments::VoiceSlot, InstrumentTrait, KickDrumVoice, Voice, VoiceTrait,
 };
 
 /// Kick:
@@ -9,7 +8,7 @@ use crate::{
 /// - Oscillator → sine or triangle wave.
 pub struct KickDrum {
     instrument_id: InstrumentId,
-    voice: VoiceSlot<KickDrumVoice<Envelope, PitchEnvelope>>,
+    voice: VoiceSlot<KickDrumVoice>,
 }
 
 impl KickDrum {

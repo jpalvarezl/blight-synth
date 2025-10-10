@@ -1,15 +1,15 @@
-use crate::synth_infra::{EnvelopeLike, PitchEnvLike};
+use crate::synth_infra::{Envelope, PitchEnvelope};
 use crate::{OscillatorNode, SynthNode};
 use utils::note::midi_to_frequency;
 
-pub struct KickDrumVoice<A: EnvelopeLike, P: PitchEnvLike> {
+pub struct KickDrumVoice {
     osc: OscillatorNode, // sine or triangle wave
-    amp_env: A,
-    pitch_env: P,
+    amp_env: Envelope,
+    pitch_env: PitchEnvelope,
 }
 
 // Provide a convenience constructor for the concrete Envelope+PitchEnvelope combo:
-impl KickDrumVoice<crate::Envelope, crate::PitchEnvelope> {
+impl KickDrumVoice {
     pub fn new(sample_rate: f32) -> Self {
         let mut env = crate::Envelope::new(sample_rate);
         env.set_parameters(0.0, 0.1, 0.0, 0.1);
@@ -24,7 +24,7 @@ impl KickDrumVoice<crate::Envelope, crate::PitchEnvelope> {
 }
 
 // // Generic impl for audio path — no vtable calls
-impl<A: EnvelopeLike, P: PitchEnvLike> SynthNode for KickDrumVoice<A, P> {
+impl SynthNode for KickDrumVoice {
     fn process(&mut self, mono_buf: &mut [f32], sample_rate: f32) {
         for sample in mono_buf.iter_mut() {
             if !self.is_active() {
@@ -88,10 +88,6 @@ impl<A: EnvelopeLike, P: PitchEnvLike> SynthNode for KickDrumVoice<A, P> {
             }
             crate::commands::SynthCmd::SetPitchEnvFreqDelta { freq_delta } => {
                 self.pitch_env.set_freq_delta(*freq_delta);
-                true
-            }
-            crate::commands::SynthCmd::SetPitchEnvDecayTime { decay_time } => {
-                self.pitch_env.set_decay_time(*decay_time);
                 true
             }
             _ => false,

@@ -83,9 +83,6 @@ pub enum SynthCmd {
     SetPitchEnvFreqDelta {
         freq_delta: f32,
     },
-    SetPitchEnvDecayTime {
-        decay_time: f32,
-    },
 }
 
 pub enum MixerCmd {

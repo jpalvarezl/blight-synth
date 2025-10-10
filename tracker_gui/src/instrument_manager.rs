@@ -345,14 +345,6 @@ fn ensure_backend_kick_with_params(
                 },
             }.into()
         );
-        audio.send_command(
-            audio_backend::InstrumentCmd::PassOnSynthCmd {
-                instrument_id: id,
-                synth_cmd: audio_backend::SynthCmd::SetPitchEnvDecayTime {
-                    decay_time: params.pitch_envelope.decay_time,
-                },
-            }.into()
-        );
     }
 }
 
@@ -1179,52 +1171,6 @@ impl InstrumentManagerWindow {
                                                                 synth_cmd: audio_backend::SynthCmd::SetEnvRelease {
                                                                     envelope_id: Some(0),
                                                                     release: rel,
-                                                                },
-                                                            }.into()
-                                                        );
-                                                    }
-                                                }
-                                            });
-                                    });
-                                    
-                                    // Pitch Envelope Controls
-                                    ui.push_id(("kd_pitch_envelope", inst.id as u32), |ui| {
-                        egui::CollapsingHeader::new("Pitch Envelope")
-                                            .id_salt(("kd_pitch_env_hdr", inst.id as u32))
-                                            .show(ui, |ui| {
-                                                let mut changed = false;
-                                                let mut freq_delta = params.pitch_envelope.freq_delta;
-                                                let mut decay_time = params.pitch_envelope.decay_time;
-                                                
-                                                ui.horizontal(|ui| {
-                                                    ui.label("Freq Delta");
-                                                    changed |= ui.add(egui::Slider::new(&mut freq_delta, -500.0..=500.0).suffix(" Hz")).changed();
-                                                });
-                                                ui.horizontal(|ui| {
-                                                    ui.label("Decay Time");
-                                                    changed |= ui.add(egui::Slider::new(&mut decay_time, 0.001..=1.0).suffix(" s")).changed();
-                                                });
-                                                
-                                                if changed {
-                                                    params.pitch_envelope.freq_delta = freq_delta;
-                                                    params.pitch_envelope.decay_time = decay_time;
-                                                    
-                                                    // Send commands to backend for pitch envelope
-                                                    if let Some(audio) = &mut audio_mgr.audio {
-                                                        let id = audio_backend::id::InstrumentId::from(inst.id as u32);
-                                                        audio.send_command(
-                                                            audio_backend::InstrumentCmd::PassOnSynthCmd {
-                                                                instrument_id: id,
-                                                                synth_cmd: audio_backend::SynthCmd::SetPitchEnvFreqDelta {
-                                                                    freq_delta,
-                                                                },
-                                                            }.into()
-                                                        );
-                                                        audio.send_command(
-                                                            audio_backend::InstrumentCmd::PassOnSynthCmd {
-                                                                instrument_id: id,
-                                                                synth_cmd: audio_backend::SynthCmd::SetPitchEnvDecayTime {
-                                                                    decay_time,
                                                                 },
                                                             }.into()
                                                         );
