@@ -1,7 +1,7 @@
 use eframe::egui;
 use sequencer::models::{
-    AudioEffect, HiHatParams, Instrument, InstrumentData, KickDrumParams, SimpleOscillatorParams,
-    SnareDrumParams, Song, Waveform,
+    AmpEnvelopeParams, AudioEffect, HiHatParams, Instrument, InstrumentData, KickDrumParams,
+    SimpleOscillatorParams, SnareDrumParams, Song, Waveform,
 };
 
 use crate::audio::AudioManager;
@@ -10,6 +10,107 @@ use crate::audio_utils::map_waveform_to_backend;
 #[derive(Default)]
 pub struct InstrumentManagerWindow {
     pub open: bool,
+}
+
+fn send_amp_envelope_to_backend(
+    audio_mgr: &mut AudioManager,
+    instrument_id: u8,
+    env: &AmpEnvelopeParams,
+) {
+    if let Some(audio) = &mut audio_mgr.audio {
+        let id = audio_backend::id::InstrumentId::from(instrument_id as u32);
+        audio.send_command(
+            audio_backend::InstrumentCmd::PassOnSynthCmd {
+                instrument_id: id,
+                synth_cmd: audio_backend::SynthCmd::SetEnvAttack {
+                    envelope_id: Some(0),
+                    attack: env.attack,
+                },
+            }
+            .into(),
+        );
+        audio.send_command(
+            audio_backend::InstrumentCmd::PassOnSynthCmd {
+                instrument_id: id,
+                synth_cmd: audio_backend::SynthCmd::SetEnvDecay {
+                    envelope_id: Some(0),
+                    decay: env.decay,
+                },
+            }
+            .into(),
+        );
+        audio.send_command(
+            audio_backend::InstrumentCmd::PassOnSynthCmd {
+                instrument_id: id,
+                synth_cmd: audio_backend::SynthCmd::SetEnvSustain {
+                    envelope_id: Some(0),
+                    sustain: env.sustain,
+                },
+            }
+            .into(),
+        );
+        audio.send_command(
+            audio_backend::InstrumentCmd::PassOnSynthCmd {
+                instrument_id: id,
+                synth_cmd: audio_backend::SynthCmd::SetEnvRelease {
+                    envelope_id: Some(0),
+                    release: env.release,
+                },
+            }
+            .into(),
+        );
+    }
+}
+
+fn show_amp_envelope_controls(
+    ui: &mut egui::Ui,
+    params: &mut AmpEnvelopeParams,
+    instrument_id: usize,
+    ui_prefix: &'static str,
+    audio_mgr: &mut AudioManager,
+) {
+    ui.push_id((ui_prefix, instrument_id as u32, "amp_env"), |ui| {
+        egui::CollapsingHeader::new("Amplitude Envelope")
+            .id_salt((ui_prefix, instrument_id as u32, "amp_env_hdr"))
+            .show(ui, |ui| {
+                let mut changed = false;
+                let mut atk = params.attack;
+                let mut dec = params.decay;
+                let mut sus = params.sustain;
+                let mut rel = params.release;
+
+                ui.horizontal(|ui| {
+                    ui.label("Attack");
+                    changed |= ui
+                        .add(egui::Slider::new(&mut atk, 0.0..=2.0).suffix(" s"))
+                        .changed();
+                });
+                ui.horizontal(|ui| {
+                    ui.label("Decay");
+                    changed |= ui
+                        .add(egui::Slider::new(&mut dec, 0.0..=2.0).suffix(" s"))
+                        .changed();
+                });
+                ui.horizontal(|ui| {
+                    ui.label("Sustain");
+                    changed |= ui.add(egui::Slider::new(&mut sus, 0.0..=1.0)).changed();
+                });
+                ui.horizontal(|ui| {
+                    ui.label("Release");
+                    changed |= ui
+                        .add(egui::Slider::new(&mut rel, 0.0..=5.0).suffix(" s"))
+                        .changed();
+                });
+
+                if changed {
+                    params.attack = atk;
+                    params.decay = dec;
+                    params.sustain = sus;
+                    params.release = rel;
+                    send_amp_envelope_to_backend(audio_mgr, instrument_id as u8, params);
+                }
+            });
+    });
 }
 
 /// Create/replace the backend oscillator instrument and configure its voice effects from params.
@@ -112,6 +213,8 @@ fn ensure_backend_osc_with_params(
             }
         }
     }
+
+    send_amp_envelope_to_backend(audio_mgr, id_u8, &params.amp_envelope);
 }
 
 /// Create/replace the backend hi-hat instrument and configure its voice effects from params.
@@ -204,6 +307,8 @@ fn ensure_backend_hihat_with_params(audio_mgr: &mut AudioManager, id_u8: u8, par
             }
         }
     }
+
+    send_amp_envelope_to_backend(audio_mgr, id_u8, &params.amp_envelope);
 }
 
 /// Create/replace the backend kick drum instrument and configure its voice effects from params.
@@ -297,45 +402,6 @@ fn ensure_backend_kick_with_params(
                 }
             }
         }
-        
-        // Configure amplitude envelope parameters (envelope_id: Some(0))
-        audio.send_command(
-            audio_backend::InstrumentCmd::PassOnSynthCmd {
-                instrument_id: id,
-                synth_cmd: audio_backend::SynthCmd::SetEnvAttack {
-                    envelope_id: Some(0),
-                    attack: params.amp_envelope.attack,
-                },
-            }.into()
-        );
-        audio.send_command(
-            audio_backend::InstrumentCmd::PassOnSynthCmd {
-                instrument_id: id,
-                synth_cmd: audio_backend::SynthCmd::SetEnvDecay {
-                    envelope_id: Some(0),
-                    decay: params.amp_envelope.decay,
-                },
-            }.into()
-        );
-        audio.send_command(
-            audio_backend::InstrumentCmd::PassOnSynthCmd {
-                instrument_id: id,
-                synth_cmd: audio_backend::SynthCmd::SetEnvSustain {
-                    envelope_id: Some(0),
-                    sustain: params.amp_envelope.sustain,
-                },
-            }.into()
-        );
-        audio.send_command(
-            audio_backend::InstrumentCmd::PassOnSynthCmd {
-                instrument_id: id,
-                synth_cmd: audio_backend::SynthCmd::SetEnvRelease {
-                    envelope_id: Some(0),
-                    release: params.amp_envelope.release,
-                },
-            }.into()
-        );
-        
         // Configure pitch envelope parameters (simplified for typical kick pitch sweep)
         audio.send_command(
             audio_backend::InstrumentCmd::PassOnSynthCmd {
@@ -346,6 +412,8 @@ fn ensure_backend_kick_with_params(
             }.into()
         );
     }
+
+    send_amp_envelope_to_backend(audio_mgr, id_u8, &params.amp_envelope);
 }
 
 /// Create/replace the backend snare drum instrument and configure its voice effects from params.
@@ -440,6 +508,8 @@ fn ensure_backend_snare_with_params(
             }
         }
     }
+
+    send_amp_envelope_to_backend(audio_mgr, id_u8, &params.amp_envelope);
 }
 
 fn waveform_display_name(w: Waveform) -> &'static str {
@@ -534,6 +604,14 @@ impl InstrumentManagerWindow {
                                         }
                                     });
 
+                                            ui.separator();
+                                            show_amp_envelope_controls(
+                                                ui,
+                                                &mut params.amp_envelope,
+                                                inst.id,
+                                                "osc",
+                                                audio_mgr,
+                                            );
                                     ui.separator();
                                     ui.label("Effects:");
 
@@ -832,6 +910,14 @@ impl InstrumentManagerWindow {
                                 InstrumentData::HiHat(params) => {
                                     ui.label("Hi-Hat");
                                     ui.separator();
+                                    show_amp_envelope_controls(
+                                        ui,
+                                        &mut params.amp_envelope,
+                                        inst.id,
+                                        "hh",
+                                        audio_mgr,
+                                    );
+                                    ui.separator();
                                     ui.label("Effects:");
 
                                     // Reverb controls
@@ -1100,85 +1186,14 @@ impl InstrumentManagerWindow {
                                 InstrumentData::KickDrum(params) => {
                                     ui.label("Kick Drum");
                                     ui.separator();
-                                    
-                                    // Amplitude Envelope Controls
-                                    ui.push_id(("kd_envelope", inst.id as u32), |ui| {
-                                        egui::CollapsingHeader::new("Amplitude Envelope")
-                                            .id_salt(("kd_env_hdr", inst.id as u32))
-                                            .show(ui, |ui| {
-                                                let mut changed = false;
-                                                let mut atk = params.amp_envelope.attack;
-                                                let mut dec = params.amp_envelope.decay;
-                                                let mut sus = params.amp_envelope.sustain;
-                                                let mut rel = params.amp_envelope.release;
-                                                
-                                                ui.horizontal(|ui| {
-                                                    ui.label("Attack");
-                                                    changed |= ui.add(egui::Slider::new(&mut atk, 0.0..=2.0).suffix(" s")).changed();
-                                                });
-                                                ui.horizontal(|ui| {
-                                                    ui.label("Decay");
-                                                    changed |= ui.add(egui::Slider::new(&mut dec, 0.0..=2.0).suffix(" s")).changed();
-                                                });
-                                                ui.horizontal(|ui| {
-                                                    ui.label("Sustain");
-                                                    changed |= ui.add(egui::Slider::new(&mut sus, 0.0..=1.0)).changed();
-                                                });
-                                                ui.horizontal(|ui| {
-                                                    ui.label("Release");
-                                                    changed |= ui.add(egui::Slider::new(&mut rel, 0.0..=5.0).suffix(" s")).changed();
-                                                });
-                                                
-                                                if changed {
-                                                    params.amp_envelope.attack = atk;
-                                                    params.amp_envelope.decay = dec;
-                                                    params.amp_envelope.sustain = sus;
-                                                    params.amp_envelope.release = rel;
-                                                    
-                                                    // Send commands to backend with envelope_id: Some(0) for amplitude envelope
-                                                    if let Some(audio) = &mut audio_mgr.audio {
-                                                        let id = audio_backend::id::InstrumentId::from(inst.id as u32);
-                                                        audio.send_command(
-                                                            audio_backend::InstrumentCmd::PassOnSynthCmd {
-                                                                instrument_id: id,
-                                                                synth_cmd: audio_backend::SynthCmd::SetEnvAttack {
-                                                                    envelope_id: Some(0),
-                                                                    attack: atk,
-                                                                },
-                                                            }.into()
-                                                        );
-                                                        audio.send_command(
-                                                            audio_backend::InstrumentCmd::PassOnSynthCmd {
-                                                                instrument_id: id,
-                                                                synth_cmd: audio_backend::SynthCmd::SetEnvDecay {
-                                                                    envelope_id: Some(0),
-                                                                    decay: dec,
-                                                                },
-                                                            }.into()
-                                                        );
-                                                        audio.send_command(
-                                                            audio_backend::InstrumentCmd::PassOnSynthCmd {
-                                                                instrument_id: id,
-                                                                synth_cmd: audio_backend::SynthCmd::SetEnvSustain {
-                                                                    envelope_id: Some(0),
-                                                                    sustain: sus,
-                                                                },
-                                                            }.into()
-                                                        );
-                                                        audio.send_command(
-                                                            audio_backend::InstrumentCmd::PassOnSynthCmd {
-                                                                instrument_id: id,
-                                                                synth_cmd: audio_backend::SynthCmd::SetEnvRelease {
-                                                                    envelope_id: Some(0),
-                                                                    release: rel,
-                                                                },
-                                                            }.into()
-                                                        );
-                                                    }
-                                                }
-                                            });
-                                    });
-                                    
+                                    show_amp_envelope_controls(
+                                        ui,
+                                        &mut params.amp_envelope,
+                                        inst.id,
+                                        "kd",
+                                        audio_mgr,
+                                    );
+
                                     ui.separator();
                                     ui.label("Effects:");
 
@@ -1313,6 +1328,14 @@ impl InstrumentManagerWindow {
                                 }
                                 InstrumentData::SnareDrum(params) => {
                                     ui.label("Snare Drum");
+                                    ui.separator();
+                                    show_amp_envelope_controls(
+                                        ui,
+                                        &mut params.amp_envelope,
+                                        inst.id,
+                                        "sd",
+                                        audio_mgr,
+                                    );
                                     ui.separator();
                                     ui.label("Effects:");
 
@@ -1461,6 +1484,12 @@ impl InstrumentManagerWindow {
                 data: InstrumentData::SimpleOscillator(SimpleOscillatorParams {
                     waveform: Waveform::Sine,
                     audio_effects: Vec::new(),
+                    amp_envelope: AmpEnvelopeParams {
+                        attack: 0.01,
+                        decay: 0.1,
+                        sustain: 0.8,
+                        release: 0.2,
+                    },
                 }),
             });
             // Create in backend with current params (no effects yet)
@@ -1477,6 +1506,12 @@ impl InstrumentManagerWindow {
                 name: format!("HiHat {:02X}", id as u8),
                 data: InstrumentData::HiHat(HiHatParams {
                     audio_effects: Vec::new(),
+                    amp_envelope: AmpEnvelopeParams {
+                        attack: 0.001,
+                        decay: 0.08,
+                        sustain: 0.0,
+                        release: 0.15,
+                    },
                 }),
             });
             if let InstrumentData::HiHat(ref params) = song.instrument_bank.last().unwrap().data {
@@ -1514,6 +1549,12 @@ impl InstrumentManagerWindow {
                 name: format!("Snare {:02X}", id as u8),
                 data: InstrumentData::SnareDrum(SnareDrumParams {
                     audio_effects: Vec::new(),
+                    amp_envelope: AmpEnvelopeParams {
+                        attack: 0.005,
+                        decay: 0.2,
+                        sustain: 0.0,
+                        release: 0.3,
+                    },
                 }),
             });
             if let InstrumentData::SnareDrum(ref params) = song.instrument_bank.last().unwrap().data

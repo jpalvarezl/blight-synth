@@ -1,6 +1,6 @@
 use crate::audio_utils::map_waveform_to_backend;
 use audio_backend::{BlightAudio, SequencerCmd, TransportCmd};
-use sequencer::models::{AudioEffect, InstrumentData, Song};
+use sequencer::models::{AmpEnvelopeParams, AudioEffect, InstrumentData, Song};
 use std::sync::Arc;
 
 pub struct AudioManager {
@@ -17,6 +17,53 @@ impl Default for AudioManager {
             loop_enabled: false,
         }
     }
+}
+
+fn push_amp_envelope_commands(
+    audio: &mut BlightAudio,
+    instrument_id: audio_backend::id::InstrumentId,
+    env: &AmpEnvelopeParams,
+) {
+    audio.send_command(
+        audio_backend::InstrumentCmd::PassOnSynthCmd {
+            instrument_id,
+            synth_cmd: audio_backend::SynthCmd::SetEnvAttack {
+                envelope_id: Some(0),
+                attack: env.attack,
+            },
+        }
+        .into(),
+    );
+    audio.send_command(
+        audio_backend::InstrumentCmd::PassOnSynthCmd {
+            instrument_id,
+            synth_cmd: audio_backend::SynthCmd::SetEnvDecay {
+                envelope_id: Some(0),
+                decay: env.decay,
+            },
+        }
+        .into(),
+    );
+    audio.send_command(
+        audio_backend::InstrumentCmd::PassOnSynthCmd {
+            instrument_id,
+            synth_cmd: audio_backend::SynthCmd::SetEnvSustain {
+                envelope_id: Some(0),
+                sustain: env.sustain,
+            },
+        }
+        .into(),
+    );
+    audio.send_command(
+        audio_backend::InstrumentCmd::PassOnSynthCmd {
+            instrument_id,
+            synth_cmd: audio_backend::SynthCmd::SetEnvRelease {
+                envelope_id: Some(0),
+                release: env.release,
+            },
+        }
+        .into(),
+    );
 }
 
 impl AudioManager {
@@ -211,6 +258,8 @@ impl AudioManager {
                             }
                         }
                     }
+
+                    push_amp_envelope_commands(audio, id, &p.amp_envelope);
                 }
                 InstrumentData::HiHat(p) => {
                     let instrument = audio.get_instrument_factory().create_hihat(id, 0.0);
@@ -308,6 +357,8 @@ impl AudioManager {
                             }
                         }
                     }
+
+                    push_amp_envelope_commands(audio, id, &p.amp_envelope);
                 }
                 InstrumentData::KickDrum(p) => {
                     let instrument = audio.get_instrument_factory().create_kick_drum(id, 0.0);
@@ -403,8 +454,11 @@ impl AudioManager {
                                     .into(),
                                 );
                             }
+
                         }
                     }
+
+                    push_amp_envelope_commands(audio, id, &p.amp_envelope);
                 }
                 InstrumentData::SnareDrum(p) => {
                     let instrument = audio.get_instrument_factory().create_snare_drum(id, 0.0);
@@ -502,6 +556,7 @@ impl AudioManager {
                             }
                         }
                     }
+                    push_amp_envelope_commands(audio, id, &p.amp_envelope);
                 }
                 _ => {}
             }

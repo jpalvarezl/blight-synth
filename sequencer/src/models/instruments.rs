@@ -30,12 +30,16 @@ pub struct SampleParams {
 pub struct SimpleOscillatorParams {
     pub waveform: Waveform,
     pub audio_effects: Vec<AudioEffect>,
+    #[serde(default)]
+    pub amp_envelope: AmpEnvelopeParams,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 /// Parameters for a Hi-Hat percussion instrument.
 pub struct HiHatParams {
     pub audio_effects: Vec<AudioEffect>,
+    #[serde(default)]
+    pub amp_envelope: AmpEnvelopeParams,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
@@ -66,6 +70,19 @@ pub struct KickDrumParams {
 /// Parameters for a Snare Drum percussion instrument.
 pub struct SnareDrumParams {
     pub audio_effects: Vec<AudioEffect>,
+    #[serde(default)]
+    pub amp_envelope: AmpEnvelopeParams,
+}
+
+impl Default for AmpEnvelopeParams {
+    fn default() -> Self {
+        Self {
+            attack: 0.01,
+            decay: 0.1,
+            sustain: 0.8,
+            release: 0.2,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
