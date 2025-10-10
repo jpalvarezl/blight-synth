@@ -55,7 +55,7 @@ pub fn midi_to_frequency(midi: u8) -> f32 {
 }
 
 pub fn velocity_to_amplitude(velocity: u8) -> f32 {
-    f32::min(velocity as f32 / 127.0, 1.0)
+    f32::min(velocity as f32 / 255.0, 1.0)
 }
 
 // TODO remove

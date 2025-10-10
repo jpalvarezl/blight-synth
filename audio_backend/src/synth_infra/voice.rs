@@ -50,6 +50,8 @@ pub struct Voice<S: SynthNode> {
     mono_buf: Vec<f32>,
     /// Per voice effect chain.
     effect_chain: MonoEffectChain,
+    /// Per-note velocity gain (0.0..1.0) set on note_on.
+    velocity_gain: f32,
 }
 
 impl<S: SynthNode> Voice<S> {
@@ -72,6 +74,7 @@ impl<S: SynthNode> Voice<S> {
             pan,
             mono_buf,
             effect_chain,
+            velocity_gain: 1.0,
         }
     }
 
@@ -93,6 +96,7 @@ impl<S: SynthNode> Voice<S> {
             pan,
             mono_buf,
             effect_chain,
+            velocity_gain: 1.0,
         }
     }
 }
@@ -127,7 +131,7 @@ impl<S: SynthNode> VoiceTrait for Voice<S> {
                 Some(env) => env.process(),
                 None => 1.0,
             };
-            let mono_sample = mono_processing_buf[i] * envelope_val;
+            let mono_sample = mono_processing_buf[i] * envelope_val * self.velocity_gain;
             left_buf[i] += mono_sample * gain_left;
             right_buf[i] += mono_sample * gain_right;
         }
@@ -137,6 +141,8 @@ impl<S: SynthNode> VoiceTrait for Voice<S> {
         // Reset per-voice insert effects to avoid carrying state between notes
         // self.effect_chain.reset();
         self.node.note_on(note, velocity);
+        // Map 0..255 velocity to 0.0..1.0 amplitude and store per-voice (full range)
+        self.velocity_gain = utils::note::velocity_to_amplitude(velocity);
         if let Some(env) = &mut self.envelope {
             env.gate(true);
         }

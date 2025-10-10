@@ -261,8 +261,10 @@ impl Player {
                             // This is often implicit (the last one used on the track) or specified in the event.
                             // For now, we'll assume instrument 1.
                             // let instrument_id = 1;
+                            // Default missing volume (0 from UI meaning blank) to full velocity (255)
+                            let velocity = if event.volume == 0 { 255 } else { event.volume };
                             self.synthesizer
-                                .note_on(instrument_id, event.note, event.volume);
+                                .note_on(instrument_id, event.note, velocity);
                         } else if event.note == NoteSentinelValues::NoteOff as u8 {
                             // Handle NoteOff events
                             self.synthesizer.note_off(instrument_id);
