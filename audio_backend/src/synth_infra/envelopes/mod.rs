@@ -71,19 +71,7 @@ impl PitchEnvLike for PitchEnvelope {
     fn set_decay_time(&mut self, decay_time: f32) {
         self.set_decay_time(decay_time)
     }
-    // // ADSR setters (commented out)
-    // fn set_attack(&mut self, attack: f32) {
-    //     self.set_attack(attack)
-    // }
-    // fn set_decay(&mut self, decay: f32) {
-    //     self.set_decay(decay)
-    // }
-    // fn set_sustain(&mut self, sustain: f32) {
-    //     self.set_sustain(sustain)
-    // }
-    // fn set_release(&mut self, release: f32) {
-    //     self.set_release(release)
-    // }
+
     fn set_parameters(&mut self, a: f32, d: f32, s: f32, r: f32) {
         self.set_parameters(a, d, s, r)
     }
