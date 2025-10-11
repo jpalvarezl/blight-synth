@@ -454,7 +454,6 @@ impl AudioManager {
                                     .into(),
                                 );
                             }
-
                         }
                     }
 

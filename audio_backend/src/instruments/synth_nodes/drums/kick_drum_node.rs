@@ -54,7 +54,10 @@ impl SynthNode for KickDrumVoice {
 
     fn try_handle_command(&mut self, command: &crate::commands::SynthCmd) -> bool {
         match command {
-            crate::commands::SynthCmd::SetEnvAttack { envelope_id, attack } => {
+            crate::commands::SynthCmd::SetEnvAttack {
+                envelope_id,
+                attack,
+            } => {
                 match envelope_id {
                     Some(0) | None => self.amp_env.set_attack(*attack),
                     // Some(1) => self.pitch_env.set_attack(*attack), // Commented out - not useful for pitch
@@ -70,7 +73,10 @@ impl SynthNode for KickDrumVoice {
                 }
                 true
             }
-            crate::commands::SynthCmd::SetEnvSustain { envelope_id, sustain } => {
+            crate::commands::SynthCmd::SetEnvSustain {
+                envelope_id,
+                sustain,
+            } => {
                 match envelope_id {
                     Some(0) | None => self.amp_env.set_sustain(*sustain),
                     // Some(1) => self.pitch_env.set_sustain(*sustain), // Commented out - not useful for pitch
@@ -78,7 +84,10 @@ impl SynthNode for KickDrumVoice {
                 }
                 true
             }
-            crate::commands::SynthCmd::SetEnvRelease { envelope_id, release } => {
+            crate::commands::SynthCmd::SetEnvRelease {
+                envelope_id,
+                release,
+            } => {
                 match envelope_id {
                     Some(0) | None => self.amp_env.set_release(*release),
                     // Some(1) => self.pitch_env.set_release(*release), // Commented out - not useful for pitch
@@ -133,26 +142,26 @@ impl SynthNode for KickDrumVoice {
 //             right_buf[i] = left_buf[i];
 //         }
 //     }
-    
+
 //     fn note_on(&mut self, note: u8, velocity: u8) {
 //         let start = midi_to_frequency(note);
 //         self.pitch_env.note_on(start);
 //         self.amp_env.gate(true)
 //     }
-    
+
 //     fn note_off(&mut self) {
 //         self.amp_env.gate(false);
 //         self.pitch_env.note_off();
 //     }
-    
+
 //     fn set_pan(&mut self, pan: f32) {
 //         todo!()
 //     }
-    
+
 //     fn add_effect(&mut self, effect: Box<dyn crate::MonoEffect>) {
 //         todo!()
 //     }
-    
+
 //     fn set_effect_parameter(&mut self, effect_index: usize, param_index: u32, value: f32) {
 //         todo!()
 //     }
