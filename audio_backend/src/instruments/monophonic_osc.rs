@@ -2,7 +2,6 @@ use crate::id::InstrumentId;
 use crate::{instruments::VoiceSlot, OscillatorNode};
 use crate::{Envelope, MonoEffectChain, MonophonicInstrument, Voice, Waveform};
 
-
 pub type MonophonicOscillator = MonophonicInstrument<OscillatorNode>;
 
 impl MonophonicOscillator {

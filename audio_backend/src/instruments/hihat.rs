@@ -1,5 +1,5 @@
 use crate::{
-    id::InstrumentId, instruments::VoiceSlot, Envelope, MonophonicInstrument, NoiseGenerator, Voice
+    id::InstrumentId, instruments::VoiceSlot, Envelope, MonophonicInstrument, NoiseGenerator, Voice,
 };
 
 /// short noise burst. Use short decays.

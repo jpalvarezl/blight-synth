@@ -409,7 +409,8 @@ fn ensure_backend_kick_with_params(
                 synth_cmd: audio_backend::SynthCmd::SetPitchEnvFreqDelta {
                     freq_delta: params.pitch_envelope.freq_delta,
                 },
-            }.into()
+            }
+            .into(),
         );
     }
 

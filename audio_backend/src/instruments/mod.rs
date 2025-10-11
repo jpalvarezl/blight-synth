@@ -70,7 +70,7 @@ pub struct PolyphonicInstrument<S: SynthNode> {
     voices: Vec<VoiceSlot<S>>,
 }
 
-impl <S: SynthNode> InstrumentTrait for PolyphonicInstrument<S> {
+impl<S: SynthNode> InstrumentTrait for PolyphonicInstrument<S> {
     fn id(&self) -> crate::id::InstrumentId {
         self.instrument_id
     }

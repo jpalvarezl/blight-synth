@@ -11,7 +11,10 @@ pub struct NoiseGenerator {
 
 impl NoiseGenerator {
     pub fn new(seed: u32) -> Self {
-        Self { state: seed, volume: 0.7 }
+        Self {
+            state: seed,
+            volume: 0.7,
+        }
     }
 
     #[inline(always)]

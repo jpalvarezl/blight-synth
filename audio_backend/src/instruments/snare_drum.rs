@@ -1,5 +1,5 @@
 use crate::{
-    id::InstrumentId, instruments::VoiceSlot, MonophonicInstrument, SnareDrumVoice, Voice
+    id::InstrumentId, instruments::VoiceSlot, MonophonicInstrument, SnareDrumVoice, Voice,
 };
 
 pub type SnareDrum = MonophonicInstrument<SnareDrumVoice>;
