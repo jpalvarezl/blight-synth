@@ -12,8 +12,8 @@ pub struct KickDrumVoice {
 impl KickDrumVoice {
     pub fn new(sample_rate: f32) -> Self {
         let mut env = crate::Envelope::new(sample_rate);
-        env.set_parameters(0.0, 0.1, 0.0, 0.1);
-        let pitch_env = crate::PitchEnvelope::new(100.0, env.clone());
+        env.set_parameters(0.01, 0.1, 0.0, 0.1);
+        let pitch_env = crate::PitchEnvelope::new(50.0, env.clone());
         let osc = OscillatorNode::new();
         KickDrumVoice {
             osc,
