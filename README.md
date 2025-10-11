@@ -15,25 +15,97 @@ blight-synth is a modular synthesizer application built in Rust, featuring a ded
 
 The `audio_backend` crate is responsible for all audio processing and device management. Its architecture is modular and consists of the following main components:
 
+```mermaid
+graph TB
+    %% External Input
+    UI[User/GUI Input] -->|Commands| BA[BlightAudio<br/>NRT Thread]
+    
+    %% Command Flow
+    BA -->|Command Queue<br/>Lock-free SPSC| AP[AudioProcessor<br/>RT Thread]
+    
+    %% Command Processing
+    AP -->|Commands| CMD[Command Processor]
+    CMD -->|Instrument Commands| IM[InstrumentManager]
+    CMD -->|Sequencer Commands| P[Player/Sequencer]
+    
+    %% Song Data Flow
+    P -->|Read Song Data| SD[(Song Data<br/>- Arrangement<br/>- Chains<br/>- Phrases<br/>- Events)]
+    P -->|Note Events| TS[TrackerSynthesizer]
+    
+    %% Instrument Management
+    TS -->|Note On/Off/Modify| IM
+    IM -->|Manages| INST[Instruments]
+    
+    %% Instrument Types
+    INST --> MO[MonophonicOscillator<br/>Single Voice]
+    INST --> PO[PolyphonicOscillator<br/>Multiple Voices]
+    INST --> PERC[Percussion]
+    
+    %% Percussion Instruments
+    PERC --> KD[KickDrum<br/>- Oscillator<br/>- Pitch Envelope<br/>- ADSR]
+    PERC --> SD2[SnareDrum<br/>- Noise<br/>- Oscillator<br/>- ADSR]
+    PERC --> HH[HiHat<br/>- Noise<br/>- Filter<br/>- ADSR]
+    
+    %% Voice Processing
+    PO -->|Voice Pool| V[Voice<br/>- Note ID<br/>- Frequency<br/>- Velocity]
+    MO --> V
+    KD --> V
+    SD2 --> V
+    HH --> V
+    
+    %% Synthesis Components
+    V --> SC[Synth Components]
+    SC --> SN[SynthNode]
+    SC --> ENV[Envelopes]
+    
+    %% SynthNode Types
+    SN --> OSC[OscillatorNode<br/>- Sine<br/>- Square<br/>- Saw<br/>- Triangle<br/>- Pulse]
+    SN --> DRUM[DrumNodes<br/>- KickDrumNode<br/>- SnareDrumNode<br/>- HiHatNode]
+    SN --> SP[SamplePlayerNode]
+    
+    %% Envelope Types
+    ENV --> ADSR[ADSR Envelope<br/>- Attack<br/>- Decay<br/>- Sustain<br/>- Release]
+    ENV --> PENV[Pitch Envelope<br/>- Depth<br/>- Time Parameters]
+    
+    %% Audio Processing Pipeline
+    SC -->|Generate| MB[Mono Buffer]
+    ADSR -->|Amplitude| MB
+    PENV -->|Pitch Mod| MB
+    
+    %% Effects Chain
+    MB -->|Process| MEC[MonoEffectChain<br/>Per-Voice Effects]
+    MEC --> MEF[MonoEffects<br/>- Gain<br/>- Delay<br/>- Filter<br/>- Reverb<br/>- Distortion<br/>- BitCrusher]
+    
+    %% Stereo Processing
+    MEF -->|Panning| SB[Stereo Buffers<br/>Left + Right]
+    SB -->|Sum all voices| MIX[Mixer]
+    
+    %% Master Effects
+    MIX -->|Master Bus| SEC[StereoEffectChain<br/>Master Effects]
+    SEC --> SEF[StereoEffects<br/>- Gain<br/>- Delay<br/>- Reverb<br/>- Compressor]
+    
+    %% Output
+    SEF -->|Process| FB[Final Buffers]
+    FB -->|Interleave| OB[Output Buffer]
+    OB -->|CPAL Stream| AUDIO[Audio Device/Speaker]
+    
+    %% Resource Management (NRT)
+    BA -.->|Creates| VF[VoiceFactory]
+    BA -.->|Creates| IF[InstrumentFactory]
+    BA -.->|Creates| EF[EffectFactory]
+    BA -.->|Manages| RM[ResourceManager<br/>- Samples<br/>- Wavetables]
+    
+    %% State Management
+    AP -->|State Query| SM[StateManager<br/>- Voice States<br/>- Effect States]
+    SM -.->|Reports| BA
+    
+    style BA fill:#f9f,stroke:#333,stroke-width:2px
+    style AP fill:#9ff,stroke:#333,stroke-width:2px
+    style AUDIO fill:#9f9,stroke:#333,stroke-width:2px
+    style V fill:#ff9,stroke:#333,stroke-width:2px
+    style ADSR fill:#faf,stroke:#333,stroke-width:2px
+    style PENV fill:#faf,stroke:#333,stroke-width:2px
 ```
-+-------------------+
-|   audio_backend   |  <-- Audio device & stream management (cpal)
-+-------------------+
-        |
-        v
-+-------------------+
-|   sequencer       |  <-- Sequencing and timing engine
-+-------------------+
-        |
-        v
-+-------------------+
-|   utils           |  <-- Music theory (notes, scales)
-+-------------------+
-```
-
-- **audio_backend/**: Manages audio devices and streaming using the `cpal` library. Includes stream creation, buffer management, audio callback logic, and synthesis algorithms (oscillators, ADSR envelopes, voice management, etc.).
-- **sequencer/**: Implements sequencing and timing functionality for pattern-based music composition.
-- **utils/**: Provides music theory utilities (note frequencies, scales, etc.) used by the synth engine.
 
 ## Main Dependencies
 
@@ -81,6 +153,3 @@ Feature flags
 - Default features enable tracker integration. Non-tracker examples use `--no-default-features`.
 - Example:
   - cargo run -p audio_backend --example cycle_waveforms --no-default-features
-
----
-For more details, see the documentation in each subfolder.
