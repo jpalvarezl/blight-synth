@@ -131,7 +131,7 @@ impl<S: SynthNode> InstrumentTrait for PolyphonicInstrument<S> {
     fn add_effect(&mut self, _effect: Box<dyn MonoEffect>) {
         // Polyphonic instruments require one effect instance per voice.
         // Use add_voice_effects with pre-constructed per-voice effects instead.
-        log::warn!("PolyphonicOscillator: add_effect is a no-op; use add_voice_effects instead");
+        log::warn!("PolyphonicInstrument: add_effect is a no-op; use add_voice_effects instead");
     }
 
     fn add_voice_effects(&mut self, effects: VoiceEffects) {
