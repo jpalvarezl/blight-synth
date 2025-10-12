@@ -1,0 +1,3 @@
+[submodule "synthpp"]
+	path = synthpp
+	url = https://github.com/jpalvarezl/synthpp.git
