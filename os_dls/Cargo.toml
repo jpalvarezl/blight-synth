@@ -1,0 +1,7 @@
+[package]
+name = "os_dls"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+riff = "2.0.0"

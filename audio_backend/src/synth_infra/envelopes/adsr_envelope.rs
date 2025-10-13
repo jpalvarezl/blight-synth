@@ -38,6 +38,28 @@ impl Envelope {
         env
     }
 
+    pub fn new_adsr(
+        sample_rate: f32,
+        attack_s: f32,
+        decay_s: f32,
+        sustain: f32,
+        release_s: f32,
+    ) -> Self {
+        let mut env = Self {
+            state: EnvelopeState::Idle,
+            sample_rate,
+            output: 0.0,
+            target: 0.0,
+            coefficient: 0.0,
+            attack_coef: 0.0,
+            decay_coef: 0.0,
+            release_coef: 0.0,
+            sustain_level: 1.0,
+        };
+        env.set_parameters(attack_s, decay_s, sustain, release_s);
+        env
+    }
+
     pub fn set_parameters(&mut self, attack_s: f32, decay_s: f32, sustain: f32, release_s: f32) {
         // Pre-calculate coefficients to avoid expensive math in the audio loop.
         // This formula creates an exponential curve.

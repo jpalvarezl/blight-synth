@@ -1,6 +1,8 @@
+use std::sync::Arc;
+
 use crate::{
     id::InstrumentId, HiHat, InstrumentTrait, KickDrum, MonophonicOscillator, PolyphonicOscillator,
-    SnareDrum, Waveform,
+    SampleData, SnareDrum, Waveform,
 };
 
 pub struct InstrumentFactory {
@@ -70,5 +72,19 @@ impl InstrumentFactory {
         pan: f32,
     ) -> Box<dyn InstrumentTrait> {
         Box::new(SnareDrum::new(instrument_id, pan, self.sample_rate))
+    }
+
+    pub fn create_sample_player(
+        &self,
+        instrument_id: InstrumentId,
+        pan: f32,
+        sample_data: Arc<SampleData>,
+    ) -> Box<dyn InstrumentTrait> {
+        Box::new(crate::instruments::SamplePlayer::new(
+            instrument_id,
+            sample_data.clone(),
+            self.sample_rate,
+            pan,
+        ))
     }
 }

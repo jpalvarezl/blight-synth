@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["audio_backend", "utils", "sequencer", "tracker_gui"]
+members = ["audio_backend", "utils", "sequencer", "tracker_gui", "os_dls"]
 default-members = ["tracker_gui"]
 
 [workspace.dependencies]
@@ -24,3 +24,4 @@ arrayvec = "0.7"
 sequencer = { path = "sequencer" }
 utils = { path = "utils" }
 audio_backend = { path = "audio_backend" }
+os_dls = { path = "os_dls" }

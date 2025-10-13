@@ -535,6 +535,7 @@ dependencies = [
  "env_logger",
  "hound",
  "log",
+ "os_dls",
  "ringbuf",
  "sequencer",
  "utils",
@@ -2660,6 +2661,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "os_dls"
+version = "0.1.0"
+dependencies = [
+ "riff",
+]
+
+[[package]]
 name = "owned_ttf_parser"
 version = "0.25.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3103,6 +3111,12 @@ dependencies = [
  "web-sys",
  "windows-sys 0.59.0",
 ]
+
+[[package]]
+name = "riff"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c601484456988d75017d86700d3743b949c21cdc7399f940c75e34680d185c5"
 
 [[package]]
 name = "ringbuf"
