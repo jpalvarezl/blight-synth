@@ -2,17 +2,17 @@ mod hihat;
 mod kick_drum;
 mod monophonic_osc;
 mod polyphonic_osc;
+mod sample_player;
 mod snare_drum;
 mod synth_nodes;
-mod sample_player;
 
 pub use hihat::*;
 pub use kick_drum::*;
 pub use monophonic_osc::*;
 pub use polyphonic_osc::*;
+pub use sample_player::*;
 pub use snare_drum::*;
 pub use synth_nodes::*;
-pub use sample_player::*;
 
 use crate::{id::NoteId, InstrumentTrait, MonoEffect, SynthNode, Voice, VoiceEffects, VoiceTrait};
 

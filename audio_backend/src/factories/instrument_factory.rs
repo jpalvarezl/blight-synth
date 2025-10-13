@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use crate::{
-    id::InstrumentId, HiHat, InstrumentTrait, KickDrum, MonophonicOscillator, PolyphonicOscillator, SampleData, SnareDrum, Waveform
+    id::InstrumentId, HiHat, InstrumentTrait, KickDrum, MonophonicOscillator, PolyphonicOscillator,
+    SampleData, SnareDrum, Waveform,
 };
 
 pub struct InstrumentFactory {
@@ -77,7 +78,7 @@ impl InstrumentFactory {
         &self,
         instrument_id: InstrumentId,
         pan: f32,
-        sample_data: Arc<SampleData>
+        sample_data: Arc<SampleData>,
     ) -> Box<dyn InstrumentTrait> {
         Box::new(crate::instruments::SamplePlayer::new(
             instrument_id,

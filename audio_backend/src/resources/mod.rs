@@ -1,6 +1,6 @@
-use std::{collections::HashMap, sync::Arc};
-use log::info;
 use crate::{id::SampleId, Result, SampleData};
+use log::info;
+use std::{collections::HashMap, sync::Arc};
 
 /// ResourceManager handles and identifies audio samples and other resources which can be identified by a unique ID.
 pub struct ResourceManager {
@@ -57,17 +57,19 @@ impl ResourceManager {
     /// Loads all samples from the macOS DLS file. Returns the count loaded. Sample Ids range from 0 - 494
     #[cfg(target_os = "macos")]
     pub fn load_macos_dls_samples(&mut self) -> Result<usize> {
-        let dls_file = os_dls::load_mac_os_default()
-            .map_err(|e| crate::AudioBackendError(format!("Failed to load macOS DLS file: {}", e)))?;
-        
-        let samples = dls_file.samples()
+        let dls_file = os_dls::load_mac_os_default().map_err(|e| {
+            crate::AudioBackendError(format!("Failed to load macOS DLS file: {}", e))
+        })?;
+
+        let samples = dls_file
+            .samples()
             .map_err(|e| crate::AudioBackendError(format!("Failed to parse DLS samples: {}", e)))?;
-        
+
         let count = samples.len();
-        
+
         for (index, sample) in samples.into_iter().enumerate() {
-            info!("Loaded DLS sample {}: {}", index, sample.name().unwrap_or("unnamed"));
             let name = sample.name().unwrap_or("unnamed").to_string();
+            info!("Loaded DLS sample {}: {}", index, name);
             let sample_data = SampleData {
                 data: sample.to_f32_samples(),
                 sample_rate: sample.sample_rate() as f32,
@@ -77,7 +79,7 @@ impl ResourceManager {
             self.sample_names.insert(sample_id, name);
             self.add_sample(sample_id, sample_data);
         }
-        
+
         Ok(count)
     }
 }
@@ -107,5 +109,3 @@ fn load_wav_file<P: AsRef<std::path::Path>>(path: P) -> Result<SampleData> {
         channels,
     })
 }
-
-

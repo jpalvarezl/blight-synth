@@ -38,7 +38,13 @@ impl Envelope {
         env
     }
 
-    pub fn new_adsr(sample_rate: f32, attack_s: f32, decay_s: f32, sustain: f32, release_s: f32) -> Self {
+    pub fn new_adsr(
+        sample_rate: f32,
+        attack_s: f32,
+        decay_s: f32,
+        sustain: f32,
+        release_s: f32,
+    ) -> Self {
         let mut env = Self {
             state: EnvelopeState::Idle,
             sample_rate,

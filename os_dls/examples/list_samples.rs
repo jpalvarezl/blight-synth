@@ -2,7 +2,7 @@ use os_dls::load_mac_os_default;
 
 fn main() {
     println!("Loading macOS General MIDI sound bank...\n");
-    
+
     let dls_file = match load_mac_os_default() {
         Ok(file) => file,
         Err(e) => {
@@ -12,27 +12,32 @@ fn main() {
     };
 
     println!("✓ Loaded DLS file: {}", dls_file.path());
-    println!("  Size: {} bytes ({:.2} MB)\n", 
-        dls_file.size(), 
+    println!(
+        "  Size: {} bytes ({:.2} MB)\n",
+        dls_file.size(),
         dls_file.size() as f64 / (1024.0 * 1024.0)
     );
 
     // Extract samples using the new API
     println!("Extracting samples from DLS file...\n");
-    
+
     match dls_file.samples() {
         Ok(samples) => {
             println!("Found {} samples:\n", samples.len());
-            println!("{:<4} {:<40} {:<12} {:<8} {:<6} {:<10} {:<10}", 
-                "#", "Name", "Size", "Rate", "Ch", "Bits", "Unity Note");
+            println!(
+                "{:<4} {:<40} {:<12} {:<8} {:<6} {:<10} {:<10}",
+                "#", "Name", "Size", "Rate", "Ch", "Bits", "Unity Note"
+            );
             println!("{}", "─".repeat(100));
 
             for (idx, sample) in samples.iter().enumerate() {
                 let name = sample.name().unwrap_or("<unnamed>");
-                let unity_note = sample.unity_note_name()
+                let unity_note = sample
+                    .unity_note_name()
                     .unwrap_or_else(|| "N/A".to_string());
-                
-                println!("{:<4} {:<40} {:<12} {:<8} {:<6} {:<10} {:<10}", 
+
+                println!(
+                    "{:<4} {:<40} {:<12} {:<8} {:<6} {:<10} {:<10}",
                     idx,
                     truncate_string(name, 40),
                     format_bytes(sample.size() as u32),
@@ -44,11 +49,12 @@ fn main() {
             }
 
             println!("\n{}", "─".repeat(100));
-            
+
             // Calculate totals
             let total_size: u64 = samples.iter().map(|s| s.size() as u64).sum();
             println!("\nTotal samples: {}", samples.len());
-            println!("Total sample data: {} ({:.2} MB)", 
+            println!(
+                "Total sample data: {} ({:.2} MB)",
                 format_bytes(total_size as u32),
                 total_size as f64 / (1024.0 * 1024.0)
             );
@@ -92,6 +98,6 @@ fn truncate_string(s: &str, max_len: usize) -> String {
     if s.len() <= max_len {
         s.to_string()
     } else {
-        format!("{}...", &s[..max_len-3])
+        format!("{}...", &s[..max_len - 3])
     }
 }
