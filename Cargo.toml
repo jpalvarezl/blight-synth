@@ -24,3 +24,4 @@ arrayvec = "0.7"
 sequencer = { path = "sequencer" }
 utils = { path = "utils" }
 audio_backend = { path = "audio_backend" }
+os_dls = { path = "os_dls" }

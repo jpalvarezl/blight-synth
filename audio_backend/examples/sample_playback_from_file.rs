@@ -2,9 +2,7 @@ use std::path::PathBuf;
 use std::thread;
 
 use audio_backend::BlightAudio;
-use audio_backend::InstrumentDefinition;
 use audio_backend::Result;
-use audio_backend::SynthCmd;
 
 fn main() -> Result<()> {
     match &mut BlightAudio::new() {
@@ -16,20 +14,30 @@ fn main() -> Result<()> {
                 "audio_backend/examples/assets/sample 2 chan - 24 bit - 44.1 khz.wav",
             );
             resource_manager.add_sample_from_file(sample_id, path)?;
-            let instrument = InstrumentDefinition::SamplePlayer(
-                resource_manager.get_sample_unsafe(sample_id).clone(),
-            );
+            let sample_data = resource_manager.get_sample_unsafe(sample_id);
 
+            let instrument_id = 0;
             audio.send_command(
-                SynthCmd::PlayNote {
-                    voice: audio
-                        .get_voice_factory()
-                        .create_voice_with_envelope(0, instrument, 0.0, 0.0, 0.0, 1.0, 0.0),
+                audio_backend::SequencerCmd::AddTrackInstrument {
+                    instrument: audio
+                        .get_instrument_factory()
+                        .create_sample_player(
+                            instrument_id,
+                            0.0,
+                            sample_data.clone()
+                        ),
+                }
+                .into(),
+            );
+            audio.send_command(
+                audio_backend::InstrumentCmd::NoteOn {
+                    instrument_id,
                     note: 60,
                     velocity: 127,
                 }
                 .into(),
             );
+            audio.send_command(audio_backend::TransportCmd::PlayLastSong.into());
 
             thread::sleep(std::time::Duration::from_millis(2000));
         }

@@ -134,7 +134,7 @@ impl DlsFile {
     }
 }
 
-/// Loads the default macOS General MIDI sound bank
+/// Loads the default macOS General MIDI sound bank.
 pub fn load_mac_os_default() -> Result<DlsFile, String> {
     DlsFile::open_macos_default()
 }

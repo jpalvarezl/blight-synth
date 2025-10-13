@@ -1,18 +1,18 @@
 use std::{collections::HashMap, sync::Arc};
-
+use log::info;
 use crate::{id::SampleId, Result, SampleData};
 
 /// ResourceManager handles and identifies audio samples and other resources which can be identified by a unique ID.
 pub struct ResourceManager {
     samples: HashMap<SampleId, Arc<SampleData>>,
-    // instruments: HashMap<InstrumentId, Arc<InstrumentData>>,
+    sample_names: HashMap<SampleId, String>,
 }
 
 impl ResourceManager {
     pub fn new() -> Self {
         Self {
             samples: HashMap::new(),
-            // instruments: HashMap::new(),
+            sample_names: HashMap::new(),
         }
     }
 
@@ -26,7 +26,14 @@ impl ResourceManager {
         sample_id: SampleId,
         path: P,
     ) -> Result<()> {
+        let path_ref = path.as_ref();
+        let name = path_ref
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("unnamed")
+            .to_string();
         let sample = load_wav_file(path)?;
+        self.sample_names.insert(sample_id, name);
         self.add_sample(sample_id, sample);
         Ok(())
     }
@@ -35,6 +42,43 @@ impl ResourceManager {
     pub fn get_sample_unsafe(&self, sample_id: SampleId) -> Arc<SampleData> {
         let sample = self.samples.get(&sample_id).expect("Sample not found");
         sample.clone()
+    }
+
+    /// Returns all sample names as a HashMap of SampleId to name.
+    pub fn get_sample_names(&self) -> &HashMap<SampleId, String> {
+        &self.sample_names
+    }
+
+    /// Returns a sample by ID, or None if not found.
+    pub fn get_sample(&self, sample_id: SampleId) -> Option<Arc<SampleData>> {
+        self.samples.get(&sample_id).cloned()
+    }
+
+    /// Loads all samples from the macOS DLS file. Returns the count loaded. Sample Ids range from 0 - 494
+    #[cfg(target_os = "macos")]
+    pub fn load_macos_dls_samples(&mut self) -> Result<usize> {
+        let dls_file = os_dls::load_mac_os_default()
+            .map_err(|e| crate::AudioBackendError(format!("Failed to load macOS DLS file: {}", e)))?;
+        
+        let samples = dls_file.samples()
+            .map_err(|e| crate::AudioBackendError(format!("Failed to parse DLS samples: {}", e)))?;
+        
+        let count = samples.len();
+        
+        for (index, sample) in samples.into_iter().enumerate() {
+            info!("Loaded DLS sample {}: {}", index, sample.name().unwrap_or("unnamed"));
+            let name = sample.name().unwrap_or("unnamed").to_string();
+            let sample_data = SampleData {
+                data: sample.to_f32_samples(),
+                sample_rate: sample.sample_rate() as f32,
+                channels: sample.channels(),
+            };
+            let sample_id = index as SampleId;
+            self.sample_names.insert(sample_id, name);
+            self.add_sample(sample_id, sample_data);
+        }
+        
+        Ok(count)
     }
 }
 
