@@ -63,3 +63,5 @@ fn load_wav_file<P: AsRef<std::path::Path>>(path: P) -> Result<SampleData> {
         channels,
     })
 }
+
+
