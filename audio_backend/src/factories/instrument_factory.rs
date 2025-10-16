@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use crate::{
-    id::InstrumentId, HiHat, InstrumentTrait, KickDrum, MonophonicOscillator, PolyphonicOscillator,
-    SampleData, SnareDrum, Waveform,
+    id::InstrumentId, HiHat, InstrumentTrait, KickDrum, LoopRegion, MonophonicOscillator,
+    PolyphonicOscillator, SampleData, SnareDrum, Waveform,
 };
 
 pub struct InstrumentFactory {
@@ -74,17 +74,40 @@ impl InstrumentFactory {
         Box::new(SnareDrum::new(instrument_id, pan, self.sample_rate))
     }
 
-    pub fn create_sample_player(
+    pub fn create_one_shot_sample_player(
         &self,
         instrument_id: InstrumentId,
         pan: f32,
         sample_data: Arc<SampleData>,
     ) -> Box<dyn InstrumentTrait> {
-        Box::new(crate::instruments::SamplePlayer::new(
+        Box::new(crate::instruments::SamplePlayer::new_one_shot(
             instrument_id,
             sample_data.clone(),
             self.sample_rate,
             pan,
+        ))
+    }
+
+    pub fn create_loop_sample_player(
+        &self,
+        instrument_id: InstrumentId,
+        pan: f32,
+        sample_data: Arc<SampleData>,
+    ) -> Box<dyn InstrumentTrait> {
+        let start_frame = sample_data
+            .loop_start
+            .expect("This sample doesn't have loop data");
+        let end_frame = sample_data
+            .loop_end
+            .expect("This sample doesn't have loop data");
+
+        let loop_region = LoopRegion::new(start_frame as f64, end_frame as f64);
+        Box::new(crate::instruments::SamplePlayer::new_with_loop(
+            instrument_id,
+            sample_data.clone(),
+            self.sample_rate,
+            pan,
+            loop_region,
         ))
     }
 }

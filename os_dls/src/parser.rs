@@ -1,7 +1,7 @@
 use riff::{Chunk, ChunkId};
 use std::io::Cursor;
 
-use crate::sample::Sample;
+use crate::sample::{LoopInfo, Sample};
 
 const WAVE_ID: ChunkId = ChunkId { value: *b"wave" };
 const FMT_ID: ChunkId = ChunkId { value: *b"fmt " };
@@ -96,6 +96,7 @@ impl DlsParser {
         let mut bits_per_sample: u16 = 0;
         let mut unity_note: Option<u8> = None;
         let mut fine_tune: Option<i16> = None;
+        let mut loop_info: Option<LoopInfo> = None;
         let mut audio_data: Vec<u8> = Vec::new();
 
         // Collect subchunks first
@@ -131,14 +132,61 @@ impl DlsParser {
                         .map_err(|e| format!("Failed to read data chunk: {}", e))?;
                 }
                 WSMP_ID => {
-                    // Wave sample chunk - contains unity note and fine tune
+                    // Wave sample chunk - contains unity note, fine tune, and loop info
                     let wsmp_data = subchunk
                         .read_contents(cursor)
                         .map_err(|e| format!("Failed to read wsmp chunk: {}", e))?;
 
                     if wsmp_data.len() >= 20 {
-                        unity_note = Some(wsmp_data[16]);
-                        fine_tune = Some(i16::from_le_bytes([wsmp_data[18], wsmp_data[19]]));
+                        // Parse wsmp header
+                        unity_note = Some(wsmp_data[4]);
+                        fine_tune = Some(i16::from_le_bytes([wsmp_data[6], wsmp_data[7]]));
+
+                        // Check for loop information
+                        // Offset 16: cSampleLoops (u32)
+                        let num_loops = u32::from_le_bytes([
+                            wsmp_data[16],
+                            wsmp_data[17],
+                            wsmp_data[18],
+                            wsmp_data[19],
+                        ]);
+
+                        // If there's at least one loop and enough data
+                        if num_loops > 0 && wsmp_data.len() >= 36 {
+                            // Loop structure starts at offset 20
+                            // Offset 20: cbSize (4 bytes) - skip
+                            // Offset 24: ulLoopType (4 bytes)
+                            let loop_type = u32::from_le_bytes([
+                                wsmp_data[24],
+                                wsmp_data[25],
+                                wsmp_data[26],
+                                wsmp_data[27],
+                            ]);
+
+                            // Offset 28: ulLoopStart (4 bytes)
+                            let loop_start = u32::from_le_bytes([
+                                wsmp_data[28],
+                                wsmp_data[29],
+                                wsmp_data[30],
+                                wsmp_data[31],
+                            ]);
+
+                            // Offset 32: ulLoopLength (4 bytes)
+                            let loop_length = u32::from_le_bytes([
+                                wsmp_data[32],
+                                wsmp_data[33],
+                                wsmp_data[34],
+                                wsmp_data[35],
+                            ]);
+
+                            let loop_end = loop_start.saturating_add(loop_length);
+
+                            loop_info = Some(LoopInfo {
+                                start: loop_start,
+                                end: loop_end,
+                                loop_type,
+                            });
+                        }
                     }
                 }
                 id if id == riff::LIST_ID => {
@@ -188,6 +236,7 @@ impl DlsParser {
             bits_per_sample,
             unity_note,
             fine_tune,
+            loop_info,
         ))
     }
 }

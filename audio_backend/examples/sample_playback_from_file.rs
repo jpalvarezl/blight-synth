@@ -19,11 +19,9 @@ fn main() -> Result<()> {
             let instrument_id = 0;
             audio.send_command(
                 audio_backend::SequencerCmd::AddTrackInstrument {
-                    instrument: audio.get_instrument_factory().create_sample_player(
-                        instrument_id,
-                        0.0,
-                        sample_data.clone(),
-                    ),
+                    instrument: audio
+                        .get_instrument_factory()
+                        .create_one_shot_sample_player(instrument_id, 0.0, sample_data.clone()),
                 }
                 .into(),
             );
@@ -37,7 +35,7 @@ fn main() -> Result<()> {
             );
             audio.send_command(audio_backend::TransportCmd::PlayLastSong.into());
 
-            thread::sleep(std::time::Duration::from_millis(2000));
+            thread::sleep(std::time::Duration::from_millis(10000));
         }
         Err(e) => {
             eprintln!("Error initializing audio: {}", e);

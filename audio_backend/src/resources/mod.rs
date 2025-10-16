@@ -74,6 +74,9 @@ impl ResourceManager {
                 data: sample.to_f32_samples(),
                 sample_rate: sample.sample_rate() as f32,
                 channels: sample.channels(),
+                // Extract loop information from DLS sample
+                loop_start: sample.loop_info().map(|l| l.start),
+                loop_end: sample.loop_info().map(|l| l.end),
             };
             let sample_id = index as SampleId;
             self.sample_names.insert(sample_id, name);
@@ -107,5 +110,7 @@ fn load_wav_file<P: AsRef<std::path::Path>>(path: P) -> Result<SampleData> {
         data,
         sample_rate,
         channels,
+        loop_start: None, // WAV files don't have loop info (could add SMPL chunk parsing later)
+        loop_end: None,
     })
 }

@@ -1,3 +1,36 @@
+/// Loop information for sample playback
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LoopInfo {
+    /// Loop start point in samples
+    pub start: u32,
+    /// Loop end point in samples (calculated as start + length)
+    pub end: u32,
+    /// Loop type (0 = forward loop)
+    pub loop_type: u32,
+}
+
+impl LoopInfo {
+    /// Get loop length in samples
+    pub fn length(&self) -> u32 {
+        self.end.saturating_sub(self.start)
+    }
+
+    /// Get loop start time in seconds
+    pub fn start_seconds(&self, sample_rate: u32) -> f64 {
+        self.start as f64 / sample_rate as f64
+    }
+
+    /// Get loop end time in seconds
+    pub fn end_seconds(&self, sample_rate: u32) -> f64 {
+        self.end as f64 / sample_rate as f64
+    }
+
+    /// Get loop length in seconds
+    pub fn length_seconds(&self, sample_rate: u32) -> f64 {
+        self.length() as f64 / sample_rate as f64
+    }
+}
+
 /// Represents an individual audio sample extracted from a DLS file.
 /// This struct contains both metadata and the raw PCM audio data,
 /// ready for audio playback.
@@ -24,6 +57,9 @@ pub struct Sample {
 
     /// Fine tune adjustment in cents (-100 to +100)
     fine_tune: Option<i16>,
+
+    /// Loop information (if available)
+    loop_info: Option<LoopInfo>,
 }
 
 impl Sample {
@@ -36,6 +72,7 @@ impl Sample {
         bits_per_sample: u16,
         unity_note: Option<u8>,
         fine_tune: Option<i16>,
+        loop_info: Option<LoopInfo>,
     ) -> Self {
         Self {
             name,
@@ -45,6 +82,7 @@ impl Sample {
             bits_per_sample,
             unity_note,
             fine_tune,
+            loop_info,
         }
     }
 
@@ -86,6 +124,17 @@ impl Sample {
     /// Returns None if not specified
     pub fn fine_tune(&self) -> Option<i16> {
         self.fine_tune
+    }
+
+    /// Get loop information
+    /// Returns None if the sample has no loop points
+    pub fn loop_info(&self) -> Option<LoopInfo> {
+        self.loop_info
+    }
+
+    /// Check if sample has loop points
+    pub fn has_loop(&self) -> bool {
+        self.loop_info.is_some()
     }
 
     /// Get the duration of the sample in seconds
