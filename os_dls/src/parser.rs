@@ -141,7 +141,7 @@ impl DlsParser {
                         // Parse wsmp header
                         unity_note = Some(wsmp_data[4]);
                         fine_tune = Some(i16::from_le_bytes([wsmp_data[6], wsmp_data[7]]));
-                        
+
                         // Check for loop information
                         // Offset 16: cSampleLoops (u32)
                         let num_loops = u32::from_le_bytes([
@@ -150,7 +150,7 @@ impl DlsParser {
                             wsmp_data[18],
                             wsmp_data[19],
                         ]);
-                        
+
                         // If there's at least one loop and enough data
                         if num_loops > 0 && wsmp_data.len() >= 36 {
                             // Loop structure starts at offset 20
@@ -162,7 +162,7 @@ impl DlsParser {
                                 wsmp_data[26],
                                 wsmp_data[27],
                             ]);
-                            
+
                             // Offset 28: ulLoopStart (4 bytes)
                             let loop_start = u32::from_le_bytes([
                                 wsmp_data[28],
@@ -170,7 +170,7 @@ impl DlsParser {
                                 wsmp_data[30],
                                 wsmp_data[31],
                             ]);
-                            
+
                             // Offset 32: ulLoopLength (4 bytes)
                             let loop_length = u32::from_le_bytes([
                                 wsmp_data[32],
@@ -178,9 +178,9 @@ impl DlsParser {
                                 wsmp_data[34],
                                 wsmp_data[35],
                             ]);
-                            
+
                             let loop_end = loop_start.saturating_add(loop_length);
-                            
+
                             loop_info = Some(LoopInfo {
                                 start: loop_start,
                                 end: loop_end,

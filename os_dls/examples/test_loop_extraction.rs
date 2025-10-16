@@ -12,10 +12,7 @@ fn main() -> Result<(), String> {
     println!("Total samples: {}", samples.len());
 
     // Count samples with loop information
-    let looped_samples: Vec<_> = samples
-        .iter()
-        .filter(|s| s.has_loop())
-        .collect();
+    let looped_samples: Vec<_> = samples.iter().filter(|s| s.has_loop()).collect();
 
     println!("Samples with loop info: {}\n", looped_samples.len());
 
@@ -49,17 +46,23 @@ fn main() -> Result<(), String> {
     // Show some statistics
     if let Some(first_looped) = looped_samples.first() {
         if let Some(loop_info) = first_looped.loop_info() {
-            println!("\nExample loop information (sample: {}):", first_looped.name().unwrap_or("<unnamed>"));
-            println!("  Loop start: {} frames ({:.3} seconds)", 
-                loop_info.start, 
+            println!(
+                "\nExample loop information (sample: {}):",
+                first_looped.name().unwrap_or("<unnamed>")
+            );
+            println!(
+                "  Loop start: {} frames ({:.3} seconds)",
+                loop_info.start,
                 loop_info.start_seconds(first_looped.sample_rate())
             );
-            println!("  Loop end: {} frames ({:.3} seconds)", 
-                loop_info.end, 
+            println!(
+                "  Loop end: {} frames ({:.3} seconds)",
+                loop_info.end,
                 loop_info.end_seconds(first_looped.sample_rate())
             );
-            println!("  Loop length: {} frames ({:.3} seconds)", 
-                loop_info.length(), 
+            println!(
+                "  Loop length: {} frames ({:.3} seconds)",
+                loop_info.length(),
                 loop_info.length_seconds(first_looped.sample_rate())
             );
             println!("  Loop type: {}", loop_info.loop_type);

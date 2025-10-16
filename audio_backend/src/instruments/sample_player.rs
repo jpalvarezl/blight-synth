@@ -15,7 +15,7 @@ impl SamplePlayer {
         sample_rate: f32,
         pan: f32,
     ) -> Self {
-        let envelope = Envelope::new_adsr(sample_rate, 3.0, 2.0, 1.0, 2.0);
+        let envelope = Envelope::new_adsr(sample_rate, 1.01, 1.0, 1.0, 1.0);
         let voice = Voice::new(
             0,
             SamplePlayerNode::new(sample_data.clone(), sample_rate),

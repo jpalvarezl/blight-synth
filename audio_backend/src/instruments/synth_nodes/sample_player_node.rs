@@ -2,6 +2,13 @@ use std::sync::Arc;
 
 use crate::{SampleData, SynthNode};
 
+/// Cached loop region boundaries in frames (as f64 for interpolation precision)
+#[derive(Debug, Clone, Copy)]
+struct LoopRegion {
+    start_frame: f64,
+    end_frame: f64,
+}
+
 pub struct SamplePlayerNode {
     sample: Arc<SampleData>,
     output_sample_rate: f32,
@@ -20,10 +27,23 @@ pub struct SamplePlayerNode {
     /// The MIDI note that corresponds to the original pitch of the sample.
     /// For example, if the sample is a C4 note, this would be 60.
     base_note: u8,
+
+    /// Active loop region (calculated once from sample data in new())
+    loop_region: Option<LoopRegion>,
 }
 
 impl SamplePlayerNode {
     pub fn new(sample: Arc<SampleData>, output_sample_rate: f32) -> Self {
+        // Calculate loop region once from sample data
+        let loop_region = if let (Some(start), Some(end)) = (sample.loop_start, sample.loop_end) {
+            Some(LoopRegion {
+                start_frame: start as f64,
+                end_frame: end as f64,
+            })
+        } else {
+            None
+        };
+
         Self {
             sample: sample.clone(),
             position: 0.0,
@@ -31,6 +51,7 @@ impl SamplePlayerNode {
             playback_rate: 1.0,
             output_sample_rate,
             base_note: 60, // Default to middle C, can be set later.
+            loop_region,
         }
     }
 
@@ -62,6 +83,21 @@ impl SynthNode for SamplePlayerNode {
             if !self.is_active() {
                 *sample = 0.0;
                 continue;
+            }
+
+            // Handle loop wraparound BEFORE reading samples
+            // This prevents reading past buffer bounds when looping
+            if let Some(ref loop_region) = self.loop_region {
+                if self.position >= loop_region.end_frame {
+                    // Calculate how far we've gone past the loop end (overshoot)
+                    // This is crucial for pitch accuracy when playback_rate > 1.0
+                    let loop_length = loop_region.end_frame - loop_region.start_frame;
+                    let overshoot = self.position - loop_region.end_frame;
+
+                    // Wrap back to loop start, preserving the overshoot amount
+                    // Modulo handles cases where we skip multiple loop lengths
+                    self.position = loop_region.start_frame + (overshoot % loop_length);
+                }
             }
 
             // Get the integer and fractional parts of the position.
@@ -100,19 +136,29 @@ impl SynthNode for SamplePlayerNode {
     }
 
     fn note_off(&mut self) {
-        // For a one-shot sample, note_off might do nothing.
-        // If it were a looped sample, this is where you'd stop the loop.
-        // For simplicity, we'll allow the sample to play out fully.
+        // Do nothing - let the envelope handle the release
+        // Looped samples will keep looping while envelope fades out
     }
 
     fn is_active(&self) -> bool {
-        // The number of frames in the sample buffer.
+        // Sample node is active as long as it's playing
+        // For looped samples, this stays true indefinitely
+        // For one-shot samples, this becomes false when position reaches buffer end
+        if !self.is_playing {
+            return false;
+        }
+
+        // If we have a loop, we're always active (envelope controls the actual voice lifetime)
+        if self.loop_region.is_some() {
+            return true;
+        }
+
+        // One-shot samples are active until position reaches buffer end
         let buffer_len_frames = if self.sample.channels > 1 {
             self.sample.data.len() / 2
         } else {
             self.sample.data.len()
         };
-        // The voice is active if it's playing and the position is still within the buffer's bounds.
-        self.is_playing && (self.position < buffer_len_frames as f64)
+        self.position < buffer_len_frames as f64
     }
 }

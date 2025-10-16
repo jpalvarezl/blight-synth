@@ -28,14 +28,15 @@ fn main() -> Result<()> {
             audio.send_command(
                 audio_backend::InstrumentCmd::NoteOn {
                     instrument_id,
-                    note: 66,
+                    note: 67,
                     velocity: 127,
                 }
                 .into(),
             );
             audio.send_command(audio_backend::TransportCmd::PlayLastSong.into());
-
-            thread::sleep(std::time::Duration::from_millis(5000));
+            thread::sleep(std::time::Duration::from_millis(1000));
+            audio.send_command(audio_backend::InstrumentCmd::NoteOff { instrument_id }.into());
+            thread::sleep(std::time::Duration::from_millis(4000));
         }
         Err(e) => {
             eprintln!("Error initializing audio: {}", e);
