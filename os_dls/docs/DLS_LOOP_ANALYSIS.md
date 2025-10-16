@@ -76,7 +76,7 @@ All samples in the macOS DLS file use a **22,050 Hz** sample rate. This means:
 - Time in seconds = samples ÷ 22,050
 
 ### 2. Loop Start and End Points
-### 2. Loop Start and End Points
+
 For samples with loops, the loop information includes:
 - **Loop Start Sample**: The sample index where looping begins
 - **Loop Length**: Number of samples in the loop
