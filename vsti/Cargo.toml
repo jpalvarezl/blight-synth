@@ -1,0 +1,11 @@
+[package]
+name = "vsti"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+audio_backend ={ workspace = true }
+nih_plug = { workspace = true }
