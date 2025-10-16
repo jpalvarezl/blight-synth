@@ -2,11 +2,21 @@ use std::sync::Arc;
 
 use crate::{SampleData, SynthNode};
 
-/// Cached loop region boundaries in frames (as f64 for interpolation precision)
+/// Loop region boundaries in frames (as f64 for interpolation precision)
 #[derive(Debug, Clone, Copy)]
-struct LoopRegion {
+pub struct LoopRegion {
     start_frame: f64,
     end_frame: f64,
+}
+
+impl LoopRegion {
+    /// Create a new LoopRegion, ensuring start is less than end.
+    pub fn new(start_frame: f64, end_frame: f64) -> Self {
+        Self {
+            start_frame,
+            end_frame,
+        }
+    }
 }
 
 pub struct SamplePlayerNode {
@@ -33,17 +43,14 @@ pub struct SamplePlayerNode {
 }
 
 impl SamplePlayerNode {
-    pub fn new(sample: Arc<SampleData>, output_sample_rate: f32) -> Self {
-        // Calculate loop region once from sample data
-        let loop_region = if let (Some(start), Some(end)) = (sample.loop_start, sample.loop_end) {
-            Some(LoopRegion {
-                start_frame: start as f64,
-                end_frame: end as f64,
-            })
-        } else {
-            None
-        };
-
+    /// Create a new SamplePlayerNode with the given sample data and output sample rate.
+    /// Optionally specify a loop region in frames (start, end).
+    /// If no loop region is provided, the sample will be considered one-shot.
+    pub fn new(
+        sample: Arc<SampleData>,
+        output_sample_rate: f32,
+        loop_region: Option<LoopRegion>,
+    ) -> Self {
         Self {
             sample: sample.clone(),
             position: 0.0,

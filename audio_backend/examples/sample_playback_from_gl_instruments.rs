@@ -17,7 +17,7 @@ fn main() -> Result<()> {
             let instrument_id = 0;
             audio.send_command(
                 audio_backend::SequencerCmd::AddTrackInstrument {
-                    instrument: audio.get_instrument_factory().create_sample_player(
+                    instrument: audio.get_instrument_factory().create_loop_sample_player(
                         instrument_id,
                         0.0,
                         sample_data.clone(),

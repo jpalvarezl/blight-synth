@@ -86,7 +86,7 @@ impl VoiceFactory {
             InstrumentDefinition::SamplePlayer(sample) => {
                 let voice = Voice::new(
                     voice_id,
-                    SamplePlayerNode::new(sample.clone(), sample_rate),
+                    SamplePlayerNode::new(sample.clone(), sample_rate, None),
                     envelope,
                     pan,
                     MonoEffectChain::new(10),
