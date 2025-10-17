@@ -10,11 +10,89 @@ pub struct HiHat {
 }
 
 #[derive(Params)]
-struct HiHatParams {}
+struct HiHatParams {
+    /// Attack time in seconds
+    #[id = "attack"]
+    pub attack: FloatParam,
+    
+    /// Decay time in seconds  
+    #[id = "decay"]
+    pub decay: FloatParam,
+    
+    /// Sustain level (0-1)
+    #[id = "sustain"]
+    pub sustain: FloatParam,
+    
+    /// Release time in seconds
+    #[id = "release"]
+    pub release: FloatParam,
+    
+    /// Stereo pan (-1 to 1)
+    #[id = "pan"]
+    pub pan: FloatParam,
+}
 
 impl Default for HiHatParams {
     fn default() -> Self {
-        Self {}
+        Self {
+            attack: FloatParam::new(
+                "Attack",
+                0.001, // Hi-hat typically has very fast attack
+                FloatRange::Skewed {
+                    min: 0.0001,
+                    max: 0.1,
+                    factor: 0.5,
+                },
+            )
+            .with_unit(" s")
+            .with_value_to_string(formatters::v2s_f32_rounded(4)),
+            
+            decay: FloatParam::new(
+                "Decay",
+                0.08, // Default from your tracker_gui
+                FloatRange::Skewed {
+                    min: 0.001,
+                    max: 1.0,
+                    factor: 0.5,
+                },
+            )
+            .with_unit(" s")
+            .with_value_to_string(formatters::v2s_f32_rounded(3)),
+            
+            sustain: FloatParam::new(
+                "Sustain",
+                0.0, // Hi-hats typically don't sustain
+                FloatRange::Linear {
+                    min: 0.0,
+                    max: 1.0,
+                },
+            )
+            .with_unit("")
+            .with_value_to_string(formatters::v2s_f32_percentage(2)),
+            
+            release: FloatParam::new(
+                "Release",
+                0.15, // Default from your tracker_gui
+                FloatRange::Skewed {
+                    min: 0.001,
+                    max: 2.0,
+                    factor: 0.5,
+                },
+            )
+            .with_unit(" s")
+            .with_value_to_string(formatters::v2s_f32_rounded(3)),
+            
+            pan: FloatParam::new(
+                "Pan",
+                0.0,
+                FloatRange::Linear {
+                    min: -1.0,
+                    max: 1.0,
+                },
+            )
+            .with_unit("")
+            .with_value_to_string(formatters::v2s_f32_panning()),
+        }
     }
 }
 
@@ -29,13 +107,11 @@ impl Default for HiHat {
 }
 
 impl Plugin for HiHat {
-    const NAME: &'static str = "Hi-Hat";
-    const VENDOR: &'static str = "PigsR";
-    const URL: &'static str = "https://yourwebsite.com";
-
+    const NAME: &'static str = "Blight Hi-Hat";
+    const VENDOR: &'static str = "Blight Synth";
+    const URL: &'static str = "https://github.com/yourusername/blight-synth";
     const EMAIL: &'static str = "jp.alvarezl@gmail.com";
-
-    const VERSION: &'static str = "0.1.0";
+    const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
     const AUDIO_IO_LAYOUTS: &'static [AudioIOLayout] = &[AudioIOLayout {
         main_input_channels: None,
@@ -45,8 +121,10 @@ impl Plugin for HiHat {
         names: PortNames::const_default(),
     }];
 
-    type SysExMessage = ();
+    const MIDI_INPUT: MidiConfig = MidiConfig::Basic;
+    const MIDI_OUTPUT: MidiConfig = MidiConfig::None;
 
+    type SysExMessage = ();
     type BackgroundTask = ();
 
     fn initialize(
@@ -55,14 +133,12 @@ impl Plugin for HiHat {
         buffer_config: &BufferConfig,
         _context: &mut impl InitContext<Self>,
     ) -> bool {
-        // Initialize all voices with correct sample rate
         self.sample_rate = buffer_config.sample_rate as f32;
         self.instrument = audio_backend::HiHat::new(0, 0.0, self.sample_rate);
-
         true
     }
 
-    fn params(&self) -> std::sync::Arc<dyn Params> {
+    fn params(&self) -> Arc<dyn Params> {
         self.params.clone()
     }
 
@@ -72,39 +148,109 @@ impl Plugin for HiHat {
         _aux: &mut AuxiliaryBuffers,
         context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
+        // Update parameters if they've changed
+        self.update_parameters(context);
+
+        // let output = buffer.as_slice();
+
+        // Process MIDI events with sample-accurate timing
         let mut next_event = context.next_event();
 
-        // Process MIDI events for this sample
-        while let Some(event) = next_event {
-            match event {
-                NoteEvent::NoteOn { note, velocity, .. } => {
-                    // Velocity appears to be normalized already
-                    self.instrument.note_on(note, (velocity * 127.0) as u8);
+        for (sample_id, mut channel_samples) in buffer.iter_samples().enumerate() {
+            // Process any MIDI events at this sample position
+            while let Some(event) = next_event {
+                if event.timing() > sample_id as u32 {
+                    break;
                 }
-                NoteEvent::NoteOff { .. } => {
-                    self.instrument.note_off();
+
+                match event {
+                    NoteEvent::NoteOn { note, velocity, .. } => {
+                        let velocity_u8 = (velocity * 127.0).round() as u8;
+                        self.instrument.note_on(note, velocity_u8);
+                    }
+                    NoteEvent::NoteOff { .. } | NoteEvent::Choke { .. } => {
+                        self.instrument.note_off();
+                    }
+                    _ => {}
                 }
-                _ => {}
+
+                next_event = context.next_event();
             }
 
-            next_event = context.next_event();
+            // Process one sample
+            let mut left = [0.0f32; 1];
+            let mut right = [0.0f32; 1];
+            self.instrument.process(&mut left, &mut right, self.sample_rate);
+
+            // Write to output channels
+            for (ch, sample) in channel_samples.iter_mut().enumerate() {
+                *sample = if ch == 0 { left[0] } else { right[0] };
+            }
         }
-
-        // Get mutable slices for both channels
-        let channels = buffer.as_slice();
-        let (left_buf, right_buf) = channels.split_at_mut(1);
-        let left_buf = &mut left_buf[0];
-        let right_buf = &mut right_buf[0];
-
-        self.instrument
-            .process(left_buf, right_buf, self.sample_rate);
 
         ProcessStatus::Normal
     }
 }
 
+impl HiHat {
+    /// Update instrument parameters from the UI
+    fn update_parameters(&mut self, context: &impl ProcessContext<Self>) {
+        // Update envelope parameters using SynthCmd
+        if self.params.attack.smoothed.is_smoothing() 
+            || self.params.decay.smoothed.is_smoothing()
+            || self.params.sustain.smoothed.is_smoothing()
+            || self.params.release.smoothed.is_smoothing() 
+        {
+            // The HiHat type uses an embedded envelope, so we need to pass commands
+            let attack = self.params.attack.smoothed.next();
+            let decay = self.params.decay.smoothed.next();
+            let sustain = self.params.sustain.smoothed.next();
+            let release = self.params.release.smoothed.next();
+            
+            // Use the command system to update envelope
+            self.instrument.try_handle_command(&audio_backend::SynthCmd::SetEnvAttack {
+                envelope_id: None,
+                attack,
+            });
+            self.instrument.try_handle_command(&audio_backend::SynthCmd::SetEnvDecay {
+                envelope_id: None,
+                decay,
+            });
+            self.instrument.try_handle_command(&audio_backend::SynthCmd::SetEnvSustain {
+                envelope_id: None,
+                sustain,
+            });
+            self.instrument.try_handle_command(&audio_backend::SynthCmd::SetEnvRelease {
+                envelope_id: None,
+                release,
+            });
+        }
+        
+        // Update pan
+        if self.params.pan.smoothed.is_smoothing() {
+            self.instrument.set_pan(self.params.pan.smoothed.next());
+        }
+    }
+}
+
+impl ClapPlugin for HiHat {
+    const CLAP_ID: &'static str = "com.blight-synth.hi-hat";
+    const CLAP_DESCRIPTION: Option<&'static str> = Some("A hi-hat drum synthesizer");
+    const CLAP_MANUAL_URL: Option<&'static str> = None;
+    const CLAP_SUPPORT_URL: Option<&'static str> = None;
+    const CLAP_FEATURES: &'static [ClapFeature] = &[
+        ClapFeature::Instrument,
+        ClapFeature::Drum,
+        ClapFeature::Synthesizer,
+        ClapFeature::Mono,
+    ];
+}
+
 impl Vst3Plugin for HiHat {
-    const VST3_CLASS_ID: [u8; 16] = *b"HiHat00000000000";
-    const VST3_SUBCATEGORIES: &'static [Vst3SubCategory] =
-        &[Vst3SubCategory::Drum, Vst3SubCategory::Synth];
+    const VST3_CLASS_ID: [u8; 16] = *b"BlightHiHat00000";
+    const VST3_SUBCATEGORIES: &'static [Vst3SubCategory] = &[
+        Vst3SubCategory::Instrument,
+        Vst3SubCategory::Drum,
+        Vst3SubCategory::Synth,
+    ];
 }
