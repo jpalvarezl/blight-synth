@@ -7,5 +7,5 @@ edition = "2024"
 crate-type = ["cdylib"]
 
 [dependencies]
-audio_backend ={ workspace = true }
+audio_backend = { workspace = true }
 nih_plug = { workspace = true }

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use audio_backend::InstrumentTrait;
+use audio_backend::{InstrumentTrait};
 use nih_plug::prelude::*;
 
 pub struct HiHat {
@@ -149,13 +149,13 @@ impl Plugin for HiHat {
         context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
         // Update parameters if they've changed
-        self.update_parameters(context);
+        self.update_parameters();
 
         // let output = buffer.as_slice();
 
         // Process MIDI events with sample-accurate timing
         let mut next_event = context.next_event();
-
+        
         for (sample_id, mut channel_samples) in buffer.iter_samples().enumerate() {
             // Process any MIDI events at this sample position
             while let Some(event) = next_event {
@@ -194,35 +194,37 @@ impl Plugin for HiHat {
 
 impl HiHat {
     /// Update instrument parameters from the UI
-    fn update_parameters(&mut self, context: &impl ProcessContext<Self>) {
+    fn update_parameters(&mut self) {
         // Update envelope parameters using SynthCmd
-        if self.params.attack.smoothed.is_smoothing() 
-            || self.params.decay.smoothed.is_smoothing()
-            || self.params.sustain.smoothed.is_smoothing()
-            || self.params.release.smoothed.is_smoothing() 
-        {
-            // The HiHat type uses an embedded envelope, so we need to pass commands
+        if self.params.attack.smoothed.is_smoothing() {
             let attack = self.params.attack.smoothed.next();
-            let decay = self.params.decay.smoothed.next();
-            let sustain = self.params.sustain.smoothed.next();
-            let release = self.params.release.smoothed.next();
-            
-            // Use the command system to update envelope
             self.instrument.try_handle_command(&audio_backend::SynthCmd::SetEnvAttack {
-                envelope_id: None,
-                attack,
+            envelope_id: None,
+            attack,
             });
+        }
+
+        if self.params.decay.smoothed.is_smoothing() {
+            let decay = self.params.decay.smoothed.next();
             self.instrument.try_handle_command(&audio_backend::SynthCmd::SetEnvDecay {
-                envelope_id: None,
-                decay,
+            envelope_id: None,
+            decay,
             });
+        }
+
+        if self.params.sustain.smoothed.is_smoothing() {
+            let sustain = self.params.sustain.smoothed.next();
             self.instrument.try_handle_command(&audio_backend::SynthCmd::SetEnvSustain {
-                envelope_id: None,
-                sustain,
+            envelope_id: None,
+            sustain,
             });
+        }
+
+        if self.params.release.smoothed.is_smoothing() {
+            let release = self.params.release.smoothed.next();
             self.instrument.try_handle_command(&audio_backend::SynthCmd::SetEnvRelease {
-                envelope_id: None,
-                release,
+            envelope_id: None,
+            release,
             });
         }
         
