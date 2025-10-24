@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["audio_backend", "utils", "sequencer", "tracker_gui", "os_dls", "vsti", "xtask"]
+members = ["audio_backend", "utils", "sequencer", "tracker_gui", "os_dls"]
 default-members = ["tracker_gui"]
 
 [workspace.dependencies]
