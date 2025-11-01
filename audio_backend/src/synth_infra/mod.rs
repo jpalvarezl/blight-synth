@@ -6,6 +6,7 @@ mod synth_node;
 // TODO: Remove this deprecation once the feature flag is in place
 // mod synthesizer;
 mod voice;
+mod smoother;
 
 pub use effects::*;
 pub use envelopes::*;
@@ -15,3 +16,4 @@ pub use synth_node::*;
 // TODO: Remove this deprecation once the feature flag is in place
 // pub use synthesizer::*;
 pub use voice::*;
+pub use smoother::*;
