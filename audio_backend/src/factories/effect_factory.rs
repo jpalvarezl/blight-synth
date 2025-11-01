@@ -1,5 +1,5 @@
 use crate::effects::{
-    Delay, Distortion, DistortionType, Filter, FilterType, Gain, Reverb, StereoReverb,
+    Delay, Distortion, DistortionType, Filter, FilterType, Gain, Reverb, StereoReverb, MoogLadder,
 };
 use crate::{MonoEffect, StereoEffect};
 
@@ -73,5 +73,10 @@ impl EffectFactory {
 
     pub fn create_mono_gain(&self, gain: f32) -> Box<dyn MonoEffect> {
         Box::new(Gain::new(gain))
+    }
+
+    /// Create a Moog Ladder filter effect (mono) with provided cutoff & resonance.
+    pub fn create_moog_ladder(&self, cutoff: f32, resonance: f32) -> Box<dyn MonoEffect> {
+        Box::new(MoogLadder::new(self.sample_rate, cutoff, resonance))
     }
 }

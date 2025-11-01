@@ -74,6 +74,15 @@ pub struct SnareDrumParams {
     pub amp_envelope: AmpEnvelopeParams,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+/// Parameters for a DFAM (Drummer From Another Mother) style percussion synth.
+/// For now it mirrors the structure of other simple percussion instruments.
+pub struct DFAMParams {
+    pub audio_effects: Vec<AudioEffect>,
+    #[serde(default)]
+    pub amp_envelope: AmpEnvelopeParams,
+}
+
 impl Default for AmpEnvelopeParams {
     fn default() -> Self {
         Self {
@@ -105,6 +114,7 @@ pub enum InstrumentData {
     HiHat(HiHatParams),
     KickDrum(KickDrumParams),
     SnareDrum(SnareDrumParams),
+    DFAM(DFAMParams),
     // This can be extended in the future, e.g., for FM synthesis.
 }
 
