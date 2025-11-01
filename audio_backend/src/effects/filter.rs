@@ -40,6 +40,10 @@ pub struct Filter {
 }
 
 impl Filter {
+    /// Create a new filter effect.
+    /// `filter_type` specifies the type of filter (e.g., low-pass, high-pass).
+    /// `cutoff` is in Hz. Between 20.0 and sample_rate / 2.0 ~ 20kHz
+    /// `resonance` (Q factor) controls the sharpness of the filter peak. Between 0.5 and 10.0
     pub fn new(filter_type: FilterType, cutoff: f32, resonance: f32, sample_rate: f32) -> Self {
         let mut filter = Self {
             filter_type,
