@@ -363,6 +363,37 @@ mod tests {
     }
 
     #[test]
+    fn envelope_zero_release_behaves_like_gate() {
+        let mut env = Envelope::new_adsr(SAMPLE_RATE, 0.0, 0.0, 1.0, 0.0);
+
+        env.gate(true);
+
+        let sustain_samples = advance_until_state(
+            &mut env,
+            EnvelopeState::Sustain,
+            8,
+        );
+        assert!(
+            sustain_samples <= 4,
+            "Zero attack/decay should reach sustain immediately (took {} samples)",
+            sustain_samples
+        );
+
+        let sustain_value = env.process();
+        assert!(sustain_value >= 0.99, "Sustain should hold full level without decay");
+
+        env.gate(false);
+        for _ in 0..4 {
+            let value = env.process();
+            if env.state() == EnvelopeState::Idle {
+                assert!(value <= 0.001, "Zero release should drop signal immediately");
+                return;
+            }
+        }
+        panic!("Envelope failed to return to Idle with zero release");
+    }
+
+    #[test]
     fn envelope_durations_are_consistent_across_sample_rates() {
         let attack_s = 0.1;
         let decay_s = 0.2;
