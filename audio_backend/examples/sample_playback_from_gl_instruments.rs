@@ -34,9 +34,9 @@ fn main() -> Result<()> {
                 .into(),
             );
             audio.send_command(audio_backend::TransportCmd::PlayLastSong.into());
-            thread::sleep(std::time::Duration::from_millis(1000));
+            thread::sleep(std::time::Duration::from_millis(2000));
             audio.send_command(audio_backend::InstrumentCmd::NoteOff { instrument_id }.into());
-            thread::sleep(std::time::Duration::from_millis(4000));
+            thread::sleep(std::time::Duration::from_millis(2000));
         }
         Err(e) => {
             eprintln!("Error initializing audio: {}", e);
