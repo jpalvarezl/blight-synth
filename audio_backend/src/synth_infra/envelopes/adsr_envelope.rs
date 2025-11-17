@@ -7,6 +7,10 @@ pub enum EnvelopeState {
     Release,
 }
 
+const ATTACK_PEAK_THRESHOLD: f32 = 0.999;
+const DECAY_SUSTAIN_TOLERANCE: f32 = 0.001;
+const RELEASE_IDLE_THRESHOLD: f32 = 0.001;
+
 #[derive(Debug, Clone)]
 pub struct Envelope {
     state: EnvelopeState,
@@ -85,17 +89,17 @@ impl Envelope {
     pub fn process(&mut self) -> f32 {
         // State transition logic (infrequent branches)
         match self.state {
-            EnvelopeState::Attack if self.output >= 0.999 => {
+            EnvelopeState::Attack if self.output >= ATTACK_PEAK_THRESHOLD => {
                 self.state = EnvelopeState::Decay;
                 self.target = self.sustain_level;
                 self.coefficient = self.decay_coef;
             }
-            EnvelopeState::Decay if self.output <= self.sustain_level + 0.001 => {
+            EnvelopeState::Decay if self.output <= self.sustain_level + DECAY_SUSTAIN_TOLERANCE => {
                 self.state = EnvelopeState::Sustain;
                 self.target = self.sustain_level;
                 self.coefficient = 0.0; // Stay at sustain level
             }
-            EnvelopeState::Release if self.output <= 0.001 => {
+            EnvelopeState::Release if self.output <= RELEASE_IDLE_THRESHOLD => {
                 self.state = EnvelopeState::Idle;
                 self.coefficient = 0.0;
             }
@@ -157,15 +161,13 @@ impl Envelope {
         }
 
         let samples = (time_s * sample_rate).max(1.0);
-        const TARGET_RATIO: f32 = 0.001; // match Idle cutoff in `process`
-
-        TARGET_RATIO.powf(1.0 / samples)
+        RELEASE_IDLE_THRESHOLD.powf(1.0 / samples)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Envelope, EnvelopeState};
+    use super::{Envelope, EnvelopeState, RELEASE_IDLE_THRESHOLD};
 
     const SAMPLE_RATE: f32 = 48_000.0;
     const SUSTAIN_STABILITY_TOLERANCE: f32 = 0.02; // ≈ -34 dB window around sustain level
@@ -386,7 +388,7 @@ mod tests {
         for _ in 0..4 {
             let value = env.process();
             if env.state() == EnvelopeState::Idle {
-                assert!(value <= 0.001, "Zero release should drop signal immediately");
+                assert!(value <= RELEASE_IDLE_THRESHOLD, "Zero release should drop signal immediately");
                 return;
             }
         }
