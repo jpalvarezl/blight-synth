@@ -1,5 +1,5 @@
 use crate::effects::{
-    Delay, Distortion, DistortionType, Filter, FilterType, Gain, Reverb, StereoReverb, MoogLadder,
+    Delay, Distortion, DistortionType, Filter, FilterType, Gain, MoogLadder, Reverb, StereoReverb,
 };
 use crate::{MonoEffect, StereoEffect};
 

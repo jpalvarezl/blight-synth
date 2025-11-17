@@ -2,8 +2,8 @@ mod delay;
 mod distortion;
 mod filter;
 mod gain;
-mod reverb;
 mod moog_ladder;
+mod reverb;
 
 pub use delay::*;
 pub use distortion::*;

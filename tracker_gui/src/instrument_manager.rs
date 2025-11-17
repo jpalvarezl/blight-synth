@@ -1681,39 +1681,102 @@ impl InstrumentManagerWindow {
 }
 
 /// Create/replace the backend DFAM instrument and configure its voice effects from params.
-fn ensure_backend_dfam_with_params(audio_mgr: &mut AudioManager, id_u8: u8, params: &sequencer::models::DFAMParams) {
+fn ensure_backend_dfam_with_params(
+    audio_mgr: &mut AudioManager,
+    id_u8: u8,
+    params: &sequencer::models::DFAMParams,
+) {
     if let Some(audio) = &mut audio_mgr.audio {
         let id = audio_backend::id::InstrumentId::from(id_u8 as u32);
         let instrument = audio.get_instrument_factory().create_dfam(id, 0.0);
         audio.send_command(audio_backend::SequencerCmd::AddTrackInstrument { instrument }.into());
 
         // Always add a default Moog Ladder filter with cutoff 500 Hz & resonance 0.5
-    let ladder = audio.get_effect_factory().create_moog_ladder(500.0, 0.5);
+        let ladder = audio.get_effect_factory().create_moog_ladder(500.0, 0.5);
         audio.send_command(
-            audio_backend::SequencerCmd::AddEffectToInstrument { instrument_id: id, effect: ladder }
-                .into(),
+            audio_backend::SequencerCmd::AddEffectToInstrument {
+                instrument_id: id,
+                effect: ladder,
+            }
+            .into(),
         );
 
         // Configure any additional mono insert effects from params (reverb/delay)
         for eff in &params.audio_effects {
             match eff {
-                AudioEffect::Reverb { mix, decay_time, room_size, diffusion, damping } => {
+                AudioEffect::Reverb {
+                    mix,
+                    decay_time,
+                    room_size,
+                    diffusion,
+                    damping,
+                } => {
                     let mut r = audio.get_effect_factory().create_mono_reverb();
-                    audio_backend::MonoEffect::set_parameter(&mut *r, audio_backend::effects::ReverbParameter::Mix.as_index(), (*mix).clamp(0.0, 1.0));
-                    audio_backend::MonoEffect::set_parameter(&mut *r, audio_backend::effects::ReverbParameter::Decay.as_index(), *decay_time);
-                    audio_backend::MonoEffect::set_parameter(&mut *r, audio_backend::effects::ReverbParameter::RoomSize.as_index(), *room_size);
-                    audio_backend::MonoEffect::set_parameter(&mut *r, audio_backend::effects::ReverbParameter::Damping.as_index(), *damping);
-                    audio_backend::MonoEffect::set_parameter(&mut *r, audio_backend::effects::ReverbParameter::Diffusion.as_index(), *diffusion);
-                    audio.send_command(audio_backend::SequencerCmd::AddEffectToInstrument { instrument_id: id, effect: r }.into());
+                    audio_backend::MonoEffect::set_parameter(
+                        &mut *r,
+                        audio_backend::effects::ReverbParameter::Mix.as_index(),
+                        (*mix).clamp(0.0, 1.0),
+                    );
+                    audio_backend::MonoEffect::set_parameter(
+                        &mut *r,
+                        audio_backend::effects::ReverbParameter::Decay.as_index(),
+                        *decay_time,
+                    );
+                    audio_backend::MonoEffect::set_parameter(
+                        &mut *r,
+                        audio_backend::effects::ReverbParameter::RoomSize.as_index(),
+                        *room_size,
+                    );
+                    audio_backend::MonoEffect::set_parameter(
+                        &mut *r,
+                        audio_backend::effects::ReverbParameter::Damping.as_index(),
+                        *damping,
+                    );
+                    audio_backend::MonoEffect::set_parameter(
+                        &mut *r,
+                        audio_backend::effects::ReverbParameter::Diffusion.as_index(),
+                        *diffusion,
+                    );
+                    audio.send_command(
+                        audio_backend::SequencerCmd::AddEffectToInstrument {
+                            instrument_id: id,
+                            effect: r,
+                        }
+                        .into(),
+                    );
                 }
-                AudioEffect::Delay { time, num_taps, feedback, mix } => {
-                    let mut d = audio.get_effect_factory().create_mono_delay(*time, *num_taps as usize, *feedback, *mix);
+                AudioEffect::Delay {
+                    time,
+                    num_taps,
+                    feedback,
+                    mix,
+                } => {
+                    let mut d = audio.get_effect_factory().create_mono_delay(
+                        *time,
+                        *num_taps as usize,
+                        *feedback,
+                        *mix,
+                    );
                     use audio_backend::effects::DelayParameter as DP;
                     audio_backend::MonoEffect::set_parameter(&mut *d, DP::Time.as_index(), *time);
-                    audio_backend::MonoEffect::set_parameter(&mut *d, DP::NumTaps.as_index(), *num_taps as f32);
-                    audio_backend::MonoEffect::set_parameter(&mut *d, DP::Feedback.as_index(), *feedback);
+                    audio_backend::MonoEffect::set_parameter(
+                        &mut *d,
+                        DP::NumTaps.as_index(),
+                        *num_taps as f32,
+                    );
+                    audio_backend::MonoEffect::set_parameter(
+                        &mut *d,
+                        DP::Feedback.as_index(),
+                        *feedback,
+                    );
                     audio_backend::MonoEffect::set_parameter(&mut *d, DP::Mix.as_index(), *mix);
-                    audio.send_command(audio_backend::SequencerCmd::AddEffectToInstrument { instrument_id: id, effect: d }.into());
+                    audio.send_command(
+                        audio_backend::SequencerCmd::AddEffectToInstrument {
+                            instrument_id: id,
+                            effect: d,
+                        }
+                        .into(),
+                    );
                 }
             }
         }

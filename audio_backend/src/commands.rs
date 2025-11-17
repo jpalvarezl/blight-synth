@@ -1,7 +1,7 @@
 use crate::{
     id::{EffectChainId, EnvelopeId, InstrumentId, VoiceId},
     instruments::Waveform,
-    InstrumentTrait, MonoEffect, StereoEffect, VoiceEffects, VoiceTrait,
+    InstrumentTrait, MonoEffect, StereoEffect, VoiceEffects,
 };
 use sequencer::models::Song;
 use std::sync::Arc;
@@ -33,36 +33,9 @@ pub enum SequencerCmd {
 }
 
 pub enum SynthCmd {
-    // Note/Voice Control
-    PlayNoteInstrument {
-        voice_id: VoiceId,
-        note: u8,
-        velocity: u8,
-    },
-    PlayNote {
-        voice: Box<dyn VoiceTrait>,
-        note: u8,
-        velocity: u8,
-    },
-    StopNote {
-        voice_id: VoiceId,
-    },
-    // Parameter Control (Type-Safe)
-    SetVoicePan {
-        voice_id: VoiceId,
-        pan: f32,
-    },
-    SetSuperSawDetune {
-        voice_id: VoiceId,
-        detune: f32,
-    },
     SetWaveform {
         voice_id: VoiceId,
         waveform: Waveform,
-    },
-    AddVoiceEffect {
-        voice_id: VoiceId,
-        effect: Box<dyn MonoEffect>,
     },
     SetEnvAttack {
         envelope_id: Option<EnvelopeId>,

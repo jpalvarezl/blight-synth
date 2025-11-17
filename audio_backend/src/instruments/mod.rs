@@ -1,20 +1,20 @@
 mod hihat;
 mod kick_drum;
 mod monophonic_osc;
+mod moog_dfam;
 mod polyphonic_osc;
 mod sample_player;
 mod snare_drum;
 mod synth_nodes;
-mod moog_dfam;
 
 pub use hihat::*;
 pub use kick_drum::*;
 pub use monophonic_osc::*;
+pub use moog_dfam::*;
 pub use polyphonic_osc::*;
 pub use sample_player::*;
 pub use snare_drum::*;
 pub use synth_nodes::*;
-pub use moog_dfam::*;
 
 use crate::{id::NoteId, InstrumentTrait, MonoEffect, SynthNode, Voice, VoiceEffects, VoiceTrait};
 
