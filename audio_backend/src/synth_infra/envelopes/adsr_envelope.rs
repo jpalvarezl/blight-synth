@@ -362,6 +362,64 @@ mod tests {
         );
     }
 
+    #[test]
+    fn envelope_durations_are_consistent_across_sample_rates() {
+        let attack_s = 0.1;
+        let decay_s = 0.2;
+        let sustain = 0.6;
+        let release_s = 0.4;
+        let sample_rates = [44_100.0, 48_000.0, 96_000.0];
+
+        let mut baseline: Option<(f32, f32, f32)> = None;
+
+        for sample_rate in sample_rates {
+            let mut env = Envelope::new_adsr(sample_rate, attack_s, decay_s, sustain, release_s);
+
+            env.gate(true);
+            let attack_samples = advance_until_state(
+                &mut env,
+                EnvelopeState::Decay,
+                (sample_rate * (attack_s + 0.1)) as usize,
+            );
+            let decay_samples = advance_until_state(
+                &mut env,
+                EnvelopeState::Sustain,
+                (sample_rate * (decay_s + 0.1)) as usize,
+            );
+
+            env.gate(false);
+            let release_samples = advance_until_state(
+                &mut env,
+                EnvelopeState::Idle,
+                (sample_rate * (release_s + 0.5)) as usize,
+            );
+
+            let attack_duration = attack_samples as f32 / sample_rate;
+            let decay_duration = decay_samples as f32 / sample_rate;
+            let release_duration = release_samples as f32 / sample_rate;
+
+            if let Some((base_attack, base_decay, base_release)) = baseline {
+                assert!(
+                    (attack_duration - base_attack).abs() < 0.01,
+                    "Attack duration drifted beyond tolerance ({} Hz)",
+                    sample_rate
+                );
+                assert!(
+                    (decay_duration - base_decay).abs() < 0.01,
+                    "Decay duration drifted beyond tolerance ({} Hz)",
+                    sample_rate
+                );
+                assert!(
+                    (release_duration - base_release).abs() < 0.02,
+                    "Release duration drifted beyond tolerance ({} Hz)",
+                    sample_rate
+                );
+            } else {
+                baseline = Some((attack_duration, decay_duration, release_duration));
+            }
+        }
+    }
+
     fn advance_until_state(
         env: &mut Envelope,
         target: EnvelopeState,
