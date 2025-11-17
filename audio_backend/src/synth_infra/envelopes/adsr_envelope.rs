@@ -7,8 +7,11 @@ pub enum EnvelopeState {
     Release,
 }
 
+// Attack ticks over to Decay once the output is effectively at unity (−0.01 dB).
 const ATTACK_PEAK_THRESHOLD: f32 = 0.999;
+// Decay transitions into Sustain when the signal is within 0.1% of the sustain level.
 const DECAY_SUSTAIN_TOLERANCE: f32 = 0.001;
+// Release is considered complete when the envelope falls to −60 dB relative to peak.
 const RELEASE_IDLE_THRESHOLD: f32 = 0.001;
 
 #[derive(Debug, Clone)]
@@ -155,6 +158,10 @@ impl Envelope {
         }
     }
 
+    /// Converts a user-facing segment length (in seconds) into the exponential coefficient
+    /// used by the difference equation `output = target + coef * (output - target)`. The
+    /// calculation ensures that a segment reaches `RELEASE_IDLE_THRESHOLD` within the
+    /// requested duration, so audible timing matches parameter expectations.
     fn time_to_coef(time_s: f32, sample_rate: f32) -> f32 {
         if time_s <= 0.0 {
             return 0.0;
