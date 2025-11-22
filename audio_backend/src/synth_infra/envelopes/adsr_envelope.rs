@@ -1,3 +1,5 @@
+use crate::EnvelopeCmd;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum EnvelopeState {
     Idle,
@@ -169,6 +171,30 @@ impl Envelope {
 
         let samples = (time_s * sample_rate).max(1.0);
         RELEASE_IDLE_THRESHOLD.powf(1.0 / samples)
+    }
+}
+
+impl Envelope {
+    pub fn handle_command(&mut self, command: &EnvelopeCmd) -> bool {
+        match command {
+            EnvelopeCmd::SetAttack { attack } => {
+                self.set_attack(*attack);
+                true
+            }
+            EnvelopeCmd::SetDecay { decay } => {
+                self.set_decay(*decay);
+                true
+            }
+            EnvelopeCmd::SetSustain { sustain } => {
+                self.set_sustain(*sustain);
+                true
+            }
+            EnvelopeCmd::SetRelease { release } => {
+                self.set_release(*release);
+                true
+            }
+            _ => false,
+        }
     }
 }
 

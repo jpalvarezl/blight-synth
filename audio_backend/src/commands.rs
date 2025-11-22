@@ -1,5 +1,5 @@
 use crate::{
-    id::{EffectChainId, EnvelopeId, InstrumentId, VoiceId},
+    id::{EffectChainId, EffectId, EnvelopeId, InstrumentId, VoiceId},
     instruments::Waveform,
     InstrumentTrait, MonoEffect, StereoEffect, VoiceEffects,
 };
@@ -37,25 +37,27 @@ pub enum SynthCmd {
         voice_id: VoiceId,
         waveform: Waveform,
     },
-    SetEnvAttack {
+    EnvelopeCommand {
         envelope_id: Option<EnvelopeId>,
-        attack: f32,
+        command: EnvelopeCmd,
     },
-    SetEnvDecay {
-        envelope_id: Option<EnvelopeId>,
-        decay: f32,
+    EffectCommand {
+        effect_id: EffectId,
+        command: EffectCmd,
     },
-    SetEnvSustain {
-        envelope_id: Option<EnvelopeId>,
-        sustain: f32,
-    },
-    SetEnvRelease {
-        envelope_id: Option<EnvelopeId>,
-        release: f32,
-    },
-    SetPitchEnvFreqDelta {
-        freq_delta: f32,
-    },
+}
+
+pub enum EffectCmd {
+    SetParameter { param_index: u32, value: f32 },
+    SwapEffectOrder { target_effect_id: EffectId },
+}
+
+pub enum EnvelopeCmd {
+    SetPitchEnvFreqDelta { freq_delta: f32 },
+    SetAttack { attack: f32 },
+    SetDecay { decay: f32 },
+    SetSustain { sustain: f32 },
+    SetRelease { release: f32 },
 }
 
 pub enum MixerCmd {

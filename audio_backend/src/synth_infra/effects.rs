@@ -1,3 +1,5 @@
+use crate::id::EffectId;
+
 /// A trait for any real-time audio effect. Not to be confused with command transformer effects,
 /// such as an Arpeggiator for example, which operates from the NRT world and would constitute a
 /// sequencer effect.
@@ -6,6 +8,9 @@
 /// It must be `Send + Sync` so that it can be safely created in the NRT world
 /// and sent to the RT audio thread.
 pub trait StereoEffect: Send + Sync {
+    // /// Returns the unique identifier for this effect instance.
+    // fn id(&self) -> EffectId;
+
     /// Processes a block of stereo audio.
     ///
     /// This method is called on every audio block and must be real-time safe.
@@ -26,6 +31,12 @@ pub trait StereoEffect: Send + Sync {
     /// * `index` - The zero-based index of the parameter to change.
     /// * `value` - The new value for the parameter.
     fn set_parameter(&mut self, index: u32, value: f32);
+
+    /// Attempts to handle a command specific to this effect.
+    /// Returns `true` if the command was handled, `false` if not applicable.
+    fn try_handle_command(&mut self, _command: &crate::commands::EffectCmd) -> bool {
+        false
+    }
 
     /// Reset the effect's internal state to an initial, silent condition.
     ///
@@ -91,6 +102,9 @@ impl StereoEffectChain {
 /// A trait for mono audio effects. These are typically used for per-voice effects
 /// that operate on a single channel of audio.
 pub trait MonoEffect: Send + Sync {
+    // /// Returns the unique identifier for this effect instance.
+    // fn id(&self) -> EffectId;
+
     /// Processes a block of mono audio.
     ///
     /// This method is called on every audio block and must be real-time safe.
@@ -110,6 +124,12 @@ pub trait MonoEffect: Send + Sync {
     /// * `index` - The zero-based index of the parameter to change.
     /// * `value` - The new value for the parameter.
     fn set_parameter(&mut self, index: u32, value: f32);
+
+    /// Attempts to handle a command specific to this effect.
+    /// Returns `true` if the command was handled, `false` if not applicable.
+    fn try_handle_command(&mut self, _command: &crate::commands::EffectCmd) -> bool {
+        false
+    }
 
     /// Reset the effect's internal state to an initial, silent condition.
     ///

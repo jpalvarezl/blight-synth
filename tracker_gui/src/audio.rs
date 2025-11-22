@@ -1,5 +1,5 @@
 use crate::audio_utils::map_waveform_to_backend;
-use audio_backend::{BlightAudio, SequencerCmd, TransportCmd};
+use audio_backend::{BlightAudio, EnvelopeCmd, SequencerCmd, TransportCmd};
 use sequencer::models::{AmpEnvelopeParams, AudioEffect, InstrumentData, Song};
 use std::sync::Arc;
 
@@ -27,9 +27,9 @@ fn push_amp_envelope_commands(
     audio.send_command(
         audio_backend::InstrumentCmd::PassOnSynthCmd {
             instrument_id,
-            synth_cmd: audio_backend::SynthCmd::SetEnvAttack {
+            synth_cmd: audio_backend::SynthCmd::EnvelopeCommand {
                 envelope_id: Some(0),
-                attack: env.attack,
+                command: EnvelopeCmd::SetAttack { attack: env.attack },
             },
         }
         .into(),
@@ -37,9 +37,9 @@ fn push_amp_envelope_commands(
     audio.send_command(
         audio_backend::InstrumentCmd::PassOnSynthCmd {
             instrument_id,
-            synth_cmd: audio_backend::SynthCmd::SetEnvDecay {
+            synth_cmd: audio_backend::SynthCmd::EnvelopeCommand {
                 envelope_id: Some(0),
-                decay: env.decay,
+                command: EnvelopeCmd::SetDecay { decay: env.decay },
             },
         }
         .into(),
@@ -47,9 +47,11 @@ fn push_amp_envelope_commands(
     audio.send_command(
         audio_backend::InstrumentCmd::PassOnSynthCmd {
             instrument_id,
-            synth_cmd: audio_backend::SynthCmd::SetEnvSustain {
+            synth_cmd: audio_backend::SynthCmd::EnvelopeCommand {
                 envelope_id: Some(0),
-                sustain: env.sustain,
+                command: EnvelopeCmd::SetSustain {
+                    sustain: env.sustain,
+                },
             },
         }
         .into(),
@@ -57,9 +59,11 @@ fn push_amp_envelope_commands(
     audio.send_command(
         audio_backend::InstrumentCmd::PassOnSynthCmd {
             instrument_id,
-            synth_cmd: audio_backend::SynthCmd::SetEnvRelease {
+            synth_cmd: audio_backend::SynthCmd::EnvelopeCommand {
                 envelope_id: Some(0),
-                release: env.release,
+                command: EnvelopeCmd::SetRelease {
+                    release: env.release,
+                },
             },
         }
         .into(),

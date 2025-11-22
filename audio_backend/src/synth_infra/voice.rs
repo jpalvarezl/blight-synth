@@ -168,46 +168,13 @@ impl<S: SynthNode> VoiceTrait for Voice<S> {
 
     fn try_handle_command(&mut self, command: &SynthCmd) -> bool {
         let was_handled = match command {
-            SynthCmd::SetEnvAttack {
+            // check for envelope commands first
+            SynthCmd::EnvelopeCommand {
                 envelope_id: _,
-                attack,
+                command,
             } => {
                 if let Some(env) = &mut self.envelope {
-                    env.set_attack(*attack);
-                    true
-                } else {
-                    false
-                }
-            }
-            SynthCmd::SetEnvDecay {
-                envelope_id: _,
-                decay,
-            } => {
-                if let Some(env) = &mut self.envelope {
-                    env.set_decay(*decay);
-                    true
-                } else {
-                    false
-                }
-            }
-            SynthCmd::SetEnvSustain {
-                envelope_id: _,
-                sustain,
-            } => {
-                if let Some(env) = &mut self.envelope {
-                    env.set_sustain(*sustain);
-                    true
-                } else {
-                    false
-                }
-            }
-            SynthCmd::SetEnvRelease {
-                envelope_id: _,
-                release,
-            } => {
-                if let Some(env) = &mut self.envelope {
-                    env.set_release(*release);
-                    true
+                    env.handle_command(command)
                 } else {
                     false
                 }
@@ -215,6 +182,7 @@ impl<S: SynthNode> VoiceTrait for Voice<S> {
             _ => false,
         };
 
+        // If the command wasn't an envelope command, pass it to the synth node
         if was_handled {
             return true;
         } else {

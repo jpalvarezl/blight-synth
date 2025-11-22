@@ -1,3 +1,4 @@
+use audio_backend::EnvelopeCmd;
 use eframe::egui;
 use sequencer::models::{
     AmpEnvelopeParams, AudioEffect, HiHatParams, Instrument, InstrumentData, KickDrumParams,
@@ -22,9 +23,9 @@ fn send_amp_envelope_to_backend(
         audio.send_command(
             audio_backend::InstrumentCmd::PassOnSynthCmd {
                 instrument_id: id,
-                synth_cmd: audio_backend::SynthCmd::SetEnvAttack {
+                synth_cmd: audio_backend::SynthCmd::EnvelopeCommand {
                     envelope_id: Some(0),
-                    attack: env.attack,
+                    command: EnvelopeCmd::SetAttack { attack: env.attack },
                 },
             }
             .into(),
@@ -32,9 +33,9 @@ fn send_amp_envelope_to_backend(
         audio.send_command(
             audio_backend::InstrumentCmd::PassOnSynthCmd {
                 instrument_id: id,
-                synth_cmd: audio_backend::SynthCmd::SetEnvDecay {
+                synth_cmd: audio_backend::SynthCmd::EnvelopeCommand {
                     envelope_id: Some(0),
-                    decay: env.decay,
+                    command: EnvelopeCmd::SetDecay { decay: env.decay },
                 },
             }
             .into(),
@@ -42,9 +43,11 @@ fn send_amp_envelope_to_backend(
         audio.send_command(
             audio_backend::InstrumentCmd::PassOnSynthCmd {
                 instrument_id: id,
-                synth_cmd: audio_backend::SynthCmd::SetEnvSustain {
+                synth_cmd: audio_backend::SynthCmd::EnvelopeCommand {
                     envelope_id: Some(0),
-                    sustain: env.sustain,
+                    command: EnvelopeCmd::SetSustain {
+                        sustain: env.sustain,
+                    },
                 },
             }
             .into(),
@@ -52,9 +55,11 @@ fn send_amp_envelope_to_backend(
         audio.send_command(
             audio_backend::InstrumentCmd::PassOnSynthCmd {
                 instrument_id: id,
-                synth_cmd: audio_backend::SynthCmd::SetEnvRelease {
+                synth_cmd: audio_backend::SynthCmd::EnvelopeCommand {
                     envelope_id: Some(0),
-                    release: env.release,
+                    command: EnvelopeCmd::SetRelease {
+                        release: env.release,
+                    },
                 },
             }
             .into(),
@@ -406,8 +411,11 @@ fn ensure_backend_kick_with_params(
         audio.send_command(
             audio_backend::InstrumentCmd::PassOnSynthCmd {
                 instrument_id: id,
-                synth_cmd: audio_backend::SynthCmd::SetPitchEnvFreqDelta {
-                    freq_delta: params.pitch_envelope.freq_delta,
+                synth_cmd: audio_backend::SynthCmd::EnvelopeCommand {
+                    envelope_id: None,
+                    command: EnvelopeCmd::SetPitchEnvFreqDelta {
+                        freq_delta: params.pitch_envelope.freq_delta,
+                    },
                 },
             }
             .into(),

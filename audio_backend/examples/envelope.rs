@@ -1,6 +1,6 @@
 use std::{thread, time::Duration};
 
-use audio_backend::{BlightAudio, InstrumentCmd, SynthCmd, TransportCmd};
+use audio_backend::{BlightAudio, EnvelopeCmd, InstrumentCmd, SynthCmd, TransportCmd};
 
 fn main() {
     match &mut BlightAudio::new() {
@@ -17,9 +17,9 @@ fn main() {
             audio.send_command(
                 InstrumentCmd::PassOnSynthCmd {
                     instrument_id,
-                    synth_cmd: SynthCmd::SetEnvAttack {
+                    synth_cmd: SynthCmd::EnvelopeCommand {
                         envelope_id: None,
-                        attack: 0.4,
+                        command: EnvelopeCmd::SetAttack { attack: 0.4 },
                     },
                 }
                 .into(),
@@ -27,9 +27,9 @@ fn main() {
             audio.send_command(
                 InstrumentCmd::PassOnSynthCmd {
                     instrument_id,
-                    synth_cmd: SynthCmd::SetEnvDecay {
+                    synth_cmd: SynthCmd::EnvelopeCommand {
                         envelope_id: None,
-                        decay: 0.1,
+                        command: EnvelopeCmd::SetDecay { decay: 0.1 },
                     },
                 }
                 .into(),
@@ -37,9 +37,9 @@ fn main() {
             audio.send_command(
                 InstrumentCmd::PassOnSynthCmd {
                     instrument_id,
-                    synth_cmd: SynthCmd::SetEnvSustain {
+                    synth_cmd: SynthCmd::EnvelopeCommand {
                         envelope_id: None,
-                        sustain: 0.8,
+                        command: EnvelopeCmd::SetSustain { sustain: 0.8 },
                     },
                 }
                 .into(),
@@ -47,9 +47,9 @@ fn main() {
             audio.send_command(
                 InstrumentCmd::PassOnSynthCmd {
                     instrument_id,
-                    synth_cmd: SynthCmd::SetEnvRelease {
+                    synth_cmd: SynthCmd::EnvelopeCommand {
                         envelope_id: None,
-                        release: 0.5,
+                        command: EnvelopeCmd::SetRelease { release: 0.5 },
                     },
                 }
                 .into(),
@@ -71,9 +71,9 @@ fn main() {
             audio.send_command(
                 InstrumentCmd::PassOnSynthCmd {
                     instrument_id,
-                    synth_cmd: SynthCmd::SetEnvAttack {
+                    synth_cmd: SynthCmd::EnvelopeCommand {
                         envelope_id: None,
-                        attack: 2.0,
+                        command: EnvelopeCmd::SetAttack { attack: 2.0 },
                     },
                 }
                 .into(),
@@ -81,9 +81,9 @@ fn main() {
             audio.send_command(
                 InstrumentCmd::PassOnSynthCmd {
                     instrument_id,
-                    synth_cmd: SynthCmd::SetEnvDecay {
+                    synth_cmd: SynthCmd::EnvelopeCommand {
                         envelope_id: None,
-                        decay: 0.1,
+                        command: EnvelopeCmd::SetDecay { decay: 0.1 },
                     },
                 }
                 .into(),
@@ -91,9 +91,9 @@ fn main() {
             audio.send_command(
                 InstrumentCmd::PassOnSynthCmd {
                     instrument_id,
-                    synth_cmd: SynthCmd::SetEnvSustain {
+                    synth_cmd: SynthCmd::EnvelopeCommand {
                         envelope_id: None,
-                        sustain: 0.8,
+                        command: EnvelopeCmd::SetSustain { sustain: 0.8 },
                     },
                 }
                 .into(),
@@ -101,9 +101,9 @@ fn main() {
             audio.send_command(
                 InstrumentCmd::PassOnSynthCmd {
                     instrument_id,
-                    synth_cmd: SynthCmd::SetEnvRelease {
+                    synth_cmd: SynthCmd::EnvelopeCommand {
                         envelope_id: None,
-                        release: 2.0,
+                        command: EnvelopeCmd::SetRelease { release: 2.0 },
                     },
                 }
                 .into(),
@@ -123,9 +123,9 @@ fn main() {
             audio.send_command(
                 InstrumentCmd::PassOnSynthCmd {
                     instrument_id,
-                    synth_cmd: SynthCmd::SetEnvAttack {
+                    synth_cmd: SynthCmd::EnvelopeCommand {
                         envelope_id: None,
-                        attack: 0.01,
+                        command: EnvelopeCmd::SetAttack { attack: 0.01 },
                     },
                 }
                 .into(),
@@ -133,9 +133,9 @@ fn main() {
             audio.send_command(
                 InstrumentCmd::PassOnSynthCmd {
                     instrument_id,
-                    synth_cmd: SynthCmd::SetEnvDecay {
+                    synth_cmd: SynthCmd::EnvelopeCommand {
                         envelope_id: None,
-                        decay: 0.1,
+                        command: EnvelopeCmd::SetDecay { decay: 0.1 },
                     },
                 }
                 .into(),
@@ -143,9 +143,9 @@ fn main() {
             audio.send_command(
                 InstrumentCmd::PassOnSynthCmd {
                     instrument_id,
-                    synth_cmd: SynthCmd::SetEnvSustain {
+                    synth_cmd: SynthCmd::EnvelopeCommand {
                         envelope_id: None,
-                        sustain: 0.8,
+                        command: EnvelopeCmd::SetSustain { sustain: 0.8 },
                     },
                 }
                 .into(),
@@ -153,9 +153,9 @@ fn main() {
             audio.send_command(
                 InstrumentCmd::PassOnSynthCmd {
                     instrument_id,
-                    synth_cmd: SynthCmd::SetEnvRelease {
+                    synth_cmd: SynthCmd::EnvelopeCommand {
                         envelope_id: None,
-                        release: 0.1,
+                        command: EnvelopeCmd::SetRelease { release: 0.1 },
                     },
                 }
                 .into(),

@@ -1,4 +1,4 @@
-use crate::Envelope;
+use crate::{Envelope, EnvelopeCmd};
 
 pub struct PitchEnvelope {
     adsr: Envelope,
@@ -41,5 +41,15 @@ impl PitchEnvelope {
 
     pub fn set_parameters(&mut self, a: f32, d: f32, s: f32, r: f32) {
         self.adsr.set_parameters(a, d, s, r);
+    }
+
+    pub fn handle_command(&mut self, command: &EnvelopeCmd) -> bool {
+        match command {
+            EnvelopeCmd::SetPitchEnvFreqDelta { freq_delta } => {
+                self.set_freq_delta(*freq_delta);
+                true
+            }
+            _ => false,
+        }
     }
 }
