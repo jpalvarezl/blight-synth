@@ -1,6 +1,7 @@
-use crate::MonoEffect;
+use crate::{id::EffectId, MonoEffect};
 
 pub struct MoogLadder {
+    id: EffectId,
     cutoff: f32,
     resonance: f32,
     sample_rate: f32,
@@ -12,8 +13,9 @@ impl MoogLadder {
     /// Create a new Moog Ladder filter effect.
     /// `cutoff` is in Hz, min value is 20 Hz and max is ~ sample_rate / 2. So around 20k
     /// `resonance` is typically between 0.0 and 4.0
-    pub fn new(sample_rate: f32, cutoff: f32, resonance: f32) -> Self {
+    pub fn new(id: EffectId, sample_rate: f32, cutoff: f32, resonance: f32) -> Self {
         let mut f = Self {
+            id,
             cutoff,
             resonance,
             sample_rate,
@@ -54,6 +56,10 @@ impl MoogLadder {
 }
 
 impl MonoEffect for MoogLadder {
+    fn id(&self) -> EffectId {
+        self.id
+    }
+
     fn process(&mut self, buffer: &mut [f32], _sample_rate: f32) {
         for sample in buffer.iter_mut() {
             *sample = self.process_private(*sample);

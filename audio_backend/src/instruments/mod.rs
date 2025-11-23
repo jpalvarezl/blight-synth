@@ -16,7 +16,10 @@ pub use sample_player::*;
 pub use snare_drum::*;
 pub use synth_nodes::*;
 
-use crate::{id::NoteId, InstrumentTrait, MonoEffect, SynthNode, Voice, VoiceEffects, VoiceTrait};
+use crate::{
+    id::{EffectId, NoteId},
+    InstrumentTrait, MonoEffect, SynthNode, Voice, VoiceEffects, VoiceTrait,
+};
 
 /// A Voice container used by instruments to handle envelope lifecycles and sample generation.
 struct VoiceSlot<S: SynthNode> {
@@ -57,10 +60,10 @@ impl<S: SynthNode> InstrumentTrait for MonophonicInstrument<S> {
         self.voice.inner.add_effect(effect);
     }
 
-    fn set_effect_parameter(&mut self, effect_index: usize, param_index: u32, value: f32) {
+    fn set_effect_parameter(&mut self, effect_id: EffectId, param_index: u32, value: f32) {
         self.voice
             .inner
-            .set_effect_parameter(effect_index, param_index, value);
+            .set_effect_parameter(effect_id, param_index, value);
     }
 
     fn try_handle_command(&mut self, cmd: &crate::SynthCmd) -> bool {
@@ -144,14 +147,15 @@ impl<S: SynthNode> InstrumentTrait for PolyphonicInstrument<S> {
         }
     }
 
-    fn set_effect_parameter(&mut self, effect_index: usize, param_index: u32, value: f32) {
+    fn set_effect_parameter(&mut self, effect_id: EffectId, param_index: u32, value: f32) {
         for voice in &mut self.voices {
             voice
                 .inner
-                .set_effect_parameter(effect_index, param_index, value);
+                .set_effect_parameter(effect_id, param_index, value);
         }
     }
 
+    // TODO this is very dodgy, we are only stating the command was handled if at least one voice handled it
     fn try_handle_command(&mut self, cmd: &crate::SynthCmd) -> bool {
         let mut handled = false;
         for voice in &mut self.voices {

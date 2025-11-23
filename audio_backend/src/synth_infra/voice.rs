@@ -1,8 +1,10 @@
 use std::vec;
 
 use crate::{
-    commands::SynthCmd, id::VoiceId, synth_infra::synth_node::SynthNode, Envelope, MonoEffect,
-    MonoEffectChain,
+    commands::SynthCmd,
+    id::{EffectId, VoiceId},
+    synth_infra::synth_node::SynthNode,
+    EffectCmd, Envelope, MonoEffect, MonoEffectChain,
 };
 
 /// A trait for a generic, type-erased `Voice`. This is used for dynamic dispatch
@@ -35,7 +37,7 @@ pub trait VoiceTrait: Send + Sync {
     fn add_effect(&mut self, effect: Box<dyn MonoEffect>);
 
     /// Set effect parameter
-    fn set_effect_parameter(&mut self, effect_index: usize, param_index: u32, value: f32);
+    fn set_effect_parameter(&mut self, effect_id: EffectId, param_index: u32, value: f32);
 }
 
 /// A `Voice` represents a single, monophonic musical event. It bundles a sound
@@ -179,6 +181,14 @@ impl<S: SynthNode> VoiceTrait for Voice<S> {
                     false
                 }
             }
+            SynthCmd::EffectCommand { effect_id, command } => {
+                if let EffectCmd::SetParameter { param_index, value } = command {
+                    self.set_effect_parameter(*effect_id, *param_index, *value);
+                    true
+                } else {
+                    false
+                }
+            }
             _ => false,
         };
 
@@ -194,8 +204,8 @@ impl<S: SynthNode> VoiceTrait for Voice<S> {
         self.effect_chain.add_effect(effect);
     }
 
-    fn set_effect_parameter(&mut self, effect_index: usize, param_index: u32, value: f32) {
+    fn set_effect_parameter(&mut self, effect_id: EffectId, param_index: u32, value: f32) {
         self.effect_chain
-            .set_effect_parameter(effect_index, param_index, value);
+            .set_effect_parameter(effect_id, param_index, value);
     }
 }

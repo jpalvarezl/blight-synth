@@ -1,4 +1,4 @@
-use crate::MonoEffect;
+use crate::{id::EffectId, MonoEffect};
 use log::warn;
 
 #[repr(u32)]
@@ -17,6 +17,7 @@ impl DelayParameter {
 }
 
 pub struct Delay {
+    id: EffectId,
     sample_rate: f32,
     // Circular buffer to store delayed samples
     buffer: Vec<f32>,
@@ -45,6 +46,7 @@ impl Delay {
     /// * `feedback` - Feedback amount (0.0 to 0.95, controls regeneration)
     /// * `mix` - Dry/wet mix (0.0 = dry only, 1.0 = wet only)
     pub fn new(
+        id: EffectId,
         sample_rate: f32,
         delay_time_seconds: f32,
         num_taps: usize,
@@ -66,6 +68,7 @@ impl Delay {
         let buffer = vec![0.0f32; max_delay_samples];
 
         Self {
+            id,
             sample_rate,
             buffer,
             write_pos: 0,
@@ -98,6 +101,10 @@ impl Delay {
 }
 
 impl MonoEffect for Delay {
+    fn id(&self) -> EffectId {
+        self.id
+    }
+
     /// Process audio buffer in-place (NO ALLOCATIONS ALLOWED)
     fn process(&mut self, buffer: &mut [f32], _sample_rate: f32) {
         // Early return if no delay or buffer is empty

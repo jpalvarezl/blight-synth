@@ -187,6 +187,7 @@ fn ensure_backend_osc_with_params(
                 } => {
                     // Create a mono delay with the configured taps and mix
                     let mut d = audio.get_effect_factory().create_mono_delay(
+                        0,
                         *time,
                         *num_taps as usize,
                         *feedback,

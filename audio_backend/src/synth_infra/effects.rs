@@ -8,8 +8,8 @@ use crate::id::EffectId;
 /// It must be `Send + Sync` so that it can be safely created in the NRT world
 /// and sent to the RT audio thread.
 pub trait StereoEffect: Send + Sync {
-    // /// Returns the unique identifier for this effect instance.
-    // fn id(&self) -> EffectId;
+    /// Returns the unique identifier for this effect instance.
+    fn id(&self) -> EffectId;
 
     /// Processes a block of stereo audio.
     ///
@@ -84,8 +84,8 @@ impl StereoEffectChain {
     }
 
     /// Sets a parameter on one of the effects in the chain.
-    pub fn set_effect_parameter(&mut self, effect_index: usize, param_index: u32, value: f32) {
-        if let Some(effect) = self.effects.get_mut(effect_index) {
+    pub fn set_effect_parameter(&mut self, effect_id: EffectId, param_index: u32, value: f32) {
+        if let Some(effect) = self.effects.iter_mut().find(|e| e.id() == effect_id) {
             effect.set_parameter(param_index, value);
         }
     }
@@ -102,8 +102,8 @@ impl StereoEffectChain {
 /// A trait for mono audio effects. These are typically used for per-voice effects
 /// that operate on a single channel of audio.
 pub trait MonoEffect: Send + Sync {
-    // /// Returns the unique identifier for this effect instance.
-    // fn id(&self) -> EffectId;
+    /// Returns the unique identifier for this effect instance.
+    fn id(&self) -> EffectId;
 
     /// Processes a block of mono audio.
     ///
@@ -178,8 +178,8 @@ impl MonoEffectChain {
     }
 
     /// Sets a parameter on one of the effects in the chain.
-    pub fn set_effect_parameter(&mut self, effect_index: usize, param_index: u32, value: f32) {
-        if let Some(effect) = self.effects.get_mut(effect_index) {
+    pub fn set_effect_parameter(&mut self, effect_id: EffectId, param_index: u32, value: f32) {
+        if let Some(effect) = self.effects.iter_mut().find(|e| e.id() == effect_id) {
             effect.set_parameter(param_index, value);
         }
     }

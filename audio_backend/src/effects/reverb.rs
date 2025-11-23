@@ -1,6 +1,6 @@
 use log::warn;
 
-use crate::{MonoEffect, StereoEffect};
+use crate::{id::EffectId, MonoEffect, StereoEffect};
 
 #[repr(u32)]
 #[derive(Clone, Copy, Debug)]
@@ -20,6 +20,7 @@ impl ReverbParameter {
 
 // The main Reverb effect
 pub struct Reverb {
+    id: EffectId,
     // We need to store the sample_rate to recalculate delay sizes if room size changes
     sample_rate: f32,
 
@@ -42,7 +43,7 @@ pub struct Reverb {
 impl Reverb {
     /// Creates a new Reverb instance.
     /// All memory allocation for the delay lines happens here, making it real-time safe.
-    pub fn new(sample_rate: f32) -> Self {
+    pub fn new(id: EffectId, sample_rate: f32) -> Self {
         // Base delay times in milliseconds
         const BASE_COMB_DELAYS_MS: [f32; 4] = [29.7, 37.1, 41.1, 43.7];
         const BASE_ALLPASS_DELAYS_MS: [f32; 2] = [5.0, 1.7];
@@ -90,6 +91,7 @@ impl Reverb {
         }
 
         Self {
+            id,
             sample_rate,
 
             comb_buffers,
@@ -206,6 +208,10 @@ impl Reverb {
 }
 
 impl MonoEffect for Reverb {
+    fn id(&self) -> EffectId {
+        self.id
+    }
+
     fn process(&mut self, buf: &mut [f32], sample_rate: f32) {
         self.sample_rate = sample_rate;
 
@@ -260,16 +266,20 @@ pub struct StereoReverb {
 }
 
 impl StereoReverb {
-    pub fn new(sample_rate: f32) -> Self {
+    pub fn new(id: EffectId, sample_rate: f32) -> Self {
         Self {
-            left: Reverb::new(sample_rate),
-            right: Reverb::new(sample_rate),
+            left: Reverb::new(id, sample_rate),
+            right: Reverb::new(id, sample_rate),
         }
     }
 }
 
 // This might be too lazy of an implementation. Need to look into this topic some more.
 impl StereoEffect for StereoReverb {
+    fn id(&self) -> EffectId {
+        self.left.id()
+    }
+
     fn process(&mut self, left_buf: &mut [f32], right_buf: &mut [f32], sample_rate: f32) {
         // Process left and right channels independently
         self.left.process(left_buf, sample_rate);

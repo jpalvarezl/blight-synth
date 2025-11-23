@@ -6,18 +6,27 @@ pub fn main() {
     match &mut BlightAudio::new() {
         Ok(audio) => {
             println!("BlightAudio initialized successfully!");
+            let stereo_gain_id = 0;
             audio.send_command(
                 MixerCmd::AddMasterEffect {
-                    effect: audio.get_effect_factory().create_stereo_gain(0.1),
+                    effect: audio
+                        .get_effect_factory()
+                        .create_stereo_gain(stereo_gain_id, 10f32),
                 }
                 .into(),
             );
 
             let inst_id: InstrumentId = 1;
-            let instrument = audio
-                .get_instrument_factory()
-                .create_simple_oscillator(inst_id, 0.0);
-            audio.send_command(SequencerCmd::AddTrackInstrument { instrument }.into());
+            audio.send_command(
+                SequencerCmd::AddTrackInstrument {
+                    instrument: audio
+                        .get_instrument_factory()
+                        .create_simple_oscillator(inst_id, 0.0),
+                }
+                .into(),
+            );
+            audio.send_command(audio_backend::TransportCmd::PlayLastSong.into());
+
             audio.send_command(
                 InstrumentCmd::NoteOn {
                     instrument_id: inst_id,
@@ -37,8 +46,16 @@ pub fn main() {
             );
 
             // Wait to hear the release decay
-            thread::sleep(std::time::Duration::from_millis(3000));
+            thread::sleep(std::time::Duration::from_millis(1000));
 
+            audio.send_command(
+                MixerCmd::SetMasterEffectParameter {
+                    effect_id: stereo_gain_id,
+                    param_index: 0,
+                    value: 6f32,
+                }
+                .into(),
+            );
             // Play a chord
             let inst2: InstrumentId = 2;
             let inst3: InstrumentId = 3;
@@ -98,7 +115,7 @@ pub fn main() {
             );
 
             // Listen to the release tail
-            thread::sleep(std::time::Duration::from_millis(5000));
+            thread::sleep(std::time::Duration::from_millis(1000));
         }
         Err(e) => eprintln!("Failed to initialize BlightAudio: {}", e),
     };

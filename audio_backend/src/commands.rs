@@ -64,6 +64,11 @@ pub enum MixerCmd {
     AddMasterEffect {
         effect: Box<dyn StereoEffect>,
     },
+    SetMasterEffectParameter {
+        effect_id: EffectId,
+        param_index: u32,
+        value: f32,
+    },
     RemoveEffect {
         target_chain: EffectChainId,
         effect_index: usize,
@@ -75,7 +80,7 @@ pub enum MixerCmd {
     },
     SetEffectParameter {
         instrument_id: InstrumentId,
-        effect_index: usize,
+        effect_id: EffectId,
         param_index: u32,
         value: f32,
     },

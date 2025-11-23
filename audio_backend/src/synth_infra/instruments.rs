@@ -1,4 +1,7 @@
-use crate::{id::InstrumentId, MonoEffect, VoiceEffects};
+use crate::{
+    id::{EffectId, InstrumentId},
+    MonoEffect, VoiceEffects,
+};
 
 /// A trait for a complete instrument, which is responsible for managing
 /// its own voices and polyphony according to its specific behavior.
@@ -38,7 +41,7 @@ pub trait InstrumentTrait: Send + Sync {
     }
 
     /// Set a parameter on one of the instrument's effects.
-    fn set_effect_parameter(&mut self, effect_index: usize, param_index: u32, value: f32);
+    fn set_effect_parameter(&mut self, effect_id: EffectId, param_index: u32, value: f32);
 
     fn try_handle_command(&mut self, cmd: &crate::SynthCmd) -> bool;
 }

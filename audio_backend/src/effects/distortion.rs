@@ -1,4 +1,4 @@
-use crate::MonoEffect;
+use crate::{id::EffectId, MonoEffect};
 
 /// Various distortion algorithms
 #[derive(Clone, Copy)]
@@ -24,6 +24,7 @@ pub enum DistortionType {
 /// - Tube: asymmetric soft clipping
 /// - Foldback: wraps signal back when it exceeds threshold
 pub struct Distortion {
+    id: EffectId,
     distortion_type: DistortionType,
     pre_gain: f32,
     post_gain: f32,
@@ -31,8 +32,15 @@ pub struct Distortion {
 }
 
 impl Distortion {
-    pub fn new(distortion_type: DistortionType, drive: f32, level: f32, mix: f32) -> Self {
+    pub fn new(
+        id: EffectId,
+        distortion_type: DistortionType,
+        drive: f32,
+        level: f32,
+        mix: f32,
+    ) -> Self {
         Self {
+            id,
             distortion_type,
             pre_gain: drive,
             post_gain: level,
@@ -42,6 +50,10 @@ impl Distortion {
 }
 
 impl MonoEffect for Distortion {
+    fn id(&self) -> EffectId {
+        self.id
+    }
+
     fn process(&mut self, buffer: &mut [f32], _sample_rate: f32) {
         for sample in buffer.iter_mut() {
             let input = *sample;
