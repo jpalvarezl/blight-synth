@@ -3,6 +3,9 @@ use audio_backend::{BlightAudio, EnvelopeCmd, SequencerCmd, TransportCmd};
 use sequencer::models::{AmpEnvelopeParams, AudioEffect, InstrumentData, Song};
 use std::sync::Arc;
 
+// Tracker GUI reuses a single effect id until proper routing is needed.
+pub const TRACKER_EFFECT_ID: audio_backend::id::EffectId = 1;
+
 pub struct AudioManager {
     pub audio: Option<BlightAudio>,
     pub is_playing: bool,
@@ -178,7 +181,9 @@ impl AudioManager {
                                 diffusion,
                                 damping,
                             } => {
-                                let mut r = audio.get_effect_factory().create_mono_reverb();
+                                let mut r = audio
+                                    .get_effect_factory()
+                                    .create_mono_reverb(TRACKER_EFFECT_ID);
                                 // Clamp to safe ranges consistent with UI/backend
                                 let mx = (*mix).clamp(0.0, 1.0);
                                 let dec = (*decay_time).clamp(0.0, 1.0);
@@ -226,6 +231,7 @@ impl AudioManager {
                                 mix,
                             } => {
                                 let mut d = audio.get_effect_factory().create_mono_delay(
+                                    TRACKER_EFFECT_ID,
                                     *time,
                                     *num_taps as usize,
                                     *feedback,
@@ -278,7 +284,9 @@ impl AudioManager {
                                 diffusion,
                                 damping,
                             } => {
-                                let mut r = audio.get_effect_factory().create_mono_reverb();
+                                let mut r = audio
+                                    .get_effect_factory()
+                                    .create_mono_reverb(TRACKER_EFFECT_ID);
                                 let mx = (*mix).clamp(0.0, 1.0);
                                 let dec = (*decay_time).clamp(0.0, 1.0);
                                 let rs = (*room_size).clamp(0.5, 2.0);
@@ -325,6 +333,7 @@ impl AudioManager {
                                 mix,
                             } => {
                                 let mut d = audio.get_effect_factory().create_mono_delay(
+                                    TRACKER_EFFECT_ID,
                                     *time,
                                     *num_taps as usize,
                                     *feedback,
@@ -377,7 +386,9 @@ impl AudioManager {
                                 diffusion,
                                 damping,
                             } => {
-                                let mut r = audio.get_effect_factory().create_mono_reverb();
+                                let mut r = audio
+                                    .get_effect_factory()
+                                    .create_mono_reverb(TRACKER_EFFECT_ID);
                                 let mx = (*mix).clamp(0.0, 1.0);
                                 let dec = (*decay_time).clamp(0.0, 1.0);
                                 let rs = (*room_size).clamp(0.5, 2.0);
@@ -424,6 +435,7 @@ impl AudioManager {
                                 mix,
                             } => {
                                 let mut d = audio.get_effect_factory().create_mono_delay(
+                                    TRACKER_EFFECT_ID,
                                     *time,
                                     *num_taps as usize,
                                     *feedback,
@@ -476,7 +488,9 @@ impl AudioManager {
                                 diffusion,
                                 damping,
                             } => {
-                                let mut r = audio.get_effect_factory().create_mono_reverb();
+                                let mut r = audio
+                                    .get_effect_factory()
+                                    .create_mono_reverb(TRACKER_EFFECT_ID);
                                 let mx = (*mix).clamp(0.0, 1.0);
                                 let dec = (*decay_time).clamp(0.0, 1.0);
                                 let rs = (*room_size).clamp(0.5, 2.0);
@@ -523,6 +537,7 @@ impl AudioManager {
                                 mix,
                             } => {
                                 let mut d = audio.get_effect_factory().create_mono_delay(
+                                    TRACKER_EFFECT_ID,
                                     *time,
                                     *num_taps as usize,
                                     *feedback,
