@@ -1,5 +1,7 @@
 use crate::audio::{AudioManager, TRACKER_EFFECT_ID};
-use audio_backend::effects::{DelayParameter as DP, ReverbParameter as RP, MAX_DELAY_SECONDS, MAX_TAPS};
+use audio_backend::effects::{
+    DelayParameter as DP, MAX_DELAY_SECONDS, MAX_TAPS, ReverbParameter as RP,
+};
 use eframe::egui;
 use sequencer::models::AudioEffect;
 
@@ -20,7 +22,13 @@ pub struct ReverbDefaults {
 }
 
 impl ReverbDefaults {
-    pub const fn new(mix: f32, decay_time: f32, room_size: f32, diffusion: f32, damping: f32) -> Self {
+    pub const fn new(
+        mix: f32,
+        decay_time: f32,
+        room_size: f32,
+        diffusion: f32,
+        damping: f32,
+    ) -> Self {
         Self {
             mix,
             decay_time,
@@ -88,48 +96,61 @@ fn show_reverb_section(
             damping,
         } = &mut effects[idx]
         {
-            ui.push_id((config.ui_prefix, config.instrument_id as u32, "reverb"), |ui| {
-                egui::CollapsingHeader::new(format!("Reverb {:02X}", inst_id_u8))
-                    .id_salt((config.ui_prefix, config.instrument_id as u32, "reverb_hdr"))
-                    .show(ui, |ui| {
-                        let mut changed = false;
-                        let mut mx = *mix;
-                        let mut dec = *decay_time;
-                        let mut rs = *room_size;
-                        let mut diff = *diffusion;
-                        let mut damp = *damping;
+            ui.push_id(
+                (config.ui_prefix, config.instrument_id as u32, "reverb"),
+                |ui| {
+                    egui::CollapsingHeader::new(format!("Reverb {:02X}", inst_id_u8))
+                        .id_salt((config.ui_prefix, config.instrument_id as u32, "reverb_hdr"))
+                        .show(ui, |ui| {
+                            let mut changed = false;
+                            let mut mx = *mix;
+                            let mut dec = *decay_time;
+                            let mut rs = *room_size;
+                            let mut diff = *diffusion;
+                            let mut damp = *damping;
 
-                        ui.horizontal(|ui| {
-                            ui.label("Mix");
-                            changed |= ui.add(egui::Slider::new(&mut mx, 0.0..=1.0)).changed();
-                        });
-                        ui.horizontal(|ui| {
-                            ui.label("Decay");
-                            changed |= ui.add(egui::Slider::new(&mut dec, 0.0..=1.0)).changed();
-                            ui.label("Damping");
-                            changed |= ui.add(egui::Slider::new(&mut damp, 0.0..=1.0)).changed();
-                        });
-                        ui.horizontal(|ui| {
-                            ui.label("Room Size");
-                            changed |= ui.add(egui::Slider::new(&mut rs, 0.5..=2.0)).changed();
-                            ui.label("Diffusion");
-                            changed |= ui.add(egui::Slider::new(&mut diff, 0.0..=1.0)).changed();
-                        });
+                            ui.horizontal(|ui| {
+                                ui.label("Mix");
+                                changed |= ui.add(egui::Slider::new(&mut mx, 0.0..=1.0)).changed();
+                            });
+                            ui.horizontal(|ui| {
+                                ui.label("Decay");
+                                changed |= ui.add(egui::Slider::new(&mut dec, 0.0..=1.0)).changed();
+                                ui.label("Damping");
+                                changed |=
+                                    ui.add(egui::Slider::new(&mut damp, 0.0..=1.0)).changed();
+                            });
+                            ui.horizontal(|ui| {
+                                ui.label("Room Size");
+                                changed |= ui.add(egui::Slider::new(&mut rs, 0.5..=2.0)).changed();
+                                ui.label("Diffusion");
+                                changed |=
+                                    ui.add(egui::Slider::new(&mut diff, 0.0..=1.0)).changed();
+                            });
 
-                        if changed {
-                            *mix = mx;
-                            *decay_time = dec;
-                            *room_size = rs;
-                            *diffusion = diff;
-                            *damping = damp;
-                            push_reverb_updates(audio_mgr, config.instrument_id, mx, dec, rs, damp, diff);
-                        }
+                            if changed {
+                                *mix = mx;
+                                *decay_time = dec;
+                                *room_size = rs;
+                                *diffusion = diff;
+                                *damping = damp;
+                                push_reverb_updates(
+                                    audio_mgr,
+                                    config.instrument_id,
+                                    mx,
+                                    dec,
+                                    rs,
+                                    damp,
+                                    diff,
+                                );
+                            }
 
-                        if ui.button("Remove Reverb").clicked() {
-                            remove_reverb = true;
-                        }
-                    });
-            });
+                            if ui.button("Remove Reverb").clicked() {
+                                remove_reverb = true;
+                            }
+                        });
+                },
+            );
         }
         if remove_reverb {
             effects.remove(idx);
@@ -177,50 +198,56 @@ fn show_delay_section(
             mix,
         } = &mut effects[idx]
         {
-            ui.push_id((config.ui_prefix, config.instrument_id as u32, "delay"), |ui| {
-                egui::CollapsingHeader::new(format!("Delay {:02X}", inst_id_u8))
-                    .id_salt((config.ui_prefix, config.instrument_id as u32, "delay_hdr"))
-                    .show(ui, |ui| {
-                        let mut changed = false;
-                        let mut t = *time;
-                        let mut taps = *num_taps;
-                        let mut fb = *feedback;
-                        let mut mx = *mix;
+            ui.push_id(
+                (config.ui_prefix, config.instrument_id as u32, "delay"),
+                |ui| {
+                    egui::CollapsingHeader::new(format!("Delay {:02X}", inst_id_u8))
+                        .id_salt((config.ui_prefix, config.instrument_id as u32, "delay_hdr"))
+                        .show(ui, |ui| {
+                            let mut changed = false;
+                            let mut t = *time;
+                            let mut taps = *num_taps;
+                            let mut fb = *feedback;
+                            let mut mx = *mix;
 
-                        ui.horizontal(|ui| {
-                            ui.label("Time (s)");
-                            changed |= ui
-                                .add(egui::Slider::new(&mut t, 0.0..=MAX_DELAY_SECONDS))
-                                .changed();
-                            ui.label("Feedback");
-                            changed |= ui
-                                .add(egui::Slider::new(&mut fb, 0.0..=0.95))
-                                .changed();
+                            ui.horizontal(|ui| {
+                                ui.label("Time (s)");
+                                changed |= ui
+                                    .add(egui::Slider::new(&mut t, 0.0..=MAX_DELAY_SECONDS))
+                                    .changed();
+                                ui.label("Feedback");
+                                changed |= ui.add(egui::Slider::new(&mut fb, 0.0..=0.95)).changed();
+                            });
+                            ui.horizontal(|ui| {
+                                ui.label("Taps");
+                                changed |= ui
+                                    .add(egui::Slider::new(&mut taps, 1..=MAX_TAPS as u8))
+                                    .changed();
+                                ui.label("Mix");
+                                changed |= ui.add(egui::Slider::new(&mut mx, 0.0..=1.0)).changed();
+                            });
+
+                            if changed {
+                                *time = t;
+                                *num_taps = taps;
+                                *feedback = fb;
+                                *mix = mx;
+                                push_delay_updates(
+                                    audio_mgr,
+                                    config.instrument_id,
+                                    t,
+                                    taps,
+                                    fb,
+                                    mx,
+                                );
+                            }
+
+                            if ui.button("Remove Delay").clicked() {
+                                remove_delay = true;
+                            }
                         });
-                        ui.horizontal(|ui| {
-                            ui.label("Taps");
-                            changed |= ui
-                                .add(egui::Slider::new(&mut taps, 1..=MAX_TAPS as u8))
-                                .changed();
-                            ui.label("Mix");
-                            changed |= ui
-                                .add(egui::Slider::new(&mut mx, 0.0..=1.0))
-                                .changed();
-                        });
-
-                        if changed {
-                            *time = t;
-                            *num_taps = taps;
-                            *feedback = fb;
-                            *mix = mx;
-                            push_delay_updates(audio_mgr, config.instrument_id, t, taps, fb, mx);
-                        }
-
-                        if ui.button("Remove Delay").clicked() {
-                            remove_delay = true;
-                        }
-                    });
-            });
+                },
+            );
         }
         if remove_delay {
             effects.remove(idx);

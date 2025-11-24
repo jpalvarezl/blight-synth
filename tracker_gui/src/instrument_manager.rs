@@ -1,73 +1,20 @@
-use audio_backend::EnvelopeCmd;
 use eframe::egui;
 use sequencer::models::{
-    AmpEnvelopeParams, AudioEffect, HiHatParams, Instrument, InstrumentData, KickDrumParams,
+    AmpEnvelopeParams, HiHatParams, Instrument, InstrumentData, KickDrumParams,
     SimpleOscillatorParams, SnareDrumParams, Song, Waveform,
 };
 
-use crate::audio::{AudioManager, TRACKER_EFFECT_ID};
-use crate::audio_utils::map_waveform_to_backend;
+use crate::audio::AudioManager;
 use crate::ui_components::effect_controls::{
-    show_effect_panels, DelayDefaults, EffectPanelConfig, ReverbDefaults,
+    DelayDefaults, EffectPanelConfig, ReverbDefaults, show_effect_panels,
 };
+
+mod backend;
+use backend::{ensure_backend_instrument, send_amp_envelope_to_backend};
 
 #[derive(Default)]
 pub struct InstrumentManagerWindow {
     pub open: bool,
-}
-
-fn send_amp_envelope_to_backend(
-    audio_mgr: &mut AudioManager,
-    instrument_id: u8,
-    env: &AmpEnvelopeParams,
-) {
-    if let Some(audio) = &mut audio_mgr.audio {
-        let id = audio_backend::id::InstrumentId::from(instrument_id as u32);
-        audio.send_command(
-            audio_backend::InstrumentCmd::PassOnSynthCmd {
-                instrument_id: id,
-                synth_cmd: audio_backend::SynthCmd::EnvelopeCommand {
-                    envelope_id: Some(0),
-                    command: EnvelopeCmd::SetAttack { attack: env.attack },
-                },
-            }
-            .into(),
-        );
-        audio.send_command(
-            audio_backend::InstrumentCmd::PassOnSynthCmd {
-                instrument_id: id,
-                synth_cmd: audio_backend::SynthCmd::EnvelopeCommand {
-                    envelope_id: Some(0),
-                    command: EnvelopeCmd::SetDecay { decay: env.decay },
-                },
-            }
-            .into(),
-        );
-        audio.send_command(
-            audio_backend::InstrumentCmd::PassOnSynthCmd {
-                instrument_id: id,
-                synth_cmd: audio_backend::SynthCmd::EnvelopeCommand {
-                    envelope_id: Some(0),
-                    command: EnvelopeCmd::SetSustain {
-                        sustain: env.sustain,
-                    },
-                },
-            }
-            .into(),
-        );
-        audio.send_command(
-            audio_backend::InstrumentCmd::PassOnSynthCmd {
-                instrument_id: id,
-                synth_cmd: audio_backend::SynthCmd::EnvelopeCommand {
-                    envelope_id: Some(0),
-                    command: EnvelopeCmd::SetRelease {
-                        release: env.release,
-                    },
-                },
-            }
-            .into(),
-        );
-    }
 }
 
 fn show_amp_envelope_controls(
@@ -119,421 +66,6 @@ fn show_amp_envelope_controls(
                 }
             });
     });
-}
-
-/// Create/replace the backend oscillator instrument and configure its voice effects from params.
-fn ensure_backend_osc_with_params(
-    audio_mgr: &mut AudioManager,
-    id_u8: u8,
-    params: &SimpleOscillatorParams,
-) {
-    if let Some(audio) = &mut audio_mgr.audio {
-        let backend_wave = map_waveform_to_backend(params.waveform);
-        let id = audio_backend::id::InstrumentId::from(id_u8 as u32);
-        let instrument = audio
-            .get_instrument_factory()
-            .create_oscillator_with_waveform(id, 0.0, backend_wave);
-        // Replace instrument in the backend
-        audio.send_command(audio_backend::SequencerCmd::AddTrackInstrument { instrument }.into());
-
-        // Configure mono insert effects from params
-        for eff in &params.audio_effects {
-            match eff {
-                AudioEffect::Reverb {
-                    mix,
-                    decay_time,
-                    room_size,
-                    diffusion,
-                    damping,
-                } => {
-                    let mut r = audio
-                        .get_effect_factory()
-                        .create_mono_reverb(TRACKER_EFFECT_ID);
-                    // Reverb parameter enums for clarity and safety
-                    audio_backend::MonoEffect::set_parameter(
-                        &mut *r,
-                        audio_backend::effects::ReverbParameter::Mix.as_index(),
-                        (*mix).clamp(0.0, 1.0),
-                    );
-                    audio_backend::MonoEffect::set_parameter(
-                        &mut *r,
-                        audio_backend::effects::ReverbParameter::Decay.as_index(),
-                        *decay_time,
-                    );
-                    audio_backend::MonoEffect::set_parameter(
-                        &mut *r,
-                        audio_backend::effects::ReverbParameter::RoomSize.as_index(),
-                        *room_size,
-                    );
-                    audio_backend::MonoEffect::set_parameter(
-                        &mut *r,
-                        audio_backend::effects::ReverbParameter::Damping.as_index(),
-                        *damping,
-                    );
-                    audio_backend::MonoEffect::set_parameter(
-                        &mut *r,
-                        audio_backend::effects::ReverbParameter::Diffusion.as_index(),
-                        *diffusion,
-                    );
-
-                    audio.send_command(
-                        audio_backend::SequencerCmd::AddEffectToInstrument {
-                            instrument_id: id,
-                            effect: r,
-                        }
-                        .into(),
-                    );
-                }
-                AudioEffect::Delay {
-                    time,
-                    num_taps,
-                    feedback,
-                    mix,
-                } => {
-                    // Create a mono delay with the configured taps and mix
-                    let mut d = audio.get_effect_factory().create_mono_delay(
-                        TRACKER_EFFECT_ID,
-                        *time,
-                        *num_taps as usize,
-                        *feedback,
-                        *mix,
-                    );
-                    // Explicitly set parameters using enum indices
-                    use audio_backend::effects::DelayParameter as DP;
-                    audio_backend::MonoEffect::set_parameter(&mut *d, DP::Time.as_index(), *time);
-                    audio_backend::MonoEffect::set_parameter(
-                        &mut *d,
-                        DP::NumTaps.as_index(),
-                        *num_taps as f32,
-                    );
-                    audio_backend::MonoEffect::set_parameter(
-                        &mut *d,
-                        DP::Feedback.as_index(),
-                        *feedback,
-                    );
-                    audio_backend::MonoEffect::set_parameter(&mut *d, DP::Mix.as_index(), *mix);
-
-                    audio.send_command(
-                        audio_backend::SequencerCmd::AddEffectToInstrument {
-                            instrument_id: id,
-                            effect: d,
-                        }
-                        .into(),
-                    );
-                }
-            }
-        }
-    }
-
-    send_amp_envelope_to_backend(audio_mgr, id_u8, &params.amp_envelope);
-}
-
-/// Create/replace the backend hi-hat instrument and configure its voice effects from params.
-fn ensure_backend_hihat_with_params(audio_mgr: &mut AudioManager, id_u8: u8, params: &HiHatParams) {
-    if let Some(audio) = &mut audio_mgr.audio {
-        let id = audio_backend::id::InstrumentId::from(id_u8 as u32);
-        let instrument = audio.get_instrument_factory().create_hihat(id, 0.0);
-        // Replace instrument in the backend
-        audio.send_command(audio_backend::SequencerCmd::AddTrackInstrument { instrument }.into());
-
-        // Configure mono insert effects from params
-        for eff in &params.audio_effects {
-            match eff {
-                AudioEffect::Reverb {
-                    mix,
-                    decay_time,
-                    room_size,
-                    diffusion,
-                    damping,
-                } => {
-                    let mut r = audio
-                        .get_effect_factory()
-                        .create_mono_reverb(TRACKER_EFFECT_ID);
-                    audio_backend::MonoEffect::set_parameter(
-                        &mut *r,
-                        audio_backend::effects::ReverbParameter::Mix.as_index(),
-                        (*mix).clamp(0.0, 1.0),
-                    );
-                    audio_backend::MonoEffect::set_parameter(
-                        &mut *r,
-                        audio_backend::effects::ReverbParameter::Decay.as_index(),
-                        *decay_time,
-                    );
-                    audio_backend::MonoEffect::set_parameter(
-                        &mut *r,
-                        audio_backend::effects::ReverbParameter::RoomSize.as_index(),
-                        *room_size,
-                    );
-                    audio_backend::MonoEffect::set_parameter(
-                        &mut *r,
-                        audio_backend::effects::ReverbParameter::Damping.as_index(),
-                        *damping,
-                    );
-                    audio_backend::MonoEffect::set_parameter(
-                        &mut *r,
-                        audio_backend::effects::ReverbParameter::Diffusion.as_index(),
-                        *diffusion,
-                    );
-
-                    audio.send_command(
-                        audio_backend::SequencerCmd::AddEffectToInstrument {
-                            instrument_id: id,
-                            effect: r,
-                        }
-                        .into(),
-                    );
-                }
-                AudioEffect::Delay {
-                    time,
-                    num_taps,
-                    feedback,
-                    mix,
-                } => {
-                    let mut d = audio.get_effect_factory().create_mono_delay(
-                        TRACKER_EFFECT_ID,
-                        *time,
-                        *num_taps as usize,
-                        *feedback,
-                        *mix,
-                    );
-                    use audio_backend::effects::DelayParameter as DP;
-                    audio_backend::MonoEffect::set_parameter(&mut *d, DP::Time.as_index(), *time);
-                    audio_backend::MonoEffect::set_parameter(
-                        &mut *d,
-                        DP::NumTaps.as_index(),
-                        *num_taps as f32,
-                    );
-                    audio_backend::MonoEffect::set_parameter(
-                        &mut *d,
-                        DP::Feedback.as_index(),
-                        *feedback,
-                    );
-                    audio_backend::MonoEffect::set_parameter(&mut *d, DP::Mix.as_index(), *mix);
-
-                    audio.send_command(
-                        audio_backend::SequencerCmd::AddEffectToInstrument {
-                            instrument_id: id,
-                            effect: d,
-                        }
-                        .into(),
-                    );
-                }
-            }
-        }
-    }
-
-    send_amp_envelope_to_backend(audio_mgr, id_u8, &params.amp_envelope);
-}
-
-/// Create/replace the backend kick drum instrument and configure its voice effects from params.
-fn ensure_backend_kick_with_params(
-    audio_mgr: &mut AudioManager,
-    id_u8: u8,
-    params: &KickDrumParams,
-) {
-    if let Some(audio) = &mut audio_mgr.audio {
-        let id = audio_backend::id::InstrumentId::from(id_u8 as u32);
-        let instrument = audio.get_instrument_factory().create_kick_drum(id, 0.0);
-        // Replace instrument in the backend
-        audio.send_command(audio_backend::SequencerCmd::AddTrackInstrument { instrument }.into());
-
-        // Configure mono insert effects from params
-        for eff in &params.audio_effects {
-            match eff {
-                AudioEffect::Reverb {
-                    mix,
-                    decay_time,
-                    room_size,
-                    diffusion,
-                    damping,
-                } => {
-                    let mut r = audio
-                        .get_effect_factory()
-                        .create_mono_reverb(TRACKER_EFFECT_ID);
-                    audio_backend::MonoEffect::set_parameter(
-                        &mut *r,
-                        audio_backend::effects::ReverbParameter::Mix.as_index(),
-                        (*mix).clamp(0.0, 1.0),
-                    );
-                    audio_backend::MonoEffect::set_parameter(
-                        &mut *r,
-                        audio_backend::effects::ReverbParameter::Decay.as_index(),
-                        *decay_time,
-                    );
-                    audio_backend::MonoEffect::set_parameter(
-                        &mut *r,
-                        audio_backend::effects::ReverbParameter::RoomSize.as_index(),
-                        *room_size,
-                    );
-                    audio_backend::MonoEffect::set_parameter(
-                        &mut *r,
-                        audio_backend::effects::ReverbParameter::Damping.as_index(),
-                        *damping,
-                    );
-                    audio_backend::MonoEffect::set_parameter(
-                        &mut *r,
-                        audio_backend::effects::ReverbParameter::Diffusion.as_index(),
-                        *diffusion,
-                    );
-                    audio.send_command(
-                        audio_backend::SequencerCmd::AddEffectToInstrument {
-                            instrument_id: id,
-                            effect: r,
-                        }
-                        .into(),
-                    );
-                }
-                AudioEffect::Delay {
-                    time,
-                    num_taps,
-                    feedback,
-                    mix,
-                } => {
-                    let mut d = audio.get_effect_factory().create_mono_delay(
-                        TRACKER_EFFECT_ID,
-                        *time,
-                        *num_taps as usize,
-                        *feedback,
-                        *mix,
-                    );
-                    use audio_backend::effects::DelayParameter as DP;
-                    audio_backend::MonoEffect::set_parameter(&mut *d, DP::Time.as_index(), *time);
-                    audio_backend::MonoEffect::set_parameter(
-                        &mut *d,
-                        DP::NumTaps.as_index(),
-                        *num_taps as f32,
-                    );
-                    audio_backend::MonoEffect::set_parameter(
-                        &mut *d,
-                        DP::Feedback.as_index(),
-                        *feedback,
-                    );
-                    audio_backend::MonoEffect::set_parameter(&mut *d, DP::Mix.as_index(), *mix);
-                    audio.send_command(
-                        audio_backend::SequencerCmd::AddEffectToInstrument {
-                            instrument_id: id,
-                            effect: d,
-                        }
-                        .into(),
-                    );
-                }
-            }
-        }
-        // Configure pitch envelope parameters (simplified for typical kick pitch sweep)
-        audio.send_command(
-            audio_backend::InstrumentCmd::PassOnSynthCmd {
-                instrument_id: id,
-                synth_cmd: audio_backend::SynthCmd::EnvelopeCommand {
-                    envelope_id: None,
-                    command: EnvelopeCmd::SetPitchEnvFreqDelta {
-                        freq_delta: params.pitch_envelope.freq_delta,
-                    },
-                },
-            }
-            .into(),
-        );
-    }
-
-    send_amp_envelope_to_backend(audio_mgr, id_u8, &params.amp_envelope);
-}
-
-/// Create/replace the backend snare drum instrument and configure its voice effects from params.
-fn ensure_backend_snare_with_params(
-    audio_mgr: &mut AudioManager,
-    id_u8: u8,
-    params: &SnareDrumParams,
-) {
-    if let Some(audio) = &mut audio_mgr.audio {
-        let id = audio_backend::id::InstrumentId::from(id_u8 as u32);
-        let instrument = audio.get_instrument_factory().create_snare_drum(id, 0.0);
-        // Replace instrument in the backend
-        audio.send_command(audio_backend::SequencerCmd::AddTrackInstrument { instrument }.into());
-
-        // Configure mono insert effects from params
-        for eff in &params.audio_effects {
-            match eff {
-                AudioEffect::Reverb {
-                    mix,
-                    decay_time,
-                    room_size,
-                    diffusion,
-                    damping,
-                } => {
-                    let mut r = audio
-                        .get_effect_factory()
-                        .create_mono_reverb(TRACKER_EFFECT_ID);
-                    audio_backend::MonoEffect::set_parameter(
-                        &mut *r,
-                        audio_backend::effects::ReverbParameter::Mix.as_index(),
-                        (*mix).clamp(0.0, 1.0),
-                    );
-                    audio_backend::MonoEffect::set_parameter(
-                        &mut *r,
-                        audio_backend::effects::ReverbParameter::Decay.as_index(),
-                        *decay_time,
-                    );
-                    audio_backend::MonoEffect::set_parameter(
-                        &mut *r,
-                        audio_backend::effects::ReverbParameter::RoomSize.as_index(),
-                        *room_size,
-                    );
-                    audio_backend::MonoEffect::set_parameter(
-                        &mut *r,
-                        audio_backend::effects::ReverbParameter::Damping.as_index(),
-                        *damping,
-                    );
-                    audio_backend::MonoEffect::set_parameter(
-                        &mut *r,
-                        audio_backend::effects::ReverbParameter::Diffusion.as_index(),
-                        *diffusion,
-                    );
-                    audio.send_command(
-                        audio_backend::SequencerCmd::AddEffectToInstrument {
-                            instrument_id: id,
-                            effect: r,
-                        }
-                        .into(),
-                    );
-                }
-                AudioEffect::Delay {
-                    time,
-                    num_taps,
-                    feedback,
-                    mix,
-                } => {
-                    let mut d = audio.get_effect_factory().create_mono_delay(
-                        TRACKER_EFFECT_ID,
-                        *time,
-                        *num_taps as usize,
-                        *feedback,
-                        *mix,
-                    );
-                    use audio_backend::effects::DelayParameter as DP;
-                    audio_backend::MonoEffect::set_parameter(&mut *d, DP::Time.as_index(), *time);
-                    audio_backend::MonoEffect::set_parameter(
-                        &mut *d,
-                        DP::NumTaps.as_index(),
-                        *num_taps as f32,
-                    );
-                    audio_backend::MonoEffect::set_parameter(
-                        &mut *d,
-                        DP::Feedback.as_index(),
-                        *feedback,
-                    );
-                    audio_backend::MonoEffect::set_parameter(&mut *d, DP::Mix.as_index(), *mix);
-                    audio.send_command(
-                        audio_backend::SequencerCmd::AddEffectToInstrument {
-                            instrument_id: id,
-                            effect: d,
-                        }
-                        .into(),
-                    );
-                }
-            }
-        }
-    }
-
-    send_amp_envelope_to_backend(audio_mgr, id_u8, &params.amp_envelope);
 }
 
 fn waveform_display_name(w: Waveform) -> &'static str {
@@ -799,11 +331,8 @@ impl InstrumentManagerWindow {
                     },
                 }),
             });
-            // Create in backend with current params (no effects yet)
-            if let InstrumentData::SimpleOscillator(ref params) =
-                song.instrument_bank.last().unwrap().data
-            {
-                ensure_backend_osc_with_params(audio_mgr, id as u8, params);
+            if let Some(inst) = song.instrument_bank.last() {
+                ensure_backend_instrument(audio_mgr, inst.id as u8, &inst.data);
             }
         }
         if to_add_hihat {
@@ -821,8 +350,8 @@ impl InstrumentManagerWindow {
                     },
                 }),
             });
-            if let InstrumentData::HiHat(ref params) = song.instrument_bank.last().unwrap().data {
-                ensure_backend_hihat_with_params(audio_mgr, id as u8, params);
+            if let Some(inst) = song.instrument_bank.last() {
+                ensure_backend_instrument(audio_mgr, inst.id as u8, &inst.data);
             }
         }
         if to_add_kick {
@@ -844,9 +373,8 @@ impl InstrumentManagerWindow {
                     },
                 }),
             });
-            if let InstrumentData::KickDrum(ref params) = song.instrument_bank.last().unwrap().data
-            {
-                ensure_backend_kick_with_params(audio_mgr, id as u8, params);
+            if let Some(inst) = song.instrument_bank.last() {
+                ensure_backend_instrument(audio_mgr, inst.id as u8, &inst.data);
             }
         }
         if to_add_snare {
@@ -864,9 +392,8 @@ impl InstrumentManagerWindow {
                     },
                 }),
             });
-            if let InstrumentData::SnareDrum(ref params) = song.instrument_bank.last().unwrap().data
-            {
-                ensure_backend_snare_with_params(audio_mgr, id as u8, params);
+            if let Some(inst) = song.instrument_bank.last() {
+                ensure_backend_instrument(audio_mgr, inst.id as u8, &inst.data);
             }
         }
         if to_add_dfam {
@@ -884,8 +411,8 @@ impl InstrumentManagerWindow {
                     },
                 }),
             });
-            if let InstrumentData::DFAM(ref params) = song.instrument_bank.last().unwrap().data {
-                ensure_backend_dfam_with_params(audio_mgr, id as u8, params);
+            if let Some(inst) = song.instrument_bank.last() {
+                ensure_backend_instrument(audio_mgr, inst.id as u8, &inst.data);
             }
         }
         // Apply updates to backend after UI draw
@@ -893,135 +420,8 @@ impl InstrumentManagerWindow {
         rehydrate_ids.dedup();
         for id_u8 in rehydrate_ids {
             if let Some(inst) = song.instrument_bank.iter().find(|i| i.id as u8 == id_u8) {
-                match &inst.data {
-                    InstrumentData::SimpleOscillator(params) => {
-                        ensure_backend_osc_with_params(audio_mgr, id_u8, params);
-                    }
-                    InstrumentData::HiHat(params) => {
-                        ensure_backend_hihat_with_params(audio_mgr, id_u8, params);
-                    }
-                    InstrumentData::KickDrum(params) => {
-                        ensure_backend_kick_with_params(audio_mgr, id_u8, params);
-                    }
-                    InstrumentData::SnareDrum(params) => {
-                        ensure_backend_snare_with_params(audio_mgr, id_u8, params);
-                    }
-                    InstrumentData::DFAM(params) => {
-                        ensure_backend_dfam_with_params(audio_mgr, id_u8, params);
-                    }
-                    _ => {}
-                }
+                ensure_backend_instrument(audio_mgr, id_u8, &inst.data);
             }
         }
     }
-}
-
-/// Create/replace the backend DFAM instrument and configure its voice effects from params.
-fn ensure_backend_dfam_with_params(
-    audio_mgr: &mut AudioManager,
-    id_u8: u8,
-    params: &sequencer::models::DFAMParams,
-) {
-    if let Some(audio) = &mut audio_mgr.audio {
-        let id = audio_backend::id::InstrumentId::from(id_u8 as u32);
-        let instrument = audio.get_instrument_factory().create_dfam(id, 0.0);
-        audio.send_command(audio_backend::SequencerCmd::AddTrackInstrument { instrument }.into());
-
-        // Always add a default Moog Ladder filter with cutoff 500 Hz & resonance 0.5
-        let ladder = audio
-            .get_effect_factory()
-            .create_moog_ladder(TRACKER_EFFECT_ID, 500.0, 0.5);
-        audio.send_command(
-            audio_backend::SequencerCmd::AddEffectToInstrument {
-                instrument_id: id,
-                effect: ladder,
-            }
-            .into(),
-        );
-
-        // Configure any additional mono insert effects from params (reverb/delay)
-        for eff in &params.audio_effects {
-            match eff {
-                AudioEffect::Reverb {
-                    mix,
-                    decay_time,
-                    room_size,
-                    diffusion,
-                    damping,
-                } => {
-                    let mut r = audio
-                        .get_effect_factory()
-                        .create_mono_reverb(TRACKER_EFFECT_ID);
-                    audio_backend::MonoEffect::set_parameter(
-                        &mut *r,
-                        audio_backend::effects::ReverbParameter::Mix.as_index(),
-                        (*mix).clamp(0.0, 1.0),
-                    );
-                    audio_backend::MonoEffect::set_parameter(
-                        &mut *r,
-                        audio_backend::effects::ReverbParameter::Decay.as_index(),
-                        *decay_time,
-                    );
-                    audio_backend::MonoEffect::set_parameter(
-                        &mut *r,
-                        audio_backend::effects::ReverbParameter::RoomSize.as_index(),
-                        *room_size,
-                    );
-                    audio_backend::MonoEffect::set_parameter(
-                        &mut *r,
-                        audio_backend::effects::ReverbParameter::Damping.as_index(),
-                        *damping,
-                    );
-                    audio_backend::MonoEffect::set_parameter(
-                        &mut *r,
-                        audio_backend::effects::ReverbParameter::Diffusion.as_index(),
-                        *diffusion,
-                    );
-                    audio.send_command(
-                        audio_backend::SequencerCmd::AddEffectToInstrument {
-                            instrument_id: id,
-                            effect: r,
-                        }
-                        .into(),
-                    );
-                }
-                AudioEffect::Delay {
-                    time,
-                    num_taps,
-                    feedback,
-                    mix,
-                } => {
-                    let mut d = audio.get_effect_factory().create_mono_delay(
-                        TRACKER_EFFECT_ID,
-                        *time,
-                        *num_taps as usize,
-                        *feedback,
-                        *mix,
-                    );
-                    use audio_backend::effects::DelayParameter as DP;
-                    audio_backend::MonoEffect::set_parameter(&mut *d, DP::Time.as_index(), *time);
-                    audio_backend::MonoEffect::set_parameter(
-                        &mut *d,
-                        DP::NumTaps.as_index(),
-                        *num_taps as f32,
-                    );
-                    audio_backend::MonoEffect::set_parameter(
-                        &mut *d,
-                        DP::Feedback.as_index(),
-                        *feedback,
-                    );
-                    audio_backend::MonoEffect::set_parameter(&mut *d, DP::Mix.as_index(), *mix);
-                    audio.send_command(
-                        audio_backend::SequencerCmd::AddEffectToInstrument {
-                            instrument_id: id,
-                            effect: d,
-                        }
-                        .into(),
-                    );
-                }
-            }
-        }
-    }
-
-    send_amp_envelope_to_backend(audio_mgr, id_u8, &params.amp_envelope);
 }
