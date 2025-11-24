@@ -8,6 +8,11 @@ pub use side_panel::{EffectType, SidePanel, SidePanelAction};
 pub mod hex;
 pub use hex::{dec_u8_editor, hex_u8_editor, hex_usize_with_sentinel_editor};
 
+pub mod effect_controls;
+pub use effect_controls::{
+    show_effect_panels, DelayDefaults, EffectPanelConfig, ReverbDefaults,
+};
+
 pub struct SongInfoEditor;
 
 impl SongInfoEditor {
