@@ -55,70 +55,20 @@ impl SynthNode for SnareDrumVoice {
 
     fn try_handle_command(&mut self, command: &crate::commands::SynthCmd) -> bool {
         let was_handled = match command {
-            SynthCmd::SetEnvAttack {
-                envelope_id: Some(envelope_id),
-                attack,
-            } => {
-                let was_handled = if *envelope_id == EnvelopeId::from(SnareDrumEnvelope::Oscillator)
-                {
-                    self.osc_env.set_attack(*attack);
-                    true
-                } else if *envelope_id == EnvelopeId::from(SnareDrumEnvelope::Noise) {
-                    self.noise_env.set_attack(*attack);
-                    true
-                } else {
+            SynthCmd::EnvelopeCommand {
+                envelope_id,
+                command,
+            } => match envelope_id {
+                Some(id) => match *id {
+                    0 => self.osc_env.handle_command(command),
+                    1 => self.noise_env.handle_command(command),
+                    _ => false,
+                },
+                None => {
+                    log::error!("Envelope ID must be specified for SnareDrumVoice");
                     false
-                };
-                was_handled
-            }
-            SynthCmd::SetEnvDecay {
-                envelope_id: Some(envelope_id),
-                decay,
-            } => {
-                let was_handled = if *envelope_id == EnvelopeId::from(SnareDrumEnvelope::Oscillator)
-                {
-                    self.osc_env.set_decay(*decay);
-                    true
-                } else if *envelope_id == EnvelopeId::from(SnareDrumEnvelope::Noise) {
-                    self.noise_env.set_decay(*decay);
-                    true
-                } else {
-                    false
-                };
-                was_handled
-            }
-            SynthCmd::SetEnvSustain {
-                envelope_id: Some(envelope_id),
-                sustain,
-            } => {
-                let was_handled = if *envelope_id == EnvelopeId::from(SnareDrumEnvelope::Oscillator)
-                {
-                    self.osc_env.set_sustain(*sustain);
-                    true
-                } else if *envelope_id == EnvelopeId::from(SnareDrumEnvelope::Noise) {
-                    self.noise_env.set_sustain(*sustain);
-                    true
-                } else {
-                    false
-                };
-                was_handled
-            }
-            SynthCmd::SetEnvRelease {
-                envelope_id: Some(envelope_id),
-                release,
-            } => {
-                let was_handled = if *envelope_id == EnvelopeId::from(SnareDrumEnvelope::Oscillator)
-                {
-                    self.osc_env.set_release(*release);
-                    true
-                } else if *envelope_id == EnvelopeId::from(SnareDrumEnvelope::Noise) {
-                    self.noise_env.set_release(*release);
-                    true
-                } else {
-                    false
-                };
-                was_handled
-            }
+                }
+            },
             _ => false,
         };
 

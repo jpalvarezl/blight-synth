@@ -1,105 +1,119 @@
-// use std::thread;
+use std::thread;
 
-// use audio_backend::{BlightAudio, Command, InstrumentDefinition, SynthCmd};
+use audio_backend::{BlightAudio, EffectCmd, InstrumentCmd, SequencerCmd, SynthCmd, TransportCmd};
 
-// pub fn main() {
-//     match &mut BlightAudio::new() {
-//         Ok(audio) => {
-//             println!("BlightAudio initialized successfully!");
+pub fn main() {
+    match &mut BlightAudio::new() {
+        Ok(audio) => {
+            println!("BlightAudio initialized successfully!");
+            let instrument_id = 0;
+            let effect_id = 0;
+            audio.send_command(
+                SequencerCmd::AddTrackInstrument {
+                    instrument: audio
+                        .get_instrument_factory()
+                        .create_dfam(instrument_id, 0.0),
+                }
+                .into(),
+            );
+            audio.send_command(
+                SequencerCmd::AddEffectToInstrument {
+                    instrument_id,
+                    effect: audio.get_effect_factory().create_mono_gain(effect_id, 1.0),
+                }
+                .into(),
+            );
+            audio.send_command(TransportCmd::PlayLastSong.into());
+            audio.send_command(
+                InstrumentCmd::NoteOn {
+                    instrument_id,
+                    note: 60,
+                    velocity: 127,
+                }
+                .into(),
+            );
 
-//             audio.send_command(
-//                 SynthCmd::PlayNote {
-//                     note: 60,
-//                     voice: audio.get_voice_factory().create_voice(
-//                         0,
-//                         InstrumentDefinition::Oscillator,
-//                         0.0,
-//                     ),
-//                     velocity: 127,
-//                 }
-//                 .into(),
-//             );
-//             audio.send_command(
-//                 SynthCmd::AddVoiceEffect {
-//                     voice_id: 0,
-//                     effect: audio.get_effect_factory().create_mono_gain(1.0),
-//                 }
-//                 .into(),
-//             );
+            // Play a very short note - 200ms
+            thread::sleep(std::time::Duration::from_millis(200));
+            audio.send_command(InstrumentCmd::NoteOff { instrument_id }.into());
 
-//             // Play a very short note - 200ms
-//             thread::sleep(std::time::Duration::from_millis(200));
-//             audio.send_command(SynthCmd::StopNote { voice_id: 0 }.into());
+            // Wait to hear the release decay
+            thread::sleep(std::time::Duration::from_millis(1000));
+            audio.send_command(
+                InstrumentCmd::PassOnSynthCmd {
+                    instrument_id,
+                    synth_cmd: SynthCmd::EffectCommand {
+                        effect_id,
+                        command: EffectCmd::SetParameter {
+                            param_index: 0,
+                            value: -20f32,
+                        },
+                    },
+                }
+                .into(),
+            );
+            audio.send_command(
+                InstrumentCmd::NoteOn {
+                    instrument_id,
+                    note: 60,
+                    velocity: 100,
+                }
+                .into(),
+            );
 
-//             // Wait to hear the release decay
-//             thread::sleep(std::time::Duration::from_millis(3000));
+            thread::sleep(std::time::Duration::from_millis(500));
+            audio.send_command(
+                InstrumentCmd::PassOnSynthCmd {
+                    instrument_id,
+                    synth_cmd: SynthCmd::EffectCommand {
+                        effect_id,
+                        command: EffectCmd::SetParameter {
+                            param_index: 0,
+                            value: -10f32,
+                        },
+                    },
+                }
+                .into(),
+            );
+            audio.send_command(
+                InstrumentCmd::NoteOn {
+                    instrument_id,
+                    note: 64,
+                    velocity: 100,
+                }
+                .into(),
+            );
 
-//             // Play a chord
-//             audio.send_command(
-//                 SynthCmd::PlayNote {
-//                     note: 60, // C
-//                     voice: audio.get_voice_factory().create_voice(
-//                         1,
-//                         InstrumentDefinition::Oscillator,
-//                         0.0,
-//                     ),
-//                     velocity: 100,
-//                 }
-//                 .into(),
-//             );
-//             audio.send_command(
-//                 SynthCmd::AddVoiceEffect {
-//                     voice_id: 1,
-//                     effect: audio.get_effect_factory().create_mono_gain(0.1),
-//                 }
-//                 .into(),
-//             );
-//             thread::sleep(std::time::Duration::from_millis(500));
+            thread::sleep(std::time::Duration::from_millis(500));
+            audio.send_command(
+                InstrumentCmd::PassOnSynthCmd {
+                    instrument_id,
+                    synth_cmd: SynthCmd::EffectCommand {
+                        effect_id,
+                        command: EffectCmd::SetParameter {
+                            param_index: 0,
+                            value: 6f32,
+                        },
+                    },
+                }
+                .into(),
+            );
+            audio.send_command(
+                InstrumentCmd::NoteOn {
+                    instrument_id,
+                    note: 67,
+                    velocity: 100,
+                }
+                .into(),
+            );
+            thread::sleep(std::time::Duration::from_millis(500));
 
-//             audio.send_command(Command::Synth(SynthCmd::PlayNote {
-//                 note: 64, // E
-//                 voice: audio.get_voice_factory().create_voice(
-//                     2,
-//                     InstrumentDefinition::Oscillator,
-//                     0.0,
-//                 ),
-//                 velocity: 100,
-//             }));
-//             audio.send_command(Command::Synth(SynthCmd::AddVoiceEffect {
-//                 voice_id: 2,
-//                 effect: audio.get_effect_factory().create_mono_gain(0.5),
-//             }));
-//             thread::sleep(std::time::Duration::from_millis(500));
+            // Stop all notes
+            audio.send_command(InstrumentCmd::NoteOff { instrument_id }.into());
 
-//             audio.send_command(
-//                 SynthCmd::PlayNote {
-//                     note: 67, // G
-//                     voice: audio.get_voice_factory().create_voice(
-//                         3,
-//                         InstrumentDefinition::Oscillator,
-//                         0.0,
-//                     ),
-//                     velocity: 100,
-//                 }
-//                 .into(),
-//             );
-//             audio.send_command(
-//                 SynthCmd::AddVoiceEffect {
-//                     voice_id: 3,
-//                     effect: audio.get_effect_factory().create_mono_gain(1.0),
-//                 }
-//                 .into(),
-//             );
-//             thread::sleep(std::time::Duration::from_millis(500));
-
-//             // Stop all notes
-//             audio.send_command(SynthCmd::StopNote { voice_id: 1 }.into());
-//             audio.send_command(SynthCmd::StopNote { voice_id: 2 }.into());
-//             audio.send_command(SynthCmd::StopNote { voice_id: 3 }.into());
-
-//             // Listen to the release tail
-//             thread::sleep(std::time::Duration::from_millis(3000));
-//         }
-//         Err(e) => eprintln!("Failed to initialize BlightAudio: {}", e),
-//     };
-// }
+            // Listen to the release tail
+            thread::sleep(std::time::Duration::from_millis(1000));
+        }
+        Err(e) => eprintln!("Failed to initialize BlightAudio: {}", e),
+    };
+}

@@ -35,8 +35,4 @@ impl SynthNode for MoogNode {
     fn is_active(&self) -> bool {
         true
     }
-
-    fn try_handle_command(&mut self, _command: &crate::commands::SynthCmd) -> bool {
-        false
-    }
 }

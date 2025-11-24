@@ -1,10 +1,11 @@
+use audio_backend::EnvelopeCmd;
 use eframe::egui;
 use sequencer::models::{
     AmpEnvelopeParams, AudioEffect, HiHatParams, Instrument, InstrumentData, KickDrumParams,
     SimpleOscillatorParams, SnareDrumParams, Song, Waveform,
 };
 
-use crate::audio::AudioManager;
+use crate::audio::{AudioManager, TRACKER_EFFECT_ID};
 use crate::audio_utils::map_waveform_to_backend;
 
 #[derive(Default)]
@@ -22,9 +23,9 @@ fn send_amp_envelope_to_backend(
         audio.send_command(
             audio_backend::InstrumentCmd::PassOnSynthCmd {
                 instrument_id: id,
-                synth_cmd: audio_backend::SynthCmd::SetEnvAttack {
+                synth_cmd: audio_backend::SynthCmd::EnvelopeCommand {
                     envelope_id: Some(0),
-                    attack: env.attack,
+                    command: EnvelopeCmd::SetAttack { attack: env.attack },
                 },
             }
             .into(),
@@ -32,9 +33,9 @@ fn send_amp_envelope_to_backend(
         audio.send_command(
             audio_backend::InstrumentCmd::PassOnSynthCmd {
                 instrument_id: id,
-                synth_cmd: audio_backend::SynthCmd::SetEnvDecay {
+                synth_cmd: audio_backend::SynthCmd::EnvelopeCommand {
                     envelope_id: Some(0),
-                    decay: env.decay,
+                    command: EnvelopeCmd::SetDecay { decay: env.decay },
                 },
             }
             .into(),
@@ -42,9 +43,11 @@ fn send_amp_envelope_to_backend(
         audio.send_command(
             audio_backend::InstrumentCmd::PassOnSynthCmd {
                 instrument_id: id,
-                synth_cmd: audio_backend::SynthCmd::SetEnvSustain {
+                synth_cmd: audio_backend::SynthCmd::EnvelopeCommand {
                     envelope_id: Some(0),
-                    sustain: env.sustain,
+                    command: EnvelopeCmd::SetSustain {
+                        sustain: env.sustain,
+                    },
                 },
             }
             .into(),
@@ -52,9 +55,11 @@ fn send_amp_envelope_to_backend(
         audio.send_command(
             audio_backend::InstrumentCmd::PassOnSynthCmd {
                 instrument_id: id,
-                synth_cmd: audio_backend::SynthCmd::SetEnvRelease {
+                synth_cmd: audio_backend::SynthCmd::EnvelopeCommand {
                     envelope_id: Some(0),
-                    release: env.release,
+                    command: EnvelopeCmd::SetRelease {
+                        release: env.release,
+                    },
                 },
             }
             .into(),
@@ -138,7 +143,9 @@ fn ensure_backend_osc_with_params(
                     diffusion,
                     damping,
                 } => {
-                    let mut r = audio.get_effect_factory().create_mono_reverb();
+                    let mut r = audio
+                        .get_effect_factory()
+                        .create_mono_reverb(TRACKER_EFFECT_ID);
                     // Reverb parameter enums for clarity and safety
                     audio_backend::MonoEffect::set_parameter(
                         &mut *r,
@@ -182,6 +189,7 @@ fn ensure_backend_osc_with_params(
                 } => {
                     // Create a mono delay with the configured taps and mix
                     let mut d = audio.get_effect_factory().create_mono_delay(
+                        TRACKER_EFFECT_ID,
                         *time,
                         *num_taps as usize,
                         *feedback,
@@ -235,7 +243,9 @@ fn ensure_backend_hihat_with_params(audio_mgr: &mut AudioManager, id_u8: u8, par
                     diffusion,
                     damping,
                 } => {
-                    let mut r = audio.get_effect_factory().create_mono_reverb();
+                    let mut r = audio
+                        .get_effect_factory()
+                        .create_mono_reverb(TRACKER_EFFECT_ID);
                     audio_backend::MonoEffect::set_parameter(
                         &mut *r,
                         audio_backend::effects::ReverbParameter::Mix.as_index(),
@@ -277,6 +287,7 @@ fn ensure_backend_hihat_with_params(audio_mgr: &mut AudioManager, id_u8: u8, par
                     mix,
                 } => {
                     let mut d = audio.get_effect_factory().create_mono_delay(
+                        TRACKER_EFFECT_ID,
                         *time,
                         *num_taps as usize,
                         *feedback,
@@ -333,7 +344,9 @@ fn ensure_backend_kick_with_params(
                     diffusion,
                     damping,
                 } => {
-                    let mut r = audio.get_effect_factory().create_mono_reverb();
+                    let mut r = audio
+                        .get_effect_factory()
+                        .create_mono_reverb(TRACKER_EFFECT_ID);
                     audio_backend::MonoEffect::set_parameter(
                         &mut *r,
                         audio_backend::effects::ReverbParameter::Mix.as_index(),
@@ -374,6 +387,7 @@ fn ensure_backend_kick_with_params(
                     mix,
                 } => {
                     let mut d = audio.get_effect_factory().create_mono_delay(
+                        TRACKER_EFFECT_ID,
                         *time,
                         *num_taps as usize,
                         *feedback,
@@ -406,8 +420,11 @@ fn ensure_backend_kick_with_params(
         audio.send_command(
             audio_backend::InstrumentCmd::PassOnSynthCmd {
                 instrument_id: id,
-                synth_cmd: audio_backend::SynthCmd::SetPitchEnvFreqDelta {
-                    freq_delta: params.pitch_envelope.freq_delta,
+                synth_cmd: audio_backend::SynthCmd::EnvelopeCommand {
+                    envelope_id: None,
+                    command: EnvelopeCmd::SetPitchEnvFreqDelta {
+                        freq_delta: params.pitch_envelope.freq_delta,
+                    },
                 },
             }
             .into(),
@@ -439,7 +456,9 @@ fn ensure_backend_snare_with_params(
                     diffusion,
                     damping,
                 } => {
-                    let mut r = audio.get_effect_factory().create_mono_reverb();
+                    let mut r = audio
+                        .get_effect_factory()
+                        .create_mono_reverb(TRACKER_EFFECT_ID);
                     audio_backend::MonoEffect::set_parameter(
                         &mut *r,
                         audio_backend::effects::ReverbParameter::Mix.as_index(),
@@ -480,6 +499,7 @@ fn ensure_backend_snare_with_params(
                     mix,
                 } => {
                     let mut d = audio.get_effect_factory().create_mono_delay(
+                        TRACKER_EFFECT_ID,
                         *time,
                         *num_taps as usize,
                         *feedback,
@@ -623,7 +643,7 @@ impl InstrumentManagerWindow {
                                     // Reverb controls (single instance per mono instrument)
                                     let mut has_reverb = false;
                                     let mut to_remove_reverb = false;
-                                    for (eff_idx, eff) in params.audio_effects.iter_mut().enumerate() {
+                                    for (_eff_idx, eff) in params.audio_effects.iter_mut().enumerate() {
                                         if let AudioEffect::Reverb {
                                             mix,
                                             decay_time,
@@ -703,7 +723,7 @@ impl InstrumentManagerWindow {
                                                             audio.send_command(
                                                                 audio_backend::MixerCmd::SetEffectParameter {
                                                                     instrument_id: id,
-                                                                    effect_index: eff_idx,
+                                                                    effect_id: TRACKER_EFFECT_ID,
                                                                     param_index: RP::Mix.as_index(),
                                                                     value: mx,
                                                                 }
@@ -712,7 +732,7 @@ impl InstrumentManagerWindow {
                                                             audio.send_command(
                                                                 audio_backend::MixerCmd::SetEffectParameter {
                                                                     instrument_id: id,
-                                                                    effect_index: eff_idx,
+                                                                    effect_id: TRACKER_EFFECT_ID,
                                                                     param_index: RP::Decay.as_index(),
                                                                     value: dec,
                                                                 }
@@ -721,7 +741,7 @@ impl InstrumentManagerWindow {
                                                             audio.send_command(
                                                                 audio_backend::MixerCmd::SetEffectParameter {
                                                                     instrument_id: id,
-                                                                    effect_index: eff_idx,
+                                                                    effect_id: TRACKER_EFFECT_ID,
                                                                     param_index: RP::RoomSize.as_index(),
                                                                     value: rs,
                                                                 }
@@ -730,7 +750,7 @@ impl InstrumentManagerWindow {
                                                             audio.send_command(
                                                                 audio_backend::MixerCmd::SetEffectParameter {
                                                                     instrument_id: id,
-                                                                    effect_index: eff_idx,
+                                                                    effect_id: TRACKER_EFFECT_ID,
                                                                     param_index: RP::Damping.as_index(),
                                                                     value: damp,
                                                                 }
@@ -739,7 +759,7 @@ impl InstrumentManagerWindow {
                                                             audio.send_command(
                                                                 audio_backend::MixerCmd::SetEffectParameter {
                                                                     instrument_id: id,
-                                                                    effect_index: eff_idx,
+                                                                    effect_id: TRACKER_EFFECT_ID,
                                                                     param_index: RP::Diffusion.as_index(),
                                                                     value: diff,
                                                                 }
@@ -780,7 +800,7 @@ impl InstrumentManagerWindow {
                                     // Delay controls (single instance per mono instrument)
                                     let mut has_delay = false;
                                     let mut to_remove_delay = false;
-                                    for (eff_idx, eff) in params.audio_effects.iter_mut().enumerate() {
+                                    for (_eff_idx, eff) in params.audio_effects.iter_mut().enumerate() {
                                         if let AudioEffect::Delay {
                                             time,
                                             num_taps,
@@ -848,7 +868,7 @@ impl InstrumentManagerWindow {
                                                             audio.send_command(
                                                                 audio_backend::MixerCmd::SetEffectParameter {
                                                                     instrument_id: id,
-                                                                    effect_index: eff_idx,
+                                                                    effect_id: TRACKER_EFFECT_ID,
                                                                     param_index: DP::Time.as_index(),
                                                                     value: t,
                                                                 }
@@ -857,7 +877,7 @@ impl InstrumentManagerWindow {
                                                             audio.send_command(
                                                                 audio_backend::MixerCmd::SetEffectParameter {
                                                                     instrument_id: id,
-                                                                    effect_index: eff_idx,
+                                                                    effect_id: TRACKER_EFFECT_ID,
                                                                     param_index: DP::NumTaps.as_index(),
                                                                     value: tp as f32,
                                                                 }
@@ -866,7 +886,7 @@ impl InstrumentManagerWindow {
                                                             audio.send_command(
                                                                 audio_backend::MixerCmd::SetEffectParameter {
                                                                     instrument_id: id,
-                                                                    effect_index: eff_idx,
+                                                                    effect_id: TRACKER_EFFECT_ID,
                                                                     param_index: DP::Feedback.as_index(),
                                                                     value: fb,
                                                                 }
@@ -875,7 +895,7 @@ impl InstrumentManagerWindow {
                                                             audio.send_command(
                                                                 audio_backend::MixerCmd::SetEffectParameter {
                                                                     instrument_id: id,
-                                                                    effect_index: eff_idx,
+                                                                    effect_id: TRACKER_EFFECT_ID,
                                                                     param_index: DP::Mix.as_index(),
                                                                     value: mx,
                                                                 }
@@ -928,7 +948,7 @@ impl InstrumentManagerWindow {
                                     // Reverb controls
                                     let mut has_reverb = false;
                                     let mut to_remove_reverb = false;
-                                    for (eff_idx, eff) in params.audio_effects.iter_mut().enumerate() {
+                                    for (_eff_idx, eff) in params.audio_effects.iter_mut().enumerate() {
                                         if let AudioEffect::Reverb {
                                             mix,
                                             decay_time,
@@ -990,7 +1010,7 @@ impl InstrumentManagerWindow {
                                                             audio.send_command(
                                                                 audio_backend::MixerCmd::SetEffectParameter {
                                                                     instrument_id: id,
-                                                                    effect_index: eff_idx,
+                                                                    effect_id: TRACKER_EFFECT_ID,
                                                                     param_index: RP::Mix.as_index(),
                                                                     value: mx,
                                                                 }
@@ -999,7 +1019,7 @@ impl InstrumentManagerWindow {
                                                             audio.send_command(
                                                                 audio_backend::MixerCmd::SetEffectParameter {
                                                                     instrument_id: id,
-                                                                    effect_index: eff_idx,
+                                                                    effect_id: TRACKER_EFFECT_ID,
                                                                     param_index: RP::Decay.as_index(),
                                                                     value: dec,
                                                                 }
@@ -1008,7 +1028,7 @@ impl InstrumentManagerWindow {
                                                             audio.send_command(
                                                                 audio_backend::MixerCmd::SetEffectParameter {
                                                                     instrument_id: id,
-                                                                    effect_index: eff_idx,
+                                                                    effect_id: TRACKER_EFFECT_ID,
                                                                     param_index: RP::RoomSize.as_index(),
                                                                     value: rs,
                                                                 }
@@ -1017,7 +1037,7 @@ impl InstrumentManagerWindow {
                                                             audio.send_command(
                                                                 audio_backend::MixerCmd::SetEffectParameter {
                                                                     instrument_id: id,
-                                                                    effect_index: eff_idx,
+                                                                    effect_id: TRACKER_EFFECT_ID,
                                                                     param_index: RP::Damping.as_index(),
                                                                     value: damp,
                                                                 }
@@ -1026,7 +1046,7 @@ impl InstrumentManagerWindow {
                                                             audio.send_command(
                                                                 audio_backend::MixerCmd::SetEffectParameter {
                                                                     instrument_id: id,
-                                                                    effect_index: eff_idx,
+                                                                    effect_id: TRACKER_EFFECT_ID,
                                                                     param_index: RP::Diffusion.as_index(),
                                                                     value: diff,
                                                                 }
@@ -1066,7 +1086,7 @@ impl InstrumentManagerWindow {
                                     // Delay controls
                                     let mut has_delay = false;
                                     let mut to_remove_delay = false;
-                                    for (eff_idx, eff) in params.audio_effects.iter_mut().enumerate() {
+                                    for (_eff_idx, eff) in params.audio_effects.iter_mut().enumerate() {
                                         if let AudioEffect::Delay {
                                             time,
                                             num_taps,
@@ -1125,7 +1145,7 @@ impl InstrumentManagerWindow {
                                                             audio.send_command(
                                                                 audio_backend::MixerCmd::SetEffectParameter {
                                                                     instrument_id: id,
-                                                                    effect_index: eff_idx,
+                                                                    effect_id: TRACKER_EFFECT_ID,
                                                                     param_index: DP::Time.as_index(),
                                                                     value: t,
                                                                 }
@@ -1134,7 +1154,7 @@ impl InstrumentManagerWindow {
                                                             audio.send_command(
                                                                 audio_backend::MixerCmd::SetEffectParameter {
                                                                     instrument_id: id,
-                                                                    effect_index: eff_idx,
+                                                                    effect_id: TRACKER_EFFECT_ID,
                                                                     param_index: DP::NumTaps.as_index(),
                                                                     value: tp as f32,
                                                                 }
@@ -1143,7 +1163,7 @@ impl InstrumentManagerWindow {
                                                             audio.send_command(
                                                                 audio_backend::MixerCmd::SetEffectParameter {
                                                                     instrument_id: id,
-                                                                    effect_index: eff_idx,
+                                                                    effect_id: TRACKER_EFFECT_ID,
                                                                     param_index: DP::Feedback.as_index(),
                                                                     value: fb,
                                                                 }
@@ -1152,7 +1172,7 @@ impl InstrumentManagerWindow {
                                                             audio.send_command(
                                                                 audio_backend::MixerCmd::SetEffectParameter {
                                                                     instrument_id: id,
-                                                                    effect_index: eff_idx,
+                                                                    effect_id: TRACKER_EFFECT_ID,
                                                                     param_index: DP::Mix.as_index(),
                                                                     value: mx,
                                                                 }
@@ -1205,7 +1225,7 @@ impl InstrumentManagerWindow {
                                     // Reverb controls
                                     let mut has_reverb = false;
                                     let mut to_remove_reverb = false;
-                                    for (eff_idx, eff) in params.audio_effects.iter_mut().enumerate() {
+                                    for (_eff_idx, eff) in params.audio_effects.iter_mut().enumerate() {
                                         if let AudioEffect::Reverb { mix, decay_time, room_size, diffusion, damping } = eff {
                                             has_reverb = true;
                                             ui.push_id(("kd_reverb", inst.id as u32), |ui| {
@@ -1244,11 +1264,11 @@ impl InstrumentManagerWindow {
                                                             if let Some(audio) = &mut audio_mgr.audio {
                                                                 let id = audio_backend::id::InstrumentId::from(inst.id as u32);
                                                                 use audio_backend::effects::ReverbParameter as RP;
-                                                                audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_index: eff_idx, param_index: RP::Mix.as_index(), value: mx }.into());
-                                                                audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_index: eff_idx, param_index: RP::Decay.as_index(), value: dec }.into());
-                                                                audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_index: eff_idx, param_index: RP::RoomSize.as_index(), value: rs }.into());
-                                                                audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_index: eff_idx, param_index: RP::Damping.as_index(), value: damp }.into());
-                                                                audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_index: eff_idx, param_index: RP::Diffusion.as_index(), value: diff }.into());
+                                                                audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_id: TRACKER_EFFECT_ID, param_index: RP::Mix.as_index(), value: mx }.into());
+                                                                audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_id: TRACKER_EFFECT_ID, param_index: RP::Decay.as_index(), value: dec }.into());
+                                                                audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_id: TRACKER_EFFECT_ID, param_index: RP::RoomSize.as_index(), value: rs }.into());
+                                                                audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_id: TRACKER_EFFECT_ID, param_index: RP::Damping.as_index(), value: damp }.into());
+                                                                audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_id: TRACKER_EFFECT_ID, param_index: RP::Diffusion.as_index(), value: diff }.into());
                                                             }
                                                         }
                                                         if ui.button("Remove Reverb").clicked() { to_remove_reverb = true; }
@@ -1273,7 +1293,7 @@ impl InstrumentManagerWindow {
                                     // Delay controls
                                     let mut has_delay = false;
                                     let mut to_remove_delay = false;
-                                    for (eff_idx, eff) in params.audio_effects.iter_mut().enumerate() {
+                                    for (_eff_idx, eff) in params.audio_effects.iter_mut().enumerate() {
                                         if let AudioEffect::Delay { time, num_taps, feedback, mix } = eff {
                                             has_delay = true;
                                             ui.push_id(("kd_delay", inst.id as u32), |ui| {
@@ -1306,10 +1326,10 @@ impl InstrumentManagerWindow {
                                                             if let Some(audio) = &mut audio_mgr.audio {
                                                                 let id = audio_backend::id::InstrumentId::from(inst.id as u32);
                                                                 use audio_backend::effects::DelayParameter as DP;
-                                                                audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_index: eff_idx, param_index: DP::Time.as_index(), value: t }.into());
-                                                                audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_index: eff_idx, param_index: DP::NumTaps.as_index(), value: tp as f32 }.into());
-                                                                audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_index: eff_idx, param_index: DP::Feedback.as_index(), value: fb }.into());
-                                                                audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_index: eff_idx, param_index: DP::Mix.as_index(), value: mx }.into());
+                                                                audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_id: TRACKER_EFFECT_ID, param_index: DP::Time.as_index(), value: t }.into());
+                                                                audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_id: TRACKER_EFFECT_ID, param_index: DP::NumTaps.as_index(), value: tp as f32 }.into());
+                                                                audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_id: TRACKER_EFFECT_ID, param_index: DP::Feedback.as_index(), value: fb }.into());
+                                                                audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_id: TRACKER_EFFECT_ID, param_index: DP::Mix.as_index(), value: mx }.into());
                                                             }
                                                         }
                                                         if ui.button("Remove Delay").clicked() { to_remove_delay = true; }
@@ -1347,7 +1367,7 @@ impl InstrumentManagerWindow {
                                     // Reverb controls
                                     let mut has_reverb = false;
                                     let mut to_remove_reverb = false;
-                                    for (eff_idx, eff) in params.audio_effects.iter_mut().enumerate() {
+                                    for (_eff_idx, eff) in params.audio_effects.iter_mut().enumerate() {
                                         if let AudioEffect::Reverb { mix, decay_time, room_size, diffusion, damping } = eff {
                                             has_reverb = true;
                                             ui.push_id(("sd_reverb", inst.id as u32), |ui| {
@@ -1386,11 +1406,11 @@ impl InstrumentManagerWindow {
                                                             if let Some(audio) = &mut audio_mgr.audio {
                                                                 let id = audio_backend::id::InstrumentId::from(inst.id as u32);
                                                                 use audio_backend::effects::ReverbParameter as RP;
-                                                                audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_index: eff_idx, param_index: RP::Mix.as_index(), value: mx }.into());
-                                                                audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_index: eff_idx, param_index: RP::Decay.as_index(), value: dec }.into());
-                                                                audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_index: eff_idx, param_index: RP::RoomSize.as_index(), value: rs }.into());
-                                                                audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_index: eff_idx, param_index: RP::Damping.as_index(), value: damp }.into());
-                                                                audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_index: eff_idx, param_index: RP::Diffusion.as_index(), value: diff }.into());
+                                                                audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_id: TRACKER_EFFECT_ID, param_index: RP::Mix.as_index(), value: mx }.into());
+                                                                audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_id: TRACKER_EFFECT_ID, param_index: RP::Decay.as_index(), value: dec }.into());
+                                                                audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_id: TRACKER_EFFECT_ID, param_index: RP::RoomSize.as_index(), value: rs }.into());
+                                                                audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_id: TRACKER_EFFECT_ID, param_index: RP::Damping.as_index(), value: damp }.into());
+                                                                audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_id: TRACKER_EFFECT_ID, param_index: RP::Diffusion.as_index(), value: diff }.into());
                                                             }
                                                         }
                                                         if ui.button("Remove Reverb").clicked() { to_remove_reverb = true; }
@@ -1415,7 +1435,7 @@ impl InstrumentManagerWindow {
                                     // Delay controls
                                     let mut has_delay = false;
                                     let mut to_remove_delay = false;
-                                    for (eff_idx, eff) in params.audio_effects.iter_mut().enumerate() {
+                                    for (_eff_idx, eff) in params.audio_effects.iter_mut().enumerate() {
                                         if let AudioEffect::Delay { time, num_taps, feedback, mix } = eff {
                                             has_delay = true;
                                             ui.push_id(("sd_delay", inst.id as u32), |ui| {
@@ -1448,10 +1468,10 @@ impl InstrumentManagerWindow {
                                                             if let Some(audio) = &mut audio_mgr.audio {
                                                                 let id = audio_backend::id::InstrumentId::from(inst.id as u32);
                                                                 use audio_backend::effects::DelayParameter as DP;
-                                                                audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_index: eff_idx, param_index: DP::Time.as_index(), value: t }.into());
-                                                                audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_index: eff_idx, param_index: DP::NumTaps.as_index(), value: tp as f32 }.into());
-                                                                audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_index: eff_idx, param_index: DP::Feedback.as_index(), value: fb }.into());
-                                                                audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_index: eff_idx, param_index: DP::Mix.as_index(), value: mx }.into());
+                                                                audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_id: TRACKER_EFFECT_ID, param_index: DP::Time.as_index(), value: t }.into());
+                                                                audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_id: TRACKER_EFFECT_ID, param_index: DP::NumTaps.as_index(), value: tp as f32 }.into());
+                                                                audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_id: TRACKER_EFFECT_ID, param_index: DP::Feedback.as_index(), value: fb }.into());
+                                                                audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_id: TRACKER_EFFECT_ID, param_index: DP::Mix.as_index(), value: mx }.into());
                                                             }
                                                         }
                                                         if ui.button("Remove Delay").clicked() { to_remove_delay = true; }
@@ -1489,7 +1509,7 @@ impl InstrumentManagerWindow {
                                     // Reverb controls
                                     let mut has_reverb = false;
                                     let mut to_remove_reverb = false;
-                                    for (eff_idx, eff) in params.audio_effects.iter_mut().enumerate() {
+                                    for (_eff_idx, eff) in params.audio_effects.iter_mut().enumerate() {
                                         if let AudioEffect::Reverb { mix, decay_time, room_size, diffusion, damping } = eff {
                                             has_reverb = true;
                                             ui.push_id(("dfam_reverb", inst.id as u32), |ui| {
@@ -1507,7 +1527,7 @@ impl InstrumentManagerWindow {
                                                         ui.horizontal(|ui| { ui.label("Room Size"); changed |= ui.add(egui::Slider::new(&mut rs, 0.5..=2.0)).changed(); ui.label("Diffusion"); changed |= ui.add(egui::Slider::new(&mut diff, 0.0..=1.0)).changed(); });
                                                         if changed {
                                                             *mix = mx; *decay_time = dec; *room_size = rs; *diffusion = diff; *damping = damp;
-                                                            if let Some(audio) = &mut audio_mgr.audio { let id = audio_backend::id::InstrumentId::from(inst.id as u32); use audio_backend::effects::ReverbParameter as RP; audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_index: eff_idx, param_index: RP::Mix.as_index(), value: mx }.into()); audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_index: eff_idx, param_index: RP::Decay.as_index(), value: dec }.into()); audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_index: eff_idx, param_index: RP::RoomSize.as_index(), value: rs }.into()); audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_index: eff_idx, param_index: RP::Damping.as_index(), value: damp }.into()); audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_index: eff_idx, param_index: RP::Diffusion.as_index(), value: diff }.into()); }
+                                                            if let Some(audio) = &mut audio_mgr.audio { let id = audio_backend::id::InstrumentId::from(inst.id as u32); use audio_backend::effects::ReverbParameter as RP; audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_id: TRACKER_EFFECT_ID, param_index: RP::Mix.as_index(), value: mx }.into()); audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_id: TRACKER_EFFECT_ID, param_index: RP::Decay.as_index(), value: dec }.into()); audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_id: TRACKER_EFFECT_ID, param_index: RP::RoomSize.as_index(), value: rs }.into()); audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_id: TRACKER_EFFECT_ID, param_index: RP::Damping.as_index(), value: damp }.into()); audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_id: TRACKER_EFFECT_ID, param_index: RP::Diffusion.as_index(), value: diff }.into()); }
                                                         }
                                                         if ui.button("Remove Reverb").clicked() { to_remove_reverb = true; }
                                                     });
@@ -1520,7 +1540,7 @@ impl InstrumentManagerWindow {
                                     // Delay controls
                                     let mut has_delay = false;
                                     let mut to_remove_delay = false;
-                                    for (eff_idx, eff) in params.audio_effects.iter_mut().enumerate() {
+                                    for (_eff_idx, eff) in params.audio_effects.iter_mut().enumerate() {
                                         if let AudioEffect::Delay { time, num_taps, feedback, mix } = eff {
                                             has_delay = true;
                                             ui.push_id(("dfam_delay", inst.id as u32), |ui| {
@@ -1530,7 +1550,7 @@ impl InstrumentManagerWindow {
                                                         let mut changed = false; let mut t = *time; let mut tp = *num_taps; let mut fb = *feedback; let mut mx = *mix;
                                                         ui.horizontal(|ui| { ui.label("Time (s)"); changed |= ui.add(egui::Slider::new(&mut t, 0.0..=audio_backend::effects::MAX_DELAY_SECONDS)).changed(); ui.label("Feedback"); changed |= ui.add(egui::Slider::new(&mut fb, 0.0..=0.95)).changed(); });
                                                         ui.horizontal(|ui| { ui.label("Taps"); changed |= ui.add(egui::Slider::new(&mut tp, 1..=audio_backend::effects::MAX_TAPS as u8)).changed(); ui.label("Mix"); changed |= ui.add(egui::Slider::new(&mut mx, 0.0..=1.0)).changed(); });
-                                                        if changed { *time = t; *num_taps = tp; *feedback = fb; *mix = mx; if let Some(audio) = &mut audio_mgr.audio { let id = audio_backend::id::InstrumentId::from(inst.id as u32); use audio_backend::effects::DelayParameter as DP; audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_index: eff_idx, param_index: DP::Time.as_index(), value: t }.into()); audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_index: eff_idx, param_index: DP::NumTaps.as_index(), value: tp as f32 }.into()); audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_index: eff_idx, param_index: DP::Feedback.as_index(), value: fb }.into()); audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_index: eff_idx, param_index: DP::Mix.as_index(), value: mx }.into()); } }
+                                                        if changed { *time = t; *num_taps = tp; *feedback = fb; *mix = mx; if let Some(audio) = &mut audio_mgr.audio { let id = audio_backend::id::InstrumentId::from(inst.id as u32); use audio_backend::effects::DelayParameter as DP; audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_id: TRACKER_EFFECT_ID, param_index: DP::Time.as_index(), value: t }.into()); audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_id: TRACKER_EFFECT_ID, param_index: DP::NumTaps.as_index(), value: tp as f32 }.into()); audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_id: TRACKER_EFFECT_ID, param_index: DP::Feedback.as_index(), value: fb }.into()); audio.send_command(audio_backend::MixerCmd::SetEffectParameter { instrument_id: id, effect_id: TRACKER_EFFECT_ID, param_index: DP::Mix.as_index(), value: mx }.into()); } }
                                                         if ui.button("Remove Delay").clicked() { to_remove_delay = true; }
                                                     });
                                             });
@@ -1681,39 +1701,107 @@ impl InstrumentManagerWindow {
 }
 
 /// Create/replace the backend DFAM instrument and configure its voice effects from params.
-fn ensure_backend_dfam_with_params(audio_mgr: &mut AudioManager, id_u8: u8, params: &sequencer::models::DFAMParams) {
+fn ensure_backend_dfam_with_params(
+    audio_mgr: &mut AudioManager,
+    id_u8: u8,
+    params: &sequencer::models::DFAMParams,
+) {
     if let Some(audio) = &mut audio_mgr.audio {
         let id = audio_backend::id::InstrumentId::from(id_u8 as u32);
         let instrument = audio.get_instrument_factory().create_dfam(id, 0.0);
         audio.send_command(audio_backend::SequencerCmd::AddTrackInstrument { instrument }.into());
 
         // Always add a default Moog Ladder filter with cutoff 500 Hz & resonance 0.5
-    let ladder = audio.get_effect_factory().create_moog_ladder(500.0, 0.5);
+        let ladder = audio
+            .get_effect_factory()
+            .create_moog_ladder(TRACKER_EFFECT_ID, 500.0, 0.5);
         audio.send_command(
-            audio_backend::SequencerCmd::AddEffectToInstrument { instrument_id: id, effect: ladder }
-                .into(),
+            audio_backend::SequencerCmd::AddEffectToInstrument {
+                instrument_id: id,
+                effect: ladder,
+            }
+            .into(),
         );
 
         // Configure any additional mono insert effects from params (reverb/delay)
         for eff in &params.audio_effects {
             match eff {
-                AudioEffect::Reverb { mix, decay_time, room_size, diffusion, damping } => {
-                    let mut r = audio.get_effect_factory().create_mono_reverb();
-                    audio_backend::MonoEffect::set_parameter(&mut *r, audio_backend::effects::ReverbParameter::Mix.as_index(), (*mix).clamp(0.0, 1.0));
-                    audio_backend::MonoEffect::set_parameter(&mut *r, audio_backend::effects::ReverbParameter::Decay.as_index(), *decay_time);
-                    audio_backend::MonoEffect::set_parameter(&mut *r, audio_backend::effects::ReverbParameter::RoomSize.as_index(), *room_size);
-                    audio_backend::MonoEffect::set_parameter(&mut *r, audio_backend::effects::ReverbParameter::Damping.as_index(), *damping);
-                    audio_backend::MonoEffect::set_parameter(&mut *r, audio_backend::effects::ReverbParameter::Diffusion.as_index(), *diffusion);
-                    audio.send_command(audio_backend::SequencerCmd::AddEffectToInstrument { instrument_id: id, effect: r }.into());
+                AudioEffect::Reverb {
+                    mix,
+                    decay_time,
+                    room_size,
+                    diffusion,
+                    damping,
+                } => {
+                    let mut r = audio
+                        .get_effect_factory()
+                        .create_mono_reverb(TRACKER_EFFECT_ID);
+                    audio_backend::MonoEffect::set_parameter(
+                        &mut *r,
+                        audio_backend::effects::ReverbParameter::Mix.as_index(),
+                        (*mix).clamp(0.0, 1.0),
+                    );
+                    audio_backend::MonoEffect::set_parameter(
+                        &mut *r,
+                        audio_backend::effects::ReverbParameter::Decay.as_index(),
+                        *decay_time,
+                    );
+                    audio_backend::MonoEffect::set_parameter(
+                        &mut *r,
+                        audio_backend::effects::ReverbParameter::RoomSize.as_index(),
+                        *room_size,
+                    );
+                    audio_backend::MonoEffect::set_parameter(
+                        &mut *r,
+                        audio_backend::effects::ReverbParameter::Damping.as_index(),
+                        *damping,
+                    );
+                    audio_backend::MonoEffect::set_parameter(
+                        &mut *r,
+                        audio_backend::effects::ReverbParameter::Diffusion.as_index(),
+                        *diffusion,
+                    );
+                    audio.send_command(
+                        audio_backend::SequencerCmd::AddEffectToInstrument {
+                            instrument_id: id,
+                            effect: r,
+                        }
+                        .into(),
+                    );
                 }
-                AudioEffect::Delay { time, num_taps, feedback, mix } => {
-                    let mut d = audio.get_effect_factory().create_mono_delay(*time, *num_taps as usize, *feedback, *mix);
+                AudioEffect::Delay {
+                    time,
+                    num_taps,
+                    feedback,
+                    mix,
+                } => {
+                    let mut d = audio.get_effect_factory().create_mono_delay(
+                        TRACKER_EFFECT_ID,
+                        *time,
+                        *num_taps as usize,
+                        *feedback,
+                        *mix,
+                    );
                     use audio_backend::effects::DelayParameter as DP;
                     audio_backend::MonoEffect::set_parameter(&mut *d, DP::Time.as_index(), *time);
-                    audio_backend::MonoEffect::set_parameter(&mut *d, DP::NumTaps.as_index(), *num_taps as f32);
-                    audio_backend::MonoEffect::set_parameter(&mut *d, DP::Feedback.as_index(), *feedback);
+                    audio_backend::MonoEffect::set_parameter(
+                        &mut *d,
+                        DP::NumTaps.as_index(),
+                        *num_taps as f32,
+                    );
+                    audio_backend::MonoEffect::set_parameter(
+                        &mut *d,
+                        DP::Feedback.as_index(),
+                        *feedback,
+                    );
                     audio_backend::MonoEffect::set_parameter(&mut *d, DP::Mix.as_index(), *mix);
-                    audio.send_command(audio_backend::SequencerCmd::AddEffectToInstrument { instrument_id: id, effect: d }.into());
+                    audio.send_command(
+                        audio_backend::SequencerCmd::AddEffectToInstrument {
+                            instrument_id: id,
+                            effect: d,
+                        }
+                        .into(),
+                    );
                 }
             }
         }

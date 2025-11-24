@@ -2,7 +2,7 @@ use eframe::egui;
 use sequencer::cli::FileFormat;
 use sequencer::models::Song;
 
-use crate::audio::AudioManager;
+use crate::audio::{AudioManager, TRACKER_EFFECT_ID};
 use crate::file_ops::FileOperations;
 use crate::instrument_manager::InstrumentManagerWindow;
 use crate::menu::{MenuActions, MenuRenderer, ShortcutAction, ShortcutHandler};
@@ -152,7 +152,9 @@ impl TrackerApp {
                             self.song.phrase_bank[phrase_idx].events[step_idx].instrument_id as u32;
                         if inst_id != 0 {
                             // Monophonic instrument: add a single reverb effect instance
-                            let effect = audio.get_effect_factory().create_mono_reverb();
+                            let effect = audio
+                                .get_effect_factory()
+                                .create_mono_reverb(TRACKER_EFFECT_ID);
                             audio.send_command(
                                 audio_backend::SequencerCmd::AddEffectToInstrument {
                                     instrument_id: audio_backend::id::InstrumentId::from(inst_id),

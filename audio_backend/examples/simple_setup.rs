@@ -1,57 +1,64 @@
-// use std::thread;
+use std::thread;
 
-// use audio_backend::{BlightAudio, Command, InstrumentDefinition, SynthCmd};
+use audio_backend::{BlightAudio, InstrumentCmd, SequencerCmd, TransportCmd};
 
-// fn main() {
-//     // This is a placeholder for the main function.
-//     // The actual implementation will depend on how you want to use the BlightAudio API.
-//     match &mut BlightAudio::new() {
-//         Ok(audio) => {
-//             println!("BlightAudio initialized successfully!");
-//             // You can now use `audio` to send commands, etc.
-//             audio.send_command(
-//                 SynthCmd::PlayNote {
-//                     note: 60,
-//                     voice: audio.get_voice_factory().create_voice(
-//                         0,
-//                         InstrumentDefinition::Oscillator,
-//                         0.0,
-//                     ),
-//                     velocity: 127,
-//                 }
-//                 .into(),
-//             );
-//             thread::sleep(std::time::Duration::from_millis(1000));
-//             audio.send_command(Command::Synth(SynthCmd::StopNote { voice_id: 0 }));
-//             audio.send_command(
-//                 SynthCmd::PlayNote {
-//                     note: 63,
-//                     voice: audio.get_voice_factory().create_voice(
-//                         1,
-//                         InstrumentDefinition::Oscillator,
-//                         0.0,
-//                     ),
-//                     velocity: 127,
-//                 }
-//                 .into(),
-//             );
-//             thread::sleep(std::time::Duration::from_millis(1000));
-//             audio.send_command(Command::Synth(SynthCmd::StopNote { voice_id: 1 }));
-//             audio.send_command(
-//                 SynthCmd::PlayNote {
-//                     note: 66,
-//                     voice: audio.get_voice_factory().create_voice(
-//                         2,
-//                         InstrumentDefinition::Oscillator,
-//                         0.0,
-//                     ),
-//                     velocity: 127,
-//                 }
-//                 .into(),
-//             );
-//             thread::sleep(std::time::Duration::from_millis(1000));
-//             audio.send_command(Command::Synth(SynthCmd::StopNote { voice_id: 2 }));
-//         }
-//         Err(e) => eprintln!("Failed to initialize BlightAudio: {}", e),
-//     }
-// }
+fn main() {
+    // This is a placeholder for the main function.
+    // The actual implementation will depend on how you want to use the BlightAudio API.
+    match &mut BlightAudio::new() {
+        Ok(audio) => {
+            let instrument_id = 0;
+            audio.send_command(
+                SequencerCmd::AddTrackInstrument {
+                    instrument: audio
+                        .get_instrument_factory()
+                        .create_dfam(instrument_id, 0.0),
+                }
+                .into(),
+            );
+            audio.send_command(TransportCmd::PlayLastSong.into());
+            audio.send_command(
+                InstrumentCmd::NoteOn {
+                    instrument_id,
+                    note: 60,
+                    velocity: 127,
+                }
+                .into(),
+            );
+            thread::sleep(std::time::Duration::from_millis(1000));
+            audio.send_command(InstrumentCmd::NoteOff { instrument_id }.into());
+            audio.send_command(
+                InstrumentCmd::NoteOn {
+                    instrument_id,
+                    note: 63,
+                    velocity: 127,
+                }
+                .into(),
+            );
+            thread::sleep(std::time::Duration::from_millis(1000));
+            audio.send_command(InstrumentCmd::NoteOff { instrument_id }.into());
+            audio.send_command(
+                InstrumentCmd::NoteOn {
+                    instrument_id,
+                    note: 63,
+                    velocity: 127,
+                }
+                .into(),
+            );
+            thread::sleep(std::time::Duration::from_millis(1000));
+            audio.send_command(InstrumentCmd::NoteOff { instrument_id }.into());
+            audio.send_command(
+                InstrumentCmd::NoteOn {
+                    instrument_id,
+                    note: 66,
+                    velocity: 127,
+                }
+                .into(),
+            );
+            thread::sleep(std::time::Duration::from_millis(1000));
+            audio.send_command(InstrumentCmd::NoteOff { instrument_id }.into());
+            thread::sleep(std::time::Duration::from_millis(1000));
+        }
+        Err(e) => eprintln!("Failed to initialize BlightAudio: {}", e),
+    }
+}

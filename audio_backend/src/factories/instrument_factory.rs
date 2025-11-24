@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use crate::{
-    id::InstrumentId, HiHat, InstrumentTrait, KickDrum, LoopRegion, MonophonicOscillator,
-    PolyphonicOscillator, SampleData, SnareDrum, Waveform, MoogDFAM,
+    id::InstrumentId, HiHat, InstrumentTrait, KickDrum, LoopRegion, MonophonicOscillator, MoogDFAM,
+    PolyphonicOscillator, SampleData, SnareDrum, Waveform,
 };
 
 pub struct InstrumentFactory {
@@ -74,11 +74,7 @@ impl InstrumentFactory {
         Box::new(SnareDrum::new(instrument_id, pan, self.sample_rate))
     }
 
-    pub fn create_dfam(
-        &self,
-        instrument_id: InstrumentId,
-        pan: f32,
-    ) -> Box<dyn InstrumentTrait> {
+    pub fn create_dfam(&self, instrument_id: InstrumentId, pan: f32) -> Box<dyn InstrumentTrait> {
         Box::new(MoogDFAM::new(instrument_id, pan, self.sample_rate))
     }
 

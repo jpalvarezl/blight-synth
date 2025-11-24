@@ -1,8 +1,10 @@
 use std::vec;
 
 use crate::{
-    commands::SynthCmd, id::VoiceId, synth_infra::synth_node::SynthNode, Envelope, MonoEffect,
-    MonoEffectChain,
+    commands::SynthCmd,
+    id::{EffectId, VoiceId},
+    synth_infra::synth_node::SynthNode,
+    EffectCmd, Envelope, MonoEffect, MonoEffectChain,
 };
 
 /// A trait for a generic, type-erased `Voice`. This is used for dynamic dispatch
@@ -35,7 +37,7 @@ pub trait VoiceTrait: Send + Sync {
     fn add_effect(&mut self, effect: Box<dyn MonoEffect>);
 
     /// Set effect parameter
-    fn set_effect_parameter(&mut self, effect_index: usize, param_index: u32, value: f32);
+    fn set_effect_parameter(&mut self, effect_id: EffectId, param_index: u32, value: f32);
 }
 
 /// A `Voice` represents a single, monophonic musical event. It bundles a sound
@@ -168,45 +170,20 @@ impl<S: SynthNode> VoiceTrait for Voice<S> {
 
     fn try_handle_command(&mut self, command: &SynthCmd) -> bool {
         let was_handled = match command {
-            SynthCmd::SetEnvAttack {
+            // check for envelope commands first
+            SynthCmd::EnvelopeCommand {
                 envelope_id: _,
-                attack,
+                command,
             } => {
                 if let Some(env) = &mut self.envelope {
-                    env.set_attack(*attack);
-                    true
+                    env.handle_command(command)
                 } else {
                     false
                 }
             }
-            SynthCmd::SetEnvDecay {
-                envelope_id: _,
-                decay,
-            } => {
-                if let Some(env) = &mut self.envelope {
-                    env.set_decay(*decay);
-                    true
-                } else {
-                    false
-                }
-            }
-            SynthCmd::SetEnvSustain {
-                envelope_id: _,
-                sustain,
-            } => {
-                if let Some(env) = &mut self.envelope {
-                    env.set_sustain(*sustain);
-                    true
-                } else {
-                    false
-                }
-            }
-            SynthCmd::SetEnvRelease {
-                envelope_id: _,
-                release,
-            } => {
-                if let Some(env) = &mut self.envelope {
-                    env.set_release(*release);
+            SynthCmd::EffectCommand { effect_id, command } => {
+                if let EffectCmd::SetParameter { param_index, value } = command {
+                    self.set_effect_parameter(*effect_id, *param_index, *value);
                     true
                 } else {
                     false
@@ -215,6 +192,7 @@ impl<S: SynthNode> VoiceTrait for Voice<S> {
             _ => false,
         };
 
+        // If the command wasn't an envelope command, pass it to the synth node
         if was_handled {
             return true;
         } else {
@@ -226,8 +204,8 @@ impl<S: SynthNode> VoiceTrait for Voice<S> {
         self.effect_chain.add_effect(effect);
     }
 
-    fn set_effect_parameter(&mut self, effect_index: usize, param_index: u32, value: f32) {
+    fn set_effect_parameter(&mut self, effect_id: EffectId, param_index: u32, value: f32) {
         self.effect_chain
-            .set_effect_parameter(effect_index, param_index, value);
+            .set_effect_parameter(effect_id, param_index, value);
     }
 }

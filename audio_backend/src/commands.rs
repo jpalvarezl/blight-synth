@@ -1,7 +1,7 @@
 use crate::{
-    id::{EffectChainId, EnvelopeId, InstrumentId, VoiceId},
+    id::{EffectChainId, EffectId, EnvelopeId, InstrumentId, VoiceId},
     instruments::Waveform,
-    InstrumentTrait, MonoEffect, StereoEffect, VoiceEffects, VoiceTrait,
+    InstrumentTrait, MonoEffect, StereoEffect, VoiceEffects,
 };
 use sequencer::models::Song;
 use std::sync::Arc;
@@ -33,61 +33,41 @@ pub enum SequencerCmd {
 }
 
 pub enum SynthCmd {
-    // Note/Voice Control
-    PlayNoteInstrument {
-        voice_id: VoiceId,
-        note: u8,
-        velocity: u8,
-    },
-    PlayNote {
-        voice: Box<dyn VoiceTrait>,
-        note: u8,
-        velocity: u8,
-    },
-    StopNote {
-        voice_id: VoiceId,
-    },
-    // Parameter Control (Type-Safe)
-    SetVoicePan {
-        voice_id: VoiceId,
-        pan: f32,
-    },
-    SetSuperSawDetune {
-        voice_id: VoiceId,
-        detune: f32,
-    },
     SetWaveform {
         voice_id: VoiceId,
         waveform: Waveform,
     },
-    AddVoiceEffect {
-        voice_id: VoiceId,
-        effect: Box<dyn MonoEffect>,
-    },
-    SetEnvAttack {
+    EnvelopeCommand {
         envelope_id: Option<EnvelopeId>,
-        attack: f32,
+        command: EnvelopeCmd,
     },
-    SetEnvDecay {
-        envelope_id: Option<EnvelopeId>,
-        decay: f32,
+    EffectCommand {
+        effect_id: EffectId,
+        command: EffectCmd,
     },
-    SetEnvSustain {
-        envelope_id: Option<EnvelopeId>,
-        sustain: f32,
-    },
-    SetEnvRelease {
-        envelope_id: Option<EnvelopeId>,
-        release: f32,
-    },
-    SetPitchEnvFreqDelta {
-        freq_delta: f32,
-    },
+}
+
+pub enum EffectCmd {
+    SetParameter { param_index: u32, value: f32 },
+    SwapEffectOrder { target_effect_id: EffectId },
+}
+
+pub enum EnvelopeCmd {
+    SetPitchEnvFreqDelta { freq_delta: f32 },
+    SetAttack { attack: f32 },
+    SetDecay { decay: f32 },
+    SetSustain { sustain: f32 },
+    SetRelease { release: f32 },
 }
 
 pub enum MixerCmd {
     AddMasterEffect {
         effect: Box<dyn StereoEffect>,
+    },
+    SetMasterEffectParameter {
+        effect_id: EffectId,
+        param_index: u32,
+        value: f32,
     },
     RemoveEffect {
         target_chain: EffectChainId,
@@ -100,7 +80,7 @@ pub enum MixerCmd {
     },
     SetEffectParameter {
         instrument_id: InstrumentId,
-        effect_index: usize,
+        effect_id: EffectId,
         param_index: u32,
         value: f32,
     },

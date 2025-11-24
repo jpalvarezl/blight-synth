@@ -1,3 +1,5 @@
+use crate::EnvelopeCmd;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum EnvelopeState {
     Idle,
@@ -172,6 +174,30 @@ impl Envelope {
     }
 }
 
+impl Envelope {
+    pub fn handle_command(&mut self, command: &EnvelopeCmd) -> bool {
+        match command {
+            EnvelopeCmd::SetAttack { attack } => {
+                self.set_attack(*attack);
+                true
+            }
+            EnvelopeCmd::SetDecay { decay } => {
+                self.set_decay(*decay);
+                true
+            }
+            EnvelopeCmd::SetSustain { sustain } => {
+                self.set_sustain(*sustain);
+                true
+            }
+            EnvelopeCmd::SetRelease { release } => {
+                self.set_release(*release);
+                true
+            }
+            _ => false,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{Envelope, EnvelopeState, RELEASE_IDLE_THRESHOLD};
@@ -196,11 +222,8 @@ mod tests {
         );
 
         env.gate(false);
-        let release_samples = advance_until_state(
-            &mut env,
-            EnvelopeState::Idle,
-            SAMPLE_RATE as usize * 2,
-        );
+        let release_samples =
+            advance_until_state(&mut env, EnvelopeState::Idle, SAMPLE_RATE as usize * 2);
 
         assert!(
             release_samples <= SAMPLE_RATE as usize,
@@ -233,14 +256,14 @@ mod tests {
         );
 
         env.gate(false);
-        let release_samples = advance_until_state(
-            &mut env,
-            EnvelopeState::Idle,
-            (SAMPLE_RATE * 0.05) as usize,
-        );
+        let release_samples =
+            advance_until_state(&mut env, EnvelopeState::Idle, (SAMPLE_RATE * 0.05) as usize);
 
         let release_seconds = release_samples as f32 / SAMPLE_RATE;
-        assert!(release_seconds <= 0.011, "Release took longer than requested 0.01s");
+        assert!(
+            release_seconds <= 0.011,
+            "Release took longer than requested 0.01s"
+        );
     }
 
     #[test]
@@ -271,10 +294,17 @@ mod tests {
             max_deviation,
             SUSTAIN_STABILITY_TOLERANCE
         );
-        assert!(env.is_active(), "Envelope should remain active while sustaining");
+        assert!(
+            env.is_active(),
+            "Envelope should remain active while sustaining"
+        );
 
         env.gate(false);
-        advance_until_state(&mut env, EnvelopeState::Idle, (SAMPLE_RATE as usize * 2).max(1));
+        advance_until_state(
+            &mut env,
+            EnvelopeState::Idle,
+            (SAMPLE_RATE as usize * 2).max(1),
+        );
     }
 
     #[test]
@@ -285,14 +315,20 @@ mod tests {
 
         // First process call should immediately jump to peak treated as percussive
         let first_sample = env.process();
-        assert!(first_sample >= 0.99, "Instant attack should start near full amplitude");
+        assert!(
+            first_sample >= 0.99,
+            "Instant attack should start near full amplitude"
+        );
 
         let decay_samples = advance_until_state(
             &mut env,
             EnvelopeState::Sustain,
             (SAMPLE_RATE * 0.05) as usize,
         );
-        assert!(decay_samples > 0, "Decay should still take some samples even with zero sustain");
+        assert!(
+            decay_samples > 0,
+            "Decay should still take some samples even with zero sustain"
+        );
         assert_eq!(env.state(), EnvelopeState::Sustain);
 
         env.gate(false);
@@ -312,7 +348,11 @@ mod tests {
         let value_during_release = env.process();
 
         env.gate(true);
-        assert_eq!(env.state(), EnvelopeState::Attack, "Retrigger should restart at attack");
+        assert_eq!(
+            env.state(),
+            EnvelopeState::Attack,
+            "Retrigger should restart at attack"
+        );
         let mut attack_value = value_during_release;
         for _ in 0..32 {
             attack_value = env.process();
@@ -377,11 +417,7 @@ mod tests {
 
         env.gate(true);
 
-        let sustain_samples = advance_until_state(
-            &mut env,
-            EnvelopeState::Sustain,
-            8,
-        );
+        let sustain_samples = advance_until_state(&mut env, EnvelopeState::Sustain, 8);
         assert!(
             sustain_samples <= 4,
             "Zero attack/decay should reach sustain immediately (took {} samples)",
@@ -389,13 +425,19 @@ mod tests {
         );
 
         let sustain_value = env.process();
-        assert!(sustain_value >= 0.99, "Sustain should hold full level without decay");
+        assert!(
+            sustain_value >= 0.99,
+            "Sustain should hold full level without decay"
+        );
 
         env.gate(false);
         for _ in 0..4 {
             let value = env.process();
             if env.state() == EnvelopeState::Idle {
-                assert!(value <= RELEASE_IDLE_THRESHOLD, "Zero release should drop signal immediately");
+                assert!(
+                    value <= RELEASE_IDLE_THRESHOLD,
+                    "Zero release should drop signal immediately"
+                );
                 return;
             }
         }
@@ -460,11 +502,7 @@ mod tests {
         }
     }
 
-    fn advance_until_state(
-        env: &mut Envelope,
-        target: EnvelopeState,
-        max_samples: usize,
-    ) -> usize {
+    fn advance_until_state(env: &mut Envelope, target: EnvelopeState, max_samples: usize) -> usize {
         for n in 0..max_samples.max(1) {
             env.process();
             if env.state() == target {

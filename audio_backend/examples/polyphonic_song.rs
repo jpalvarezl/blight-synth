@@ -9,6 +9,7 @@ pub fn main() {
     env_logger::init();
 
     let lead_instrument_id: InstrumentId = 1;
+    let reverb_id = 0;
     match &mut BlightAudio::with_song(Arc::new(load_song(lead_instrument_id))) {
         Ok(audio) => {
             let max_voices = 5;
@@ -23,7 +24,8 @@ pub fn main() {
                 .into(),
             );
 
-            let reverbs = (0..max_voices).map(|_| audio.get_effect_factory().create_mono_reverb());
+            let reverbs =
+                (0..max_voices).map(|_| audio.get_effect_factory().create_mono_reverb(reverb_id));
             audio.send_command(
                 audio_backend::SequencerCmd::AddVoiceEffectsToInstrument {
                     instrument_id: lead_instrument_id,
