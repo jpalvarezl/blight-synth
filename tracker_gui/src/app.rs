@@ -2,7 +2,7 @@ use eframe::egui;
 use sequencer::cli::FileFormat;
 use sequencer::models::Song;
 
-use crate::audio::{AudioManager, TRACKER_EFFECT_ID};
+use crate::audio::AudioManager;
 use crate::file_ops::FileOperations;
 use crate::instrument_manager::InstrumentManagerWindow;
 use crate::menu::{MenuActions, MenuRenderer, ShortcutAction, ShortcutHandler};
@@ -10,7 +10,7 @@ use crate::tabs::{
     CurrentTab, arrangement::ArrangementTab, chains::ChainsTab, phrases::PhrasesTab,
 };
 use crate::theme::ThemeManager;
-use crate::ui_components::{EffectType, SidePanel, SidePanelAction, SongInfoEditor, TabSelector};
+use crate::ui_components::{SongInfoEditor, TabSelector};
 use crate::ui_state::UiState;
 pub struct TrackerApp {
     pub song: Song,
@@ -27,7 +27,6 @@ pub struct TrackerApp {
     pub theme_manager: ThemeManager,
 
     pub show_shortcuts_window: bool,
-    pub side_panel: SidePanel,
     pub ui_state: UiState,
     pub instrument_window: InstrumentManagerWindow,
 }
@@ -123,60 +122,6 @@ impl TrackerApp {
         }
     }
 
-    fn handle_effect_selection(
-        &mut self,
-        effect: EffectType,
-        _current_track: usize,
-        event_selection: Option<(usize, usize)>,
-    ) {
-        // Update the sequencer model so the UI reflects the effect immediately
-        if let (EffectType::Reverb, Some((phrase_idx, step_idx))) = (effect, event_selection) {
-            if phrase_idx < self.song.phrase_bank.len()
-                && step_idx < self.song.phrase_bank[phrase_idx].events.len()
-            {
-                let event = &mut self.song.phrase_bank[phrase_idx].events[step_idx];
-                event.effect = sequencer::models::EffectType::SetReverb;
-                if event.effect_param == 0 {
-                    event.effect_param = 1;
-                }
-            }
-        }
-
-        if let Some(audio) = &mut self.audio_manager.audio {
-            match (effect, event_selection) {
-                (EffectType::Reverb, Some((phrase_idx, step_idx))) => {
-                    if phrase_idx < self.song.phrase_bank.len()
-                        && step_idx < self.song.phrase_bank[phrase_idx].events.len()
-                    {
-                        let inst_id =
-                            self.song.phrase_bank[phrase_idx].events[step_idx].instrument_id as u32;
-                        if inst_id != 0 {
-                            // Monophonic instrument: add a single reverb effect instance
-                            let effect = audio
-                                .get_effect_factory()
-                                .create_mono_reverb(TRACKER_EFFECT_ID);
-                            audio.send_command(
-                                audio_backend::SequencerCmd::AddEffectToInstrument {
-                                    instrument_id: audio_backend::id::InstrumentId::from(inst_id),
-                                    effect,
-                                }
-                                .into(),
-                            );
-                            log::info!("Added Reverb to instrument {}", inst_id);
-                        } else {
-                            log::warn!(
-                                "Cannot add effect: selected event has no instrument (inherit)"
-                            );
-                        }
-                    }
-                }
-                _ => {}
-            }
-        } else {
-            // Attempt to initialize audio silently for a smoother UX
-            self.audio_manager.init_audio(&self.song);
-        }
-    }
 }
 
 impl Default for TrackerApp {
@@ -193,7 +138,6 @@ impl Default for TrackerApp {
             audio_manager: AudioManager::default(),
             theme_manager: ThemeManager::default(),
             show_shortcuts_window: false,
-            side_panel: SidePanel::default(),
             ui_state: UiState::default(),
             instrument_window: InstrumentManagerWindow::default(),
         }
@@ -214,23 +158,6 @@ impl eframe::App for TrackerApp {
             );
             self.handle_menu_actions(actions, ctx);
         });
-
-        let current_track = self.arrangement_tab.current_track;
-
-        let event_selection = self
-            .phrases_tab
-            .selected_event_step
-            .map(|step| (self.phrases_tab.selected_phrase, step));
-        if let Some(action) =
-            self.side_panel
-                .show(ctx, current_track, event_selection, &mut self.song)
-        {
-            match action {
-                SidePanelAction::AddEffect(effect) => {
-                    self.handle_effect_selection(effect, current_track, event_selection);
-                }
-            }
-        }
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Blight Tracker - M8 Style Interface");
