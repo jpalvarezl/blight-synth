@@ -239,20 +239,6 @@ impl ThemeManager {
         }
     }
 
-    pub fn theme_button_emoji(&self) -> &str {
-        self.current_theme().button_icon.as_str()
-    }
-
-    pub fn theme_button_tooltip(&self) -> String {
-        if self.profiles.len() <= 1 {
-            return format!("Theme: {}", self.current_theme().display_name);
-        }
-
-        let next_index = (self.active_index + 1) % self.profiles.len();
-        let next = &self.profiles[next_index];
-        format!("Switch to {} theme", next.display_name)
-    }
-
     pub fn active_theme_name(&self) -> &str {
         &self.current_theme().display_name
     }

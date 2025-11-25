@@ -135,16 +135,6 @@ impl MenuRenderer {
                 }
             });
 
-            // Theme toggle button on the right
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ui
-                    .button(theme_manager.theme_button_emoji())
-                    .on_hover_text(theme_manager.theme_button_tooltip())
-                    .clicked()
-                {
-                    actions.toggle_theme = true;
-                }
-            });
         });
 
         if actions.quit {
