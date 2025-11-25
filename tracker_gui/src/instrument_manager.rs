@@ -5,67 +5,20 @@ use sequencer::models::{
 };
 
 use crate::audio::AudioManager;
-use crate::ui_components::effect_controls::{
-    DelayDefaults, EffectPanelConfig, ReverbDefaults, show_effect_panels,
+use crate::ui_components::{
+    show_amp_envelope_editor, show_effect_panels, DelayDefaults, EffectPanelConfig,
+    ReverbDefaults,
 };
 
 mod backend;
 use backend::{ensure_backend_instrument, send_amp_envelope_to_backend};
+mod sync;
+use sync::InstrumentSync;
 
 #[derive(Default)]
 pub struct InstrumentManagerWindow {
     pub open: bool,
-}
-
-fn show_amp_envelope_controls(
-    ui: &mut egui::Ui,
-    params: &mut AmpEnvelopeParams,
-    instrument_id: usize,
-    ui_prefix: &'static str,
-    audio_mgr: &mut AudioManager,
-) {
-    ui.push_id((ui_prefix, instrument_id as u32, "amp_env"), |ui| {
-        egui::CollapsingHeader::new("Amplitude Envelope")
-            .id_salt((ui_prefix, instrument_id as u32, "amp_env_hdr"))
-            .show(ui, |ui| {
-                let mut changed = false;
-                let mut atk = params.attack;
-                let mut dec = params.decay;
-                let mut sus = params.sustain;
-                let mut rel = params.release;
-
-                ui.horizontal(|ui| {
-                    ui.label("Attack");
-                    changed |= ui
-                        .add(egui::Slider::new(&mut atk, 0.0..=2.0).suffix(" s"))
-                        .changed();
-                });
-                ui.horizontal(|ui| {
-                    ui.label("Decay");
-                    changed |= ui
-                        .add(egui::Slider::new(&mut dec, 0.0..=2.0).suffix(" s"))
-                        .changed();
-                });
-                ui.horizontal(|ui| {
-                    ui.label("Sustain");
-                    changed |= ui.add(egui::Slider::new(&mut sus, 0.0..=1.0)).changed();
-                });
-                ui.horizontal(|ui| {
-                    ui.label("Release");
-                    changed |= ui
-                        .add(egui::Slider::new(&mut rel, 0.0..=5.0).suffix(" s"))
-                        .changed();
-                });
-
-                if changed {
-                    params.attack = atk;
-                    params.decay = dec;
-                    params.sustain = sus;
-                    params.release = rel;
-                    send_amp_envelope_to_backend(audio_mgr, instrument_id as u8, params);
-                }
-            });
-    });
+    sync: InstrumentSync,
 }
 
 fn waveform_display_name(w: Waveform) -> &'static str {
@@ -97,8 +50,6 @@ impl InstrumentManagerWindow {
         let mut to_add_kick = false;
         let mut to_add_snare = false;
         let mut to_add_dfam = false;
-        // Track instruments needing backend rehydration this frame
-        let mut rehydrate_ids: Vec<u8> = Vec::new();
         egui::Window::new("Instruments")
             .open(&mut self.open)
             .resizable(true)
@@ -160,16 +111,22 @@ impl InstrumentManagerWindow {
                                             });
                                         if wf != params.waveform {
                                             params.waveform = wf;
-                                            rehydrate_ids.push(inst.id as u8);
+                                            self.sync.queue_rehydrate(inst.id as u8);
                                         }
                                     });
                                     ui.separator();
-                                    show_amp_envelope_controls(
+                                    show_amp_envelope_editor(
                                         ui,
                                         &mut params.amp_envelope,
                                         inst.id,
                                         "osc",
-                                        audio_mgr,
+                                        |env| {
+                                            send_amp_envelope_to_backend(
+                                                audio_mgr,
+                                                inst.id as u8,
+                                                env,
+                                            )
+                                        },
                                     );
                                     ui.separator();
                                     ui.label("Effects:");
@@ -187,18 +144,24 @@ impl InstrumentManagerWindow {
                                         },
                                         &mut params.audio_effects,
                                         audio_mgr,
-                                        &mut rehydrate_ids,
+                                        &mut self.sync,
                                     );
                                 }
                                 InstrumentData::HiHat(params) => {
                                     ui.label("Hi-Hat");
                                     ui.separator();
-                                    show_amp_envelope_controls(
+                                    show_amp_envelope_editor(
                                         ui,
                                         &mut params.amp_envelope,
                                         inst.id,
                                         "hh",
-                                        audio_mgr,
+                                        |env| {
+                                            send_amp_envelope_to_backend(
+                                                audio_mgr,
+                                                inst.id as u8,
+                                                env,
+                                            )
+                                        },
                                     );
                                     ui.separator();
                                     ui.label("Effects:");
@@ -216,18 +179,24 @@ impl InstrumentManagerWindow {
                                         },
                                         &mut params.audio_effects,
                                         audio_mgr,
-                                        &mut rehydrate_ids,
+                                        &mut self.sync,
                                     );
                                 }
                                 InstrumentData::KickDrum(params) => {
                                     ui.label("Kick Drum");
                                     ui.separator();
-                                    show_amp_envelope_controls(
+                                    show_amp_envelope_editor(
                                         ui,
                                         &mut params.amp_envelope,
                                         inst.id,
                                         "kd",
-                                        audio_mgr,
+                                        |env| {
+                                            send_amp_envelope_to_backend(
+                                                audio_mgr,
+                                                inst.id as u8,
+                                                env,
+                                            )
+                                        },
                                     );
 
                                     ui.separator();
@@ -246,18 +215,24 @@ impl InstrumentManagerWindow {
                                         },
                                         &mut params.audio_effects,
                                         audio_mgr,
-                                        &mut rehydrate_ids,
+                                        &mut self.sync,
                                     );
                                 }
                                 InstrumentData::SnareDrum(params) => {
                                     ui.label("Snare Drum");
                                     ui.separator();
-                                    show_amp_envelope_controls(
+                                    show_amp_envelope_editor(
                                         ui,
                                         &mut params.amp_envelope,
                                         inst.id,
                                         "sd",
-                                        audio_mgr,
+                                        |env| {
+                                            send_amp_envelope_to_backend(
+                                                audio_mgr,
+                                                inst.id as u8,
+                                                env,
+                                            )
+                                        },
                                     );
                                     ui.separator();
                                     ui.label("Effects:");
@@ -275,18 +250,24 @@ impl InstrumentManagerWindow {
                                         },
                                         &mut params.audio_effects,
                                         audio_mgr,
-                                        &mut rehydrate_ids,
+                                        &mut self.sync,
                                     );
                                 }
                                 InstrumentData::DFAM(params) => {
                                     ui.label("DFAM");
                                     ui.separator();
-                                    show_amp_envelope_controls(
+                                    show_amp_envelope_editor(
                                         ui,
                                         &mut params.amp_envelope,
                                         inst.id,
                                         "dfam",
-                                        audio_mgr,
+                                        |env| {
+                                            send_amp_envelope_to_backend(
+                                                audio_mgr,
+                                                inst.id as u8,
+                                                env,
+                                            )
+                                        },
                                     );
                                     ui.separator();
                                     ui.label("Effects:");
@@ -304,7 +285,7 @@ impl InstrumentManagerWindow {
                                         },
                                         &mut params.audio_effects,
                                         audio_mgr,
-                                        &mut rehydrate_ids,
+                                        &mut self.sync,
                                     );
                                 }
                                 _ => {
@@ -415,13 +396,6 @@ impl InstrumentManagerWindow {
                 ensure_backend_instrument(audio_mgr, inst.id as u8, &inst.data);
             }
         }
-        // Apply updates to backend after UI draw
-        rehydrate_ids.sort();
-        rehydrate_ids.dedup();
-        for id_u8 in rehydrate_ids {
-            if let Some(inst) = song.instrument_bank.iter().find(|i| i.id as u8 == id_u8) {
-                ensure_backend_instrument(audio_mgr, id_u8, &inst.data);
-            }
-        }
+        self.sync.apply_pending(song, audio_mgr);
     }
 }

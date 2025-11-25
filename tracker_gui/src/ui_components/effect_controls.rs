@@ -5,6 +5,10 @@ use audio_backend::effects::{
 use eframe::egui;
 use sequencer::models::AudioEffect;
 
+pub trait EffectSync {
+    fn queue_rehydrate(&mut self, instrument_id: u8);
+}
+
 pub struct EffectPanelConfig {
     pub instrument_id: usize,
     pub ui_prefix: &'static str,
@@ -63,13 +67,13 @@ pub fn show_effect_panels(
     config: EffectPanelConfig,
     effects: &mut Vec<AudioEffect>,
     audio_mgr: &mut AudioManager,
-    rehydrate_ids: &mut Vec<u8>,
+    sync: &mut dyn EffectSync,
 ) {
     if let Some(defaults) = config.reverb_defaults {
-        show_reverb_section(ui, &config, defaults, effects, audio_mgr, rehydrate_ids);
+        show_reverb_section(ui, &config, defaults, effects, audio_mgr, sync);
     }
     if let Some(defaults) = config.delay_defaults {
-        show_delay_section(ui, &config, defaults, effects, audio_mgr, rehydrate_ids);
+        show_delay_section(ui, &config, defaults, effects, audio_mgr, sync);
     }
 }
 
@@ -79,7 +83,7 @@ fn show_reverb_section(
     defaults: ReverbDefaults,
     effects: &mut Vec<AudioEffect>,
     audio_mgr: &mut AudioManager,
-    rehydrate_ids: &mut Vec<u8>,
+    sync: &mut dyn EffectSync,
 ) {
     let inst_id_u8 = config.instrument_id as u8;
     let reverb_idx = effects
@@ -154,7 +158,7 @@ fn show_reverb_section(
         }
         if remove_reverb {
             effects.remove(idx);
-            rehydrate_ids.push(inst_id_u8);
+            sync.queue_rehydrate(inst_id_u8);
         }
     } else {
         let should_add = ui
@@ -171,7 +175,7 @@ fn show_reverb_section(
                 diffusion: defaults.diffusion,
                 damping: defaults.damping,
             });
-            rehydrate_ids.push(inst_id_u8);
+            sync.queue_rehydrate(inst_id_u8);
         }
     }
 }
@@ -182,7 +186,7 @@ fn show_delay_section(
     defaults: DelayDefaults,
     effects: &mut Vec<AudioEffect>,
     audio_mgr: &mut AudioManager,
-    rehydrate_ids: &mut Vec<u8>,
+    sync: &mut dyn EffectSync,
 ) {
     let inst_id_u8 = config.instrument_id as u8;
     let delay_idx = effects
@@ -251,7 +255,7 @@ fn show_delay_section(
         }
         if remove_delay {
             effects.remove(idx);
-            rehydrate_ids.push(inst_id_u8);
+            sync.queue_rehydrate(inst_id_u8);
         }
     } else {
         let should_add = ui
@@ -267,7 +271,7 @@ fn show_delay_section(
                 feedback: defaults.feedback,
                 mix: defaults.mix,
             });
-            rehydrate_ids.push(inst_id_u8);
+            sync.queue_rehydrate(inst_id_u8);
         }
     }
 }

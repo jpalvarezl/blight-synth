@@ -9,7 +9,12 @@ pub mod hex;
 pub use hex::{dec_u8_editor, hex_u8_editor, hex_usize_with_sentinel_editor};
 
 pub mod effect_controls;
-pub use effect_controls::{DelayDefaults, EffectPanelConfig, ReverbDefaults, show_effect_panels};
+pub use effect_controls::{
+    show_effect_panels, DelayDefaults, EffectPanelConfig, ReverbDefaults,
+};
+
+pub mod envelope;
+pub use envelope::show_amp_envelope_editor;
 
 pub struct SongInfoEditor;
 
