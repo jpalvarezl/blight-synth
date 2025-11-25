@@ -1,4 +1,4 @@
-use eframe::egui;
+use eframe::egui::{self, Align, TextStyle};
 
 /// Edit a u8 as 2-digit hex with simple validation: allow only 0-9a-fA-F, max 2 chars.
 /// Updates the numeric value as you type. The caller owns the text buffer.
@@ -9,10 +9,14 @@ pub fn hex_u8_editor(
     width_px: f32,
 ) -> egui::Response {
     let mut text = buf.clone();
+    let cell_height = ui.text_style_height(&TextStyle::Monospace) + 6.0;
     let response = ui.add(
         egui::TextEdit::singleline(&mut text)
             .desired_width(width_px)
-            .font(egui::TextStyle::Monospace),
+            .min_size(egui::vec2(width_px, cell_height))
+            .font(TextStyle::Monospace)
+            .horizontal_align(Align::Max)
+            .char_limit(2),
     );
 
     if response.changed() {
@@ -44,10 +48,14 @@ pub fn dec_u8_editor(
     width_px: f32,
 ) -> egui::Response {
     let mut text = buf.clone();
+    let cell_height = ui.text_style_height(&TextStyle::Monospace) + 6.0;
     let response = ui.add(
         egui::TextEdit::singleline(&mut text)
             .desired_width(width_px)
-            .font(egui::TextStyle::Monospace),
+            .min_size(egui::vec2(width_px, cell_height))
+            .font(TextStyle::Monospace)
+            .horizontal_align(Align::Max)
+            .char_limit(3),
     );
 
     if response.changed() {
@@ -81,10 +89,14 @@ pub fn hex_usize_with_sentinel_editor(
     width_px: f32,
 ) -> egui::Response {
     let mut text = buf.clone();
+    let cell_height = ui.text_style_height(&TextStyle::Monospace) + 6.0;
     let response = ui.add(
         egui::TextEdit::singleline(&mut text)
             .desired_width(width_px)
-            .font(egui::TextStyle::Monospace),
+            .min_size(egui::vec2(width_px, cell_height))
+            .font(TextStyle::Monospace)
+            .horizontal_align(Align::Max)
+            .char_limit(2),
     );
 
     if response.changed() {
