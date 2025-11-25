@@ -6,6 +6,10 @@ use std::sync::Arc;
 // Tracker GUI reuses a single effect id until proper routing is needed.
 pub const TRACKER_EFFECT_ID: audio_backend::id::EffectId = 1;
 
+/// Coordinates every interaction between the egui frontend and the realtime
+/// `audio_backend`. It owns the single `BlightAudio` instance, keeps transport
+/// state in sync with the UI, and exposes helpers to (re)hydrate instruments
+/// from the authored `Song` model.
 pub struct AudioManager {
     pub audio: Option<BlightAudio>,
     pub is_playing: bool,
@@ -109,12 +113,18 @@ impl AudioManager {
         self.set_looping(enabled);
     }
 
+    /// Sends a command to the audio thread via `BlightAudio::send_command`.
+    /// UI systems should call this instead of touching the backend directly so
+    /// every update flows through the same queue.
     pub fn dispatch(&mut self, cmd: impl Into<audio_backend::Command>) {
         if let Some(audio) = &mut self.audio {
             audio.send_command(cmd.into());
         }
     }
 
+    /// Rebuilds the backend instruments/effects from the current `Song` data.
+    /// Used when the app starts, when a song is loaded, or whenever we need to
+    /// guarantee the mixer mirrors the editor state.
     pub fn hydrate_from_song(&self, audio: &mut BlightAudio, song: &Song) {
         for inst in &song.instrument_bank {
             hydrate_instrument(audio, inst.id as u8, &inst.data);
