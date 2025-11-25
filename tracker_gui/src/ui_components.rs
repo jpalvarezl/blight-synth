@@ -2,11 +2,16 @@ use crate::tabs::CurrentTab;
 use eframe::egui;
 use sequencer::models::Song;
 
-pub mod side_panel;
-pub use side_panel::{EffectType, SidePanel, SidePanelAction};
-
 pub mod hex;
 pub use hex::{dec_u8_editor, hex_u8_editor, hex_usize_with_sentinel_editor};
+
+pub mod effect_controls;
+pub use effect_controls::{
+    show_effect_panels, DelayDefaults, EffectPanelConfig, ReverbDefaults,
+};
+
+pub mod envelope;
+pub use envelope::show_amp_envelope_editor;
 
 pub struct SongInfoEditor;
 
