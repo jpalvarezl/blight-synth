@@ -10,10 +10,92 @@ use crate::ui_components::{
     ReverbDefaults,
 };
 
-mod backend;
+pub mod backend;
 use backend::{ensure_backend_instrument, send_amp_envelope_to_backend};
 mod sync;
 use sync::InstrumentSync;
+
+struct InstrumentUiMetadata {
+    label: &'static str,
+    ui_prefix: &'static str,
+    reverb_defaults: Option<ReverbDefaults>,
+    delay_defaults: Option<DelayDefaults>,
+}
+
+impl InstrumentUiMetadata {
+    const fn new(
+        label: &'static str,
+        ui_prefix: &'static str,
+        reverb_defaults: Option<ReverbDefaults>,
+        delay_defaults: Option<DelayDefaults>,
+    ) -> Self {
+        Self {
+            label,
+            ui_prefix,
+            reverb_defaults,
+            delay_defaults,
+        }
+    }
+}
+
+const OSCILLATOR_UI: InstrumentUiMetadata = InstrumentUiMetadata::new(
+    "Oscillator",
+    "osc",
+    Some(ReverbDefaults::new(0.3, 0.6, 1.0, 1.0, 0.2)),
+    Some(DelayDefaults::new(0.3, 3, 0.3, 0.35)),
+);
+const HIHAT_UI: InstrumentUiMetadata = InstrumentUiMetadata::new(
+    "Hi-Hat",
+    "hh",
+    Some(ReverbDefaults::new(0.3, 0.6, 1.0, 1.0, 0.2)),
+    Some(DelayDefaults::new(0.3, 3, 0.3, 0.35)),
+);
+const KICK_UI: InstrumentUiMetadata = InstrumentUiMetadata::new(
+    "Kick Drum",
+    "kd",
+    Some(ReverbDefaults::new(0.25, 0.4, 1.0, 1.0, 0.3)),
+    Some(DelayDefaults::new(0.2, 2, 0.25, 0.2)),
+);
+const SNARE_UI: InstrumentUiMetadata = InstrumentUiMetadata::new(
+    "Snare Drum",
+    "sd",
+    Some(ReverbDefaults::new(0.25, 0.4, 1.0, 1.0, 0.3)),
+    Some(DelayDefaults::new(0.2, 2, 0.25, 0.2)),
+);
+const DFAM_UI: InstrumentUiMetadata = InstrumentUiMetadata::new(
+    "DFAM",
+    "dfam",
+    Some(ReverbDefaults::new(0.3, 0.6, 1.0, 1.0, 0.2)),
+    Some(DelayDefaults::new(0.3, 3, 0.3, 0.35)),
+);
+
+fn show_envelope_and_effects(
+    ui: &mut egui::Ui,
+    meta: &InstrumentUiMetadata,
+    inst_id: usize,
+    amp_env: &mut AmpEnvelopeParams,
+    effects: &mut Vec<sequencer::models::AudioEffect>,
+    audio_mgr: &mut AudioManager,
+    sync: &mut InstrumentSync,
+) {
+    show_amp_envelope_editor(ui, amp_env, inst_id, meta.ui_prefix, |env| {
+        send_amp_envelope_to_backend(audio_mgr, inst_id as u8, env)
+    });
+    ui.separator();
+    ui.label("Effects:");
+    show_effect_panels(
+        ui,
+        EffectPanelConfig {
+            instrument_id: inst_id,
+            ui_prefix: meta.ui_prefix,
+            reverb_defaults: meta.reverb_defaults,
+            delay_defaults: meta.delay_defaults,
+        },
+        effects,
+        audio_mgr,
+        sync,
+    );
+}
 
 #[derive(Default)]
 pub struct InstrumentManagerWindow {
@@ -85,6 +167,7 @@ impl InstrumentManagerWindow {
                             });
                             match &mut inst.data {
                                 InstrumentData::SimpleOscillator(params) => {
+                                    let meta = &OSCILLATOR_UI;
                                     ui.horizontal(|ui| {
                                         ui.label("Waveform:");
                                         let mut wf = params.waveform;
@@ -115,174 +198,67 @@ impl InstrumentManagerWindow {
                                         }
                                     });
                                     ui.separator();
-                                    show_amp_envelope_editor(
+                                    show_envelope_and_effects(
                                         ui,
-                                        &mut params.amp_envelope,
+                                        meta,
                                         inst.id,
-                                        "osc",
-                                        |env| {
-                                            send_amp_envelope_to_backend(
-                                                audio_mgr,
-                                                inst.id as u8,
-                                                env,
-                                            )
-                                        },
-                                    );
-                                    ui.separator();
-                                    ui.label("Effects:");
-                                    show_effect_panels(
-                                        ui,
-                                        EffectPanelConfig {
-                                            instrument_id: inst.id,
-                                            ui_prefix: "osc",
-                                            reverb_defaults: Some(ReverbDefaults::new(
-                                                0.3, 0.6, 1.0, 1.0, 0.2,
-                                            )),
-                                            delay_defaults: Some(DelayDefaults::new(
-                                                0.3, 3, 0.3, 0.35,
-                                            )),
-                                        },
+                                        &mut params.amp_envelope,
                                         &mut params.audio_effects,
                                         audio_mgr,
                                         &mut self.sync,
                                     );
                                 }
                                 InstrumentData::HiHat(params) => {
-                                    ui.label("Hi-Hat");
+                                    let meta = &HIHAT_UI;
+                                    ui.label(meta.label);
                                     ui.separator();
-                                    show_amp_envelope_editor(
+                                    show_envelope_and_effects(
                                         ui,
-                                        &mut params.amp_envelope,
+                                        meta,
                                         inst.id,
-                                        "hh",
-                                        |env| {
-                                            send_amp_envelope_to_backend(
-                                                audio_mgr,
-                                                inst.id as u8,
-                                                env,
-                                            )
-                                        },
-                                    );
-                                    ui.separator();
-                                    ui.label("Effects:");
-                                    show_effect_panels(
-                                        ui,
-                                        EffectPanelConfig {
-                                            instrument_id: inst.id,
-                                            ui_prefix: "hh",
-                                            reverb_defaults: Some(ReverbDefaults::new(
-                                                0.3, 0.6, 1.0, 1.0, 0.2,
-                                            )),
-                                            delay_defaults: Some(DelayDefaults::new(
-                                                0.3, 3, 0.3, 0.35,
-                                            )),
-                                        },
+                                        &mut params.amp_envelope,
                                         &mut params.audio_effects,
                                         audio_mgr,
                                         &mut self.sync,
                                     );
                                 }
                                 InstrumentData::KickDrum(params) => {
-                                    ui.label("Kick Drum");
+                                    let meta = &KICK_UI;
+                                    ui.label(meta.label);
                                     ui.separator();
-                                    show_amp_envelope_editor(
+                                    show_envelope_and_effects(
                                         ui,
-                                        &mut params.amp_envelope,
+                                        meta,
                                         inst.id,
-                                        "kd",
-                                        |env| {
-                                            send_amp_envelope_to_backend(
-                                                audio_mgr,
-                                                inst.id as u8,
-                                                env,
-                                            )
-                                        },
-                                    );
-
-                                    ui.separator();
-                                    ui.label("Effects:");
-                                    show_effect_panels(
-                                        ui,
-                                        EffectPanelConfig {
-                                            instrument_id: inst.id,
-                                            ui_prefix: "kd",
-                                            reverb_defaults: Some(ReverbDefaults::new(
-                                                0.25, 0.4, 1.0, 1.0, 0.3,
-                                            )),
-                                            delay_defaults: Some(DelayDefaults::new(
-                                                0.2, 2, 0.25, 0.2,
-                                            )),
-                                        },
+                                        &mut params.amp_envelope,
                                         &mut params.audio_effects,
                                         audio_mgr,
                                         &mut self.sync,
                                     );
                                 }
                                 InstrumentData::SnareDrum(params) => {
-                                    ui.label("Snare Drum");
+                                    let meta = &SNARE_UI;
+                                    ui.label(meta.label);
                                     ui.separator();
-                                    show_amp_envelope_editor(
+                                    show_envelope_and_effects(
                                         ui,
-                                        &mut params.amp_envelope,
+                                        meta,
                                         inst.id,
-                                        "sd",
-                                        |env| {
-                                            send_amp_envelope_to_backend(
-                                                audio_mgr,
-                                                inst.id as u8,
-                                                env,
-                                            )
-                                        },
-                                    );
-                                    ui.separator();
-                                    ui.label("Effects:");
-                                    show_effect_panels(
-                                        ui,
-                                        EffectPanelConfig {
-                                            instrument_id: inst.id,
-                                            ui_prefix: "sd",
-                                            reverb_defaults: Some(ReverbDefaults::new(
-                                                0.25, 0.4, 1.0, 1.0, 0.3,
-                                            )),
-                                            delay_defaults: Some(DelayDefaults::new(
-                                                0.2, 2, 0.25, 0.2,
-                                            )),
-                                        },
+                                        &mut params.amp_envelope,
                                         &mut params.audio_effects,
                                         audio_mgr,
                                         &mut self.sync,
                                     );
                                 }
                                 InstrumentData::DFAM(params) => {
-                                    ui.label("DFAM");
+                                    let meta = &DFAM_UI;
+                                    ui.label(meta.label);
                                     ui.separator();
-                                    show_amp_envelope_editor(
+                                    show_envelope_and_effects(
                                         ui,
-                                        &mut params.amp_envelope,
+                                        meta,
                                         inst.id,
-                                        "dfam",
-                                        |env| {
-                                            send_amp_envelope_to_backend(
-                                                audio_mgr,
-                                                inst.id as u8,
-                                                env,
-                                            )
-                                        },
-                                    );
-                                    ui.separator();
-                                    ui.label("Effects:");
-                                    show_effect_panels(
-                                        ui,
-                                        EffectPanelConfig {
-                                            instrument_id: inst.id,
-                                            ui_prefix: "dfam",
-                                            reverb_defaults: Some(ReverbDefaults::new(
-                                                0.3, 0.6, 1.0, 1.0, 0.2,
-                                            )),
-                                            delay_defaults: Some(DelayDefaults::new(
-                                                0.3, 3, 0.3, 0.35,
-                                            )),
-                                        },
+                                        &mut params.amp_envelope,
                                         &mut params.audio_effects,
                                         audio_mgr,
                                         &mut self.sync,

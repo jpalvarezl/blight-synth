@@ -285,25 +285,22 @@ fn push_reverb_updates(
     damping: f32,
     diffusion: f32,
 ) {
-    if let Some(audio) = &mut audio_mgr.audio {
-        let id = audio_backend::id::InstrumentId::from(instrument_id as u32);
-        for (param_index, value) in [
-            (RP::Mix.as_index(), mix),
-            (RP::Decay.as_index(), decay),
-            (RP::RoomSize.as_index(), room_size),
-            (RP::Damping.as_index(), damping),
-            (RP::Diffusion.as_index(), diffusion),
-        ] {
-            audio.send_command(
-                audio_backend::MixerCmd::SetEffectParameter {
-                    instrument_id: id,
-                    effect_id: TRACKER_EFFECT_ID,
-                    param_index,
-                    value,
-                }
-                .into(),
-            );
-        }
+    let id = audio_backend::id::InstrumentId::from(instrument_id as u32);
+    for (param_index, value) in [
+        (RP::Mix.as_index(), mix),
+        (RP::Decay.as_index(), decay),
+        (RP::RoomSize.as_index(), room_size),
+        (RP::Damping.as_index(), damping),
+        (RP::Diffusion.as_index(), diffusion),
+    ] {
+        audio_mgr.dispatch(
+            audio_backend::MixerCmd::SetEffectParameter {
+                instrument_id: id,
+                effect_id: TRACKER_EFFECT_ID,
+                param_index,
+                value,
+            }
+        );
     }
 }
 
@@ -315,23 +312,20 @@ fn push_delay_updates(
     feedback: f32,
     mix: f32,
 ) {
-    if let Some(audio) = &mut audio_mgr.audio {
-        let id = audio_backend::id::InstrumentId::from(instrument_id as u32);
-        for (param_index, value) in [
-            (DP::Time.as_index(), time),
-            (DP::NumTaps.as_index(), num_taps as f32),
-            (DP::Feedback.as_index(), feedback),
-            (DP::Mix.as_index(), mix),
-        ] {
-            audio.send_command(
-                audio_backend::MixerCmd::SetEffectParameter {
-                    instrument_id: id,
-                    effect_id: TRACKER_EFFECT_ID,
-                    param_index,
-                    value,
-                }
-                .into(),
-            );
-        }
+    let id = audio_backend::id::InstrumentId::from(instrument_id as u32);
+    for (param_index, value) in [
+        (DP::Time.as_index(), time),
+        (DP::NumTaps.as_index(), num_taps as f32),
+        (DP::Feedback.as_index(), feedback),
+        (DP::Mix.as_index(), mix),
+    ] {
+        audio_mgr.dispatch(
+            audio_backend::MixerCmd::SetEffectParameter {
+                instrument_id: id,
+                effect_id: TRACKER_EFFECT_ID,
+                param_index,
+                value,
+            }
+        );
     }
 }

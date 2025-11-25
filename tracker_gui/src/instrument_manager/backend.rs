@@ -1,28 +1,34 @@
 use crate::audio::{AudioManager, TRACKER_EFFECT_ID};
 use crate::audio_utils::map_waveform_to_backend;
 use audio_backend::effects::{DelayParameter as DP, ReverbParameter as RP};
-use audio_backend::{EnvelopeCmd, SequencerCmd};
+use audio_backend::{BlightAudio, EnvelopeCmd, SequencerCmd};
 use sequencer::models::{
     AmpEnvelopeParams, AudioEffect, HiHatParams, InstrumentData, KickDrumParams,
     SimpleOscillatorParams, SnareDrumParams,
 };
 
 pub fn ensure_backend_instrument(audio_mgr: &mut AudioManager, id_u8: u8, data: &InstrumentData) {
+    if let Some(audio) = &mut audio_mgr.audio {
+        hydrate_instrument(audio, id_u8, data);
+    }
+}
+
+pub fn hydrate_instrument(audio: &mut BlightAudio, id_u8: u8, data: &InstrumentData) {
     match data {
         InstrumentData::SimpleOscillator(params) => {
-            ensure_backend_osc_with_params(audio_mgr, id_u8, params);
+            hydrate_osc_with_params(audio, id_u8, params);
         }
         InstrumentData::HiHat(params) => {
-            ensure_backend_hihat_with_params(audio_mgr, id_u8, params);
+            hydrate_hihat_with_params(audio, id_u8, params);
         }
         InstrumentData::KickDrum(params) => {
-            ensure_backend_kick_with_params(audio_mgr, id_u8, params);
+            hydrate_kick_with_params(audio, id_u8, params);
         }
         InstrumentData::SnareDrum(params) => {
-            ensure_backend_snare_with_params(audio_mgr, id_u8, params);
+            hydrate_snare_with_params(audio, id_u8, params);
         }
         InstrumentData::DFAM(params) => {
-            ensure_backend_dfam_with_params(audio_mgr, id_u8, params);
+            hydrate_dfam_with_params(audio, id_u8, params);
         }
         _ => {}
     }
@@ -34,128 +40,110 @@ pub fn send_amp_envelope_to_backend(
     env: &AmpEnvelopeParams,
 ) {
     if let Some(audio) = &mut audio_mgr.audio {
-        let id = audio_backend::id::InstrumentId::from(instrument_id as u32);
-        for command in [
-            EnvelopeCmd::SetAttack { attack: env.attack },
-            EnvelopeCmd::SetDecay { decay: env.decay },
-            EnvelopeCmd::SetSustain {
-                sustain: env.sustain,
-            },
-            EnvelopeCmd::SetRelease {
-                release: env.release,
-            },
-        ] {
-            audio.send_command(
-                audio_backend::InstrumentCmd::PassOnSynthCmd {
-                    instrument_id: id,
-                    synth_cmd: audio_backend::SynthCmd::EnvelopeCommand {
-                        envelope_id: Some(0),
-                        command,
-                    },
-                }
-                .into(),
-            );
-        }
+        send_amp_envelope(audio, instrument_id, env);
     }
 }
 
-fn ensure_backend_osc_with_params(
-    audio_mgr: &mut AudioManager,
-    id_u8: u8,
-    params: &SimpleOscillatorParams,
-) {
-    if let Some(audio) = &mut audio_mgr.audio {
-        let backend_wave = map_waveform_to_backend(params.waveform);
-        let id = audio_backend::id::InstrumentId::from(id_u8 as u32);
-        let instrument = audio
-            .get_instrument_factory()
-            .create_oscillator_with_waveform(id, 0.0, backend_wave);
-        audio.send_command(SequencerCmd::AddTrackInstrument { instrument }.into());
-        apply_effects(audio, id, &params.audio_effects);
-    }
-
-    send_amp_envelope_to_backend(audio_mgr, id_u8, &params.amp_envelope);
-}
-
-fn ensure_backend_hihat_with_params(audio_mgr: &mut AudioManager, id_u8: u8, params: &HiHatParams) {
-    if let Some(audio) = &mut audio_mgr.audio {
-        let id = audio_backend::id::InstrumentId::from(id_u8 as u32);
-        let instrument = audio.get_instrument_factory().create_hihat(id, 0.0);
-        audio.send_command(SequencerCmd::AddTrackInstrument { instrument }.into());
-        apply_effects(audio, id, &params.audio_effects);
-    }
-
-    send_amp_envelope_to_backend(audio_mgr, id_u8, &params.amp_envelope);
-}
-
-fn ensure_backend_kick_with_params(
-    audio_mgr: &mut AudioManager,
-    id_u8: u8,
-    params: &KickDrumParams,
-) {
-    if let Some(audio) = &mut audio_mgr.audio {
-        let id = audio_backend::id::InstrumentId::from(id_u8 as u32);
-        let instrument = audio.get_instrument_factory().create_kick_drum(id, 0.0);
-        audio.send_command(SequencerCmd::AddTrackInstrument { instrument }.into());
-        apply_effects(audio, id, &params.audio_effects);
-
+fn send_amp_envelope(audio: &mut BlightAudio, instrument_id: u8, env: &AmpEnvelopeParams) {
+    let id = audio_backend::id::InstrumentId::from(instrument_id as u32);
+    for command in [
+        EnvelopeCmd::SetAttack { attack: env.attack },
+        EnvelopeCmd::SetDecay { decay: env.decay },
+        EnvelopeCmd::SetSustain {
+            sustain: env.sustain,
+        },
+        EnvelopeCmd::SetRelease {
+            release: env.release,
+        },
+    ] {
         audio.send_command(
             audio_backend::InstrumentCmd::PassOnSynthCmd {
                 instrument_id: id,
                 synth_cmd: audio_backend::SynthCmd::EnvelopeCommand {
-                    envelope_id: None,
-                    command: EnvelopeCmd::SetPitchEnvFreqDelta {
-                        freq_delta: params.pitch_envelope.freq_delta,
-                    },
+                    envelope_id: Some(0),
+                    command,
                 },
             }
             .into(),
         );
     }
-
-    send_amp_envelope_to_backend(audio_mgr, id_u8, &params.amp_envelope);
 }
 
-fn ensure_backend_snare_with_params(
-    audio_mgr: &mut AudioManager,
-    id_u8: u8,
-    params: &SnareDrumParams,
-) {
-    if let Some(audio) = &mut audio_mgr.audio {
-        let id = audio_backend::id::InstrumentId::from(id_u8 as u32);
-        let instrument = audio.get_instrument_factory().create_snare_drum(id, 0.0);
-        audio.send_command(SequencerCmd::AddTrackInstrument { instrument }.into());
-        apply_effects(audio, id, &params.audio_effects);
-    }
+fn hydrate_osc_with_params(audio: &mut BlightAudio, id_u8: u8, params: &SimpleOscillatorParams) {
+    let backend_wave = map_waveform_to_backend(params.waveform);
+    let id = audio_backend::id::InstrumentId::from(id_u8 as u32);
+    let instrument = audio
+        .get_instrument_factory()
+        .create_oscillator_with_waveform(id, 0.0, backend_wave);
+    audio.send_command(SequencerCmd::AddTrackInstrument { instrument }.into());
+    apply_effects(audio, id, &params.audio_effects);
 
-    send_amp_envelope_to_backend(audio_mgr, id_u8, &params.amp_envelope);
+    send_amp_envelope(audio, id_u8, &params.amp_envelope);
 }
 
-fn ensure_backend_dfam_with_params(
-    audio_mgr: &mut AudioManager,
+fn hydrate_hihat_with_params(audio: &mut BlightAudio, id_u8: u8, params: &HiHatParams) {
+    let id = audio_backend::id::InstrumentId::from(id_u8 as u32);
+    let instrument = audio.get_instrument_factory().create_hihat(id, 0.0);
+    audio.send_command(SequencerCmd::AddTrackInstrument { instrument }.into());
+    apply_effects(audio, id, &params.audio_effects);
+
+    send_amp_envelope(audio, id_u8, &params.amp_envelope);
+}
+
+fn hydrate_kick_with_params(audio: &mut BlightAudio, id_u8: u8, params: &KickDrumParams) {
+    let id = audio_backend::id::InstrumentId::from(id_u8 as u32);
+    let instrument = audio.get_instrument_factory().create_kick_drum(id, 0.0);
+    audio.send_command(SequencerCmd::AddTrackInstrument { instrument }.into());
+    apply_effects(audio, id, &params.audio_effects);
+
+    audio.send_command(
+        audio_backend::InstrumentCmd::PassOnSynthCmd {
+            instrument_id: id,
+            synth_cmd: audio_backend::SynthCmd::EnvelopeCommand {
+                envelope_id: None,
+                command: EnvelopeCmd::SetPitchEnvFreqDelta {
+                    freq_delta: params.pitch_envelope.freq_delta,
+                },
+            },
+        }
+        .into(),
+    );
+
+    send_amp_envelope(audio, id_u8, &params.amp_envelope);
+}
+
+fn hydrate_snare_with_params(audio: &mut BlightAudio, id_u8: u8, params: &SnareDrumParams) {
+    let id = audio_backend::id::InstrumentId::from(id_u8 as u32);
+    let instrument = audio.get_instrument_factory().create_snare_drum(id, 0.0);
+    audio.send_command(SequencerCmd::AddTrackInstrument { instrument }.into());
+    apply_effects(audio, id, &params.audio_effects);
+
+    send_amp_envelope(audio, id_u8, &params.amp_envelope);
+}
+
+fn hydrate_dfam_with_params(
+    audio: &mut BlightAudio,
     id_u8: u8,
     params: &sequencer::models::DFAMParams,
 ) {
-    if let Some(audio) = &mut audio_mgr.audio {
-        let id = audio_backend::id::InstrumentId::from(id_u8 as u32);
-        let instrument = audio.get_instrument_factory().create_dfam(id, 0.0);
-        audio.send_command(SequencerCmd::AddTrackInstrument { instrument }.into());
+    let id = audio_backend::id::InstrumentId::from(id_u8 as u32);
+    let instrument = audio.get_instrument_factory().create_dfam(id, 0.0);
+    audio.send_command(SequencerCmd::AddTrackInstrument { instrument }.into());
 
-        let ladder = audio
-            .get_effect_factory()
-            .create_moog_ladder(TRACKER_EFFECT_ID, 500.0, 0.5);
-        audio.send_command(
-            SequencerCmd::AddEffectToInstrument {
-                instrument_id: id,
-                effect: ladder,
-            }
-            .into(),
-        );
+    let ladder = audio
+        .get_effect_factory()
+        .create_moog_ladder(TRACKER_EFFECT_ID, 500.0, 0.5);
+    audio.send_command(
+        SequencerCmd::AddEffectToInstrument {
+            instrument_id: id,
+            effect: ladder,
+        }
+        .into(),
+    );
 
-        apply_effects(audio, id, &params.audio_effects);
-    }
+    apply_effects(audio, id, &params.audio_effects);
 
-    send_amp_envelope_to_backend(audio_mgr, id_u8, &params.amp_envelope);
+    send_amp_envelope(audio, id_u8, &params.amp_envelope);
 }
 
 fn apply_effects(
