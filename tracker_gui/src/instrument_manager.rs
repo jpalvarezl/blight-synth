@@ -6,8 +6,7 @@ use sequencer::models::{
 
 use crate::audio::AudioManager;
 use crate::ui_components::{
-    show_amp_envelope_editor, show_effect_panels, DelayDefaults, EffectPanelConfig,
-    ReverbDefaults,
+    DelayDefaults, EffectPanelConfig, ReverbDefaults, show_amp_envelope_editor, show_effect_panels,
 };
 
 pub mod backend;

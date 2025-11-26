@@ -12,6 +12,8 @@ pub struct MenuActions {
     pub show_instrument_manager: bool,
     pub show_shortcuts: bool,
     pub toggle_theme: bool,
+    pub select_theme: Option<String>,
+    pub import_theme: bool,
 }
 
 impl Default for MenuActions {
@@ -27,6 +29,8 @@ impl Default for MenuActions {
             show_instrument_manager: false,
             show_shortcuts: false,
             toggle_theme: false,
+            select_theme: None,
+            import_theme: false,
         }
     }
 }
@@ -111,14 +115,23 @@ impl MenuRenderer {
                 }
             });
 
-            // Theme toggle button on the right
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ui
-                    .button(theme_manager.theme_button_emoji())
-                    .on_hover_text(theme_manager.theme_button_tooltip())
-                    .clicked()
-                {
+            ui.menu_button("Theme", |ui| {
+                for descriptor in theme_manager.available_themes() {
+                    let label = format!("{} {}", descriptor.icon, descriptor.name);
+                    let is_active = theme_manager.active_theme_id() == descriptor.id;
+                    if ui.radio(is_active, label).clicked() {
+                        actions.select_theme = Some(descriptor.id.to_string());
+                        ui.close();
+                    }
+                }
+                ui.separator();
+                if ui.button("Cycle Theme").clicked() {
                     actions.toggle_theme = true;
+                    ui.close();
+                }
+                if ui.button("Import Theme…").clicked() {
+                    actions.import_theme = true;
+                    ui.close();
                 }
             });
         });

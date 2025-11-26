@@ -49,7 +49,7 @@ impl ArrangementTab {
         ui.add_space(4.0);
 
         let text_height = ui.text_style_height(&egui::TextStyle::Monospace);
-        let row_height = text_height + 4.0;
+        let row_height = text_height + 8.0;
         let visible_rows = 16.0;
         let scroll_height = row_height * visible_rows + 24.0;
 
@@ -78,7 +78,7 @@ impl ArrangementTab {
             .body(|mut body| {
                 for (row_idx, song_row) in song.arrangement.iter_mut().enumerate() {
                     let is_current_row = row_idx == self.current_row;
-                    body.row(text_height + 4.0, |mut row| {
+                    body.row(row_height, |mut row| {
                         // Row number cell
                         row.col(|ui| {
                             let label =

@@ -12,3 +12,5 @@ rfd = { workspace = true }
 sequencer = { workspace = true }
 audio_backend = { workspace = true }
 arrayvec = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }

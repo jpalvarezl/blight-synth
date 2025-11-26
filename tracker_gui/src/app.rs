@@ -1,6 +1,10 @@
 use eframe::egui;
+use log::error;
+use rfd::FileDialog;
 use sequencer::cli::FileFormat;
 use sequencer::models::Song;
+use std::fs;
+use std::time::{Duration, Instant};
 
 use crate::audio::AudioManager;
 use crate::file_ops::FileOperations;
@@ -12,6 +16,17 @@ use crate::tabs::{
 use crate::theme::ThemeManager;
 use crate::ui_components::{SongInfoEditor, TabSelector};
 use crate::ui_state::UiState;
+
+struct ThemeFeedback {
+    message: String,
+    is_error: bool,
+    expires_at: Instant,
+}
+
+const STORAGE_THEME_ID: &str = "tracker.theme.active";
+const STORAGE_CUSTOM_THEMES: &str = "tracker.theme.custom";
+/// Duration (in seconds) to display theme-import feedback without being disruptive.
+const THEME_FEEDBACK_SECS: u64 = 6;
 pub struct TrackerApp {
     pub song: Song,
     pub song_name: String,
@@ -29,11 +44,15 @@ pub struct TrackerApp {
     pub show_shortcuts_window: bool,
     pub ui_state: UiState,
     pub instrument_window: InstrumentManagerWindow,
+    theme_feedback: Option<ThemeFeedback>,
 }
 
 impl TrackerApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         let mut app = Self::default();
+        if let Some(storage) = cc.storage {
+            app.restore_theme_preferences(storage, &cc.egui_ctx);
+        }
         app.theme_manager.apply_theme(&cc.egui_ctx);
         // Auto-initialize audio engine on startup (idempotent)
         app.audio_manager.init_audio(&app.song);
@@ -61,6 +80,64 @@ impl TrackerApp {
         // Rehydrate audio engine from the newly loaded song
         if self.audio_manager.audio.is_some() {
             self.audio_manager.reset_with_song(&self.song);
+        }
+    }
+
+    fn restore_theme_preferences(&mut self, storage: &dyn eframe::Storage, ctx: &egui::Context) {
+        if let Some(json) = storage.get_string(STORAGE_CUSTOM_THEMES) {
+            if let Err(err) = self.theme_manager.restore_custom_themes(&json) {
+                error!("Failed to restore custom themes: {err}");
+            }
+        }
+
+        if let Some(theme_id) = storage.get_string(STORAGE_THEME_ID) {
+            let trimmed = theme_id.trim();
+            if !trimmed.is_empty() && !self.theme_manager.set_active_theme(trimmed, ctx) {
+                error!("Stored theme '{trimmed}' was not found. Keeping current theme");
+            }
+        }
+    }
+
+    fn import_theme_via_dialog(&mut self, ctx: &egui::Context) {
+        if let Some(path) = FileDialog::new()
+            .set_title("Import Theme")
+            .add_filter("Theme JSON", &["json"])
+            .pick_file()
+        {
+            match fs::read_to_string(&path) {
+                Ok(contents) => match self.theme_manager.import_theme_from_str(&contents) {
+                    Ok(profile) => {
+                        self.theme_manager.set_active_theme(&profile.id, ctx);
+                        let display_name = profile.display_name;
+                        self.set_theme_feedback(format!("Imported theme '{display_name}'"), false);
+                    }
+                    Err(err) => {
+                        self.set_theme_feedback(format!("Theme import failed: {err}"), true)
+                    }
+                },
+                Err(err) => {
+                    self.set_theme_feedback(
+                        format!("Could not read {}: {err}", path.display()),
+                        true,
+                    );
+                }
+            }
+        }
+    }
+
+    fn set_theme_feedback(&mut self, message: impl Into<String>, is_error: bool) {
+        self.theme_feedback = Some(ThemeFeedback {
+            message: message.into(),
+            is_error,
+            expires_at: Instant::now() + Duration::from_secs(THEME_FEEDBACK_SECS),
+        });
+    }
+
+    fn prune_theme_feedback(&mut self) {
+        if let Some(feedback) = &self.theme_feedback {
+            if feedback.expires_at <= Instant::now() {
+                self.theme_feedback = None;
+            }
         }
     }
 
@@ -97,7 +174,15 @@ impl TrackerApp {
         }
 
         if actions.toggle_theme {
-            self.theme_manager.toggle_theme(ctx);
+            self.theme_manager.cycle_theme(ctx);
+        }
+
+        if let Some(theme_id) = actions.select_theme {
+            self.theme_manager.set_active_theme(&theme_id, ctx);
+        }
+
+        if actions.import_theme {
+            self.import_theme_via_dialog(ctx);
         }
 
         if actions.show_instrument_manager {
@@ -121,7 +206,6 @@ impl TrackerApp {
             ShortcutAction::None => {}
         }
     }
-
 }
 
 impl Default for TrackerApp {
@@ -140,12 +224,14 @@ impl Default for TrackerApp {
             show_shortcuts_window: false,
             ui_state: UiState::default(),
             instrument_window: InstrumentManagerWindow::default(),
+            theme_feedback: None,
         }
     }
 }
 
 impl eframe::App for TrackerApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.prune_theme_feedback();
         self.handle_shortcuts(ctx);
 
         egui::TopBottomPanel::top("menu_bar").show(ctx, |ui| {
@@ -160,7 +246,10 @@ impl eframe::App for TrackerApp {
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("Blight Tracker - M8 Style Interface");
+            ui.heading(format!(
+                "Blight Tracker — {}",
+                self.theme_manager.active_theme_name()
+            ));
             ui.separator();
 
             SongInfoEditor::show(
@@ -193,5 +282,31 @@ impl eframe::App for TrackerApp {
         // Instruments manager window
         self.instrument_window
             .show(ctx, &mut self.song, &mut self.audio_manager);
+
+        if let Some(feedback) = self.theme_feedback.as_ref() {
+            let color = if feedback.is_error {
+                egui::Color32::from_rgb(255, 140, 140)
+            } else {
+                egui::Color32::from_rgb(150, 255, 210)
+            };
+            let text = feedback.message.clone();
+            egui::TopBottomPanel::bottom("theme_feedback_panel").show(ctx, |ui| {
+                ui.add_space(4.0);
+                ui.colored_label(color, text);
+            });
+        }
+    }
+
+    fn save(&mut self, storage: &mut dyn eframe::Storage) {
+        storage.set_string(
+            STORAGE_THEME_ID,
+            self.theme_manager.active_theme_id().to_string(),
+        );
+
+        match self.theme_manager.export_custom_themes_json() {
+            Ok(Some(json)) => storage.set_string(STORAGE_CUSTOM_THEMES, json),
+            Ok(None) => storage.set_string(STORAGE_CUSTOM_THEMES, String::new()),
+            Err(err) => error!("Failed to persist custom themes: {err}"),
+        }
     }
 }
