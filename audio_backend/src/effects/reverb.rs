@@ -1,6 +1,6 @@
 use log::{info, warn};
 
-use crate::{id::EffectId, MonoEffect, StereoEffect, Smoother};
+use crate::{id::EffectId, MonoEffect, Smoother, StereoEffect};
 
 #[repr(u32)]
 #[derive(Clone, Copy, Debug)]

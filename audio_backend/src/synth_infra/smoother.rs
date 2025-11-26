@@ -1,12 +1,10 @@
-use std::ops::{Add, Sub, Mul};
+use std::ops::{Add, Mul, Sub};
 
 pub trait Smoothable:
     Copy + Add<Output = Self> + Sub<Output = Self> + Mul<f32, Output = Self>
-{}
-impl<T> Smoothable for T
-where
-    T: Copy + Add<Output = T> + Sub<Output = T> + Mul<f32, Output = T>,
-{}
+{
+}
+impl<T> Smoothable for T where T: Copy + Add<Output = T> + Sub<Output = T> + Mul<f32, Output = T> {}
 
 /// A simple one-pole smoother for parameter smoothing. Improve to make generic later.
 /// | Purpose             | Typical τ (seconds) | Subjective feel          |
@@ -24,7 +22,11 @@ pub struct Smoother<T: Smoothable> {
 impl<T: Smoothable> Smoother<T> {
     pub fn new(sample_rate: f32, smoothing_time: f32, initial: T) -> Self {
         let coeff = 1.0 - (-1.0 / (smoothing_time * sample_rate)).exp();
-        Self { value: initial, target: initial, coeff }
+        Self {
+            value: initial,
+            target: initial,
+            coeff,
+        }
     }
 
     /// Set a new target value (e.g. from modulation or UI)
