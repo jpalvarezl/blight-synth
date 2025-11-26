@@ -119,7 +119,10 @@ impl ThemeProfile {
         }
     }
 
-    fn from_serializable(theme: SerializableTheme, source: ThemeSource) -> Result<Self, ThemeConfigError> {
+    fn from_serializable(
+        theme: SerializableTheme,
+        source: ThemeSource,
+    ) -> Result<Self, ThemeConfigError> {
         let id = theme
             .id
             .filter(|value| !value.trim().is_empty())
@@ -128,7 +131,9 @@ impl ThemeProfile {
         Ok(Self {
             id,
             display_name: theme.name,
-            button_icon: theme.icon.unwrap_or_else(|| DEFAULT_CUSTOM_ICON.to_string()),
+            button_icon: theme
+                .icon
+                .unwrap_or_else(|| DEFAULT_CUSTOM_ICON.to_string()),
             palette: ThemePalette::from_serializable(theme.palette)?,
             dark_mode: theme.dark_mode.unwrap_or(true),
             source,
@@ -255,10 +260,7 @@ impl ThemeManager {
         })
     }
 
-    pub fn import_theme_from_str(
-        &mut self,
-        raw: &str,
-    ) -> Result<ThemeProfile, ThemeConfigError> {
+    pub fn import_theme_from_str(&mut self, raw: &str) -> Result<ThemeProfile, ThemeConfigError> {
         let serializable: SerializableTheme =
             serde_json::from_str(raw).map_err(ThemeConfigError::Json)?;
         let profile = ThemeProfile::from_serializable(serializable, ThemeSource::Custom)?;
@@ -301,8 +303,7 @@ impl ThemeManager {
     }
 
     fn current_theme(&self) -> &ThemeProfile {
-        self
-            .profiles
+        self.profiles
             .get(self.active_index)
             .or_else(|| self.profiles.first())
             .expect("ThemeManager must contain at least one theme")
@@ -332,9 +333,10 @@ fn configure_text_sizes(style: &mut egui::Style) {
     style
         .text_styles
         .insert(TextStyle::Small, FontId::new(12.0, FontFamily::Monospace));
-    style
-        .text_styles
-        .insert(TextStyle::Monospace, FontId::new(16.0, FontFamily::Monospace));
+    style.text_styles.insert(
+        TextStyle::Monospace,
+        FontId::new(16.0, FontFamily::Monospace),
+    );
 }
 
 fn configure_spacing(style: &mut egui::Style) {
@@ -400,7 +402,7 @@ fn color_to_hex(color: Color32) -> String {
 }
 
 fn slugify_id(input: &str) -> String {
-    let mut slug: String = input
+    let normalized: String = input
         .trim()
         .chars()
         .map(|c| {
@@ -414,14 +416,15 @@ fn slugify_id(input: &str) -> String {
         })
         .collect();
 
-    while slug.contains("--") {
-        slug = slug.replace("--", "-");
-    }
+    let slug = normalized
+        .split('-')
+        .filter(|segment| !segment.is_empty())
+        .collect::<Vec<_>>()
+        .join("-");
 
-    let slug = slug.trim_matches('-');
     if slug.is_empty() {
         "custom-theme".to_string()
     } else {
-        slug.to_string()
+        slug
     }
 }

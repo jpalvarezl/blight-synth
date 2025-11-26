@@ -130,5 +130,4 @@ impl AudioManager {
             hydrate_instrument(audio, inst.id as u8, &inst.data);
         }
     }
-
 }

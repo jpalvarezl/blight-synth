@@ -293,14 +293,12 @@ fn push_reverb_updates(
         (RP::Damping.as_index(), damping),
         (RP::Diffusion.as_index(), diffusion),
     ] {
-        audio_mgr.dispatch(
-            audio_backend::MixerCmd::SetEffectParameter {
-                instrument_id: id,
-                effect_id: TRACKER_EFFECT_ID,
-                param_index,
-                value,
-            }
-        );
+        audio_mgr.dispatch(audio_backend::MixerCmd::SetEffectParameter {
+            instrument_id: id,
+            effect_id: TRACKER_EFFECT_ID,
+            param_index,
+            value,
+        });
     }
 }
 
@@ -319,13 +317,11 @@ fn push_delay_updates(
         (DP::Feedback.as_index(), feedback),
         (DP::Mix.as_index(), mix),
     ] {
-        audio_mgr.dispatch(
-            audio_backend::MixerCmd::SetEffectParameter {
-                instrument_id: id,
-                effect_id: TRACKER_EFFECT_ID,
-                param_index,
-                value,
-            }
-        );
+        audio_mgr.dispatch(audio_backend::MixerCmd::SetEffectParameter {
+            instrument_id: id,
+            effect_id: TRACKER_EFFECT_ID,
+            param_index,
+            value,
+        });
     }
 }

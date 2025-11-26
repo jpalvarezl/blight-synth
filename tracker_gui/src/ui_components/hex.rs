@@ -1,5 +1,11 @@
 use eframe::egui::{self, Align, TextStyle};
 
+const CELL_VERTICAL_PADDING: f32 = 6.0;
+
+fn tracker_cell_height(ui: &egui::Ui) -> f32 {
+    ui.text_style_height(&TextStyle::Monospace) + CELL_VERTICAL_PADDING
+}
+
 /// Edit a u8 as 2-digit hex with simple validation: allow only 0-9a-fA-F, max 2 chars.
 /// Updates the numeric value as you type. The caller owns the text buffer.
 pub fn hex_u8_editor(
@@ -9,7 +15,7 @@ pub fn hex_u8_editor(
     width_px: f32,
 ) -> egui::Response {
     let mut text = buf.clone();
-    let cell_height = ui.text_style_height(&TextStyle::Monospace) + 6.0;
+    let cell_height = tracker_cell_height(ui);
     let response = ui.add(
         egui::TextEdit::singleline(&mut text)
             .desired_width(width_px)
@@ -48,7 +54,7 @@ pub fn dec_u8_editor(
     width_px: f32,
 ) -> egui::Response {
     let mut text = buf.clone();
-    let cell_height = ui.text_style_height(&TextStyle::Monospace) + 6.0;
+    let cell_height = tracker_cell_height(ui);
     let response = ui.add(
         egui::TextEdit::singleline(&mut text)
             .desired_width(width_px)
@@ -89,7 +95,7 @@ pub fn hex_usize_with_sentinel_editor(
     width_px: f32,
 ) -> egui::Response {
     let mut text = buf.clone();
-    let cell_height = ui.text_style_height(&TextStyle::Monospace) + 6.0;
+    let cell_height = tracker_cell_height(ui);
     let response = ui.add(
         egui::TextEdit::singleline(&mut text)
             .desired_width(width_px)

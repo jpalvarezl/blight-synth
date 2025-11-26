@@ -134,7 +134,6 @@ impl MenuRenderer {
                     ui.close();
                 }
             });
-
         });
 
         if actions.quit {

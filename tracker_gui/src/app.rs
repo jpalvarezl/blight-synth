@@ -25,6 +25,7 @@ struct ThemeFeedback {
 
 const STORAGE_THEME_ID: &str = "tracker.theme.active";
 const STORAGE_CUSTOM_THEMES: &str = "tracker.theme.custom";
+/// Duration (in seconds) to display theme-import feedback without being disruptive.
 const THEME_FEEDBACK_SECS: u64 = 6;
 pub struct TrackerApp {
     pub song: Song,
@@ -82,11 +83,7 @@ impl TrackerApp {
         }
     }
 
-    fn restore_theme_preferences(
-        &mut self,
-        storage: &dyn eframe::Storage,
-        ctx: &egui::Context,
-    ) {
+    fn restore_theme_preferences(&mut self, storage: &dyn eframe::Storage, ctx: &egui::Context) {
         if let Some(json) = storage.get_string(STORAGE_CUSTOM_THEMES) {
             if let Err(err) = self.theme_manager.restore_custom_themes(&json) {
                 error!("Failed to restore custom themes: {err}");
@@ -112,10 +109,7 @@ impl TrackerApp {
                     Ok(profile) => {
                         self.theme_manager.set_active_theme(&profile.id, ctx);
                         let display_name = profile.display_name;
-                        self.set_theme_feedback(
-                            format!("Imported theme '{display_name}'"),
-                            false,
-                        );
+                        self.set_theme_feedback(format!("Imported theme '{display_name}'"), false);
                     }
                     Err(err) => {
                         self.set_theme_feedback(format!("Theme import failed: {err}"), true)
@@ -212,7 +206,6 @@ impl TrackerApp {
             ShortcutAction::None => {}
         }
     }
-
 }
 
 impl Default for TrackerApp {
