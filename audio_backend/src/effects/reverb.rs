@@ -1,6 +1,6 @@
-use log::warn;
+use log::{info, warn};
 
-use crate::{id::EffectId, MonoEffect, StereoEffect};
+use crate::{id::EffectId, MonoEffect, Smoother, StereoEffect};
 
 #[repr(u32)]
 #[derive(Clone, Copy, Debug)]
@@ -37,7 +37,7 @@ pub struct Reverb {
     allpass_feedback: f32,
 
     // Single mix control (0.0 = dry only, 1.0 = wet only)
-    mix: f32,
+    mix: Smoother<f32>,
 }
 
 impl Reverb {
@@ -104,7 +104,7 @@ impl Reverb {
             allpass_delays: current_allpass_delays, // Initialize the new field
             allpass_feedback: 0.7,
 
-            mix: 0.3,
+            mix: Smoother::new(sample_rate, 0.1, 0.3), // Default mix at 0.3
         }
     }
 
@@ -203,7 +203,7 @@ impl Reverb {
     }
     // Adjust wet/dry mix with a single parameter
     pub fn set_mix(&mut self, mix: f32) {
-        self.mix = mix.clamp(0.0, 1.0);
+        self.mix.set_target(mix.clamp(0.0, 1.0));
     }
 }
 
@@ -232,7 +232,9 @@ impl MonoEffect for Reverb {
             output = self.allpass_filter(output, 1);
 
             // Mix wet and dry signals using single mix parameter
-            *sample = (1.0 - self.mix) * input + self.mix * output;
+            let mix = self.mix.next_value();
+            info!("Reverb mix value: {}", mix);
+            *sample = (1.0 - mix) * input + mix * output;
         }
     }
 
