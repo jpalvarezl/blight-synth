@@ -1,6 +1,6 @@
 use std::{sync::Arc, thread, time::Duration};
 
-use audio_backend::{id::InstrumentId, BlightAudio, Waveform};
+use audio_backend::{id::InstrumentId, instruments::Waveform, BlightAudio};
 use sequencer::models::{
     Chain, EffectType, Event, NoteSentinelValues, Phrase, Song, SongRow, EMPTY_CHAIN_SLOT,
 };

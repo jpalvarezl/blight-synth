@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
 use crate::{
-    instruments::VoiceSlot, Envelope, LoopRegion, MonoEffectChain, MonophonicInstrument,
-    SampleData, SamplePlayerNode, Voice,
+    id::InstrumentId,
+    instruments::{LoopRegion, MonophonicInstrument, SamplePlayerNode, VoiceSlot},
+    Envelope, MonoEffectChain, SampleData, Voice,
 };
 
 pub type SamplePlayer = MonophonicInstrument<SamplePlayerNode>;
@@ -10,7 +11,7 @@ pub type SamplePlayer = MonophonicInstrument<SamplePlayerNode>;
 impl SamplePlayer {
     /// Create a new one-shot SamplePlayer instrument with the given sample data
     pub fn new_one_shot(
-        instrument_id: crate::id::InstrumentId,
+        instrument_id: InstrumentId,
         sample_data: Arc<SampleData>,
         sample_rate: f32,
         pan: f32,
@@ -32,7 +33,7 @@ impl SamplePlayer {
     }
 
     pub fn new_with_loop(
-        instrument_id: crate::id::InstrumentId,
+        instrument_id: InstrumentId,
         sample_data: Arc<SampleData>,
         sample_rate: f32,
         pan: f32,

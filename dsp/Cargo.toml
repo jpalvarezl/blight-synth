@@ -1,0 +1,11 @@
+[package]
+name = "dsp"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+log = { workspace = true }
+utils = { workspace = true }
+hound = { workspace = true }
+arrayvec = { workspace = true }
+os_dls = { workspace = true }

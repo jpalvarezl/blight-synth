@@ -1,14 +1,20 @@
 use crate::{
-    id::InstrumentId, instruments::VoiceSlot, MonophonicInstrument, SnareDrumVoice, Voice,
+    id::InstrumentId,
+    instruments::{KickDrumVoice, MonophonicInstrument, VoiceSlot},
+    Voice,
 };
 
-pub type SnareDrum = MonophonicInstrument<SnareDrumVoice>;
+/// Kick:
+/// - Amp envelope → short decay (so the kick fades out).
+/// - Pitch envelope → even shorter decay (for the downward sweep).
+/// - Oscillator → sine or triangle wave.
+pub type KickDrum = MonophonicInstrument<KickDrumVoice>;
 
-impl SnareDrum {
+impl KickDrum {
     pub fn new(instrument_id: InstrumentId, pan: f32, sample_rate: f32) -> Self {
         let voice = Voice::new_no_envelope(
             0,
-            SnareDrumVoice::new(sample_rate),
+            KickDrumVoice::new(sample_rate),
             pan,
             crate::MonoEffectChain::new(10),
         );
@@ -17,7 +23,7 @@ impl SnareDrum {
             inner: voice,
             note_id: None,
         };
-        SnareDrum {
+        KickDrum {
             instrument_id,
             voice,
         }

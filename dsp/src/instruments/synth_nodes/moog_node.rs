@@ -1,4 +1,5 @@
-use crate::{NoiseGenerator, OscillatorNode, SynthNode};
+use crate::instruments::{NoiseGenerator, OscillatorNode};
+use crate::SynthNode;
 
 pub struct MoogNode {
     vco1: OscillatorNode,

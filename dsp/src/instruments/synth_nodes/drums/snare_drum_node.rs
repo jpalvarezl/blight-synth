@@ -1,4 +1,8 @@
-use crate::{id::EnvelopeId, Envelope, NoiseGenerator, OscillatorNode, SynthCmd, SynthNode};
+use crate::{
+    id::EnvelopeId,
+    instruments::{NoiseGenerator, OscillatorNode},
+    Envelope, SynthCmd, SynthNode,
+};
 
 pub struct SnareDrumVoice {
     osc: OscillatorNode,   // triangle or square "body"

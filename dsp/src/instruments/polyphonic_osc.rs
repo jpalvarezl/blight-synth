@@ -1,6 +1,6 @@
 use crate::id::InstrumentId;
-use crate::{instruments::VoiceSlot, OscillatorNode};
-use crate::{Envelope, MonoEffectChain, PolyphonicInstrument, Voice, VoiceTrait};
+use crate::instruments::{OscillatorNode, PolyphonicInstrument, VoiceSlot};
+use crate::{Envelope, MonoEffectChain, Voice, VoiceTrait};
 
 pub type PolyphonicOscillator = PolyphonicInstrument<OscillatorNode>;
 

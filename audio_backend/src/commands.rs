@@ -1,10 +1,15 @@
-use crate::{
-    id::{EffectChainId, EffectId, EnvelopeId, InstrumentId, VoiceId},
-    instruments::Waveform,
+use dsp::{
+    id::{EffectChainId, EffectId, InstrumentId},
     InstrumentTrait, MonoEffect, StereoEffect, VoiceEffects,
 };
 use sequencer::models::Song;
 use std::sync::Arc;
+
+// Re-export DSP-level commands so existing consumers don't break.
+// SynthCmd is re-exported explicitly because `pub use dsp::*` in lib.rs
+// doesn't cover it (commands module is private in dsp). EffectCmd and
+// EnvelopeCmd come through the dsp glob re-export already.
+pub use dsp::SynthCmd;
 
 pub enum TransportCmd {
     PlayLastSong,
@@ -30,34 +35,6 @@ pub enum SequencerCmd {
         instrument_id: InstrumentId,
         effects: VoiceEffects,
     },
-}
-
-pub enum SynthCmd {
-    SetWaveform {
-        voice_id: VoiceId,
-        waveform: Waveform,
-    },
-    EnvelopeCommand {
-        envelope_id: Option<EnvelopeId>,
-        command: EnvelopeCmd,
-    },
-    EffectCommand {
-        effect_id: EffectId,
-        command: EffectCmd,
-    },
-}
-
-pub enum EffectCmd {
-    SetParameter { param_index: u32, value: f32 },
-    SwapEffectOrder { target_effect_id: EffectId },
-}
-
-pub enum EnvelopeCmd {
-    SetPitchEnvFreqDelta { freq_delta: f32 },
-    SetAttack { attack: f32 },
-    SetDecay { decay: f32 },
-    SetSustain { sustain: f32 },
-    SetRelease { release: f32 },
 }
 
 pub enum MixerCmd {

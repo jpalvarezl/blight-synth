@@ -10,6 +10,7 @@ env_logger = { workspace = true }
 log = { workspace = true }
 rfd = { workspace = true }
 sequencer = { workspace = true }
+dsp = { workspace = true }
 audio_backend = { workspace = true }
 arrayvec = { workspace = true }
 serde = { workspace = true }
