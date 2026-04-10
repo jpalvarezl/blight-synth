@@ -3843,6 +3843,7 @@ version = "0.1.0"
 dependencies = [
  "arrayvec",
  "audio_backend",
+ "dsp",
  "eframe",
  "egui_extras",
  "env_logger",

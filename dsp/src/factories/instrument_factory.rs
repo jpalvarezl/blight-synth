@@ -1,8 +1,12 @@
 use std::sync::Arc;
 
 use crate::{
-    id::InstrumentId, HiHat, InstrumentTrait, KickDrum, LoopRegion, MonophonicOscillator, MoogDFAM,
-    PolyphonicOscillator, SampleData, SnareDrum, Waveform,
+    id::InstrumentId,
+    instruments::{
+        HiHat, KickDrum, LoopRegion, MonophonicOscillator, MoogDFAM, PolyphonicOscillator,
+        SnareDrum, Waveform,
+    },
+    InstrumentTrait, SampleData,
 };
 
 pub struct InstrumentFactory {

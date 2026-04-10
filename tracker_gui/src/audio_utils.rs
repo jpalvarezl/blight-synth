@@ -1,4 +1,4 @@
-use audio_backend::Waveform as BackendWaveform;
+use dsp::instruments::Waveform as BackendWaveform;
 use sequencer::models::Waveform;
 
 pub fn map_waveform_to_backend(w: Waveform) -> BackendWaveform {

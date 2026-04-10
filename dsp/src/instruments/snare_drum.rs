@@ -1,5 +1,7 @@
 use crate::{
-    id::InstrumentId, instruments::VoiceSlot, MonophonicInstrument, SnareDrumVoice, Voice,
+    id::InstrumentId,
+    instruments::{MonophonicInstrument, SnareDrumVoice, VoiceSlot},
+    MonoEffectChain, Voice,
 };
 
 pub type SnareDrum = MonophonicInstrument<SnareDrumVoice>;
@@ -10,7 +12,7 @@ impl SnareDrum {
             0,
             SnareDrumVoice::new(sample_rate),
             pan,
-            crate::MonoEffectChain::new(10),
+            MonoEffectChain::new(10),
         );
         // Note ID is unused in a monophonic instrument.
         let voice = VoiceSlot {

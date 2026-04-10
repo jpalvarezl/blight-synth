@@ -1,6 +1,6 @@
 use crate::id::EnvelopeId;
 use crate::synth_infra::{Envelope, PitchEnvelope};
-use crate::{OscillatorNode, SynthCmd, SynthNode};
+use crate::{instruments::OscillatorNode, SynthCmd, SynthNode};
 use utils::note::midi_to_frequency;
 
 pub struct KickDrumVoice {

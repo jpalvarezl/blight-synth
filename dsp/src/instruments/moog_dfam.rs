@@ -1,23 +1,27 @@
-use crate::{MonophonicInstrument, MoogNode};
+use crate::id::InstrumentId;
+use crate::instruments::{
+    MonophonicInstrument, MoogNode, NoiseGenerator, OscillatorNode, VoiceSlot, Waveform,
+};
+use crate::{Envelope, MonoEffectChain, Voice};
 
 pub type MoogDFAM = MonophonicInstrument<MoogNode>;
 
 impl MoogDFAM {
-    pub fn new(instrument_id: crate::id::InstrumentId, pan: f32, sample_rate: f32) -> Self {
-        let envelope = crate::Envelope::new(sample_rate);
-        let voice = crate::Voice::new(
+    pub fn new(instrument_id: InstrumentId, pan: f32, sample_rate: f32) -> Self {
+        let envelope = Envelope::new(sample_rate);
+        let voice = Voice::new(
             0,
             MoogNode::new(
-                crate::OscillatorNode::new_with_waveform(crate::Waveform::Square),
-                crate::OscillatorNode::new_with_waveform(crate::Waveform::Square),
-                crate::NoiseGenerator::default(),
+                OscillatorNode::new_with_waveform(Waveform::Square),
+                OscillatorNode::new_with_waveform(Waveform::Square),
+                NoiseGenerator::default(),
             ),
             envelope,
             pan,
-            crate::MonoEffectChain::new(10),
+            MonoEffectChain::new(10),
         );
         // Note ID is unused in a monophonic instrument.
-        let voice = crate::instruments::VoiceSlot {
+        let voice = VoiceSlot {
             inner: voice,
             note_id: None,
         };

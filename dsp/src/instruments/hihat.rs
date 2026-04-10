@@ -1,5 +1,7 @@
 use crate::{
-    id::InstrumentId, instruments::VoiceSlot, Envelope, MonophonicInstrument, NoiseGenerator, Voice,
+    id::InstrumentId,
+    instruments::{MonophonicInstrument, NoiseGenerator, VoiceSlot},
+    Envelope, MonoEffectChain, Voice,
 };
 
 /// short noise burst. Use short decays.
@@ -17,7 +19,7 @@ impl HiHat {
                 NoiseGenerator::default(),
                 envelope,
                 pan,
-                crate::MonoEffectChain::new(10),
+                MonoEffectChain::new(10),
             ),
             note_id: None,
         };
