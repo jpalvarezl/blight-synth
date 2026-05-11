@@ -1,7 +1,6 @@
 use super::BlightAudio;
 use crate::{
-    AudioProcessor, Command, EffectFactory, InstrumentFactory, ResourceManager, SharedAudioState,
-    VoiceFactory,
+    AudioProcessor, Command, EffectFactory, InstrumentFactory, ResourceManager, VoiceFactory,
 };
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use log::info;
@@ -26,15 +25,8 @@ impl BlightAudio {
         let rb = SharedRb::<Heap<Command>>::new(1024);
         let (command_tx, command_rx) = rb.split();
 
-        let shared_state = SharedAudioState::new();
-
         // Create the real-time processor and move it into the audio thread.
-        let mut audio_processor = AudioProcessor::new(
-            command_rx,
-            sample_rate as f32,
-            channels,
-            shared_state.clone(),
-        );
+        let mut audio_processor = AudioProcessor::new(command_rx, sample_rate as f32, channels);
 
         let stream = device.build_output_stream(
             &config.into(),
@@ -59,7 +51,6 @@ impl BlightAudio {
             voice_factory,
             resource_manager,
             effect_factory,
-            shared_state,
             _stream: stream,
         })
     }
@@ -82,16 +73,9 @@ impl BlightAudio {
         let rb = SharedRb::<Heap<Command>>::new(1024);
         let (command_tx, command_rx) = rb.split();
 
-        let shared_state = SharedAudioState::new();
-
         // Create the real-time processor seeded with a Song.
-        let mut audio_processor = AudioProcessor::new_with_song(
-            song,
-            command_rx,
-            sample_rate as f32,
-            channels,
-            shared_state.clone(),
-        );
+        let mut audio_processor =
+            AudioProcessor::new_with_song(song, command_rx, sample_rate as f32, channels);
 
         let stream = device.build_output_stream(
             &config.into(),
@@ -115,7 +99,6 @@ impl BlightAudio {
             voice_factory,
             resource_manager,
             effect_factory,
-            shared_state,
             _stream: stream,
         })
     }
@@ -142,9 +125,5 @@ impl BlightAudio {
 
     pub fn get_instrument_factory(&self) -> &InstrumentFactory {
         &self.instrument_factory
-    }
-
-    pub fn shared_state(&self) -> SharedAudioState {
-        self.shared_state.clone()
     }
 }

@@ -1,7 +1,7 @@
 use std::io::{self, Write};
 
 use anyhow::Result;
-use audio_backend::{BlightAudio, OscServer};
+use audio_backend::{BlightAudio, MixerCmd, OscServer, MASTER_GAIN_EFFECT_ID};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -10,8 +10,19 @@ async fn main() -> Result<()> {
     log::info!("starting standalone DSP core");
 
     // Keep the audio stream alive for the lifetime of this process.
-    let audio = BlightAudio::new()?;
-    let osc_server = OscServer::bind(audio.shared_state()).await?;
+    let mut audio = BlightAudio::new()?;
+
+    // Install the existing master gain effect that OSC `/param/set gain <db>` controls.
+    audio.send_command(
+        MixerCmd::AddMasterEffect {
+            effect: audio
+                .get_effect_factory()
+                .create_stereo_gain(MASTER_GAIN_EFFECT_ID, 1.0),
+        }
+        .into(),
+    );
+
+    let osc_server = OscServer::bind().await?;
 
     // Contract with the future Bun host: stdout readiness detection waits for this line.
     // Print it only after audio is initialized and OSC is listening.
@@ -20,7 +31,7 @@ async fn main() -> Result<()> {
 
     log::info!("standalone DSP core ready; waiting for shutdown signal");
     tokio::select! {
-        result = osc_server.run() => result?,
+        result = osc_server.run(&mut audio) => result?,
         result = tokio::signal::ctrl_c() => {
             result?;
             log::info!("shutdown signal received; stopping standalone DSP core");

@@ -2,24 +2,43 @@ use anyhow::{Context, Result};
 use rosc::{decoder, encoder, OscMessage, OscPacket, OscType};
 use tokio::net::UdpSocket;
 
-use crate::SharedAudioState;
+use crate::{id::EffectId, BlightAudio, Command, MixerCmd, TransportCmd};
 
 pub const OSC_LISTEN_ADDR: &str = "127.0.0.1:9000";
 pub const OSC_SEND_ADDR: &str = "127.0.0.1:9001";
 
+/// Reserved master gain effect used by the standalone OSC bridge.
+///
+/// `/param/set gain <db>` translates to `MixerCmd::SetMasterEffectParameter`
+/// for this effect. The standalone binary is responsible for installing this
+/// effect during startup.
+pub const MASTER_GAIN_EFFECT_ID: EffectId = 0;
+pub const MASTER_GAIN_PARAM_INDEX: u32 = 0;
+
 pub struct OscServer {
     socket: UdpSocket,
     send_addr: String,
-    state: SharedAudioState,
+}
+
+#[derive(Default)]
+struct OscDispatch {
+    commands: Vec<Command>,
+    responses: Vec<OscPacket>,
+}
+
+impl OscDispatch {
+    fn append(&mut self, mut other: Self) {
+        self.commands.append(&mut other.commands);
+        self.responses.append(&mut other.responses);
+    }
 }
 
 impl OscServer {
-    pub async fn bind(state: SharedAudioState) -> Result<Self> {
-        Self::bind_to(state, OSC_LISTEN_ADDR, OSC_SEND_ADDR).await
+    pub async fn bind() -> Result<Self> {
+        Self::bind_to(OSC_LISTEN_ADDR, OSC_SEND_ADDR).await
     }
 
     pub async fn bind_to(
-        state: SharedAudioState,
         listen_addr: impl Into<String>,
         send_addr: impl Into<String>,
     ) -> Result<Self> {
@@ -31,11 +50,10 @@ impl OscServer {
         Ok(Self {
             socket,
             send_addr: send_addr.into(),
-            state,
         })
     }
 
-    pub async fn run(&self) -> Result<()> {
+    pub async fn run(&self, audio: &mut BlightAudio) -> Result<()> {
         let mut buf = [0_u8; decoder::MTU];
 
         loop {
@@ -53,7 +71,13 @@ impl OscServer {
                 }
             };
 
-            for response in dispatch_packet(&self.state, packet) {
+            let dispatch = dispatch_packet(packet);
+
+            for command in dispatch.commands {
+                audio.send_command(command);
+            }
+
+            for response in dispatch.responses {
                 let encoded =
                     encoder::encode(&response).context("failed to encode OSC response")?;
                 self.socket
@@ -67,43 +91,45 @@ impl OscServer {
     }
 }
 
-fn dispatch_packet(state: &SharedAudioState, packet: OscPacket) -> Vec<OscPacket> {
+fn dispatch_packet(packet: OscPacket) -> OscDispatch {
     match packet {
-        OscPacket::Message(message) => handle_message(state, message),
-        OscPacket::Bundle(bundle) => bundle
-            .content
-            .into_iter()
-            .flat_map(|packet| dispatch_packet(state, packet))
-            .collect(),
+        OscPacket::Message(message) => handle_message(message),
+        OscPacket::Bundle(bundle) => {
+            let mut dispatch = OscDispatch::default();
+            for packet in bundle.content {
+                dispatch.append(dispatch_packet(packet));
+            }
+            dispatch
+        }
     }
 }
 
-fn handle_message(state: &SharedAudioState, message: OscMessage) -> Vec<OscPacket> {
+fn handle_message(message: OscMessage) -> OscDispatch {
     match message.addr.as_str() {
-        "/param/set" => handle_param_set(state, message),
-        "/transport/play" => {
-            state.set_playing(true);
-            Vec::new()
-        }
-        "/transport/stop" => {
-            state.set_playing(false);
-            Vec::new()
-        }
+        "/param/set" => handle_param_set(message),
+        "/transport/play" => OscDispatch {
+            commands: vec![TransportCmd::PlayLastSong.into()],
+            responses: Vec::new(),
+        },
+        "/transport/stop" => OscDispatch {
+            commands: vec![TransportCmd::StopSong.into()],
+            responses: Vec::new(),
+        },
         "/preset/load" => {
             log::warn!("/preset/load is not implemented yet");
-            Vec::new()
+            OscDispatch::default()
         }
         unknown => {
             log::warn!("unknown OSC address: {unknown}");
-            Vec::new()
+            OscDispatch::default()
         }
     }
 }
 
-fn handle_param_set(state: &SharedAudioState, message: OscMessage) -> Vec<OscPacket> {
+fn handle_param_set(message: OscMessage) -> OscDispatch {
     let [OscType::String(param_id), value] = message.args.as_slice() else {
         log::warn!("invalid /param/set args; expected [string, float]");
-        return Vec::new();
+        return OscDispatch::default();
     };
 
     let value = match value {
@@ -111,18 +137,24 @@ fn handle_param_set(state: &SharedAudioState, message: OscMessage) -> Vec<OscPac
         OscType::Int(value) => *value as f32,
         _ => {
             log::warn!("invalid /param/set value for {param_id}; expected float");
-            return Vec::new();
+            return OscDispatch::default();
         }
     };
 
     match param_id.as_str() {
-        "gain" => {
-            state.set_master_gain(value);
-            vec![param_echo(param_id, state.master_gain())]
-        }
+        // Existing Gain::set_parameter semantics are dB, so this OSC value is dB.
+        "gain" => OscDispatch {
+            commands: vec![MixerCmd::SetMasterEffectParameter {
+                effect_id: MASTER_GAIN_EFFECT_ID,
+                param_index: MASTER_GAIN_PARAM_INDEX,
+                value,
+            }
+            .into()],
+            responses: vec![param_echo(param_id, value)],
+        },
         unknown => {
             log::warn!("unknown parameter id: {unknown}");
-            Vec::new()
+            OscDispatch::default()
         }
     }
 }
@@ -159,76 +191,81 @@ mod tests {
     }
 
     #[test]
-    fn param_set_gain_updates_shared_state_and_returns_echo() {
-        let state = SharedAudioState::new();
+    fn param_set_gain_translates_to_existing_master_gain_command_and_echo() {
+        let dispatch = dispatch_packet(message(
+            "/param/set",
+            vec![OscType::String("gain".to_string()), OscType::Float(-6.0)],
+        ));
 
-        let responses = dispatch_packet(
-            &state,
-            message(
-                "/param/set",
-                vec![OscType::String("gain".to_string()), OscType::Float(0.5)],
-            ),
-        );
+        assert_eq!(dispatch.commands.len(), 1);
+        let Command::Mixer(MixerCmd::SetMasterEffectParameter {
+            effect_id,
+            param_index,
+            value,
+        }) = &dispatch.commands[0]
+        else {
+            panic!("expected MixerCmd::SetMasterEffectParameter");
+        };
+        assert_eq!(*effect_id, MASTER_GAIN_EFFECT_ID);
+        assert_eq!(*param_index, MASTER_GAIN_PARAM_INDEX);
+        assert_eq!(*value, -6.0);
 
-        assert_eq!(state.master_gain(), 0.5);
-        assert_eq!(responses.len(), 1);
-        assert_eq!(param_echo_args(&responses[0]), ("gain", 0.5));
+        assert_eq!(dispatch.responses.len(), 1);
+        assert_eq!(param_echo_args(&dispatch.responses[0]), ("gain", -6.0));
     }
 
     #[test]
-    fn param_set_gain_echoes_clamped_value() {
-        let state = SharedAudioState::new();
+    fn param_set_gain_accepts_int_values() {
+        let dispatch = dispatch_packet(message(
+            "/param/set",
+            vec![OscType::String("gain".to_string()), OscType::Int(-12)],
+        ));
 
-        let responses = dispatch_packet(
-            &state,
-            message(
-                "/param/set",
-                vec![OscType::String("gain".to_string()), OscType::Float(2.0)],
-            ),
-        );
-
-        assert_eq!(state.master_gain(), 1.0);
-        assert_eq!(param_echo_args(&responses[0]), ("gain", 1.0));
+        let Command::Mixer(MixerCmd::SetMasterEffectParameter { value, .. }) =
+            &dispatch.commands[0]
+        else {
+            panic!("expected MixerCmd::SetMasterEffectParameter");
+        };
+        assert_eq!(*value, -12.0);
+        assert_eq!(param_echo_args(&dispatch.responses[0]), ("gain", -12.0));
     }
 
     #[test]
-    fn transport_play_and_stop_update_shared_state() {
-        let state = SharedAudioState::new();
+    fn transport_play_and_stop_translate_to_existing_commands() {
+        let play_dispatch = dispatch_packet(message("/transport/play", vec![]));
+        assert_eq!(play_dispatch.commands.len(), 1);
+        assert!(matches!(
+            play_dispatch.commands[0],
+            Command::Transport(TransportCmd::PlayLastSong)
+        ));
 
-        dispatch_packet(&state, message("/transport/play", vec![]));
-        assert!(state.is_playing());
-
-        dispatch_packet(&state, message("/transport/stop", vec![]));
-        assert!(!state.is_playing());
+        let stop_dispatch = dispatch_packet(message("/transport/stop", vec![]));
+        assert_eq!(stop_dispatch.commands.len(), 1);
+        assert!(matches!(
+            stop_dispatch.commands[0],
+            Command::Transport(TransportCmd::StopSong)
+        ));
     }
 
     #[test]
-    fn invalid_param_set_does_not_update_state_or_emit_echo() {
-        let state = SharedAudioState::new();
+    fn invalid_param_set_does_not_emit_command_or_echo() {
+        let dispatch = dispatch_packet(message(
+            "/param/set",
+            vec![
+                OscType::String("gain".to_string()),
+                OscType::String("bad".to_string()),
+            ],
+        ));
 
-        let responses = dispatch_packet(
-            &state,
-            message(
-                "/param/set",
-                vec![
-                    OscType::String("gain".to_string()),
-                    OscType::String("bad".to_string()),
-                ],
-            ),
-        );
-
-        assert_eq!(state.master_gain(), 1.0);
-        assert!(responses.is_empty());
+        assert!(dispatch.commands.is_empty());
+        assert!(dispatch.responses.is_empty());
     }
 
     #[test]
     fn unknown_address_is_ignored() {
-        let state = SharedAudioState::new();
+        let dispatch = dispatch_packet(message("/unknown", vec![]));
 
-        let responses = dispatch_packet(&state, message("/unknown", vec![]));
-
-        assert_eq!(state.master_gain(), 1.0);
-        assert!(!state.is_playing());
-        assert!(responses.is_empty());
+        assert!(dispatch.commands.is_empty());
+        assert!(dispatch.responses.is_empty());
     }
 }
