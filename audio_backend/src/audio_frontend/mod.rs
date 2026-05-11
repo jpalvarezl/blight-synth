@@ -1,6 +1,6 @@
 mod blight_audio;
 
-use crate::Command;
+use crate::{Command, SharedAudioState};
 use ringbuf::HeapProd;
 
 use crate::EffectFactory;
@@ -18,6 +18,8 @@ pub struct BlightAudio {
     resource_manager: ResourceManager,
     /// Effect factory for creating audio effects.
     effect_factory: EffectFactory,
+    /// Lock-free state shared with the audio callback.
+    shared_state: SharedAudioState,
     /// The audio stream for real-time audio processing.
     _stream: cpal::Stream,
 }

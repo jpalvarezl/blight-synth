@@ -3,6 +3,7 @@ use ringbuf::HeapCons;
 
 use crate::Command;
 use crate::Player;
+use crate::SharedAudioState;
 use sequencer::models::Song;
 use std::sync::Arc;
 
@@ -13,6 +14,7 @@ pub struct AudioProcessor {
     pub(crate) player: Player,
     pub(crate) sample_rate: f32,
     pub(crate) channels: usize,
+    pub(crate) shared_state: SharedAudioState,
     // Pre-allocated, non-interleaved buffers for processing.
     pub(crate) left_buf: Vec<f32>,
     pub(crate) right_buf: Vec<f32>,
@@ -24,23 +26,31 @@ impl AudioProcessor {
         command_rx: HeapCons<Command>,
         sample_rate: f32,
         channels: usize,
+        shared_state: SharedAudioState,
     ) -> Self {
         Self {
             command_rx,
             sample_rate,
             channels,
+            shared_state,
             left_buf: vec![0.0; MAX_BUFFER_SIZE],
             right_buf: vec![0.0; MAX_BUFFER_SIZE],
             player: Player::new(song, sample_rate as f64),
         }
     }
 
-    pub fn new(command_rx: HeapCons<Command>, sample_rate: f32, channels: usize) -> Self {
+    pub fn new(
+        command_rx: HeapCons<Command>,
+        sample_rate: f32,
+        channels: usize,
+        shared_state: SharedAudioState,
+    ) -> Self {
         let default_song = Arc::new(sequencer::models::Song::new("Untitled"));
         Self {
             command_rx,
             sample_rate,
             channels,
+            shared_state,
             left_buf: vec![0.0; MAX_BUFFER_SIZE],
             right_buf: vec![0.0; MAX_BUFFER_SIZE],
             player: Player::new(default_song, sample_rate as f64),
@@ -75,11 +85,13 @@ impl AudioProcessor {
         self.player
             .process(left, right, self.sample_rate, frame_count);
 
+        let master_gain = self.shared_state.master_gain();
+
         // 3. Re-interleave the processed buffers into the output buffer.
         for (i, frame) in output_buffer.chunks_mut(self.channels).enumerate() {
-            frame[0] = left[i];
+            frame[0] = left[i] * master_gain;
             if self.channels > 1 {
-                frame[1] = right[i];
+                frame[1] = right[i] * master_gain;
             }
         }
     }
