@@ -1,6 +1,7 @@
 mod audio_frontend;
 mod audio_processor;
 mod commands;
+mod osc;
 mod player;
 mod state;
 
@@ -10,5 +11,6 @@ pub use dsp::*;
 pub use audio_frontend::*;
 pub(crate) use audio_processor::*;
 pub use commands::*;
+pub use osc::*;
 pub(crate) use player::*;
 pub use state::*;
