@@ -1,8 +1,11 @@
 use anyhow::{Context, Result};
 use rosc::{decoder, encoder, OscMessage, OscPacket, OscType};
+use std::path::PathBuf;
 use tokio::net::UdpSocket;
 
-use crate::{id::EffectId, BlightAudio, Command, MixerCmd, TransportCmd};
+use crate::{
+    id::EffectId, load_song_file_into_audio, BlightAudio, Command, MixerCmd, TransportCmd,
+};
 
 pub const OSC_LISTEN_ADDR: &str = "127.0.0.1:9000";
 pub const OSC_SEND_ADDR: &str = "127.0.0.1:9001";
@@ -23,12 +26,14 @@ pub struct OscServer {
 #[derive(Default)]
 struct OscDispatch {
     commands: Vec<Command>,
+    song_loads: Vec<PathBuf>,
     responses: Vec<OscPacket>,
 }
 
 impl OscDispatch {
     fn append(&mut self, mut other: Self) {
         self.commands.append(&mut other.commands);
+        self.song_loads.append(&mut other.song_loads);
         self.responses.append(&mut other.responses);
     }
 }
@@ -71,7 +76,22 @@ impl OscServer {
                 }
             };
 
-            let dispatch = dispatch_packet(packet);
+            let mut dispatch = dispatch_packet(packet);
+
+            for path in dispatch.song_loads {
+                match load_song_file_into_audio(audio, &path) {
+                    Ok(song) => {
+                        log::info!("loaded song '{}' from {}", song.name, path.display());
+                        dispatch.responses.push(song_loaded(&path, &song.name));
+                    }
+                    Err(err) => {
+                        log::error!("failed to load song from {}: {err:?}", path.display());
+                        dispatch
+                            .responses
+                            .push(song_load_error(&path, &err.to_string()));
+                    }
+                }
+            }
 
             for command in dispatch.commands {
                 log::debug!("dispatching OSC-derived command");
@@ -109,10 +129,12 @@ fn dispatch_packet(packet: OscPacket) -> OscDispatch {
 fn handle_message(message: OscMessage) -> OscDispatch {
     match message.addr.as_str() {
         "/param/set" => handle_param_set(message),
+        "/song/load" => handle_song_load(message),
         "/transport/play" => {
             log::info!("OSC /transport/play -> TransportCmd::PlayLastSong");
             OscDispatch {
                 commands: vec![TransportCmd::PlayLastSong.into()],
+                song_loads: Vec::new(),
                 responses: Vec::new(),
             }
         }
@@ -120,17 +142,28 @@ fn handle_message(message: OscMessage) -> OscDispatch {
             log::info!("OSC /transport/stop -> TransportCmd::StopSong");
             OscDispatch {
                 commands: vec![TransportCmd::StopSong.into()],
+                song_loads: Vec::new(),
                 responses: Vec::new(),
             }
-        }
-        "/preset/load" => {
-            log::warn!("/preset/load is not implemented yet");
-            OscDispatch::default()
         }
         unknown => {
             log::warn!("unknown OSC address: {unknown}");
             OscDispatch::default()
         }
+    }
+}
+
+fn handle_song_load(message: OscMessage) -> OscDispatch {
+    let [OscType::String(path)] = message.args.as_slice() else {
+        log::warn!("invalid /song/load args; expected [string path]");
+        return OscDispatch::default();
+    };
+
+    log::info!("OSC /song/load {path}");
+    OscDispatch {
+        commands: Vec::new(),
+        song_loads: vec![PathBuf::from(path)],
+        responses: Vec::new(),
     }
 }
 
@@ -160,6 +193,7 @@ fn handle_param_set(message: OscMessage) -> OscDispatch {
                     value,
                 }
                 .into()],
+                song_loads: Vec::new(),
                 responses: vec![param_echo(param_id, value)],
             }
         }
@@ -174,6 +208,26 @@ fn param_echo(param_id: &str, value: f32) -> OscPacket {
     OscPacket::Message(OscMessage {
         addr: "/param/echo".to_string(),
         args: vec![OscType::String(param_id.to_string()), OscType::Float(value)],
+    })
+}
+
+fn song_loaded(path: &std::path::Path, song_name: &str) -> OscPacket {
+    OscPacket::Message(OscMessage {
+        addr: "/song/loaded".to_string(),
+        args: vec![
+            OscType::String(path.display().to_string()),
+            OscType::String(song_name.to_string()),
+        ],
+    })
+}
+
+fn song_load_error(path: &std::path::Path, error: &str) -> OscPacket {
+    OscPacket::Message(OscMessage {
+        addr: "/song/error".to_string(),
+        args: vec![
+            OscType::String(path.display().to_string()),
+            OscType::String(error.to_string()),
+        ],
     })
 }
 
@@ -199,6 +253,27 @@ mod tests {
         };
 
         (param_id, *value)
+    }
+
+    #[test]
+    fn song_load_records_path_for_runtime_loading() {
+        let dispatch = dispatch_packet(message(
+            "/song/load",
+            vec![OscType::String("calibration.json".to_string())],
+        ));
+
+        assert!(dispatch.commands.is_empty());
+        assert_eq!(dispatch.song_loads, vec![PathBuf::from("calibration.json")]);
+        assert!(dispatch.responses.is_empty());
+    }
+
+    #[test]
+    fn invalid_song_load_does_not_emit_action() {
+        let dispatch = dispatch_packet(message("/song/load", vec![OscType::Float(1.0)]));
+
+        assert!(dispatch.commands.is_empty());
+        assert!(dispatch.song_loads.is_empty());
+        assert!(dispatch.responses.is_empty());
     }
 
     #[test]

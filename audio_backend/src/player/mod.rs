@@ -99,12 +99,29 @@ impl Player {
         self.synthesizer.stop_all_notes(); // Stop all notes when stopping playback
     }
 
+    fn set_song(&mut self, song: Arc<Song>) {
+        self.timing.set_bpm(song.initial_bpm as f64);
+        self.timing.set_tpl(song.initial_speed as u32);
+        self.timing.reset();
+        self.position.reset();
+        self.song = song;
+    }
+
+    fn load_song(&mut self, song: Arc<Song>) {
+        debug!("Loading song: {}", song.name);
+        self.stop();
+        self.synthesizer.clear_instruments();
+        self.set_song(song);
+    }
+
     pub fn handle_command(&mut self, command: Command) {
         match command {
+            Command::Sequencer(SequencerCmd::LoadSong { song }) => {
+                self.load_song(song);
+            }
             Command::Sequencer(SequencerCmd::PlaySong { song }) => {
                 debug!("Playing song: {}", song.name);
-                self.song = song;
-                self.position.reset();
+                self.set_song(song);
                 self.play();
             }
             Command::Transport(TransportCmd::StopSong) => {
