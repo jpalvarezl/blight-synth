@@ -44,7 +44,6 @@ for ((i = 0; i < READY_TIMEOUT_SECONDS; i++)); do
   fi
 
   sleep 1
-
 done
 
 if ! grep -q '^READY$' "${LOG_FILE}"; then
