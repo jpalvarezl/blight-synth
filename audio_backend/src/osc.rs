@@ -47,10 +47,10 @@ impl OscServer {
             .await
             .with_context(|| format!("failed to bind OSC UDP socket on {listen_addr}"))?;
 
-        Ok(Self {
-            socket,
-            send_addr: send_addr.into(),
-        })
+        let send_addr = send_addr.into();
+        log::info!("OSC server listening on {listen_addr}; responses -> {send_addr}");
+
+        Ok(Self { socket, send_addr })
     }
 
     pub async fn run(&self, audio: &mut BlightAudio) -> Result<()> {
@@ -74,10 +74,12 @@ impl OscServer {
             let dispatch = dispatch_packet(packet);
 
             for command in dispatch.commands {
+                log::debug!("dispatching OSC-derived command");
                 audio.send_command(command);
             }
 
             for response in dispatch.responses {
+                log::debug!("sending OSC response: {response:?}");
                 let encoded =
                     encoder::encode(&response).context("failed to encode OSC response")?;
                 self.socket
@@ -107,14 +109,20 @@ fn dispatch_packet(packet: OscPacket) -> OscDispatch {
 fn handle_message(message: OscMessage) -> OscDispatch {
     match message.addr.as_str() {
         "/param/set" => handle_param_set(message),
-        "/transport/play" => OscDispatch {
-            commands: vec![TransportCmd::PlayLastSong.into()],
-            responses: Vec::new(),
-        },
-        "/transport/stop" => OscDispatch {
-            commands: vec![TransportCmd::StopSong.into()],
-            responses: Vec::new(),
-        },
+        "/transport/play" => {
+            log::info!("OSC /transport/play -> TransportCmd::PlayLastSong");
+            OscDispatch {
+                commands: vec![TransportCmd::PlayLastSong.into()],
+                responses: Vec::new(),
+            }
+        }
+        "/transport/stop" => {
+            log::info!("OSC /transport/stop -> TransportCmd::StopSong");
+            OscDispatch {
+                commands: vec![TransportCmd::StopSong.into()],
+                responses: Vec::new(),
+            }
+        }
         "/preset/load" => {
             log::warn!("/preset/load is not implemented yet");
             OscDispatch::default()
@@ -143,15 +151,18 @@ fn handle_param_set(message: OscMessage) -> OscDispatch {
 
     match param_id.as_str() {
         // Existing Gain::set_parameter semantics are dB, so this OSC value is dB.
-        "gain" => OscDispatch {
-            commands: vec![MixerCmd::SetMasterEffectParameter {
-                effect_id: MASTER_GAIN_EFFECT_ID,
-                param_index: MASTER_GAIN_PARAM_INDEX,
-                value,
+        "gain" => {
+            log::info!("OSC /param/set gain {value} dB -> MixerCmd::SetMasterEffectParameter");
+            OscDispatch {
+                commands: vec![MixerCmd::SetMasterEffectParameter {
+                    effect_id: MASTER_GAIN_EFFECT_ID,
+                    param_index: MASTER_GAIN_PARAM_INDEX,
+                    value,
+                }
+                .into()],
+                responses: vec![param_echo(param_id, value)],
             }
-            .into()],
-            responses: vec![param_echo(param_id, value)],
-        },
+        }
         unknown => {
             log::warn!("unknown parameter id: {unknown}");
             OscDispatch::default()
