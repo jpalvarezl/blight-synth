@@ -15,9 +15,11 @@ pub const OSC_SEND_ADDR: &str = "127.0.0.1:9001";
 
 /// Reserved master gain effect used by the standalone OSC bridge.
 ///
-/// `/param/set gain <db>` translates to `MixerCmd::SetMasterEffectParameter`
-/// for this effect. The standalone binary is responsible for installing this
-/// effect during startup.
+/// `/param/set gain <0..1>` carries a *normalized* control value (linear
+/// amplitude, the VST/AU parameter convention). The core maps it to the dB
+/// the master `Gain` effect expects via [`normalized_gain_to_db`] and emits
+/// `MixerCmd::SetMasterEffectParameter`. The standalone binary is responsible
+/// for installing this effect during startup.
 pub const MASTER_GAIN_EFFECT_ID: EffectId = 0;
 pub const MASTER_GAIN_PARAM_INDEX: u32 = 0;
 
@@ -27,6 +29,8 @@ pub const METER_RATE_HZ: u32 = 30;
 const METER_INTERVAL: Duration = Duration::from_micros(1_000_000 / METER_RATE_HZ as u64);
 /// Level reported for silence / non-finite values, in dBFS.
 const METER_FLOOR_DB: f32 = -120.0;
+/// dB floor for the normalized master gain mapping (effectively mute).
+const GAIN_FLOOR_DB: f32 = -120.0;
 
 pub struct OscServer {
     socket: UdpSocket,
@@ -223,18 +227,24 @@ fn handle_param_set(message: OscMessage) -> OscDispatch {
     };
 
     match param_id.as_str() {
-        // Existing Gain::set_parameter semantics are dB, so this OSC value is dB.
+        // Wire format is a normalized 0..1 control value (linear amplitude);
+        // map it to the dB the master Gain effect expects.
         "gain" => {
-            log::info!("OSC /param/set gain {value} dB -> MixerCmd::SetMasterEffectParameter");
+            let normalized = value.clamp(0.0, 1.0);
+            let db = normalized_gain_to_db(normalized);
+            log::info!(
+                "OSC /param/set gain {normalized} (norm) -> {db} dB -> MixerCmd::SetMasterEffectParameter"
+            );
             OscDispatch {
                 commands: vec![MixerCmd::SetMasterEffectParameter {
                     effect_id: MASTER_GAIN_EFFECT_ID,
                     param_index: MASTER_GAIN_PARAM_INDEX,
-                    value,
+                    value: db,
                 }
                 .into()],
                 song_loads: Vec::new(),
-                responses: vec![param_echo(param_id, value)],
+                // Echo the normalized value the core accepted (clamped).
+                responses: vec![param_echo(param_id, normalized)],
             }
         }
         unknown => {
@@ -242,6 +252,17 @@ fn handle_param_set(message: OscMessage) -> OscDispatch {
             OscDispatch::default()
         }
     }
+}
+
+/// Maps a normalized gain control value (`0..1`, linear amplitude) to dB for
+/// the master `Gain` effect. `1.0` is unity (`0 dB`), `0.0` (and any value at
+/// or below it) is silence, floored at [`GAIN_FLOOR_DB`]. Values are clamped to
+/// `0..1` by the caller.
+fn normalized_gain_to_db(value: f32) -> f32 {
+    if value <= 0.0 {
+        return GAIN_FLOOR_DB;
+    }
+    (20.0 * value.log10()).max(GAIN_FLOOR_DB)
 }
 
 fn param_echo(param_id: &str, value: f32) -> OscPacket {
@@ -339,10 +360,10 @@ mod tests {
     }
 
     #[test]
-    fn param_set_gain_translates_to_existing_master_gain_command_and_echo() {
+    fn param_set_gain_maps_normalized_value_to_db_and_echoes_normalized() {
         let dispatch = dispatch_packet(message(
             "/param/set",
-            vec![OscType::String("gain".to_string()), OscType::Float(-6.0)],
+            vec![OscType::String("gain".to_string()), OscType::Float(0.5)],
         ));
 
         assert_eq!(dispatch.commands.len(), 1);
@@ -356,17 +377,21 @@ mod tests {
         };
         assert_eq!(*effect_id, MASTER_GAIN_EFFECT_ID);
         assert_eq!(*param_index, MASTER_GAIN_PARAM_INDEX);
-        assert_eq!(*value, -6.0);
+        // 0.5 linear amplitude ~= -6.02 dB.
+        assert!((*value - (-6.0206)).abs() < 1e-3, "got {value}");
 
-        assert_eq!(dispatch.responses.len(), 1);
-        assert_eq!(param_echo_args(&dispatch.responses[0]), ("gain", -6.0));
+        // Echo mirrors the normalized value the core accepted.
+        let (id, echoed) = param_echo_args(&dispatch.responses[0]);
+        assert_eq!(id, "gain");
+        assert!((echoed - 0.5).abs() < 1e-6);
     }
 
     #[test]
     fn param_set_gain_accepts_int_values() {
+        // Int 1 -> unity gain (0 dB), echoed as 1.0.
         let dispatch = dispatch_packet(message(
             "/param/set",
-            vec![OscType::String("gain".to_string()), OscType::Int(-12)],
+            vec![OscType::String("gain".to_string()), OscType::Int(1)],
         ));
 
         let Command::Mixer(MixerCmd::SetMasterEffectParameter { value, .. }) =
@@ -374,8 +399,38 @@ mod tests {
         else {
             panic!("expected MixerCmd::SetMasterEffectParameter");
         };
-        assert_eq!(*value, -12.0);
-        assert_eq!(param_echo_args(&dispatch.responses[0]), ("gain", -12.0));
+        assert!(
+            (*value - 0.0).abs() < 1e-4,
+            "unity gain -> 0 dB, got {value}"
+        );
+        assert!((param_echo_args(&dispatch.responses[0]).1 - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn param_set_gain_clamps_to_unit_range() {
+        // Above 1.0 clamps to unity (0 dB).
+        let high = dispatch_packet(message(
+            "/param/set",
+            vec![OscType::String("gain".to_string()), OscType::Float(2.0)],
+        ));
+        let Command::Mixer(MixerCmd::SetMasterEffectParameter { value, .. }) = &high.commands[0]
+        else {
+            panic!("expected MixerCmd::SetMasterEffectParameter");
+        };
+        assert!((*value - 0.0).abs() < 1e-4);
+        assert!((param_echo_args(&high.responses[0]).1 - 1.0).abs() < 1e-6);
+
+        // Zero (and below) floors to silence.
+        let low = dispatch_packet(message(
+            "/param/set",
+            vec![OscType::String("gain".to_string()), OscType::Float(0.0)],
+        ));
+        let Command::Mixer(MixerCmd::SetMasterEffectParameter { value, .. }) = &low.commands[0]
+        else {
+            panic!("expected MixerCmd::SetMasterEffectParameter");
+        };
+        assert_eq!(*value, GAIN_FLOOR_DB);
+        assert!((param_echo_args(&low.responses[0]).1 - 0.0).abs() < 1e-6);
     }
 
     #[test]

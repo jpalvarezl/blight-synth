@@ -29,9 +29,9 @@ fn main() -> Result<()> {
     send_message(
         &socket,
         "/param/set",
-        vec![OscType::String("gain".to_string()), OscType::Float(-6.0)],
+        vec![OscType::String("gain".to_string()), OscType::Float(0.5)],
     )?;
-    println!("sent /param/set gain -6.0 dB");
+    println!("sent /param/set gain 0.5 (normalized, ~-6 dB)");
     recv_one(&socket, "param echo");
 
     send_message(&socket, "/transport/play", vec![])?;
@@ -48,6 +48,11 @@ fn main() -> Result<()> {
 
 /// Reads and prints incoming `/meter/level` messages for `duration`.
 fn print_meter_levels(socket: &UdpSocket, duration: Duration) {
+    // Use a short read timeout while metering so the loop re-checks the
+    // deadline promptly even if the stream pauses; this honors `duration`
+    // within ~one timeout instead of blocking up to the socket's 2s timeout.
+    let _ = socket.set_read_timeout(Some(Duration::from_millis(100)));
+
     let deadline = std::time::Instant::now() + duration;
     let mut buf = [0_u8; decoder::MTU];
     let mut count = 0_u32;
@@ -67,9 +72,12 @@ fn print_meter_levels(socket: &UdpSocket, duration: Duration) {
                     }
                 }
             }
-            Err(_) => break, // timeout while idle
+            Err(_) => continue, // timeout: re-check the deadline and keep waiting
         }
     }
+
+    // Restore the longer timeout for any subsequent blocking reads.
+    let _ = socket.set_read_timeout(Some(Duration::from_secs(2)));
 
     println!("received {count} /meter/level message(s) during playback");
 }

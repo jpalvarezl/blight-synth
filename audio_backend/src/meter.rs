@@ -103,20 +103,19 @@ impl MeterState {
     }
 }
 
-/// Returns `(peak, mean_square)` for a block. Both are non-negative; a
-/// non-finite (NaN) sample never updates the peak and is ignored so the
-/// running statistics stay finite.
+/// Returns `(peak, mean_square)` for a block. Both are non-negative.
+/// Non-finite (NaN/inf) samples are fully ignored: they never update the peak
+/// and are excluded from *both* the sum of squares and the divisor, so they do
+/// not bias RMS toward zero. A block with no finite samples reports zero.
 fn block_stats(samples: &[f32]) -> (f32, f32) {
-    if samples.is_empty() {
-        return (0.0, 0.0);
-    }
-
     let mut peak = 0.0_f32;
     let mut sum_sq = 0.0_f32;
+    let mut finite = 0_u32;
     for &sample in samples {
         if !sample.is_finite() {
             continue;
         }
+        finite += 1;
         let abs = sample.abs();
         if abs > peak {
             peak = abs;
@@ -124,7 +123,12 @@ fn block_stats(samples: &[f32]) -> (f32, f32) {
         sum_sq += sample * sample;
     }
 
-    (peak, sum_sq / samples.len() as f32)
+    let mean_sq = if finite == 0 {
+        0.0
+    } else {
+        sum_sq / finite as f32
+    };
+    (peak, mean_sq)
 }
 
 #[cfg(test)]
@@ -175,9 +179,11 @@ mod tests {
         let meter = MeterState::new();
         meter.record_block(&[f32::NAN, 0.5, f32::INFINITY], &[0.0; 3]);
 
+        // Only the single finite sample (0.5) counts toward peak and RMS;
+        // the NaN/inf are excluded from the divisor, so RMS is exactly 0.5.
         let levels = meter.take_levels();
         approx(levels.peak_left, 0.5);
-        assert!(levels.rms_left.is_finite());
+        approx(levels.rms_left, 0.5);
     }
 
     #[test]
