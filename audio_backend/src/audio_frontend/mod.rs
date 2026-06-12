@@ -1,7 +1,9 @@
 mod blight_audio;
 
 use crate::Command;
+use crate::MeterState;
 use ringbuf::HeapProd;
+use std::sync::Arc;
 
 use crate::EffectFactory;
 use crate::{InstrumentFactory, ResourceManager, VoiceFactory};
@@ -18,6 +20,8 @@ pub struct BlightAudio {
     resource_manager: ResourceManager,
     /// Effect factory for creating audio effects.
     effect_factory: EffectFactory,
+    /// Lock-free metering state written by the audio callback.
+    meter: Arc<MeterState>,
     /// The audio stream for real-time audio processing.
     _stream: cpal::Stream,
 }

@@ -37,12 +37,41 @@ fn main() -> Result<()> {
     send_message(&socket, "/transport/play", vec![])?;
     println!("sent /transport/play");
 
-    std::thread::sleep(Duration::from_secs(2));
+    // While playing, the dsp-core streams /meter/level at ~30 Hz to this socket.
+    print_meter_levels(&socket, Duration::from_secs(2));
 
     send_message(&socket, "/transport/stop", vec![])?;
     println!("sent /transport/stop");
 
     Ok(())
+}
+
+/// Reads and prints incoming `/meter/level` messages for `duration`.
+fn print_meter_levels(socket: &UdpSocket, duration: Duration) {
+    let deadline = std::time::Instant::now() + duration;
+    let mut buf = [0_u8; decoder::MTU];
+    let mut count = 0_u32;
+
+    while std::time::Instant::now() < deadline {
+        match socket.recv_from(&mut buf) {
+            Ok((size, _addr)) => {
+                if let Ok((_remainder, OscPacket::Message(message))) =
+                    decoder::decode_udp(&buf[..size])
+                {
+                    if message.addr == "/meter/level" {
+                        count += 1;
+                        // Throttle printing so the example stays readable.
+                        if count % 10 == 1 {
+                            println!("received /meter/level: {:?}", message.args);
+                        }
+                    }
+                }
+            }
+            Err(_) => break, // timeout while idle
+        }
+    }
+
+    println!("received {count} /meter/level message(s) during playback");
 }
 
 fn send_message(socket: &UdpSocket, addr: &str, args: Vec<OscType>) -> Result<()> {
