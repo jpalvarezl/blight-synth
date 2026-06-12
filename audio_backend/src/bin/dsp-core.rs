@@ -23,6 +23,7 @@ async fn main() -> Result<()> {
     );
 
     let osc_server = OscServer::bind().await?;
+    let meter = audio.meter_state();
 
     // Contract with the future Bun host: stdout readiness detection waits for this line.
     // Print it only after audio is initialized and OSC is listening.
@@ -31,7 +32,7 @@ async fn main() -> Result<()> {
 
     log::info!("standalone DSP core ready; waiting for shutdown signal");
     tokio::select! {
-        result = osc_server.run(&mut audio) => result?,
+        result = osc_server.run_with_meter(&mut audio, &meter) => result?,
         result = tokio::signal::ctrl_c() => {
             result?;
             log::info!("shutdown signal received; stopping standalone DSP core");

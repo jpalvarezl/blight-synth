@@ -1,6 +1,7 @@
 use super::BlightAudio;
 use crate::{
-    AudioProcessor, Command, EffectFactory, InstrumentFactory, ResourceManager, VoiceFactory,
+    AudioProcessor, Command, EffectFactory, InstrumentFactory, MeterState, ResourceManager,
+    VoiceFactory,
 };
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use log::info;
@@ -26,7 +27,9 @@ impl BlightAudio {
         let (command_tx, command_rx) = rb.split();
 
         // Create the real-time processor and move it into the audio thread.
-        let mut audio_processor = AudioProcessor::new(command_rx, sample_rate as f32, channels);
+        let meter = Arc::new(MeterState::new());
+        let mut audio_processor =
+            AudioProcessor::new(command_rx, sample_rate as f32, channels, meter.clone());
 
         let stream = device.build_output_stream(
             &config.into(),
@@ -51,6 +54,7 @@ impl BlightAudio {
             voice_factory,
             resource_manager,
             effect_factory,
+            meter,
             _stream: stream,
         })
     }
@@ -74,8 +78,14 @@ impl BlightAudio {
         let (command_tx, command_rx) = rb.split();
 
         // Create the real-time processor seeded with a Song.
-        let mut audio_processor =
-            AudioProcessor::new_with_song(song, command_rx, sample_rate as f32, channels);
+        let meter = Arc::new(MeterState::new());
+        let mut audio_processor = AudioProcessor::new_with_song(
+            song,
+            command_rx,
+            sample_rate as f32,
+            channels,
+            meter.clone(),
+        );
 
         let stream = device.build_output_stream(
             &config.into(),
@@ -99,6 +109,7 @@ impl BlightAudio {
             voice_factory,
             resource_manager,
             effect_factory,
+            meter,
             _stream: stream,
         })
     }
@@ -125,5 +136,11 @@ impl BlightAudio {
 
     pub fn get_instrument_factory(&self) -> &InstrumentFactory {
         &self.instrument_factory
+    }
+
+    /// Returns a handle to the shared metering state. Cloning is cheap (an
+    /// `Arc` bump); callers read levels via [`MeterState::take_levels`].
+    pub fn meter_state(&self) -> Arc<MeterState> {
+        self.meter.clone()
     }
 }

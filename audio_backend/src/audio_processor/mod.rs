@@ -2,6 +2,7 @@ use ringbuf::traits::*;
 use ringbuf::HeapCons;
 
 use crate::Command;
+use crate::MeterState;
 use crate::Player;
 use sequencer::models::Song;
 use std::sync::Arc;
@@ -16,6 +17,8 @@ pub struct AudioProcessor {
     // Pre-allocated, non-interleaved buffers for processing.
     pub(crate) left_buf: Vec<f32>,
     pub(crate) right_buf: Vec<f32>,
+    // Shared metering written once per block (read by the OSC server).
+    pub(crate) meter: Arc<MeterState>,
 }
 
 impl AudioProcessor {
@@ -24,6 +27,7 @@ impl AudioProcessor {
         command_rx: HeapCons<Command>,
         sample_rate: f32,
         channels: usize,
+        meter: Arc<MeterState>,
     ) -> Self {
         Self {
             command_rx,
@@ -31,11 +35,17 @@ impl AudioProcessor {
             channels,
             left_buf: vec![0.0; MAX_BUFFER_SIZE],
             right_buf: vec![0.0; MAX_BUFFER_SIZE],
+            meter,
             player: Player::new(song, sample_rate as f64),
         }
     }
 
-    pub fn new(command_rx: HeapCons<Command>, sample_rate: f32, channels: usize) -> Self {
+    pub fn new(
+        command_rx: HeapCons<Command>,
+        sample_rate: f32,
+        channels: usize,
+        meter: Arc<MeterState>,
+    ) -> Self {
         let default_song = Arc::new(sequencer::models::Song::new("Untitled"));
         Self {
             command_rx,
@@ -43,6 +53,7 @@ impl AudioProcessor {
             channels,
             left_buf: vec![0.0; MAX_BUFFER_SIZE],
             right_buf: vec![0.0; MAX_BUFFER_SIZE],
+            meter,
             player: Player::new(default_song, sample_rate as f64),
         }
     }
@@ -74,6 +85,9 @@ impl AudioProcessor {
         // Namely, we progress our control rate, as oppose to our audio rate.
         self.player
             .process(left, right, self.sample_rate, frame_count);
+
+        // 2b. Record the post-master stereo block for meter streaming.
+        self.meter.record_block(left, right);
 
         // 3. Re-interleave the processed buffers into the output buffer.
         for (i, frame) in output_buffer.chunks_mut(self.channels).enumerate() {
