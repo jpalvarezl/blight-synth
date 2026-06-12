@@ -1,5 +1,7 @@
 use super::BlightAudio;
-use crate::{AudioProcessor, Command, EffectFactory, InstrumentFactory, ResourceManager, VoiceFactory};
+use crate::{
+    AudioProcessor, Command, EffectFactory, InstrumentFactory, ResourceManager, VoiceFactory,
+};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use log::info;
 use ringbuf::storage::Heap;

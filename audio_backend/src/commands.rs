@@ -18,6 +18,10 @@ pub enum TransportCmd {
 }
 
 pub enum SequencerCmd {
+    /// Replace the current song without starting playback.
+    LoadSong {
+        song: Arc<Song>,
+    },
     PlaySong {
         song: Arc<Song>,
     },
