@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use rosc::{decoder, encoder, OscMessage, OscPacket, OscType};
+use std::net::{SocketAddr, ToSocketAddrs};
 use std::path::PathBuf;
 use tokio::net::UdpSocket;
 
@@ -20,7 +21,7 @@ pub const MASTER_GAIN_PARAM_INDEX: u32 = 0;
 
 pub struct OscServer {
     socket: UdpSocket,
-    send_addr: String,
+    send_addr: SocketAddr,
 }
 
 #[derive(Default)]
@@ -52,7 +53,14 @@ impl OscServer {
             .await
             .with_context(|| format!("failed to bind OSC UDP socket on {listen_addr}"))?;
 
-        let send_addr = send_addr.into();
+        // Resolve the response address once at bind time so the hot send loop
+        // does not re-parse/resolve a string on every outgoing packet.
+        let send_addr_str = send_addr.into();
+        let send_addr = send_addr_str
+            .to_socket_addrs()
+            .with_context(|| format!("failed to resolve OSC send address {send_addr_str}"))?
+            .next()
+            .with_context(|| format!("no socket address resolved for {send_addr_str}"))?;
         log::info!("OSC server listening on {listen_addr}; responses -> {send_addr}");
 
         Ok(Self { socket, send_addr })
@@ -103,7 +111,7 @@ impl OscServer {
                 let encoded =
                     encoder::encode(&response).context("failed to encode OSC response")?;
                 self.socket
-                    .send_to(&encoded, &self.send_addr)
+                    .send_to(&encoded, self.send_addr)
                     .await
                     .with_context(|| {
                         format!("failed to send OSC response to {}", self.send_addr)
@@ -169,7 +177,7 @@ fn handle_song_load(message: OscMessage) -> OscDispatch {
 
 fn handle_param_set(message: OscMessage) -> OscDispatch {
     let [OscType::String(param_id), value] = message.args.as_slice() else {
-        log::warn!("invalid /param/set args; expected [string, float]");
+        log::warn!("invalid /param/set args; expected [string, float or int]");
         return OscDispatch::default();
     };
 
@@ -177,7 +185,7 @@ fn handle_param_set(message: OscMessage) -> OscDispatch {
         OscType::Float(value) => *value,
         OscType::Int(value) => *value as f32,
         _ => {
-            log::warn!("invalid /param/set value for {param_id}; expected float");
+            log::warn!("invalid /param/set value for {param_id}; expected float or int");
             return OscDispatch::default();
         }
     };
