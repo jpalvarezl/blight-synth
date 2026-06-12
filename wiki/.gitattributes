@@ -1,0 +1,3 @@
+# pi-plug wiki merge driver hints
+log.md merge=union
+log-archive-*.md merge=union
