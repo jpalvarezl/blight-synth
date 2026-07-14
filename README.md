@@ -1,15 +1,26 @@
 # blight-synth
 
-blight-synth is a modular synthesizer application built in Rust, featuring a dedicated audio backend and a graphical frontend interface. The project is organized into several Rust crates and a frontend GUI (built with Tauri), enabling real-time audio synthesis and user interaction.
+blight-synth is an experimental composition environment and modular real-time sound engine built in Rust. The current repository includes a tracker-based composition source and egui debug interface while a host-independent engine and future Svelte/TypeScript frontend are being designed.
+
+## Documentation and roadmap
+
+- Start at [`docs/README.md`](docs/README.md) for the committed, Obsidian-compatible knowledge base.
+- Coding agents should read [`AGENTS.md`](AGENTS.md) for the targeted context-loading and parallel-work protocol.
+- GitHub issue [#144](https://github.com/jpalvarezl/blight-synth/issues/144) is the canonical roadmap; [`docs/work/burndown.md`](docs/work/burndown.md) is its generated offline snapshot.
+- [`docs/spec/current-product.md`](docs/spec/current-product.md) records the current product direction and open composition questions.
+
+GitHub Issues own live task status. Specifications, architecture contracts, and accepted decisions live in `docs/`; code and tests describe current implementation behavior.
 
 ## Project Structure
 
-- `audio_backend/` — Core audio engine. Handles audio device management, synthesis, streaming, and processing. Written in Rust.
-- `sequencer/` — Sequencing and timing engine for pattern-based music composition. Written in Rust.
-- `utils/` — Music theory utilities (notes, scales, etc.) for use by the synth engine. Written in Rust.
-- `frontend/` — Graphical User Interface (GUI) for operating the synth, built with Tauri. (Details are in the folder; not covered here.)
+- `dsp/` — DSP primitives, instruments, voices, effects, and factories. M0/M1 will further separate file/platform loading from real-time primitives.
+- `audio_backend/` — Current CPAL audio host, processor/player integration, OSC adapter, metering, and hydration. It is being split around a host-independent engine boundary.
+- `sequencer/` — Current tracker document, timing, and `Song -> Chain -> Phrase` composition model.
+- `tracker_gui/` — Current egui debug/reference interface; it does not dictate the future composition UI.
+- `utils/` — Music theory utilities such as notes and scales.
+- `os_dls/` — macOS DLS parsing and sample-resource support.
 - `assets/` — Data files for notes and other resources.
-- `scripts/` — Utility scripts (e.g., for generating note data).
+- `scripts/` — Validation, smoke-test, and documentation tooling.
 
 ## audio_backend Architecture
 

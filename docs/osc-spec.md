@@ -1,3 +1,11 @@
+---
+title: OSC Address Space
+summary: Implemented standalone OSC protocol snapshot and open protocol decisions.
+status: current
+updated: 2026-07-14
+issues: [104, 120, 122, 123]
+---
+
 # OSC Address Space — `blight-synth`
 
 Single source of truth for the OSC protocol between the standalone DSP core
