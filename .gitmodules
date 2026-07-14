@@ -1,6 +1,0 @@
-[submodule "synthpp"]
-	path = synthpp
-	url = https://github.com/jpalvarezl/synthpp.git
-[submodule "blight-vsti"]
-	path = blight-vsti
-	url = https://github.com/jpalvarezl/blight-vsti.git

@@ -54,6 +54,12 @@ impl Synthesizer {
         self.instrument_bank.insert(instrument.id(), instrument);
     }
 
+    pub fn clear_instruments(&mut self) {
+        self.stop_all_notes();
+        self.instrument_bank.clear();
+        self.track_last_instrument.clear();
+    }
+
     pub fn add_effect_to_instrument(
         &mut self,
         instrument_id: InstrumentId,

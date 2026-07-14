@@ -1,6 +1,6 @@
 use std::thread;
 
-use audio_backend::{BlightAudio, InstrumentCmd, SynthCmd, TransportCmd, Waveform};
+use audio_backend::{instruments::Waveform, BlightAudio, InstrumentCmd, SynthCmd, TransportCmd};
 
 fn main() {
     // This is a placeholder for the main function.

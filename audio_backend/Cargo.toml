@@ -3,14 +3,17 @@ name = "audio_backend"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "dsp-core"
+path = "src/bin/dsp-core.rs"
+
 [dependencies]
-cpal = {workspace = true}
-anyhow = {workspace = true}
-log = {workspace = true}
-env_logger = {workspace = true}
-ringbuf = {workspace = true}
-sequencer = {workspace = true}
-utils = {workspace = true}
-hound = { workspace = true}
-arrayvec = { workspace = true }
-os_dls = { workspace = true }
+dsp = { workspace = true }
+cpal = { workspace = true }
+anyhow = { workspace = true }
+log = { workspace = true }
+env_logger = { workspace = true }
+ringbuf = { workspace = true }
+rosc = { workspace = true }
+tokio = { workspace = true }
+sequencer = { workspace = true }
