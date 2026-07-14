@@ -13,4 +13,5 @@ A packet is a handoff cache, not a second specification. It links to the issue a
 
 ## Active
 
+- Issue [#128](https://github.com/jpalvarezl/blight-synth/issues/128) — pre-existing refactor integration, now under review in PR [#147](https://github.com/jpalvarezl/blight-synth/pull/147). It predates the packet mechanism; the PR body is its handoff packet.
 - Issue [#146](https://github.com/jpalvarezl/blight-synth/issues/146) — knowledge base and burndown bootstrap (this setup task; no separate packet needed because its output defines the packet mechanism).
