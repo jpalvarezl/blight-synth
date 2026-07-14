@@ -1,15 +1,9 @@
 use dsp::{
     id::{EffectChainId, EffectId, InstrumentId},
-    InstrumentTrait, MonoEffect, StereoEffect, VoiceEffects,
+    InstrumentTrait, MonoEffect, StereoEffect, SynthCmd, VoiceEffects,
 };
 use sequencer::models::Song;
 use std::sync::Arc;
-
-// Re-export DSP-level commands so existing consumers don't break.
-// SynthCmd is re-exported explicitly because `pub use dsp::*` in lib.rs
-// doesn't cover it (commands module is private in dsp). EffectCmd and
-// EnvelopeCmd come through the dsp glob re-export already.
-pub use dsp::SynthCmd;
 
 pub enum TransportCmd {
     PlayLastSong,
