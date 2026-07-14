@@ -2,7 +2,7 @@
 title: Generated Roadmap Burndown
 summary: Offline Obsidian snapshot generated from GitHub roadmap issue metadata.
 status: generated
-source-updated: 2026-07-14T20:49:42Z
+source-updated: 2026-07-14T20:59:05Z
 generator: scripts/docs/sync_roadmap.py
 ---
 
@@ -11,13 +11,13 @@ generator: scripts/docs/sync_roadmap.py
 > [!warning] Generated file
 > GitHub Issues are canonical. Do not edit this page manually. Run `python3 scripts/docs/sync_roadmap.py`.
 
-Data snapshot through `2026-07-14T20:49:42Z`.
+Data snapshot through `2026-07-14T20:59:05Z`.
 
 ## Summary
 
 | Milestone | Open | Done | Ready | In progress | Blocked | Backlog | Sized points done/total | Unsized |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| M0: Architecture & Repository Baseline | 5 | 0 | 2 | 2 | 1 | 0 | 0/3 | 4 |
+| M0: Architecture & Repository Baseline | 3 | 2 | 2 | 0 | 1 | 0 | 3/3 | 4 |
 | M1: Host-Independent Engine & RT Contracts | 10 | 0 | 0 | 0 | 0 | 10 | 0/0 | 10 |
 | M2: Standalone Host & Control Protocol | 5 | 0 | 0 | 0 | 0 | 5 | 0/0 | 5 |
 | M3: JS/TS Composition UI & Standalone App | 9 | 0 | 0 | 0 | 0 | 9 | 0/0 | 9 |
@@ -28,21 +28,19 @@ Data snapshot through `2026-07-14T20:49:42Z`.
 
 ### M0: Architecture & Repository Baseline
 
-- [ ] [#128](https://github.com/jpalvarezl/blight-synth/issues/128) Integrate the modular-refactor branch into `main` and remove duplicate scaffolding — `in-progress`, `unsized`, @jpalvarezl
 - [ ] [#129](https://github.com/jpalvarezl/blight-synth/issues/129) Record the primary product, open composition model, and optional plugin topology — `ready`, `unsized`, unassigned
 - [ ] [#130](https://github.com/jpalvarezl/blight-synth/issues/130) Refactor workspace boundaries around a host-independent engine — `blocked`, `unsized`, unassigned
 - [ ] [#131](https://github.com/jpalvarezl/blight-synth/issues/131) Establish CI and a repository quality baseline — `ready`, `unsized`, unassigned
-- [ ] [#146](https://github.com/jpalvarezl/blight-synth/issues/146) Establish the human/LLM knowledge base, context packets, and generated burndown — `in-progress`, `M`, @jpalvarezl
 
 ## All roadmap tasks
 
 ### M0: Architecture & Repository Baseline
 
-- [ ] [#128](https://github.com/jpalvarezl/blight-synth/issues/128) Integrate the modular-refactor branch into `main` and remove duplicate scaffolding — `in-progress`, `unsized`, @jpalvarezl
+- [x] [#128](https://github.com/jpalvarezl/blight-synth/issues/128) Integrate the modular-refactor branch into `main` and remove duplicate scaffolding — `done`, `unsized`, @jpalvarezl
 - [ ] [#129](https://github.com/jpalvarezl/blight-synth/issues/129) Record the primary product, open composition model, and optional plugin topology — `ready`, `unsized`, unassigned
 - [ ] [#130](https://github.com/jpalvarezl/blight-synth/issues/130) Refactor workspace boundaries around a host-independent engine — `blocked`, `unsized`, unassigned
 - [ ] [#131](https://github.com/jpalvarezl/blight-synth/issues/131) Establish CI and a repository quality baseline — `ready`, `unsized`, unassigned
-- [ ] [#146](https://github.com/jpalvarezl/blight-synth/issues/146) Establish the human/LLM knowledge base, context packets, and generated burndown — `in-progress`, `M`, @jpalvarezl
+- [x] [#146](https://github.com/jpalvarezl/blight-synth/issues/146) Establish the human/LLM knowledge base, context packets, and generated burndown — `done`, `M`, @jpalvarezl
 
 ### M1: Host-Independent Engine & RT Contracts
 
