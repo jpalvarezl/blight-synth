@@ -56,21 +56,21 @@ Shared contracts touched: CI policy only; no engine API/schema.
 - [x] Add dependency-boundary checker.
 - [x] Add hardware-free GitHub Actions jobs.
 - [x] Document local commands and future TypeScript extension.
-- [ ] Rebase onto merged #149/#150 and run the complete strict CI-equivalent set.
+- [x] Rebase onto merged #149/#150 and run the complete strict CI-equivalent set.
 
 ## Verification
 
 - [x] `cargo fmt --all -- --check`
 - [x] `cargo test --workspace --all-targets`
-- [ ] `cargo clippy --workspace --all-targets -- -D warnings` (pending #149/#150)
+- [x] `cargo clippy --workspace --all-targets -- -D warnings`
 - [x] `python3 scripts/check_architecture.py`
 - [x] `python3 scripts/docs/check_docs.py`
 - [x] `git diff --check`
 
 ## Handoff
 
-- Completed: CI workflow, current dependency checker, local command documentation, and hardware-free baseline tests.
-- Remaining: merge #149/#150, rebase, run strict workspace Clippy, then open the integration PR.
+- Completed: CI workflow, current dependency checker, local command documentation, strict Clippy, hardware-free workspace tests, docs checks, and roadmap-generator exercise.
+- Remaining: Copilot/human review and hosted Ubuntu/macOS workflow validation.
 - Known failures/risks: the Ubuntu package list must be proven by the first GitHub Actions run; roadmap generation intentionally uses `--stdout` to avoid live-metadata flakiness.
-- Next smallest action: review/merge #149 and #150.
+- Next smallest action: open the integration PR and inspect hosted checks.
 - Files a new agent should read next: this packet, `.github/workflows/ci.yml`, and `scripts/check_architecture.py`.

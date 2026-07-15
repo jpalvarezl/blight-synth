@@ -13,4 +13,4 @@ A packet is a handoff cache, not a second specification. It links to the issue a
 
 ## Active
 
-No active task packets. Claim a `status:ready` issue before starting the next chunk of work.
+- [Issue #131 — CI baseline](issue-0131-ci-baseline.md)
