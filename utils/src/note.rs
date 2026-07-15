@@ -38,7 +38,7 @@ pub enum Pitch {
 
 /// Convert a MIDI note number to a note label string, e.g. 60 -> "C4"
 pub fn midi_to_note_label(midi: u8) -> Option<String> {
-    if midi < 12 || midi > 127 {
+    if !(12..=127).contains(&midi) {
         return None;
     }
     let chromatic = [
@@ -56,6 +56,12 @@ pub fn midi_to_frequency(midi: u8) -> f32 {
 
 pub fn velocity_to_amplitude(velocity: u8) -> f32 {
     f32::min(velocity as f32 / 255.0, 1.0)
+}
+
+impl Default for Note {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 // TODO remove

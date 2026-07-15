@@ -14,7 +14,7 @@ pub fn load_notes() -> HashMap<String, Note> {
         notes.insert(note.note_label.clone(), note.into());
     }
 
-    return notes;
+    notes
 }
 
 #[cfg(test)]
