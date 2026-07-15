@@ -181,23 +181,19 @@ impl<S: SynthNode> VoiceTrait for Voice<S> {
                     false
                 }
             }
-            SynthCmd::EffectCommand { effect_id, command } => {
-                if let EffectCmd::SetParameter { param_index, value } = command {
-                    self.set_effect_parameter(*effect_id, *param_index, *value);
-                    true
-                } else {
-                    false
-                }
+            SynthCmd::EffectCommand {
+                effect_id,
+                command: EffectCmd::SetParameter { param_index, value },
+            } => {
+                self.set_effect_parameter(*effect_id, *param_index, *value);
+                true
             }
+            SynthCmd::EffectCommand { .. } => false,
             _ => false,
         };
 
         // If the command wasn't an envelope command, pass it to the synth node
-        if was_handled {
-            return true;
-        } else {
-            return self.node.try_handle_command(command);
-        }
+        was_handled || self.node.try_handle_command(command)
     }
 
     fn add_effect(&mut self, effect: Box<dyn MonoEffect>) {

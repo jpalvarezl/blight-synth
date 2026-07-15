@@ -11,7 +11,7 @@ use sequencer::{
 use crate::{id::InstrumentId, Command, SequencerCmd, TransportCmd};
 
 /// Holds the playback position for a single track.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct TrackPosition {
     /// The current step within the active Chain for this track (e.g., 0-15).
     pub chain_step: u8,
@@ -47,15 +47,6 @@ impl Default for PlayerPosition {
             song_step: 0,
             tick_counter: 0,
             track_positions: [TrackPosition::default(); MAX_TRACKS],
-        }
-    }
-}
-
-impl Default for TrackPosition {
-    fn default() -> Self {
-        Self {
-            chain_step: 0,
-            phrase_step: 0,
         }
     }
 }

@@ -118,13 +118,7 @@ pub fn load_song(lead_instrument_id: InstrumentId, bass_instrument_id: Instrumen
         effect_param: 0,
     };
     let phrase_3 = (0..16)
-        .map(|i| {
-            if i % 2 == 0 {
-                event_1.clone()
-            } else {
-                event_2.clone()
-            }
-        })
+        .map(|i| if i % 2 == 0 { event_1 } else { event_2 })
         .collect::<Vec<_>>();
 
     let mut song = Song::new("Test song");
@@ -148,5 +142,5 @@ pub fn load_song(lead_instrument_id: InstrumentId, bass_instrument_id: Instrumen
         EMPTY_CHAIN_SLOT,
     ])];
 
-    return song;
+    song
 }

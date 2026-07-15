@@ -20,12 +20,13 @@ impl ChainsTab {
             if ui.button("Add Chain").clicked() {
                 song.chain_bank.push(Chain::default());
             }
-            if ui.button("Remove Chain").clicked() && !song.chain_bank.is_empty() {
-                if self.selected_chain < song.chain_bank.len() {
-                    song.chain_bank.remove(self.selected_chain);
-                    if self.selected_chain >= song.chain_bank.len() && !song.chain_bank.is_empty() {
-                        self.selected_chain = song.chain_bank.len() - 1;
-                    }
+            if ui.button("Remove Chain").clicked()
+                && !song.chain_bank.is_empty()
+                && self.selected_chain < song.chain_bank.len()
+            {
+                song.chain_bank.remove(self.selected_chain);
+                if self.selected_chain >= song.chain_bank.len() && !song.chain_bank.is_empty() {
+                    self.selected_chain = song.chain_bank.len() - 1;
                 }
             }
         });

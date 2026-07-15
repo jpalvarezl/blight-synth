@@ -10,20 +10,11 @@ pub const TRACKER_EFFECT_ID: audio_backend::id::EffectId = 1;
 /// `audio_backend`. It owns the single `BlightAudio` instance, keeps transport
 /// state in sync with the UI, and exposes helpers to (re)hydrate instruments
 /// from the authored `Song` model.
+#[derive(Default)]
 pub struct AudioManager {
     pub audio: Option<BlightAudio>,
     pub is_playing: bool,
     pub loop_enabled: bool,
-}
-
-impl Default for AudioManager {
-    fn default() -> Self {
-        Self {
-            audio: None,
-            is_playing: false,
-            loop_enabled: false,
-        }
-    }
 }
 
 impl AudioManager {

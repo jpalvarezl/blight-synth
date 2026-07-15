@@ -142,7 +142,7 @@ impl<S: SynthNode> InstrumentTrait for PolyphonicInstrument<S> {
     }
 
     fn add_voice_effects(&mut self, effects: VoiceEffects) {
-        for (slot, effect) in self.voices.iter_mut().zip(effects.into_iter()) {
+        for (slot, effect) in self.voices.iter_mut().zip(effects) {
             slot.inner.add_effect(effect);
         }
     }

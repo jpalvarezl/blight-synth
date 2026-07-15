@@ -13,7 +13,7 @@ pub enum ShortcutAction {
 }
 
 /// Define all keyboard shortcuts as constants
-pub mod shortcuts {
+pub mod bindings {
     use super::*;
 
     pub const TOGGLE_PLAYBACK: KeyboardShortcut =
@@ -31,28 +31,28 @@ impl ShortcutHandler {
         // Handle shortcuts using proper egui KeyboardShortcut consumption
         // This automatically handles focus and prevents conflicts
 
-        if ctx.input_mut(|i| i.consume_shortcut(&shortcuts::TOGGLE_PLAYBACK)) {
+        if ctx.input_mut(|i| i.consume_shortcut(&bindings::TOGGLE_PLAYBACK)) {
             return ShortcutAction::TogglePlayback;
         }
 
         // Check tab cycling shortcuts (most specific first)
-        if ctx.input_mut(|i| i.consume_shortcut(&shortcuts::PREVIOUS_TAB)) {
+        if ctx.input_mut(|i| i.consume_shortcut(&bindings::PREVIOUS_TAB)) {
             return ShortcutAction::PreviousTab;
         }
 
-        if ctx.input_mut(|i| i.consume_shortcut(&shortcuts::NEXT_TAB)) {
+        if ctx.input_mut(|i| i.consume_shortcut(&bindings::NEXT_TAB)) {
             return ShortcutAction::NextTab;
         }
 
-        if ctx.input_mut(|i| i.consume_shortcut(&shortcuts::LOAD_SONG)) {
+        if ctx.input_mut(|i| i.consume_shortcut(&bindings::LOAD_SONG)) {
             return ShortcutAction::LoadSong;
         }
 
-        if ctx.input_mut(|i| i.consume_shortcut(&shortcuts::SAVE_SONG)) {
+        if ctx.input_mut(|i| i.consume_shortcut(&bindings::SAVE_SONG)) {
             return ShortcutAction::SaveSong;
         }
 
-        if ctx.input_mut(|i| i.consume_shortcut(&shortcuts::QUIT_APP)) {
+        if ctx.input_mut(|i| i.consume_shortcut(&bindings::QUIT_APP)) {
             return ShortcutAction::QuitApplication;
         }
 

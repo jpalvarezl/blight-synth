@@ -84,10 +84,10 @@ impl TrackerApp {
     }
 
     fn restore_theme_preferences(&mut self, storage: &dyn eframe::Storage, ctx: &egui::Context) {
-        if let Some(json) = storage.get_string(STORAGE_CUSTOM_THEMES) {
-            if let Err(err) = self.theme_manager.restore_custom_themes(&json) {
-                error!("Failed to restore custom themes: {err}");
-            }
+        if let Some(json) = storage.get_string(STORAGE_CUSTOM_THEMES)
+            && let Err(err) = self.theme_manager.restore_custom_themes(&json)
+        {
+            error!("Failed to restore custom themes: {err}");
         }
 
         if let Some(theme_id) = storage.get_string(STORAGE_THEME_ID) {
@@ -134,10 +134,10 @@ impl TrackerApp {
     }
 
     fn prune_theme_feedback(&mut self) {
-        if let Some(feedback) = &self.theme_feedback {
-            if feedback.expires_at <= Instant::now() {
-                self.theme_feedback = None;
-            }
+        if let Some(feedback) = &self.theme_feedback
+            && feedback.expires_at <= Instant::now()
+        {
+            self.theme_feedback = None;
         }
     }
 
@@ -147,10 +147,10 @@ impl TrackerApp {
             self.load_song_data(new_song, ctx);
         }
 
-        if actions.load_song {
-            if let Some(song) = FileOperations::load_song() {
-                self.load_song_data(song, ctx);
-            }
+        if actions.load_song
+            && let Some(song) = FileOperations::load_song()
+        {
+            self.load_song_data(song, ctx);
         }
 
         if actions.save_json {

@@ -4,20 +4,11 @@ use eframe::egui;
 use egui_extras::{Column, TableBuilder};
 use sequencer::models::{MAX_TRACKS, Song};
 
+#[derive(Default)]
 pub struct ArrangementTab {
     pub current_row: usize,
     pub current_track: usize,
     scroll_to_current: bool,
-}
-
-impl Default for ArrangementTab {
-    fn default() -> Self {
-        Self {
-            current_row: 0,
-            current_track: 0,
-            scroll_to_current: false,
-        }
-    }
 }
 
 impl ArrangementTab {
@@ -37,12 +28,13 @@ impl ArrangementTab {
                 self.current_row = song.arrangement.len() - 1;
                 self.scroll_to_current = true;
             }
-            if ui.button("Remove Row").clicked() && !song.arrangement.is_empty() {
-                if self.current_row < song.arrangement.len() {
-                    song.arrangement.remove(self.current_row);
-                    if self.current_row >= song.arrangement.len() && !song.arrangement.is_empty() {
-                        self.current_row = song.arrangement.len() - 1;
-                    }
+            if ui.button("Remove Row").clicked()
+                && !song.arrangement.is_empty()
+                && self.current_row < song.arrangement.len()
+            {
+                song.arrangement.remove(self.current_row);
+                if self.current_row >= song.arrangement.len() && !song.arrangement.is_empty() {
+                    self.current_row = song.arrangement.len() - 1;
                 }
             }
         });
