@@ -36,6 +36,10 @@ VST3, desktop AU, and AUv3 are optional downstream goals. If pursued, a plugin h
 - M3 begins with interaction/runtime spikes rather than a direct tracker port.
 - Optional plugin host-sync and automation details remain deferred.
 
+## Detailed topology
+
+[Product and Host Topology](../architecture/product-topology.md) defines the accepted standalone and optional-plugin component diagrams, target matrix, state/parameter authority, runtime constraints, and explicit deferred variants.
+
 ## Guardrails
 
 - Audio engine crates do not depend on tracker document types.
