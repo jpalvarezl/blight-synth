@@ -49,7 +49,14 @@ REQUIRED = {"audio_backend": {"dsp", "sequencer"}}
 def metadata() -> dict:
     try:
         result = subprocess.run(
-            ["cargo", "metadata", "--format-version", "1", "--no-deps"],
+            [
+                "cargo",
+                "metadata",
+                "--format-version",
+                "1",
+                "--no-deps",
+                "--locked",
+            ],
             cwd=ROOT,
             check=True,
             text=True,
