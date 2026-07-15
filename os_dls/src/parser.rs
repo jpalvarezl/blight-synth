@@ -69,10 +69,10 @@ impl DlsParser {
                                 .read_type(&mut cursor)
                                 .map_err(|e| format!("Failed to read wave type: {}", e))?;
 
-                            if wave_type == WAVE_ID {
-                                if let Ok(sample) = self.parse_wave_chunk(wave_chunk, &mut cursor) {
-                                    samples.push(sample);
-                                }
+                            if wave_type == WAVE_ID
+                                && let Ok(sample) = self.parse_wave_chunk(wave_chunk, &mut cursor)
+                            {
+                                samples.push(sample);
                             }
                         }
                     }

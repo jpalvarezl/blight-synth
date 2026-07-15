@@ -63,7 +63,11 @@ pub struct Sample {
 }
 
 impl Sample {
-    /// Create a new Sample
+    /// Create a new Sample from the fields parsed directly from a DLS wave.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "DLS parser fields map one-to-one to immutable Sample metadata"
+    )]
     pub(crate) fn new(
         name: Option<String>,
         audio_data: Vec<u8>,
