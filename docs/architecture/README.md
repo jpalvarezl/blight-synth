@@ -9,6 +9,7 @@ updated: 2026-07-14
 
 ## Read first
 
+- [Product and host topology](product-topology.md) — accepted standalone-first target matrix, diagrams, and authority.
 - [System boundaries](system-boundaries.md) — target dependency direction and ownership.
 - [Current product specification](../spec/current-product.md) — what architecture is serving.
 - [ADR index](../decisions/README.md) — accepted decisions.

@@ -2,7 +2,7 @@
 title: Generated Roadmap Burndown
 summary: Offline Obsidian snapshot generated from GitHub roadmap issue metadata.
 status: generated
-source-updated: 2026-07-14T20:59:05Z
+source-updated: 2026-07-15T11:48:50Z
 generator: scripts/docs/sync_roadmap.py
 ---
 
@@ -11,13 +11,13 @@ generator: scripts/docs/sync_roadmap.py
 > [!warning] Generated file
 > GitHub Issues are canonical. Do not edit this page manually. Run `python3 scripts/docs/sync_roadmap.py`.
 
-Data snapshot through `2026-07-14T20:59:05Z`.
+Data snapshot through `2026-07-15T11:48:50Z`.
 
 ## Summary
 
 | Milestone | Open | Done | Ready | In progress | Blocked | Backlog | Sized points done/total | Unsized |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| M0: Architecture & Repository Baseline | 3 | 2 | 2 | 0 | 1 | 0 | 3/3 | 4 |
+| M0: Architecture & Repository Baseline | 5 | 2 | 0 | 4 | 1 | 0 | 3/11 | 2 |
 | M1: Host-Independent Engine & RT Contracts | 10 | 0 | 0 | 0 | 0 | 10 | 0/0 | 10 |
 | M2: Standalone Host & Control Protocol | 5 | 0 | 0 | 0 | 0 | 5 | 0/0 | 5 |
 | M3: JS/TS Composition UI & Standalone App | 9 | 0 | 0 | 0 | 0 | 9 | 0/0 | 9 |
@@ -28,19 +28,23 @@ Data snapshot through `2026-07-14T20:59:05Z`.
 
 ### M0: Architecture & Repository Baseline
 
-- [ ] [#129](https://github.com/jpalvarezl/blight-synth/issues/129) Record the primary product, open composition model, and optional plugin topology — `ready`, `unsized`, unassigned
+- [ ] [#129](https://github.com/jpalvarezl/blight-synth/issues/129) Record the primary product, open composition model, and optional plugin topology — `in-progress`, `S`, @jpalvarezl
 - [ ] [#130](https://github.com/jpalvarezl/blight-synth/issues/130) Refactor workspace boundaries around a host-independent engine — `blocked`, `unsized`, unassigned
-- [ ] [#131](https://github.com/jpalvarezl/blight-synth/issues/131) Establish CI and a repository quality baseline — `ready`, `unsized`, unassigned
+- [ ] [#131](https://github.com/jpalvarezl/blight-synth/issues/131) Establish CI and a repository quality baseline — `in-progress`, `M`, @jpalvarezl
+- [ ] [#149](https://github.com/jpalvarezl/blight-synth/issues/149) Make `utils` and `os_dls` strict-Clippy clean — `in-progress`, `S`, @jpalvarezl
+- [ ] [#150](https://github.com/jpalvarezl/blight-synth/issues/150) Make DSP and remaining workspace targets strict-Clippy clean — `in-progress`, `M`, @jpalvarezl
 
 ## All roadmap tasks
 
 ### M0: Architecture & Repository Baseline
 
 - [x] [#128](https://github.com/jpalvarezl/blight-synth/issues/128) Integrate the modular-refactor branch into `main` and remove duplicate scaffolding — `done`, `unsized`, @jpalvarezl
-- [ ] [#129](https://github.com/jpalvarezl/blight-synth/issues/129) Record the primary product, open composition model, and optional plugin topology — `ready`, `unsized`, unassigned
+- [ ] [#129](https://github.com/jpalvarezl/blight-synth/issues/129) Record the primary product, open composition model, and optional plugin topology — `in-progress`, `S`, @jpalvarezl
 - [ ] [#130](https://github.com/jpalvarezl/blight-synth/issues/130) Refactor workspace boundaries around a host-independent engine — `blocked`, `unsized`, unassigned
-- [ ] [#131](https://github.com/jpalvarezl/blight-synth/issues/131) Establish CI and a repository quality baseline — `ready`, `unsized`, unassigned
+- [ ] [#131](https://github.com/jpalvarezl/blight-synth/issues/131) Establish CI and a repository quality baseline — `in-progress`, `M`, @jpalvarezl
 - [x] [#146](https://github.com/jpalvarezl/blight-synth/issues/146) Establish the human/LLM knowledge base, context packets, and generated burndown — `done`, `M`, @jpalvarezl
+- [ ] [#149](https://github.com/jpalvarezl/blight-synth/issues/149) Make `utils` and `os_dls` strict-Clippy clean — `in-progress`, `S`, @jpalvarezl
+- [ ] [#150](https://github.com/jpalvarezl/blight-synth/issues/150) Make DSP and remaining workspace targets strict-Clippy clean — `in-progress`, `M`, @jpalvarezl
 
 ### M1: Host-Independent Engine & RT Contracts
 
