@@ -60,13 +60,6 @@ pub fn velocity_to_amplitude(velocity: u8) -> f32 {
 
 impl Default for Note {
     fn default() -> Self {
-        Self::new()
-    }
-}
-
-// TODO remove
-impl Note {
-    pub fn new() -> Self {
         Self {
             pitch: Pitch::C,
             accidental: Accidental::Natural,
@@ -74,6 +67,13 @@ impl Note {
             frequency: "440".to_string(),
             note_label: "C4".to_string(),
         }
+    }
+}
+
+// TODO remove
+impl Note {
+    pub fn new() -> Self {
+        Self::default()
     }
 }
 
