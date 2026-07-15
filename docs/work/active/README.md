@@ -2,7 +2,7 @@
 title: Active Task Packets
 summary: Index of temporary focused packets for work currently in progress.
 status: current
-updated: 2026-07-14
+updated: 2026-07-15
 ---
 
 # Active Task Packets
@@ -13,4 +13,4 @@ A packet is a handoff cache, not a second specification. It links to the issue a
 
 ## Active
 
-- [Issue #131 — CI baseline](issue-0131-ci-baseline.md)
+No active task packets. The next ready M0 work item is [issue #154](https://github.com/jpalvarezl/blight-synth/issues/154).
