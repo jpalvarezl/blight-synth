@@ -23,6 +23,20 @@ GitHub Issues own live task status. Specifications, architecture contracts, and 
 - `assets/` — Data files for notes and other resources.
 - `scripts/` — Validation, smoke-test, and documentation tooling.
 
+## Development checks
+
+The hardware-free CI baseline has direct local equivalents:
+
+```bash
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace --all-targets
+python3 scripts/check_architecture.py
+python3 scripts/docs/check_docs.py
+```
+
+See [`scripts/README.md`](scripts/README.md) for roadmap-generator and manual audio/OSC checks. TypeScript checks will be added when the production `gui/` workspace exists.
+
 ## audio_backend Architecture
 
 The `audio_backend` crate is responsible for all audio processing and device management. Its architecture is modular and consists of the following main components:
