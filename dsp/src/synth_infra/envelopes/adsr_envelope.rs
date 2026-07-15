@@ -377,7 +377,7 @@ mod tests {
 
         env.set_sustain(0.7);
         let after_increase = env.process();
-        assert!(after_increase >= 0.65 && after_increase <= 0.75);
+        assert!((0.65..=0.75).contains(&after_increase));
 
         env.set_sustain(0.2);
         let after_decrease = env.process();

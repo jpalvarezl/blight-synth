@@ -58,20 +58,15 @@ impl SynthNode for KickDrumVoice {
             SynthCmd::EnvelopeCommand {
                 envelope_id,
                 command,
-            } => {
-                if let Some(id) = envelope_id {
-                    if *id == 0 {
-                        return self.amp_env.handle_command(command);
-                    } else if *id == 1 {
-                        return self.pitch_env.handle_command(command);
-                    } else {
-                        return false;
-                    }
-                } else {
+            } => match envelope_id {
+                Some(0) => self.amp_env.handle_command(command),
+                Some(1) => self.pitch_env.handle_command(command),
+                Some(_) => false,
+                None => {
                     log::warn!("No Envelope ID defined commands are ignored");
-                    return false;
+                    false
                 }
-            }
+            },
             _ => false,
         }
     }

@@ -13,7 +13,7 @@ impl FileOperations {
 
         if let Some(path) = rfd::FileDialog::new()
             .add_filter(filter_name, &[extension])
-            .set_file_name(&format!("{}.{}", song.name, extension))
+            .set_file_name(format!("{}.{}", song.name, extension))
             .save_file()
         {
             match write_song_to_file(song, &path, &format) {

@@ -22,14 +22,13 @@ impl PhrasesTab {
             if ui.button("Add Phrase").clicked() {
                 song.phrase_bank.push(Phrase::default());
             }
-            if ui.button("Remove Phrase").clicked() && !song.phrase_bank.is_empty() {
-                if self.selected_phrase < song.phrase_bank.len() {
-                    song.phrase_bank.remove(self.selected_phrase);
-                    if self.selected_phrase >= song.phrase_bank.len()
-                        && !song.phrase_bank.is_empty()
-                    {
-                        self.selected_phrase = song.phrase_bank.len() - 1;
-                    }
+            if ui.button("Remove Phrase").clicked()
+                && !song.phrase_bank.is_empty()
+                && self.selected_phrase < song.phrase_bank.len()
+            {
+                song.phrase_bank.remove(self.selected_phrase);
+                if self.selected_phrase >= song.phrase_bank.len() && !song.phrase_bank.is_empty() {
+                    self.selected_phrase = song.phrase_bank.len() - 1;
                 }
             }
         });
@@ -157,7 +156,7 @@ impl PhrasesTab {
                                             event.instrument_id = 0;
                                         }
                                         for inst in &song.instrument_bank {
-                                            let id_u8 = (inst.id as u8).min(u8::MAX);
+                                            let id_u8 = inst.id as u8;
                                             let label = format!("{:02X} {}", id_u8, inst.name);
                                             let is_sel = current == id_u8;
                                             if ui.selectable_label(is_sel, label).clicked() {

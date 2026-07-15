@@ -23,9 +23,7 @@ impl NoiseGenerator {
         self.state ^= self.state << 13;
         self.state ^= self.state >> 17;
         self.state ^= self.state << 5;
-        let sample = (self.state & 0xFF) as f32 / 128.0 - 1.0;
-
-        sample
+        (self.state & 0xFF) as f32 / 128.0 - 1.0
     }
 }
 

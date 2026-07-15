@@ -22,6 +22,12 @@ pub enum Waveform {
     NesTriangle,
 }
 
+impl Default for OscillatorNode {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl OscillatorNode {
     pub fn new() -> Self {
         Self {
@@ -124,7 +130,7 @@ impl SynthNode for OscillatorNode {
     }
 
     fn try_handle_command(&mut self, command: &crate::commands::SynthCmd) -> bool {
-        let was_handled = match command {
+        match command {
             crate::commands::SynthCmd::SetWaveform {
                 voice_id: _,
                 waveform,
@@ -133,7 +139,6 @@ impl SynthNode for OscillatorNode {
                 true
             }
             _ => false,
-        };
-        was_handled
+        }
     }
 }

@@ -82,7 +82,7 @@ impl MonoEffect for Distortion {
                 DistortionType::Foldback => {
                     // Foldback distortion
                     let mut x = driven;
-                    while x > 1.0 || x < -1.0 {
+                    while !(-1.0..=1.0).contains(&x) {
                         if x > 1.0 {
                             x = 2.0 - x;
                         } else if x < -1.0 {

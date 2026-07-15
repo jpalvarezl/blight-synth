@@ -58,7 +58,7 @@ impl SynthNode for SnareDrumVoice {
     }
 
     fn try_handle_command(&mut self, command: &crate::commands::SynthCmd) -> bool {
-        let was_handled = match command {
+        match command {
             SynthCmd::EnvelopeCommand {
                 envelope_id,
                 command,
@@ -74,9 +74,7 @@ impl SynthNode for SnareDrumVoice {
                 }
             },
             _ => false,
-        };
-
-        return was_handled;
+        }
     }
 }
 

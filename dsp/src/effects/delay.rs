@@ -54,10 +54,10 @@ impl Delay {
         mix: f32,
     ) -> Self {
         // Clamp parameters to safe ranges
-        let delay_time_seconds = delay_time_seconds.min(MAX_DELAY_SECONDS).max(0.0);
-        let num_taps = num_taps.min(MAX_TAPS).max(1);
-        let feedback = feedback.min(0.95).max(0.0);
-        let mix = mix.min(1.0).max(0.0);
+        let delay_time_seconds = delay_time_seconds.clamp(0.0, MAX_DELAY_SECONDS);
+        let num_taps = num_taps.clamp(1, MAX_TAPS);
+        let feedback = feedback.clamp(0.0, 0.95);
+        let mix = mix.clamp(0.0, 1.0);
 
         // Calculate buffer size for maximum delay time
         // Add extra samples for safety margin
@@ -81,22 +81,22 @@ impl Delay {
     }
 
     pub fn set_delay_time(&mut self, delay_time_seconds: f32) {
-        let delay_time_seconds = delay_time_seconds.min(MAX_DELAY_SECONDS).max(0.0);
+        let delay_time_seconds = delay_time_seconds.clamp(0.0, MAX_DELAY_SECONDS);
         self.delay_time_samples = (self.sample_rate * delay_time_seconds) as usize;
     }
 
     pub fn set_num_taps(&mut self, num_taps: usize) {
-        self.num_taps = num_taps.min(MAX_TAPS).max(1);
+        self.num_taps = num_taps.clamp(1, MAX_TAPS);
     }
 
     /// Sets feedback amount (0.0 to 0.95)
     pub fn set_feedback(&mut self, feedback: f32) {
-        self.feedback = feedback.min(0.95).max(0.0);
+        self.feedback = feedback.clamp(0.0, 0.95);
     }
 
     /// Sets dry/wet mix (0.0 = dry only, 1.0 = wet only)
     pub fn set_mix(&mut self, mix: f32) {
-        self.mix = mix.min(1.0).max(0.0);
+        self.mix = mix.clamp(0.0, 1.0);
     }
 }
 

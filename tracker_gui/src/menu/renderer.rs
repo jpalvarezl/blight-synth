@@ -1,6 +1,7 @@
 use crate::theme::ThemeManager;
 use eframe::egui;
 
+#[derive(Default)]
 pub struct MenuActions {
     pub new_song: bool,
     pub load_song: bool,
@@ -14,25 +15,6 @@ pub struct MenuActions {
     pub toggle_theme: bool,
     pub select_theme: Option<String>,
     pub import_theme: bool,
-}
-
-impl Default for MenuActions {
-    fn default() -> Self {
-        Self {
-            new_song: false,
-            load_song: false,
-            save_json: false,
-            save_binary: false,
-            quit: false,
-            toggle_playback: false,
-            toggle_looping: false,
-            show_instrument_manager: false,
-            show_shortcuts: false,
-            toggle_theme: false,
-            select_theme: None,
-            import_theme: false,
-        }
-    }
 }
 
 pub struct MenuRenderer;

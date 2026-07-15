@@ -8,6 +8,12 @@ pub struct ResourceManager {
     sample_names: HashMap<SampleId, String>,
 }
 
+impl Default for ResourceManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ResourceManager {
     pub fn new() -> Self {
         Self {

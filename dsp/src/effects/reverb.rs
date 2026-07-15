@@ -146,9 +146,9 @@ impl Reverb {
     pub fn set_decay_time(&mut self, decay: f32) {
         // decay: 0.0 = very short, 1.0 = very long
         let base_feedbacks = [0.84, 0.82, 0.79, 0.76];
-        for i in 0..4 {
+        for (feedback, base_feedback) in self.comb_feedback.iter_mut().zip(base_feedbacks) {
             // Scale feedback but keep different values for each comb
-            self.comb_feedback[i] = base_feedbacks[i] * decay.clamp(0.0, 0.95);
+            *feedback = base_feedback * decay.clamp(0.0, 0.95);
         }
     }
 
@@ -161,20 +161,17 @@ impl Reverb {
         let clamped_size = size.clamp(0.1, 3.0);
 
         // Update comb filter delay lengths
-        for i in 0..4 {
-            let new_delay =
-                ((BASE_COMB_DELAYS_MS[i] * clamped_size) * sample_rate / 1000.0) as usize;
+        for (i, base_delay_ms) in BASE_COMB_DELAYS_MS.iter().enumerate() {
+            let new_delay = ((*base_delay_ms * clamped_size) * sample_rate / 1000.0) as usize;
             self.comb_delays[i] = new_delay.max(1); // Ensure at least 1 sample delay
-            self.comb_indices[i] = self.comb_indices[i] % self.comb_delays[i]; // Wrap index if needed
+            self.comb_indices[i] %= self.comb_delays[i]; // Wrap index if needed
         }
 
         // Update allpass filter delay lengths
-        for i in 0..2 {
-            let new_delay =
-                ((BASE_ALLPASS_DELAYS_MS[i] * clamped_size) * sample_rate / 1000.0) as usize;
+        for (i, base_delay_ms) in BASE_ALLPASS_DELAYS_MS.iter().enumerate() {
+            let new_delay = ((*base_delay_ms * clamped_size) * sample_rate / 1000.0) as usize;
             self.allpass_delays[i] = new_delay.max(1); // Ensure at least 1 sample delay
-            self.allpass_indices[i] = self.allpass_indices[i] % self.allpass_delays[i];
-            // Wrap index if needed
+            self.allpass_indices[i] %= self.allpass_delays[i]; // Wrap index if needed
         }
     }
 
@@ -188,10 +185,15 @@ impl Reverb {
         const DAMPING_STEP: f32 = 0.05; // Damping reduction per comb filter
         let base_comb_feedback = [0.84, 0.82, 0.79, 0.76]; // Store base feedback values
 
-        for i in 0..4 {
+        for (i, (feedback, base_feedback)) in self
+            .comb_feedback
+            .iter_mut()
+            .zip(base_comb_feedback)
+            .enumerate()
+        {
             // Shorter delays (higher freq content) get more damping than longer delays
             let damping_factor = 1.0 - (damping * (DAMPING_BASE - i as f32 * DAMPING_STEP));
-            self.comb_feedback[i] = base_comb_feedback[i] * damping_factor.max(0.1);
+            *feedback = base_feedback * damping_factor.max(0.1);
         }
     }
 

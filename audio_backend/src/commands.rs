@@ -11,6 +11,10 @@ pub enum TransportCmd {
     SetLooping { enabled: bool },
 }
 
+#[allow(
+    clippy::large_enum_variant,
+    reason = "VoiceEffects stays inline to avoid container allocation and deallocation on the audio thread"
+)]
 pub enum SequencerCmd {
     /// Replace the current song without starting playback.
     LoadSong {
@@ -76,6 +80,10 @@ pub enum InstrumentCmd {
     },
 }
 
+#[allow(
+    clippy::large_enum_variant,
+    reason = "Command contains the intentionally inline real-time-safe SequencerCmd payload"
+)]
 pub enum Command {
     Transport(TransportCmd),
     Sequencer(SequencerCmd),

@@ -32,7 +32,7 @@ impl BlightAudio {
             AudioProcessor::new(command_rx, sample_rate as f32, channels, meter.clone());
 
         let stream = device.build_output_stream(
-            &config.into(),
+            &config,
             move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
                 // This closure is the audio callback.
                 audio_processor.process(data);
@@ -88,7 +88,7 @@ impl BlightAudio {
         );
 
         let stream = device.build_output_stream(
-            &config.into(),
+            &config,
             move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
                 audio_processor.process(data);
             },

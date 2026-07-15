@@ -105,5 +105,5 @@ pub fn load_song(lead_instrument_id: InstrumentId) -> Song {
     song.initial_bpm = 120;
     song.initial_speed = 8;
 
-    return song;
+    song
 }

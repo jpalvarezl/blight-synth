@@ -38,6 +38,10 @@ impl VoiceFactory {
         Self::create_instrument(voice_id, instrument, pan, envelope, self.sample_rate)
     }
 
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "stable factory API; envelope configuration will become a typed definition in M1"
+    )]
     pub fn create_voice_with_envelope(
         &self,
         voice_id: VoiceId,
