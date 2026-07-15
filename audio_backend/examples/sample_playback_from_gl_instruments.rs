@@ -1,8 +1,10 @@
+#[cfg(target_os = "macos")]
 use std::thread;
 
-use audio_backend::BlightAudio;
-use audio_backend::Result;
+#[cfg(target_os = "macos")]
+use audio_backend::{BlightAudio, Result};
 
+#[cfg(target_os = "macos")]
 fn main() -> Result<()> {
     match &mut BlightAudio::new() {
         Ok(audio) => {
@@ -43,4 +45,9 @@ fn main() -> Result<()> {
         }
     }
     Ok(())
+}
+
+#[cfg(not(target_os = "macos"))]
+fn main() {
+    eprintln!("sample_playback_from_gl_instruments is only available on macOS");
 }

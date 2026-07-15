@@ -14,7 +14,7 @@ python3 scripts/docs/sync_roadmap.py
 python3 scripts/docs/check_docs.py
 ```
 
-`sync_roadmap.py` queries issues carrying `roadmap-task` and writes `docs/work/burndown.md`. GitHub remains canonical. `--check` fails when the committed snapshot differs; `--stdout` previews output.
+`sync_roadmap.py` queries issues carrying `roadmap-task` and writes `docs/work/burndown.md`. GitHub remains canonical. `--check` fails when the committed snapshot differs; `--stdout` previews output and is used by CI to exercise the generator without coupling code PRs to unrelated live issue changes.
 
 `check_docs.py` requires frontmatter (`title`, `summary`, `status`) and validates local relative Markdown links. It deliberately has no YAML or Markdown package dependency.
 

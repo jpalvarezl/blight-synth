@@ -1,4 +1,5 @@
 use crate::{id::SampleId, Result, SampleData};
+#[cfg(target_os = "macos")]
 use log::info;
 use std::{collections::HashMap, sync::Arc};
 
