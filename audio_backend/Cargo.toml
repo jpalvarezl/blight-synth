@@ -17,3 +17,7 @@ ringbuf = { workspace = true }
 rosc = { workspace = true }
 tokio = { workspace = true }
 sequencer = { workspace = true }
+hound = { workspace = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+os_dls = { workspace = true }

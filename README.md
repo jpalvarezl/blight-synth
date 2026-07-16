@@ -14,8 +14,8 @@ GitHub Issues own live task status. Specifications, architecture contracts, and 
 
 ## Project Structure
 
-- `dsp/` — DSP primitives, instruments, voices, effects, and factories. M0/M1 will further separate file/platform loading from real-time primitives.
-- `audio_backend/` — Current CPAL audio host, processor/player integration, OSC adapter, metering, and hydration. It is being split around a host-independent engine boundary.
+- `dsp/` — Portable DSP data and processing primitives: instruments, voices, effects, factories, and immutable sample data. It has no file/platform loader dependencies.
+- `audio_backend/` — Current CPAL audio host, processor/player integration, OSC adapter, metering, hydration, and non-RT WAV/DLS resource loading. It is being split around a host-independent engine boundary.
 - `sequencer/` — Current tracker document, timing, and `Song -> Chain -> Phrase` composition model.
 - `tracker_gui/` — Current egui debug/reference interface; it does not dictate the future composition UI.
 - `utils/` — Music theory utilities such as notes and scales.

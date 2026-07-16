@@ -2,7 +2,7 @@
 title: Standalone Host Domain
 summary: Focused context for CPAL, OSC, process lifecycle, and project/resource adapters.
 status: current
-updated: 2026-07-14
+updated: 2026-07-15
 issues: [104, 120, 122, 123, 139]
 ---
 
@@ -36,8 +36,9 @@ issues: [104, 120, 122, 123, 139]
 - `audio_backend/src/osc.rs`
 - `audio_backend/src/bin/dsp-core.rs`
 - `audio_backend/src/song_hydration.rs`
+- `audio_backend/src/resources.rs`
 - `audio_backend/src/meter.rs`
 
 ## Current status
 
-The refactor branch has a working initial OSC/song/gain/meter vertical slice. M2 migrates it onto the host-independent engine and versioned protocol; do not duplicate it in frontend code.
+The current host has a working initial OSC/song/gain/meter vertical slice. WAV and macOS DLS decoding plus `ResourceManager` live here as non-RT adapters; portable DSP retains only immutable sample data and processing. M2 migrates the host onto the host-independent engine and versioned protocol; do not duplicate it in frontend code.

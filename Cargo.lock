@@ -536,7 +536,9 @@ dependencies = [
  "cpal",
  "dsp",
  "env_logger",
+ "hound",
  "log",
+ "os_dls",
  "ringbuf",
  "rosc",
  "sequencer",
@@ -1154,9 +1156,7 @@ name = "dsp"
 version = "0.1.0"
 dependencies = [
  "arrayvec",
- "hound",
  "log",
- "os_dls",
  "utils",
 ]
 
