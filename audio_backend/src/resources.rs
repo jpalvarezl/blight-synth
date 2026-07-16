@@ -1,4 +1,6 @@
-use crate::{AudioBackendError, Result};
+#[cfg(target_os = "macos")]
+use crate::AudioBackendError;
+use crate::Result;
 use dsp::{id::SampleId, SampleData};
 #[cfg(target_os = "macos")]
 use log::info;
