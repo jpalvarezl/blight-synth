@@ -60,6 +60,8 @@ FORBIDDEN = {
         "rosc",
         "tokio",
         "eframe",
+        "egui_extras",
+        "rfd",
         "hound",
         "os_dls",
     },

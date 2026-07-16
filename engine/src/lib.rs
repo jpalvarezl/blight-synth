@@ -46,8 +46,16 @@ impl Engine {
 
     /// Adds every instrument output to the caller-provided planar buffers and
     /// then applies the master effect chain.
+    ///
+    /// If channel lengths differ, only complete stereo frames in their common
+    /// prefix are rendered. The longer channel's tail is left untouched. Host
+    /// adapters should still provide equal lengths, but malformed input must
+    /// not panic in an audio callback.
     pub fn process(&mut self, left: &mut [f32], right: &mut [f32], sample_rate: f32) {
-        debug_assert_eq!(left.len(), right.len());
+        let frame_count = left.len().min(right.len());
+        let left = &mut left[..frame_count];
+        let right = &mut right[..frame_count];
+
         for instrument in self.instruments.values_mut() {
             instrument.process(left, right, sample_rate);
         }
@@ -231,6 +239,24 @@ mod tests {
         assert_eq!(note_ons.load(Ordering::Relaxed), 1);
         assert_eq!(note_offs.load(Ordering::Relaxed), 1);
         assert_eq!(f32::from_bits(effect_value.load(Ordering::Relaxed)), 0.75);
+    }
+
+    #[test]
+    fn renders_only_complete_frames_when_channel_lengths_differ() {
+        let mut engine = Engine::new();
+        engine.add_instrument(Box::new(TestInstrument {
+            id: 3,
+            note_ons: Arc::new(AtomicUsize::new(0)),
+            note_offs: Arc::new(AtomicUsize::new(0)),
+            effect_value: Arc::new(AtomicU32::new(0)),
+        }));
+        let mut left = [0.0; 3];
+        let mut right = [0.0; 2];
+
+        engine.process(&mut left, &mut right, 48_000.0);
+
+        assert_eq!(left, [0.25, 0.25, 0.0]);
+        assert_eq!(right, [0.5, 0.5]);
     }
 
     #[test]

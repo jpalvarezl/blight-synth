@@ -52,7 +52,7 @@ No command ownership migration, final event schema, sample-accurate scheduler, r
 
 - [x] `cargo fmt --all -- --check`
 - [x] `cargo clippy --workspace --all-targets -- -D warnings`
-- [x] `cargo test --workspace --all-targets` — 43 tests
+- [x] `cargo test --workspace --all-targets` — 44 tests after review feedback
 - [x] `python3 scripts/check_architecture.py`
 - [x] `python3 scripts/docs/check_docs.py`
 - [x] `python3 scripts/docs/sync_roadmap.py --stdout > /dev/null`
@@ -60,7 +60,7 @@ No command ownership migration, final event schema, sample-accurate scheduler, r
 
 ## Handoff
 
-- Completed: new `engine` crate, generic instrument/mixer/master-effects runtime, tracker-specific adapter delegation, direct planar render tests, dependency enforcement, docs, and deferred Tokio-removal roadmap item #161.
+- Completed: new `engine` crate, generic instrument/mixer/master-effects runtime, tracker-specific adapter delegation, direct planar render tests (including mismatched channel safety), dependency enforcement, docs, and deferred Tokio-removal roadmap item #161.
 - Remaining: Copilot/human review and hosted Linux/macOS CI.
 - Known risks: current engine methods are deliberately transitional and synchronous; final event, scheduling, routing, parameter, state, and RT mutation contracts remain M1 work.
 - Next action: open PR, then #163 can move engine-owned command types after merge.
