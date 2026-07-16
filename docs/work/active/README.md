@@ -13,4 +13,4 @@ A packet is a handoff cache, not a second specification. It links to the issue a
 
 ## Active
 
-No active task packets. The next ready M0 work item is [issue #154](https://github.com/jpalvarezl/blight-synth/issues/154).
+- [Issue #154 — resource boundary](issue-0154-resource-boundary.md)

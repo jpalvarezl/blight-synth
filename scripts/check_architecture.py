@@ -10,8 +10,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
-# These are current baseline rules. Issue #130 will tighten them after file and
-# platform resource loading leaves `dsp`.
+# These are the current M0 baseline rules. Host, file, and platform resource
+# dependencies must not leak into portable processing/model crates.
 FORBIDDEN = {
     "dsp": {
         "audio_backend",
@@ -22,6 +22,8 @@ FORBIDDEN = {
         "eframe",
         "egui_extras",
         "rfd",
+        "hound",
+        "os_dls",
     },
     "sequencer": {
         "audio_backend",
@@ -32,6 +34,8 @@ FORBIDDEN = {
         "eframe",
         "egui_extras",
         "rfd",
+        "hound",
+        "os_dls",
     },
     "utils": {
         "audio_backend",
@@ -41,6 +45,8 @@ FORBIDDEN = {
         "rosc",
         "tokio",
         "eframe",
+        "hound",
+        "os_dls",
     },
 }
 REQUIRED = {"audio_backend": {"dsp", "sequencer"}}

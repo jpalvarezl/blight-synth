@@ -2,7 +2,7 @@
 title: Audio Engine Domain
 summary: Focused context for DSP, instruments, effects, rendering, and RT contracts.
 status: current
-updated: 2026-07-14
+updated: 2026-07-15
 issues: [132, 133, 134, 135, 136, 137]
 ---
 
@@ -27,6 +27,7 @@ Read parameter/state/composition pages only when the issue changes those contrac
 
 - CPAL devices, UDP/OSC sockets, filesystem loading, UI state, Bun/JUCE lifecycle.
 - Tracker `Song`/grid document semantics.
+- WAV/DLS decoding, filesystem resource management, or platform asset discovery.
 - External MIDI or network I/O.
 
 ## Current code entry points

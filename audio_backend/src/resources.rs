@@ -1,4 +1,5 @@
-use crate::{id::SampleId, Result, SampleData};
+use crate::{AudioBackendError, Result};
+use dsp::{id::SampleId, SampleData};
 #[cfg(target_os = "macos")]
 use log::info;
 use std::{collections::HashMap, sync::Arc};
@@ -64,13 +65,12 @@ impl ResourceManager {
     /// Loads all samples from the macOS DLS file. Returns the count loaded. Sample Ids range from 0 - 494
     #[cfg(target_os = "macos")]
     pub fn load_macos_dls_samples(&mut self) -> Result<usize> {
-        let dls_file = os_dls::load_mac_os_default().map_err(|e| {
-            crate::AudioBackendError(format!("Failed to load macOS DLS file: {}", e))
-        })?;
+        let dls_file = os_dls::load_mac_os_default()
+            .map_err(|e| AudioBackendError(format!("Failed to load macOS DLS file: {}", e)))?;
 
         let samples = dls_file
             .samples()
-            .map_err(|e| crate::AudioBackendError(format!("Failed to parse DLS samples: {}", e)))?;
+            .map_err(|e| AudioBackendError(format!("Failed to parse DLS samples: {}", e)))?;
 
         let count = samples.len();
 
@@ -120,4 +120,74 @@ fn load_wav_file<P: AsRef<std::path::Path>>(path: P) -> Result<SampleData> {
         loop_start: None, // WAV files don't have loop info (could add SMPL chunk parsing later)
         loop_end: None,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temporary_wav_path() -> std::path::PathBuf {
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock must be after Unix epoch")
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "blight-synth-resource-{}-{timestamp}.wav",
+            std::process::id()
+        ))
+    }
+
+    #[test]
+    fn stores_and_retrieves_decoded_sample_data() {
+        let mut resources = ResourceManager::new();
+        resources.add_sample(
+            7,
+            SampleData {
+                data: vec![0.25, -0.25],
+                sample_rate: 48_000.0,
+                channels: 1,
+                loop_start: None,
+                loop_end: None,
+            },
+        );
+
+        let sample = resources.get_sample(7).expect("sample must exist");
+        assert_eq!(sample.data, [0.25, -0.25]);
+        assert_eq!(sample.sample_rate, 48_000.0);
+        assert!(resources.get_sample(8).is_none());
+    }
+
+    #[test]
+    fn loads_wav_files_in_the_non_realtime_resource_adapter() {
+        let path = temporary_wav_path();
+        let spec = hound::WavSpec {
+            channels: 1,
+            sample_rate: 22_050,
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        };
+        let mut writer = hound::WavWriter::create(&path, spec).expect("create temporary WAV");
+        for sample in [0_i16, i16::MAX, i16::MIN] {
+            writer.write_sample(sample).expect("write WAV sample");
+        }
+        writer.finalize().expect("finalize temporary WAV");
+
+        let mut resources = ResourceManager::new();
+        let result = resources.add_sample_from_file(11, &path);
+        std::fs::remove_file(&path).expect("remove temporary WAV");
+        result.expect("load temporary WAV");
+
+        let sample = resources.get_sample(11).expect("loaded sample must exist");
+        assert_eq!(sample.sample_rate, 22_050.0);
+        assert_eq!(sample.channels, 1);
+        assert_eq!(sample.data.len(), 3);
+        assert_eq!(sample.data[0], 0.0);
+        assert!((sample.data[1] - (i16::MAX as f32 / 32_768.0)).abs() < f32::EPSILON);
+        assert_eq!(sample.data[2], -1.0);
+        assert_eq!(
+            resources.get_sample_names().get(&11).map(String::as_str),
+            path.file_stem().and_then(|name| name.to_str())
+        );
+    }
 }

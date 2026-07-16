@@ -2,7 +2,7 @@
 title: Generated Roadmap Burndown
 summary: Offline Obsidian snapshot generated from GitHub roadmap issue metadata.
 status: generated
-source-updated: 2026-07-15T19:22:56Z
+source-updated: 2026-07-16T11:13:11Z
 generator: scripts/docs/sync_roadmap.py
 ---
 
@@ -11,13 +11,13 @@ generator: scripts/docs/sync_roadmap.py
 > [!warning] Generated file
 > GitHub Issues are canonical. Do not edit this page manually. Run `python3 scripts/docs/sync_roadmap.py`.
 
-Data snapshot through `2026-07-15T19:22:56Z`.
+Data snapshot through `2026-07-16T11:13:11Z`.
 
 ## Summary
 
 | Milestone | Open | Done | Ready | In progress | Blocked | Backlog | Sized points done/total | Unsized |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| M0: Architecture & Repository Baseline | 5 | 6 | 1 | 0 | 4 | 0 | 11/23 | 2 |
+| M0: Architecture & Repository Baseline | 5 | 6 | 0 | 1 | 4 | 0 | 11/23 | 2 |
 | M1: Host-Independent Engine & RT Contracts | 10 | 0 | 0 | 0 | 0 | 10 | 0/0 | 10 |
 | M2: Standalone Host & Control Protocol | 5 | 0 | 0 | 0 | 0 | 5 | 0/0 | 5 |
 | M3: JS/TS Composition UI & Standalone App | 9 | 0 | 0 | 0 | 0 | 9 | 0/0 | 9 |
@@ -29,7 +29,7 @@ Data snapshot through `2026-07-15T19:22:56Z`.
 ### M0: Architecture & Repository Baseline
 
 - [ ] [#130](https://github.com/jpalvarezl/blight-synth/issues/130) Refactor workspace boundaries around a host-independent engine — `blocked`, `epic`, unassigned
-- [ ] [#154](https://github.com/jpalvarezl/blight-synth/issues/154) Move sample and platform resource loading out of `dsp` — `ready`, `M`, unassigned
+- [ ] [#154](https://github.com/jpalvarezl/blight-synth/issues/154) Move sample and platform resource loading out of `dsp` — `in-progress`, `M`, @jpalvarezl
 - [ ] [#155](https://github.com/jpalvarezl/blight-synth/issues/155) Extract the host-independent engine crate mechanically — `blocked`, `L`, unassigned
 - [ ] [#156](https://github.com/jpalvarezl/blight-synth/issues/156) Isolate CPAL and OSC in the standalone host adapter — `blocked`, `M`, unassigned
 - [ ] [#157](https://github.com/jpalvarezl/blight-synth/issues/157) Finalize and enforce the M0 crate dependency graph — `blocked`, `S`, unassigned
@@ -45,7 +45,7 @@ Data snapshot through `2026-07-15T19:22:56Z`.
 - [x] [#146](https://github.com/jpalvarezl/blight-synth/issues/146) Establish the human/LLM knowledge base, context packets, and generated burndown — `done`, `M`, @jpalvarezl
 - [x] [#149](https://github.com/jpalvarezl/blight-synth/issues/149) Make `utils` and `os_dls` strict-Clippy clean — `done`, `S`, @jpalvarezl
 - [x] [#150](https://github.com/jpalvarezl/blight-synth/issues/150) Make DSP and remaining workspace targets strict-Clippy clean — `done`, `M`, @jpalvarezl
-- [ ] [#154](https://github.com/jpalvarezl/blight-synth/issues/154) Move sample and platform resource loading out of `dsp` — `ready`, `M`, unassigned
+- [ ] [#154](https://github.com/jpalvarezl/blight-synth/issues/154) Move sample and platform resource loading out of `dsp` — `in-progress`, `M`, @jpalvarezl
 - [ ] [#155](https://github.com/jpalvarezl/blight-synth/issues/155) Extract the host-independent engine crate mechanically — `blocked`, `L`, unassigned
 - [ ] [#156](https://github.com/jpalvarezl/blight-synth/issues/156) Isolate CPAL and OSC in the standalone host adapter — `blocked`, `M`, unassigned
 - [ ] [#157](https://github.com/jpalvarezl/blight-synth/issues/157) Finalize and enforce the M0 crate dependency graph — `blocked`, `S`, unassigned

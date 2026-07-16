@@ -2,7 +2,7 @@
 title: Repository Validation Scripts
 summary: Local commands corresponding to the hardware-free CI baseline and manual audio checks.
 status: current
-updated: 2026-07-14
+updated: 2026-07-15
 issues: [131]
 ---
 
@@ -21,7 +21,7 @@ python3 scripts/docs/check_docs.py
 python3 scripts/docs/sync_roadmap.py --stdout > /dev/null
 ```
 
-These commands must not open an audio device. The architecture checker enforces the current M0 dependency baseline; #130 will tighten it when resource and host code move out of `dsp`.
+These commands must not open an audio device. The architecture checker enforces the current M0 dependency baseline, including the rule that portable DSP/model crates cannot depend on host, file-decoder, or platform-resource layers. #157 will reconcile the final M0 graph after engine/host extraction.
 
 The committed roadmap is an offline snapshot of live GitHub metadata. Maintainers regenerate it after roadmap changes with `python3 scripts/docs/sync_roadmap.py`; CI exercises the generator but does not require an unrelated live issue update to be committed in every code PR.
 
