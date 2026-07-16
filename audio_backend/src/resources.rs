@@ -129,15 +129,14 @@ fn load_wav_file<P: AsRef<std::path::Path>>(path: P) -> Result<SampleData> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::{SystemTime, UNIX_EPOCH};
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static NEXT_TEMP_FILE_ID: AtomicU64 = AtomicU64::new(0);
 
     fn temporary_wav_path() -> std::path::PathBuf {
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("system clock must be after Unix epoch")
-            .as_nanos();
+        let id = NEXT_TEMP_FILE_ID.fetch_add(1, Ordering::Relaxed);
         std::env::temp_dir().join(format!(
-            "blight-synth-resource-{}-{timestamp}.wav",
+            "blight-synth-resource-{}-{id}.wav",
             std::process::id()
         ))
     }
