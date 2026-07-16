@@ -9,6 +9,7 @@ path = "src/bin/dsp-core.rs"
 
 [dependencies]
 dsp = { workspace = true }
+engine = { workspace = true }
 cpal = { workspace = true }
 anyhow = { workspace = true }
 log = { workspace = true }

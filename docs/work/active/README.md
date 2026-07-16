@@ -13,4 +13,4 @@ A packet is a handoff cache, not a second specification. It links to the issue a
 
 ## Active
 
-- [Issue #154 — resource boundary](issue-0154-resource-boundary.md)
+- [Issue #162 — engine render core](issue-0162-engine-render-core.md)
