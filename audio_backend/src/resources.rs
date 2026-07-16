@@ -105,13 +105,15 @@ fn load_wav_file<P: AsRef<std::path::Path>>(path: P) -> Result<SampleData> {
 
     // Convert all samples to f32
     let data: Vec<f32> = match spec.sample_format {
-        hound::SampleFormat::Float => reader.samples::<f32>().map(|s| s.unwrap_or(0.0)).collect(),
+        hound::SampleFormat::Float => reader
+            .samples::<f32>()
+            .collect::<std::result::Result<Vec<_>, _>>()?,
         hound::SampleFormat::Int => {
             let max_value = (1i64 << (spec.bits_per_sample - 1)) as f32;
             reader
                 .samples::<i32>()
-                .map(|s| s.map(|v| v as f32 / max_value).unwrap_or(0.0))
-                .collect()
+                .map(|sample| sample.map(|value| value as f32 / max_value))
+                .collect::<std::result::Result<Vec<_>, _>>()?
         }
     };
 
@@ -158,6 +160,33 @@ mod tests {
         assert_eq!(sample.data, [0.25, -0.25]);
         assert_eq!(sample.sample_rate, 48_000.0);
         assert!(resources.get_sample(8).is_none());
+    }
+
+    #[test]
+    fn rejects_truncated_wav_data_instead_of_substituting_silence() {
+        let path = temporary_wav_path();
+        let spec = hound::WavSpec {
+            channels: 1,
+            sample_rate: 22_050,
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        };
+        let mut writer = hound::WavWriter::create(&path, spec).expect("create temporary WAV");
+        writer.write_sample(1_i16).expect("write WAV sample");
+        writer.finalize().expect("finalize temporary WAV");
+
+        let length = std::fs::metadata(&path).expect("read WAV metadata").len();
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(&path)
+            .expect("open temporary WAV for truncation")
+            .set_len(length - 1)
+            .expect("truncate temporary WAV");
+
+        let result = load_wav_file(&path);
+        std::fs::remove_file(&path).expect("remove temporary WAV");
+
+        assert!(result.is_err());
     }
 
     #[test]

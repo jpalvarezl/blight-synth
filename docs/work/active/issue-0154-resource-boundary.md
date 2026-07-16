@@ -51,7 +51,7 @@ No asset-registry/state redesign, engine extraction, protocol, or UI work.
 
 - [x] `cargo fmt --all -- --check`
 - [x] `cargo clippy --workspace --all-targets -- -D warnings`
-- [x] `cargo test --workspace --all-targets` — 40 tests
+- [x] `cargo test --workspace --all-targets` — 41 tests
 - [x] `cargo test -p audio_backend resources::tests -- --nocapture`
 - [x] `python3 scripts/check_architecture.py`
 - [x] `python3 scripts/docs/check_docs.py`
@@ -60,7 +60,7 @@ No asset-registry/state redesign, engine extraction, protocol, or UI work.
 
 ## Handoff
 
-- Completed: resource manager, WAV/DLS loading, and hound-specific errors now live in `audio_backend`; DSP retains immutable sample data and no longer depends on hound/os_dls; focused tests and dependency enforcement were added.
+- Completed: resource manager, WAV/DLS loading, and hound-specific errors now live in `audio_backend`; DSP retains immutable sample data and no longer depends on hound/os_dls; focused tests and dependency enforcement were added; malformed/truncated WAV samples now return an error instead of silently substituting zeroes.
 - Remaining: Copilot/human review and hosted Linux/macOS CI.
 - Known risks: removing `dsp::Result`/`dsp::ResourceManager` is an intentional crate-boundary API change; repository consumers continue using the preserved `audio_backend` exports.
 - Next action: open PR and inspect cross-platform checks.
