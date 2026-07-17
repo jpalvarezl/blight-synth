@@ -1,6 +1,6 @@
 use std::thread;
 
-use audio_backend::{BlightAudio, InstrumentCmd, SequencerCmd, TransportCmd};
+use audio_backend::{BlightAudio, InstrumentCmd, TransportCmd};
 
 fn main() {
     // This is a placeholder for the main function.
@@ -9,7 +9,7 @@ fn main() {
         Ok(audio) => {
             let instrument_id = 0;
             audio.send_command(
-                SequencerCmd::AddTrackInstrument {
+                InstrumentCmd::AddInstrument {
                     instrument: audio
                         .get_instrument_factory()
                         .create_dfam(instrument_id, 0.0),

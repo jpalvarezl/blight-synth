@@ -53,7 +53,7 @@ pub fn hydrate_song(audio: &mut BlightAudio, song: &Song) -> Result<()> {
                         0.0,
                         map_waveform_to_backend(params.waveform),
                     );
-                audio.send_command(SequencerCmd::AddTrackInstrument { instrument }.into());
+                audio.send_command(InstrumentCmd::AddInstrument { instrument }.into());
                 apply_effects(audio, instrument_id, &params.audio_effects);
                 send_amp_envelope(audio, instrument_id, &params.amp_envelope);
             }
@@ -61,7 +61,7 @@ pub fn hydrate_song(audio: &mut BlightAudio, song: &Song) -> Result<()> {
                 let instrument = audio
                     .get_instrument_factory()
                     .create_hihat(instrument_id, 0.0);
-                audio.send_command(SequencerCmd::AddTrackInstrument { instrument }.into());
+                audio.send_command(InstrumentCmd::AddInstrument { instrument }.into());
                 apply_effects(audio, instrument_id, &params.audio_effects);
                 send_amp_envelope(audio, instrument_id, &params.amp_envelope);
             }
@@ -69,7 +69,7 @@ pub fn hydrate_song(audio: &mut BlightAudio, song: &Song) -> Result<()> {
                 let instrument = audio
                     .get_instrument_factory()
                     .create_kick_drum(instrument_id, 0.0);
-                audio.send_command(SequencerCmd::AddTrackInstrument { instrument }.into());
+                audio.send_command(InstrumentCmd::AddInstrument { instrument }.into());
                 apply_effects(audio, instrument_id, &params.audio_effects);
 
                 audio.send_command(
@@ -91,7 +91,7 @@ pub fn hydrate_song(audio: &mut BlightAudio, song: &Song) -> Result<()> {
                 let instrument = audio
                     .get_instrument_factory()
                     .create_snare_drum(instrument_id, 0.0);
-                audio.send_command(SequencerCmd::AddTrackInstrument { instrument }.into());
+                audio.send_command(InstrumentCmd::AddInstrument { instrument }.into());
                 apply_effects(audio, instrument_id, &params.audio_effects);
                 send_amp_envelope(audio, instrument_id, &params.amp_envelope);
             }
@@ -99,7 +99,7 @@ pub fn hydrate_song(audio: &mut BlightAudio, song: &Song) -> Result<()> {
                 let instrument = audio
                     .get_instrument_factory()
                     .create_dfam(instrument_id, 0.0);
-                audio.send_command(SequencerCmd::AddTrackInstrument { instrument }.into());
+                audio.send_command(InstrumentCmd::AddInstrument { instrument }.into());
 
                 let ladder = audio.get_effect_factory().create_moog_ladder(
                     DEFAULT_INSTRUMENT_EFFECT_ID,
@@ -107,7 +107,7 @@ pub fn hydrate_song(audio: &mut BlightAudio, song: &Song) -> Result<()> {
                     0.5,
                 );
                 audio.send_command(
-                    SequencerCmd::AddEffectToInstrument {
+                    InstrumentCmd::AddEffect {
                         instrument_id,
                         effect: ladder,
                     }
@@ -174,7 +174,7 @@ fn apply_effects(audio: &mut BlightAudio, instrument_id: InstrumentId, effects: 
                 MonoEffect::set_parameter(&mut *reverb, RP::Diffusion.as_index(), *diffusion);
 
                 audio.send_command(
-                    SequencerCmd::AddEffectToInstrument {
+                    InstrumentCmd::AddEffect {
                         instrument_id,
                         effect: reverb,
                     }
@@ -200,7 +200,7 @@ fn apply_effects(audio: &mut BlightAudio, instrument_id: InstrumentId, effects: 
                 MonoEffect::set_parameter(&mut *delay, DP::Mix.as_index(), *mix);
 
                 audio.send_command(
-                    SequencerCmd::AddEffectToInstrument {
+                    InstrumentCmd::AddEffect {
                         instrument_id,
                         effect: delay,
                     }

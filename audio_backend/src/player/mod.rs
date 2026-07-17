@@ -118,29 +118,12 @@ impl Player {
             Command::Transport(TransportCmd::StopSong) => {
                 self.stop();
             }
-            Command::Sequencer(SequencerCmd::AddTrackInstrument { instrument }) => {
-                self.synthesizer.add_instrument(instrument);
-            }
-            Command::Sequencer(SequencerCmd::AddEffectToInstrument {
-                instrument_id,
-                effect,
-            }) => {
-                self.synthesizer
-                    .add_effect_to_instrument(instrument_id, effect);
-            }
-            Command::Sequencer(SequencerCmd::AddVoiceEffectsToInstrument {
-                instrument_id,
-                effects,
-            }) => {
-                self.synthesizer
-                    .add_voice_effects_to_instrument(instrument_id, effects);
-            }
             Command::Transport(TransportCmd::SetLooping { enabled }) => {
                 self.loop_enabled = enabled;
             }
             Command::Transport(TransportCmd::PlayLastSong) => self.play(),
-            Command::Instrument(engine_cmd) => self.synthesizer.handle_engine_command(engine_cmd),
-            Command::Mixer(mixer_cmd) => self.synthesizer.handle_mixer_command(mixer_cmd),
+            Command::Instrument(command) => self.synthesizer.handle_engine_command(command.into()),
+            Command::Mixer(command) => self.synthesizer.handle_engine_command(command.into()),
         }
     }
 

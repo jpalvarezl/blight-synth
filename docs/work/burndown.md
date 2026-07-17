@@ -2,7 +2,7 @@
 title: Generated Roadmap Burndown
 summary: Offline Obsidian snapshot generated from GitHub roadmap issue metadata.
 status: generated
-source-updated: 2026-07-16T19:07:51Z
+source-updated: 2026-07-17T21:12:55Z
 generator: scripts/docs/sync_roadmap.py
 ---
 
@@ -11,13 +11,13 @@ generator: scripts/docs/sync_roadmap.py
 > [!warning] Generated file
 > GitHub Issues are canonical. Do not edit this page manually. Run `python3 scripts/docs/sync_roadmap.py`.
 
-Data snapshot through `2026-07-16T19:07:51Z`.
+Data snapshot through `2026-07-17T21:12:55Z`.
 
 ## Summary
 
 | Milestone | Open | Done | Ready | In progress | Blocked | Backlog | Sized points done/total | Unsized |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| M0: Architecture & Repository Baseline | 7 | 7 | 0 | 2 | 5 | 0 | 14/25 | 3 |
+| M0: Architecture & Repository Baseline | 6 | 8 | 0 | 2 | 4 | 0 | 17/25 | 3 |
 | M1: Host-Independent Engine & RT Contracts | 10 | 0 | 0 | 0 | 0 | 10 | 0/0 | 10 |
 | M2: Standalone Host & Control Protocol | 6 | 0 | 0 | 0 | 1 | 5 | 0/3 | 5 |
 | M3: JS/TS Composition UI & Standalone App | 9 | 0 | 0 | 0 | 0 | 9 | 0/0 | 9 |
@@ -32,8 +32,7 @@ Data snapshot through `2026-07-16T19:07:51Z`.
 - [ ] [#155](https://github.com/jpalvarezl/blight-synth/issues/155) Extract the host-independent engine crate mechanically — `in-progress`, `epic`, @jpalvarezl
 - [ ] [#156](https://github.com/jpalvarezl/blight-synth/issues/156) Isolate CPAL/OSC and simplify the standalone host threading model — `blocked`, `M`, unassigned
 - [ ] [#157](https://github.com/jpalvarezl/blight-synth/issues/157) Finalize and enforce the M0 crate dependency graph — `blocked`, `S`, unassigned
-- [ ] [#162](https://github.com/jpalvarezl/blight-synth/issues/162) Extract the host-independent engine render core — `in-progress`, `M`, @jpalvarezl
-- [ ] [#163](https://github.com/jpalvarezl/blight-synth/issues/163) Separate engine command ownership from standalone transport commands — `blocked`, `M`, unassigned
+- [ ] [#163](https://github.com/jpalvarezl/blight-synth/issues/163) Separate engine command ownership from standalone transport commands — `in-progress`, `M`, @jpalvarezl
 - [ ] [#164](https://github.com/jpalvarezl/blight-synth/issues/164) Add offline engine harness and finalize the #155 boundary — `blocked`, `S`, unassigned
 
 ## All roadmap tasks
@@ -51,8 +50,8 @@ Data snapshot through `2026-07-16T19:07:51Z`.
 - [ ] [#155](https://github.com/jpalvarezl/blight-synth/issues/155) Extract the host-independent engine crate mechanically — `in-progress`, `epic`, @jpalvarezl
 - [ ] [#156](https://github.com/jpalvarezl/blight-synth/issues/156) Isolate CPAL/OSC and simplify the standalone host threading model — `blocked`, `M`, unassigned
 - [ ] [#157](https://github.com/jpalvarezl/blight-synth/issues/157) Finalize and enforce the M0 crate dependency graph — `blocked`, `S`, unassigned
-- [ ] [#162](https://github.com/jpalvarezl/blight-synth/issues/162) Extract the host-independent engine render core — `in-progress`, `M`, @jpalvarezl
-- [ ] [#163](https://github.com/jpalvarezl/blight-synth/issues/163) Separate engine command ownership from standalone transport commands — `blocked`, `M`, unassigned
+- [x] [#162](https://github.com/jpalvarezl/blight-synth/issues/162) Extract the host-independent engine render core — `done`, `M`, @jpalvarezl
+- [ ] [#163](https://github.com/jpalvarezl/blight-synth/issues/163) Separate engine command ownership from standalone transport commands — `in-progress`, `M`, @jpalvarezl
 - [ ] [#164](https://github.com/jpalvarezl/blight-synth/issues/164) Add offline engine harness and finalize the #155 boundary — `blocked`, `S`, unassigned
 
 ### M1: Host-Independent Engine & RT Contracts

@@ -2,7 +2,7 @@
 title: Audio Engine Domain
 summary: Focused context for DSP, instruments, effects, rendering, and RT contracts.
 status: current
-updated: 2026-07-16
+updated: 2026-07-18
 issues: [132, 133, 134, 135, 136, 137]
 ---
 
@@ -41,6 +41,15 @@ Read parameter/state/composition pages only when the issue changes those contrac
 - `audio_backend/src/player/tracker_synthesizer.rs` (tracker-only adapter)
 
 Do not read every effect/instrument implementation unless the issue targets it. Generic instrument/mixer rendering belongs to `engine`; tracker track caching and document interpretation remain in `audio_backend` until the composition adapter is extracted.
+
+## Command ownership
+
+- `engine::InstrumentCmd` targets one instrument and owns instrument creation, note/synth control, instrument/voice effect installation, and instrument effect parameters.
+- `engine::MixerCmd` targets only the master mixer/effect pipeline and never carries an instrument ID.
+- `audio_backend::SequencerCmd` owns song loading/playback; `TransportCmd` owns adapter transport.
+- `audio_backend::Command` remains the compatibility queue envelope and re-exports engine command types.
+
+These are transitional control-plane commands, not the final timestamped event API owned by M1.
 
 ## Current hazards already tracked
 

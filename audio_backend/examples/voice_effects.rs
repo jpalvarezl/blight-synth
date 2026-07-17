@@ -1,6 +1,6 @@
 use std::thread;
 
-use audio_backend::{BlightAudio, EffectCmd, InstrumentCmd, SequencerCmd, SynthCmd, TransportCmd};
+use audio_backend::{BlightAudio, EffectCmd, InstrumentCmd, SynthCmd, TransportCmd};
 
 pub fn main() {
     match &mut BlightAudio::new() {
@@ -9,7 +9,7 @@ pub fn main() {
             let instrument_id = 0;
             let effect_id = 0;
             audio.send_command(
-                SequencerCmd::AddTrackInstrument {
+                InstrumentCmd::AddInstrument {
                     instrument: audio
                         .get_instrument_factory()
                         .create_dfam(instrument_id, 0.0),
@@ -17,7 +17,7 @@ pub fn main() {
                 .into(),
             );
             audio.send_command(
-                SequencerCmd::AddEffectToInstrument {
+                InstrumentCmd::AddEffect {
                     instrument_id,
                     effect: audio.get_effect_factory().create_mono_gain(effect_id, 1.0),
                 }

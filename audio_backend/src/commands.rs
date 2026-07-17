@@ -1,7 +1,4 @@
-use dsp::{
-    id::{EffectChainId, EffectId, InstrumentId},
-    InstrumentTrait, MonoEffect, StereoEffect, SynthCmd, VoiceEffects,
-};
+pub use engine::{EngineCommand, InstrumentCmd, MixerCmd};
 use sequencer::models::Song;
 use std::sync::Arc;
 
@@ -11,10 +8,6 @@ pub enum TransportCmd {
     SetLooping { enabled: bool },
 }
 
-#[allow(
-    clippy::large_enum_variant,
-    reason = "VoiceEffects stays inline to avoid container allocation and deallocation on the audio thread"
-)]
 pub enum SequencerCmd {
     /// Replace the current song without starting playback.
     LoadSong {
@@ -23,66 +16,15 @@ pub enum SequencerCmd {
     PlaySong {
         song: Arc<Song>,
     },
-    AddTrackInstrument {
-        instrument: Box<dyn InstrumentTrait>,
-    },
-    // TODO: consider a future AddStereoEffectToInstrument { instrument_id, effect: Box<dyn StereoEffect> }
-    // for per-instrument bus FX processed after summing all voices.
-    AddEffectToInstrument {
-        instrument_id: InstrumentId,
-        effect: Box<dyn MonoEffect>,
-    },
-    /// Install a batch of per-voice effects into an instrument in one RT-safe operation.
-    AddVoiceEffectsToInstrument {
-        instrument_id: InstrumentId,
-        effects: VoiceEffects,
-    },
 }
 
-pub enum MixerCmd {
-    AddMasterEffect {
-        effect: Box<dyn StereoEffect>,
-    },
-    SetMasterEffectParameter {
-        effect_id: EffectId,
-        param_index: u32,
-        value: f32,
-    },
-    RemoveEffect {
-        target_chain: EffectChainId,
-        effect_index: usize,
-    },
-    ReorderEffects {
-        target_chain: EffectChainId,
-        from_index: usize,
-        to_index: usize,
-    },
-    SetEffectParameter {
-        instrument_id: InstrumentId,
-        effect_id: EffectId,
-        param_index: u32,
-        value: f32,
-    },
-}
-
-pub enum InstrumentCmd {
-    NoteOn {
-        instrument_id: InstrumentId,
-        note: u8,
-        velocity: u8,
-    },
-    NoteOff {
-        instrument_id: InstrumentId,
-    },
-    PassOnSynthCmd {
-        instrument_id: InstrumentId,
-        synth_cmd: SynthCmd,
-    },
-}
-
+/// Standalone/tracker command envelope.
+///
+/// Instrument and mixer payload types are owned by `engine` and re-exported
+/// here for compatibility. Transport and song commands remain adapter-owned.
 #[allow(
     clippy::large_enum_variant,
-    reason = "Command contains the intentionally inline real-time-safe SequencerCmd payload"
+    reason = "Command contains the intentionally inline engine InstrumentCmd payload"
 )]
 pub enum Command {
     Transport(TransportCmd),
@@ -93,21 +35,33 @@ pub enum Command {
 
 impl From<TransportCmd> for Command {
     fn from(value: TransportCmd) -> Self {
-        Command::Transport(value)
+        Self::Transport(value)
     }
 }
+
 impl From<SequencerCmd> for Command {
     fn from(value: SequencerCmd) -> Self {
-        Command::Sequencer(value)
+        Self::Sequencer(value)
     }
 }
+
 impl From<MixerCmd> for Command {
     fn from(value: MixerCmd) -> Self {
-        Command::Mixer(value)
+        Self::Mixer(value)
     }
 }
+
 impl From<InstrumentCmd> for Command {
     fn from(value: InstrumentCmd) -> Self {
-        Command::Instrument(value)
+        Self::Instrument(value)
+    }
+}
+
+impl From<EngineCommand> for Command {
+    fn from(value: EngineCommand) -> Self {
+        match value {
+            EngineCommand::Instrument(command) => Self::Instrument(command),
+            EngineCommand::Mixer(command) => Self::Mixer(command),
+        }
     }
 }

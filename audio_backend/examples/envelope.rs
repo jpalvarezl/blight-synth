@@ -7,7 +7,7 @@ fn main() {
         Ok(audio) => {
             let instrument_id = 0;
             audio.send_command(
-                audio_backend::SequencerCmd::AddTrackInstrument {
+                audio_backend::InstrumentCmd::AddInstrument {
                     instrument: audio
                         .get_instrument_factory()
                         .create_simple_oscillator(instrument_id, 0.0),
