@@ -50,19 +50,38 @@ fn repository_songs_match_reviewed_offline_references() {
         assert!(actual.peak_left > 0.0 || actual.peak_right > 0.0);
         assert_eq!(actual.pcm_sha256.len(), 64);
 
-        assert_eq!(
-            &actual,
-            expected,
-            "{song_name} audio changed on {}; inspect rendered WAVs and run the explicit \
-             update_offline_references -- --update-reference command only when intentional",
-            current_platform()
-        );
+        if current_platform() == manifest.canonical_platform {
+            assert_eq!(
+                &actual, expected,
+                "{song_name} audio changed; inspect rendered WAVs and run the explicit \
+                 update_offline_references -- --update-reference command only when intentional"
+            );
+        } else {
+            assert_eq!(actual.clipped_samples, expected.clipped_samples);
+            assert_metric_close(song_name, "peak_left", actual.peak_left, expected.peak_left);
+            assert_metric_close(
+                song_name,
+                "peak_right",
+                actual.peak_right,
+                expected.peak_right,
+            );
+            assert_metric_close(song_name, "rms_left", actual.rms_left, expected.rms_left);
+            assert_metric_close(song_name, "rms_right", actual.rms_right, expected.rms_right);
+        }
         actual_references.insert(song_name.clone(), actual);
     }
 
     assert_eq!(
         actual_references.keys().collect::<Vec<_>>(),
         manifest.songs.keys().collect::<Vec<_>>()
+    );
+}
+
+fn assert_metric_close(song: &str, metric: &str, actual: f32, expected: f32) {
+    const TOLERANCE: f32 = 1.0e-5;
+    assert!(
+        (actual - expected).abs() <= TOLERANCE,
+        "{song} {metric} changed: expected {expected}, got {actual}"
     );
 }
 

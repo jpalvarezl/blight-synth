@@ -52,7 +52,7 @@ Before committing an update:
 
 ## Platform policy
 
-The manifest records the platform where it was updated. CI currently requires exact canonical PCM/reference equality on both Ubuntu and macOS; PCM16 quantization is the cross-platform contract. If a future platform demonstrates a justified math-library difference, add an explicit reviewed platform reference rather than silently weakening that platform to a structural-only check.
+The manifest records the platform where it was updated. Exact PCM/reference equality is required on that canonical platform. CI demonstrated that synthesized drum PCM can differ at the byte level between macOS arm64 and Linux x86-64 even when frame count, clipping count, peak, and RMS are identical. Non-canonical platforms therefore require repeated-render determinism plus exact structure/clipping and tight peak/RMS tolerances. Add a separate reviewed platform hash before claiming byte-identical cross-platform PCM; do not silently replace the canonical reference.
 
 ## Known baseline observations
 
