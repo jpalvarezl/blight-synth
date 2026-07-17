@@ -1,5 +1,8 @@
+mod commands;
+
 use std::collections::HashMap;
 
+pub use commands::*;
 use dsp::{
     id::{EffectId, InstrumentId},
     InstrumentTrait, MonoEffect, StereoEffect, StereoEffectChain, SynthCmd, VoiceEffects,
@@ -29,6 +32,58 @@ impl Engine {
         Self {
             instruments: HashMap::with_capacity(DEFAULT_INSTRUMENT_CAPACITY),
             master_effects: StereoEffectChain::new(DEFAULT_MASTER_EFFECT_CAPACITY),
+        }
+    }
+
+    pub fn handle_command(&mut self, command: EngineCommand) {
+        match command {
+            EngineCommand::Instrument(command) => self.handle_instrument_command(command),
+            EngineCommand::Mixer(command) => self.handle_mixer_command(command),
+        }
+    }
+
+    fn handle_instrument_command(&mut self, command: InstrumentCmd) {
+        match command {
+            InstrumentCmd::AddInstrument { instrument } => self.add_instrument(instrument),
+            InstrumentCmd::AddEffect {
+                instrument_id,
+                effect,
+            } => self.add_effect_to_instrument(instrument_id, effect),
+            InstrumentCmd::AddVoiceEffects {
+                instrument_id,
+                effects,
+            } => self.add_voice_effects_to_instrument(instrument_id, effects),
+            InstrumentCmd::NoteOn {
+                instrument_id,
+                note,
+                velocity,
+            } => self.note_on(instrument_id, note, velocity),
+            InstrumentCmd::NoteOff { instrument_id } => self.note_off(instrument_id),
+            InstrumentCmd::PassOnSynthCmd {
+                instrument_id,
+                synth_cmd,
+            } => {
+                self.try_handle_synth_command(instrument_id, &synth_cmd);
+            }
+            InstrumentCmd::SetEffectParameter {
+                instrument_id,
+                effect_id,
+                param_index,
+                value,
+            } => self.set_instrument_effect_parameter(instrument_id, effect_id, param_index, value),
+        }
+    }
+
+    fn handle_mixer_command(&mut self, command: MixerCmd) {
+        match command {
+            MixerCmd::AddMasterEffect { effect } => self.add_master_effect(effect),
+            MixerCmd::SetMasterEffectParameter {
+                effect_id,
+                param_index,
+                value,
+            } => self.set_master_effect_parameter(effect_id, param_index, value),
+            // Effect-chain mutation semantics are intentionally deferred to #136.
+            MixerCmd::RemoveMasterEffect { .. } | MixerCmd::ReorderMasterEffects { .. } => {}
         }
     }
 
@@ -219,20 +274,45 @@ mod tests {
         let note_offs = Arc::new(AtomicUsize::new(0));
         let effect_value = Arc::new(AtomicU32::new(0));
         let mut engine = Engine::new();
-        engine.add_instrument(Box::new(TestInstrument {
-            id: 3,
-            note_ons: note_ons.clone(),
-            note_offs: note_offs.clone(),
-            effect_value: effect_value.clone(),
-        }));
-        engine.add_master_effect(Box::new(ScaleEffect { id: 9, scale: 2.0 }));
+        engine.handle_command(
+            InstrumentCmd::AddInstrument {
+                instrument: Box::new(TestInstrument {
+                    id: 3,
+                    note_ons: note_ons.clone(),
+                    note_offs: note_offs.clone(),
+                    effect_value: effect_value.clone(),
+                }),
+            }
+            .into(),
+        );
+        engine.handle_command(
+            MixerCmd::AddMasterEffect {
+                effect: Box::new(ScaleEffect { id: 9, scale: 2.0 }),
+            }
+            .into(),
+        );
 
-        engine.note_on(3, 60, 127);
-        engine.set_instrument_effect_parameter(3, 4, 0, 0.75);
+        engine.handle_command(
+            InstrumentCmd::NoteOn {
+                instrument_id: 3,
+                note: 60,
+                velocity: 127,
+            }
+            .into(),
+        );
+        engine.handle_command(
+            InstrumentCmd::SetEffectParameter {
+                instrument_id: 3,
+                effect_id: 4,
+                param_index: 0,
+                value: 0.75,
+            }
+            .into(),
+        );
         let mut left = [0.0; 4];
         let mut right = [0.0; 4];
         engine.process(&mut left, &mut right, 48_000.0);
-        engine.note_off(3);
+        engine.handle_command(InstrumentCmd::NoteOff { instrument_id: 3 }.into());
 
         assert_eq!(left, [0.5; 4]);
         assert_eq!(right, [1.0; 4]);

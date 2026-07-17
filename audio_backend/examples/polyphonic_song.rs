@@ -14,7 +14,7 @@ pub fn main() {
         Ok(audio) => {
             let max_voices = 5;
             audio.send_command(
-                audio_backend::SequencerCmd::AddTrackInstrument {
+                audio_backend::InstrumentCmd::AddInstrument {
                     instrument: audio.get_instrument_factory().create_polyphonic_oscillator(
                         lead_instrument_id,
                         0.0,
@@ -27,7 +27,7 @@ pub fn main() {
             let reverbs =
                 (0..max_voices).map(|_| audio.get_effect_factory().create_mono_reverb(reverb_id));
             audio.send_command(
-                audio_backend::SequencerCmd::AddVoiceEffectsToInstrument {
+                audio_backend::InstrumentCmd::AddVoiceEffects {
                     instrument_id: lead_instrument_id,
                     effects: reverbs.collect(),
                 }

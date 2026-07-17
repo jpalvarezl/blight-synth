@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-use engine::Engine;
+use engine::{Engine, EngineCommand};
 use log::debug;
 use sequencer::models::{MAX_TRACKS, NO_INSTRUMENT};
 
-use crate::{id::InstrumentId, InstrumentCmd, InstrumentTrait, MixerCmd, MonoEffect, VoiceEffects};
+use crate::id::InstrumentId;
 
 /// Tracker-specific adapter around the host-independent render engine.
 ///
@@ -36,78 +36,17 @@ impl Synthesizer {
         self.engine.process(left, right, sample_rate);
     }
 
-    pub fn add_instrument(&mut self, instrument: Box<dyn InstrumentTrait>) {
-        self.engine.add_instrument(instrument);
-    }
-
     pub fn clear_instruments(&mut self) {
         self.engine.clear_instruments();
         self.track_last_instrument.clear();
-    }
-
-    pub fn add_effect_to_instrument(
-        &mut self,
-        instrument_id: InstrumentId,
-        effect: Box<dyn MonoEffect>,
-    ) {
-        self.engine.add_effect_to_instrument(instrument_id, effect);
-    }
-
-    pub fn add_voice_effects_to_instrument(
-        &mut self,
-        instrument_id: InstrumentId,
-        effects: VoiceEffects,
-    ) {
-        self.engine
-            .add_voice_effects_to_instrument(instrument_id, effects);
     }
 
     pub fn stop_all_notes(&mut self) {
         self.engine.stop_all_notes();
     }
 
-    pub fn handle_engine_command(&mut self, cmd: InstrumentCmd) {
-        match cmd {
-            InstrumentCmd::NoteOn {
-                instrument_id,
-                note,
-                velocity,
-            } => self.engine.note_on(instrument_id, note, velocity),
-            InstrumentCmd::NoteOff { instrument_id } => self.engine.note_off(instrument_id),
-            InstrumentCmd::PassOnSynthCmd {
-                instrument_id,
-                synth_cmd,
-            } => {
-                self.engine
-                    .try_handle_synth_command(instrument_id, &synth_cmd);
-            }
-        }
-    }
-
-    pub fn handle_mixer_command(&mut self, cmd: MixerCmd) {
-        match cmd {
-            MixerCmd::AddMasterEffect { effect } => self.engine.add_master_effect(effect),
-            MixerCmd::SetMasterEffectParameter {
-                effect_id,
-                param_index,
-                value,
-            } => self
-                .engine
-                .set_master_effect_parameter(effect_id, param_index, value),
-            MixerCmd::RemoveEffect { .. } => {}
-            MixerCmd::ReorderEffects { .. } => {}
-            MixerCmd::SetEffectParameter {
-                instrument_id,
-                effect_id,
-                param_index,
-                value,
-            } => self.engine.set_instrument_effect_parameter(
-                instrument_id,
-                effect_id,
-                param_index,
-                value,
-            ),
-        }
+    pub fn handle_engine_command(&mut self, command: EngineCommand) {
+        self.engine.handle_command(command);
     }
 
     /// Determine if there is an instrument_id cached for the track if not specified in the event.

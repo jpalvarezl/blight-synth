@@ -1,6 +1,6 @@
 use std::thread;
 
-use audio_backend::{id::InstrumentId, BlightAudio, InstrumentCmd, MixerCmd, SequencerCmd};
+use audio_backend::{id::InstrumentId, BlightAudio, InstrumentCmd, MixerCmd};
 
 pub fn main() {
     match &mut BlightAudio::new() {
@@ -18,7 +18,7 @@ pub fn main() {
 
             let inst_id: InstrumentId = 1;
             audio.send_command(
-                SequencerCmd::AddTrackInstrument {
+                InstrumentCmd::AddInstrument {
                     instrument: audio
                         .get_instrument_factory()
                         .create_simple_oscillator(inst_id, 0.0),
@@ -65,8 +65,8 @@ pub fn main() {
             let i3 = audio
                 .get_instrument_factory()
                 .create_simple_oscillator(inst3, 0.0);
-            audio.send_command(SequencerCmd::AddTrackInstrument { instrument: i2 }.into());
-            audio.send_command(SequencerCmd::AddTrackInstrument { instrument: i3 }.into());
+            audio.send_command(InstrumentCmd::AddInstrument { instrument: i2 }.into());
+            audio.send_command(InstrumentCmd::AddInstrument { instrument: i3 }.into());
             audio.send_command(
                 InstrumentCmd::NoteOn {
                     instrument_id: inst_id,

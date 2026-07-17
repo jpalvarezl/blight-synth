@@ -146,23 +146,35 @@ graph TB
 
 ### Audio backend API (quick start)
 
-- Unified command enum with domain subtypes:
-  - Command::Transport(TransportCmd)
-  - Command::Sequencer(SequencerCmd)
-  - Command::Synth(SynthCmd)
-  - Command::Mixer(MixerCmd)
-- You can send subcommands directly using From, e.g. SynthCmd::PlayNote { ... }.into().
+- The standalone/tracker queue has domain-specific payloads:
+  - `Command::Transport(TransportCmd)` — adapter transport.
+  - `Command::Sequencer(SequencerCmd)` — song loading/playback.
+  - `Command::Instrument(InstrumentCmd)` — instrument creation, notes, synth control, and instrument-owned effects.
+  - `Command::Mixer(MixerCmd)` — master mixer/effect pipeline only.
+- `InstrumentCmd` and `MixerCmd` are owned by `engine` and compatibility-re-exported by `audio_backend`.
+- Subcommands convert into the queue envelope with `.into()`.
 
-Instrument mode (no tracker feature at runtime):
+Direct instrument control through the current standalone adapter:
 
 ```rust
-// create engine
 let mut audio = audio_backend::BlightAudio::new().unwrap();
-// play a note
-use audio_backend::SynthCmd;
-audio.send_command(SynthCmd::PlayNote { voice: audio.get_voice_factory().create_voice(0, audio_backend::InstrumentDefinition::Oscillator, 0.0), note: 60, velocity: 127 }.into());
-// stop
-audio.send_command(SynthCmd::StopNote { voice_id: 0 }.into());
+let instrument_id = 1;
+let instrument = audio
+    .get_instrument_factory()
+    .create_simple_oscillator(instrument_id, 0.0);
+
+audio.send_command(audio_backend::InstrumentCmd::AddInstrument { instrument }.into());
+// Current adapter rendering is transport-gated; M1 will separate live rendering from tracker transport.
+audio.send_command(audio_backend::TransportCmd::PlayLastSong.into());
+audio.send_command(
+    audio_backend::InstrumentCmd::NoteOn {
+        instrument_id,
+        note: 60,
+        velocity: 127,
+    }
+    .into(),
+);
+audio.send_command(audio_backend::InstrumentCmd::NoteOff { instrument_id }.into());
 ```
 
 Tracker mode (sequencer-driven):
@@ -175,8 +187,3 @@ let mut audio = audio_backend::BlightAudio::with_song(song.clone()).unwrap();
 audio.send_command(SequencerCmd::PlaySong { song }.into());
 audio.send_command(TransportCmd::StopSong.into());
 ```
-
-Feature flags
-- Default features enable tracker integration. Non-tracker examples use `--no-default-features`.
-- Example:
-  - cargo run -p audio_backend --example cycle_waveforms --no-default-features

@@ -11,7 +11,7 @@ pub fn main() {
     match &mut BlightAudio::with_song(Arc::new(load_song(lead_instrument_id, bass_instrument_id))) {
         Ok(audio) => {
             audio.send_command(
-                audio_backend::SequencerCmd::AddTrackInstrument {
+                audio_backend::InstrumentCmd::AddInstrument {
                     instrument: audio
                         .get_instrument_factory()
                         .create_simple_oscillator(lead_instrument_id, 0.0),
@@ -20,7 +20,7 @@ pub fn main() {
             );
 
             audio.send_command(
-                audio_backend::SequencerCmd::AddTrackInstrument {
+                audio_backend::InstrumentCmd::AddInstrument {
                     instrument: audio
                         .get_instrument_factory()
                         .create_oscillator_with_waveform(
