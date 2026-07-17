@@ -208,6 +208,8 @@ pub fn render_song(song: &Song, config: OfflineRenderConfig) -> Result<OfflineRe
         right: Vec::with_capacity(initial_capacity),
     };
 
+    let mut block_left = vec![0.0; config.block_size];
+    let mut block_right = vec![0.0; config.block_size];
     while player.is_playing() {
         if rendered.frame_count() >= config.max_frames {
             bail!(
@@ -218,19 +220,20 @@ pub fn render_song(song: &Song, config: OfflineRenderConfig) -> Result<OfflineRe
         let frame_count = config
             .block_size
             .min(config.max_frames - rendered.frame_count());
-        let mut left = vec![0.0; frame_count];
-        let mut right = vec![0.0; frame_count];
-        player.process(
-            &mut left,
-            &mut right,
-            config.sample_rate as f32,
-            frame_count,
-        );
-        if left.iter().chain(&right).any(|sample| !sample.is_finite()) {
+        let left = &mut block_left[..frame_count];
+        let right = &mut block_right[..frame_count];
+        left.fill(0.0);
+        right.fill(0.0);
+        player.process(left, right, config.sample_rate as f32, frame_count);
+        if left
+            .iter()
+            .chain(right.iter())
+            .any(|sample| !sample.is_finite())
+        {
             bail!("offline render produced a non-finite sample");
         }
-        rendered.left.extend(left);
-        rendered.right.extend(right);
+        rendered.left.extend_from_slice(left);
+        rendered.right.extend_from_slice(right);
     }
 
     if rendered.left.iter().all(|sample| *sample == 0.0)
