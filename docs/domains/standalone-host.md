@@ -2,7 +2,7 @@
 title: Standalone Host Domain
 summary: Focused context for CPAL, OSC, process lifecycle, and project/resource adapters.
 status: current
-updated: 2026-07-15
+updated: 2026-07-16
 issues: [104, 120, 122, 123, 139]
 ---
 
@@ -38,6 +38,10 @@ issues: [104, 120, 122, 123, 139]
 - `audio_backend/src/song_hydration.rs`
 - `audio_backend/src/resources.rs`
 - `audio_backend/src/meter.rs`
+
+## Threading/runtime decision
+
+Tokio is temporarily allowed only in this standalone host. Issue #156 must use its current-thread runtime so the intentional steady-state model remains one main/control thread plus the CPAL audio callback thread (excluding platform-owned threads). M2 issue #161 removes Tokio once protocol/lifecycle behavior is stable; OSC remains encoded with `rosc` independently of that runtime choice.
 
 ## Current status
 

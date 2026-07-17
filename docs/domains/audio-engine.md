@@ -2,7 +2,7 @@
 title: Audio Engine Domain
 summary: Focused context for DSP, instruments, effects, rendering, and RT contracts.
 status: current
-updated: 2026-07-15
+updated: 2026-07-16
 issues: [132, 133, 134, 135, 136, 137]
 ---
 
@@ -32,14 +32,15 @@ Read parameter/state/composition pages only when the issue changes those contrac
 
 ## Current code entry points
 
+- `engine/src/lib.rs`
 - `dsp/src/lib.rs`
 - `dsp/src/synth_infra/`
 - `dsp/src/instruments/`
 - `dsp/src/effects/`
 - `audio_backend/src/audio_processor/mod.rs`
-- `audio_backend/src/player/tracker_synthesizer.rs`
+- `audio_backend/src/player/tracker_synthesizer.rs` (tracker-only adapter)
 
-Do not read every effect/instrument implementation unless the issue targets it.
+Do not read every effect/instrument implementation unless the issue targets it. Generic instrument/mixer rendering belongs to `engine`; tracker track caching and document interpretation remain in `audio_backend` until the composition adapter is extracted.
 
 ## Current hazards already tracked
 

@@ -2,7 +2,7 @@
 title: Product and Host Topology
 summary: Accepted standalone-first product topology, optional host matrix, and state/parameter authority.
 status: accepted
-updated: 2026-07-14
+updated: 2026-07-16
 issues: [129, 144, 145]
 ---
 
@@ -92,6 +92,7 @@ Composition runtimes own document semantics, clock interpretation, deterministic
 
 - The RT process path performs no allocation/deallocation, locking, logging, filesystem/network I/O, panic, or unbounded work.
 - Standalone control may use local OSC initially, but the public protocol is versioned and separate from internal Rust command enums.
+- Tokio is a temporary standalone-host implementation detail only: #156 contains it in a current-thread runtime, and M2 issue #161 removes it after the host/lifecycle boundary is stable. DSP, engine, and composition crates must never depend on it.
 - Release Svelte assets are compiled and work without a Vite development server.
 - Plugin requirements do not block M0–M3 or determine the standalone composition UX.
 - AUv3 remains feasibility-gated because sandbox, lifecycle, state-size, memory, webview, and containing-app requirements differ from desktop plugins.

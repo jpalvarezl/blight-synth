@@ -15,6 +15,19 @@ ROOT = Path(__file__).resolve().parents[1]
 FORBIDDEN = {
     "dsp": {
         "audio_backend",
+        "engine",
+        "sequencer",
+        "cpal",
+        "rosc",
+        "tokio",
+        "eframe",
+        "egui_extras",
+        "rfd",
+        "hound",
+        "os_dls",
+    },
+    "engine": {
+        "audio_backend",
         "sequencer",
         "cpal",
         "rosc",
@@ -28,6 +41,7 @@ FORBIDDEN = {
     "sequencer": {
         "audio_backend",
         "dsp",
+        "engine",
         "cpal",
         "rosc",
         "tokio",
@@ -40,16 +54,22 @@ FORBIDDEN = {
     "utils": {
         "audio_backend",
         "dsp",
+        "engine",
         "sequencer",
         "cpal",
         "rosc",
         "tokio",
         "eframe",
+        "egui_extras",
+        "rfd",
         "hound",
         "os_dls",
     },
 }
-REQUIRED = {"audio_backend": {"dsp", "sequencer"}}
+REQUIRED = {
+    "engine": {"dsp"},
+    "audio_backend": {"dsp", "engine", "sequencer"},
+}
 
 
 def metadata() -> dict:

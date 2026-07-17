@@ -8,8 +8,9 @@ mod resources;
 mod result;
 mod song_hydration;
 
-// Re-export everything from the dsp crate so existing consumers don't break
+// Re-export reusable layers so existing audio_backend consumers can migrate incrementally.
 pub use dsp::*;
+pub use engine::*;
 
 pub use audio_frontend::*;
 pub(crate) use audio_processor::*;

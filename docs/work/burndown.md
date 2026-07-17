@@ -2,7 +2,7 @@
 title: Generated Roadmap Burndown
 summary: Offline Obsidian snapshot generated from GitHub roadmap issue metadata.
 status: generated
-source-updated: 2026-07-16T11:13:11Z
+source-updated: 2026-07-16T19:07:51Z
 generator: scripts/docs/sync_roadmap.py
 ---
 
@@ -11,15 +11,15 @@ generator: scripts/docs/sync_roadmap.py
 > [!warning] Generated file
 > GitHub Issues are canonical. Do not edit this page manually. Run `python3 scripts/docs/sync_roadmap.py`.
 
-Data snapshot through `2026-07-16T11:13:11Z`.
+Data snapshot through `2026-07-16T19:07:51Z`.
 
 ## Summary
 
 | Milestone | Open | Done | Ready | In progress | Blocked | Backlog | Sized points done/total | Unsized |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| M0: Architecture & Repository Baseline | 5 | 6 | 0 | 1 | 4 | 0 | 11/23 | 2 |
+| M0: Architecture & Repository Baseline | 7 | 7 | 0 | 2 | 5 | 0 | 14/25 | 3 |
 | M1: Host-Independent Engine & RT Contracts | 10 | 0 | 0 | 0 | 0 | 10 | 0/0 | 10 |
-| M2: Standalone Host & Control Protocol | 5 | 0 | 0 | 0 | 0 | 5 | 0/0 | 5 |
+| M2: Standalone Host & Control Protocol | 6 | 0 | 0 | 0 | 1 | 5 | 0/3 | 5 |
 | M3: JS/TS Composition UI & Standalone App | 9 | 0 | 0 | 0 | 0 | 9 | 0/0 | 9 |
 | M4 (Optional): Desktop Plugins (VST3/AU) | 7 | 0 | 0 | 0 | 0 | 7 | 0/0 | 7 |
 | M5 (Optional): AUv3 & Distribution | 3 | 0 | 0 | 0 | 0 | 3 | 0/0 | 3 |
@@ -29,10 +29,12 @@ Data snapshot through `2026-07-16T11:13:11Z`.
 ### M0: Architecture & Repository Baseline
 
 - [ ] [#130](https://github.com/jpalvarezl/blight-synth/issues/130) Refactor workspace boundaries around a host-independent engine — `blocked`, `epic`, unassigned
-- [ ] [#154](https://github.com/jpalvarezl/blight-synth/issues/154) Move sample and platform resource loading out of `dsp` — `in-progress`, `M`, @jpalvarezl
-- [ ] [#155](https://github.com/jpalvarezl/blight-synth/issues/155) Extract the host-independent engine crate mechanically — `blocked`, `L`, unassigned
-- [ ] [#156](https://github.com/jpalvarezl/blight-synth/issues/156) Isolate CPAL and OSC in the standalone host adapter — `blocked`, `M`, unassigned
+- [ ] [#155](https://github.com/jpalvarezl/blight-synth/issues/155) Extract the host-independent engine crate mechanically — `in-progress`, `epic`, @jpalvarezl
+- [ ] [#156](https://github.com/jpalvarezl/blight-synth/issues/156) Isolate CPAL/OSC and simplify the standalone host threading model — `blocked`, `M`, unassigned
 - [ ] [#157](https://github.com/jpalvarezl/blight-synth/issues/157) Finalize and enforce the M0 crate dependency graph — `blocked`, `S`, unassigned
+- [ ] [#162](https://github.com/jpalvarezl/blight-synth/issues/162) Extract the host-independent engine render core — `in-progress`, `M`, @jpalvarezl
+- [ ] [#163](https://github.com/jpalvarezl/blight-synth/issues/163) Separate engine command ownership from standalone transport commands — `blocked`, `M`, unassigned
+- [ ] [#164](https://github.com/jpalvarezl/blight-synth/issues/164) Add offline engine harness and finalize the #155 boundary — `blocked`, `S`, unassigned
 
 ## All roadmap tasks
 
@@ -45,10 +47,13 @@ Data snapshot through `2026-07-16T11:13:11Z`.
 - [x] [#146](https://github.com/jpalvarezl/blight-synth/issues/146) Establish the human/LLM knowledge base, context packets, and generated burndown — `done`, `M`, @jpalvarezl
 - [x] [#149](https://github.com/jpalvarezl/blight-synth/issues/149) Make `utils` and `os_dls` strict-Clippy clean — `done`, `S`, @jpalvarezl
 - [x] [#150](https://github.com/jpalvarezl/blight-synth/issues/150) Make DSP and remaining workspace targets strict-Clippy clean — `done`, `M`, @jpalvarezl
-- [ ] [#154](https://github.com/jpalvarezl/blight-synth/issues/154) Move sample and platform resource loading out of `dsp` — `in-progress`, `M`, @jpalvarezl
-- [ ] [#155](https://github.com/jpalvarezl/blight-synth/issues/155) Extract the host-independent engine crate mechanically — `blocked`, `L`, unassigned
-- [ ] [#156](https://github.com/jpalvarezl/blight-synth/issues/156) Isolate CPAL and OSC in the standalone host adapter — `blocked`, `M`, unassigned
+- [x] [#154](https://github.com/jpalvarezl/blight-synth/issues/154) Move sample and platform resource loading out of `dsp` — `done`, `M`, @jpalvarezl
+- [ ] [#155](https://github.com/jpalvarezl/blight-synth/issues/155) Extract the host-independent engine crate mechanically — `in-progress`, `epic`, @jpalvarezl
+- [ ] [#156](https://github.com/jpalvarezl/blight-synth/issues/156) Isolate CPAL/OSC and simplify the standalone host threading model — `blocked`, `M`, unassigned
 - [ ] [#157](https://github.com/jpalvarezl/blight-synth/issues/157) Finalize and enforce the M0 crate dependency graph — `blocked`, `S`, unassigned
+- [ ] [#162](https://github.com/jpalvarezl/blight-synth/issues/162) Extract the host-independent engine render core — `in-progress`, `M`, @jpalvarezl
+- [ ] [#163](https://github.com/jpalvarezl/blight-synth/issues/163) Separate engine command ownership from standalone transport commands — `blocked`, `M`, unassigned
+- [ ] [#164](https://github.com/jpalvarezl/blight-synth/issues/164) Add offline engine harness and finalize the #155 boundary — `blocked`, `S`, unassigned
 
 ### M1: Host-Independent Engine & RT Contracts
 
@@ -70,6 +75,7 @@ Data snapshot through `2026-07-16T11:13:11Z`.
 - [ ] [#122](https://github.com/jpalvarezl/blight-synth/issues/122) Implement portable project I/O and standalone load/save operations — `backlog`, `unsized`, unassigned
 - [ ] [#123](https://github.com/jpalvarezl/blight-synth/issues/123) Implement standalone process lifecycle, discovery, and recovery — `backlog`, `unsized`, unassigned
 - [ ] [#139](https://github.com/jpalvarezl/blight-synth/issues/139) Migrate the standalone CPAL/OSC host onto the shared engine — `backlog`, `unsized`, unassigned
+- [ ] [#161](https://github.com/jpalvarezl/blight-synth/issues/161) Remove Tokio from the standalone host control loop — `blocked`, `M`, unassigned
 
 ### M3: JS/TS Composition UI & Standalone App
 
