@@ -1,6 +1,6 @@
 mod commands;
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 pub use commands::*;
 use dsp::{
@@ -8,7 +8,6 @@ use dsp::{
     InstrumentTrait, MonoEffect, StereoEffect, StereoEffectChain, SynthCmd, VoiceEffects,
 };
 
-const DEFAULT_INSTRUMENT_CAPACITY: usize = 64;
 const DEFAULT_MASTER_EFFECT_CAPACITY: usize = 8;
 
 /// Host-independent runtime for instrument dispatch, mixing, and master effects.
@@ -17,7 +16,9 @@ const DEFAULT_MASTER_EFFECT_CAPACITY: usize = 8;
 /// document, clock, file loader, network socket, or UI. Hosts provide planar
 /// buffers and composition adapters decide which methods to call and when.
 pub struct Engine {
-    instruments: HashMap<InstrumentId, Box<dyn InstrumentTrait>>,
+    // Stable ID order makes floating-point mix accumulation deterministic for
+    // offline golden renders as well as live hosts.
+    instruments: BTreeMap<InstrumentId, Box<dyn InstrumentTrait>>,
     master_effects: StereoEffectChain,
 }
 
@@ -30,7 +31,7 @@ impl Default for Engine {
 impl Engine {
     pub fn new() -> Self {
         Self {
-            instruments: HashMap::with_capacity(DEFAULT_INSTRUMENT_CAPACITY),
+            instruments: BTreeMap::new(),
             master_effects: StereoEffectChain::new(DEFAULT_MASTER_EFFECT_CAPACITY),
         }
     }

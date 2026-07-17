@@ -38,6 +38,23 @@ python3 scripts/docs/check_docs.py
 
 See [`scripts/README.md`](scripts/README.md) for roadmap-generator and manual audio/OSC checks. TypeScript checks will be added when the production `gui/` workspace exists.
 
+## Offline song rendering and golden regression tests
+
+Render every repository song without opening an audio device:
+
+```bash
+scripts/render_repo_songs.sh
+```
+
+Or render one JSON song:
+
+```bash
+cargo run -p audio_backend --example render_song -- \
+  calibration.json target/offline-renders/calibration.wav
+```
+
+On macOS, listen with `afplay target/offline-renders/calibration.wav`. CI compares canonical PCM SHA-256 references for the synth/drum songs. Intentional audio changes use the explicit reference-update workflow documented in [`docs/architecture/offline-render-contract.md`](docs/architecture/offline-render-contract.md); normal tests never rewrite references.
+
 ## audio_backend Architecture
 
 The `audio_backend` crate is responsible for all audio processing and device management. Its architecture is modular and consists of the following main components:
@@ -52,16 +69,16 @@ graph TB
     
     %% Command Processing
     AP -->|Commands| CMD[Command Processor]
-    CMD -->|Instrument Commands| IM[InstrumentManager]
-    CMD -->|Sequencer Commands| P[Player/Sequencer]
+    CMD -->|Instrument/Master Commands| ENG[Engine]
+    CMD -->|Transport/Song Commands| P[Player/Sequencer]
     
     %% Song Data Flow
     P -->|Read Song Data| SD[(Song Data<br/>- Arrangement<br/>- Chains<br/>- Phrases<br/>- Events)]
-    P -->|Note Events| TS[TrackerSynthesizer]
+    P -->|Tracker Operations| TA[TrackerEngineAdapter]
+    TA -->|Engine Commands / Render| ENG
     
     %% Instrument Management
-    TS -->|Note On/Off/Modify| IM
-    IM -->|Manages| INST[Instruments]
+    ENG -->|Manages| INST[Instruments]
     
     %% Instrument Types
     INST --> MO[MonophonicOscillator<br/>Single Voice]

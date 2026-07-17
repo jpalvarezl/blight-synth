@@ -2,7 +2,7 @@
 title: Target System Boundaries
 summary: Draft dependency direction separating composition, audio engine, and hosts.
 status: draft
-updated: 2026-07-18
+updated: 2026-07-19
 issues: [130, 132, 145]
 ---
 
@@ -33,7 +33,7 @@ flowchart LR
 
 ## Current-to-target note
 
-The `engine` crate now owns generic instrument dispatch, instrument/master command types, planar mixing, and master effects. `MixerCmd` is master-only; instrument effect operations belong to `InstrumentCmd`. `audio_backend` still combines CPAL, `AudioProcessor`, tracker `Player`/track state, the compatibility command envelope, OSC, resources, and project hydration. The remaining M0/M1 issues linked in frontmatter own host, composition, and semantic separation. Until they land, code and tests describe current behavior.
+The `engine` crate now owns generic instrument dispatch, instrument/master command types, deterministic planar mixing, and master effects. `MixerCmd` is master-only; instrument effect operations belong to `InstrumentCmd`. `audio_backend` provides the tracker adapter, shared hydration, deterministic offline render host, and the still-combined CPAL/OSC standalone host. The committed JSON-song PCM references characterize this complete path before the remaining host/composition semantic work.
 
 ## Parallelization boundary
 

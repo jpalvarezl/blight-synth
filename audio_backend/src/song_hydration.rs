@@ -10,7 +10,8 @@ use crate::{
     effects::{DelayParameter as DP, ReverbParameter as RP},
     id::{EffectId, InstrumentId},
     instruments::Waveform as BackendWaveform,
-    BlightAudio, EnvelopeCmd, InstrumentCmd, MonoEffect, SequencerCmd, SynthCmd,
+    BlightAudio, Command, EffectFactory, EnvelopeCmd, InstrumentCmd, InstrumentFactory, MonoEffect,
+    SequencerCmd, SynthCmd,
 };
 
 const DEFAULT_INSTRUMENT_EFFECT_ID: EffectId = 1;
@@ -37,6 +38,34 @@ pub fn load_song_file_into_audio(audio: &mut BlightAudio, path: &Path) -> Result
 
 /// Queue commands that create backend instruments/effects from a serialized song.
 pub fn hydrate_song(audio: &mut BlightAudio, song: &Song) -> Result<()> {
+    let commands = build_hydration_commands_with_factories(
+        song,
+        audio.get_instrument_factory(),
+        audio.get_effect_factory(),
+    )?;
+    for command in commands {
+        audio.send_command(command);
+    }
+    Ok(())
+}
+
+/// Build the same non-real-time hydration command sequence used by standalone playback.
+///
+/// Offline hosts use this entry point so they do not need to construct a CPAL-backed
+/// [`BlightAudio`] instance merely to hydrate instruments and effects.
+pub fn build_song_hydration_commands(song: &Song, sample_rate: f32) -> Result<Vec<Command>> {
+    let instrument_factory = InstrumentFactory::new(sample_rate);
+    let effect_factory = EffectFactory::new(sample_rate);
+    build_hydration_commands_with_factories(song, &instrument_factory, &effect_factory)
+}
+
+fn build_hydration_commands_with_factories(
+    song: &Song,
+    instrument_factory: &InstrumentFactory,
+    effect_factory: &EffectFactory,
+) -> Result<Vec<Command>> {
+    let mut commands = Vec::new();
+
     for instrument in &song.instrument_bank {
         let instrument_id = instrument.id as InstrumentId;
         log::info!(
@@ -46,33 +75,53 @@ pub fn hydrate_song(audio: &mut BlightAudio, song: &Song) -> Result<()> {
         );
         match &instrument.data {
             InstrumentData::SimpleOscillator(params) => {
-                let instrument = audio
-                    .get_instrument_factory()
-                    .create_oscillator_with_waveform(
-                        instrument_id,
-                        0.0,
-                        map_waveform_to_backend(params.waveform),
-                    );
-                audio.send_command(InstrumentCmd::AddInstrument { instrument }.into());
-                apply_effects(audio, instrument_id, &params.audio_effects);
-                send_amp_envelope(audio, instrument_id, &params.amp_envelope);
+                commands.push(
+                    InstrumentCmd::AddInstrument {
+                        instrument: instrument_factory.create_oscillator_with_waveform(
+                            instrument_id,
+                            0.0,
+                            map_waveform_to_backend(params.waveform),
+                        ),
+                    }
+                    .into(),
+                );
+                push_effect_commands(
+                    &mut commands,
+                    effect_factory,
+                    instrument_id,
+                    &params.audio_effects,
+                );
+                push_amp_envelope_commands(&mut commands, instrument_id, &params.amp_envelope);
             }
             InstrumentData::HiHat(params) => {
-                let instrument = audio
-                    .get_instrument_factory()
-                    .create_hihat(instrument_id, 0.0);
-                audio.send_command(InstrumentCmd::AddInstrument { instrument }.into());
-                apply_effects(audio, instrument_id, &params.audio_effects);
-                send_amp_envelope(audio, instrument_id, &params.amp_envelope);
+                commands.push(
+                    InstrumentCmd::AddInstrument {
+                        instrument: instrument_factory.create_hihat(instrument_id, 0.0),
+                    }
+                    .into(),
+                );
+                push_effect_commands(
+                    &mut commands,
+                    effect_factory,
+                    instrument_id,
+                    &params.audio_effects,
+                );
+                push_amp_envelope_commands(&mut commands, instrument_id, &params.amp_envelope);
             }
             InstrumentData::KickDrum(params) => {
-                let instrument = audio
-                    .get_instrument_factory()
-                    .create_kick_drum(instrument_id, 0.0);
-                audio.send_command(InstrumentCmd::AddInstrument { instrument }.into());
-                apply_effects(audio, instrument_id, &params.audio_effects);
-
-                audio.send_command(
+                commands.push(
+                    InstrumentCmd::AddInstrument {
+                        instrument: instrument_factory.create_kick_drum(instrument_id, 0.0),
+                    }
+                    .into(),
+                );
+                push_effect_commands(
+                    &mut commands,
+                    effect_factory,
+                    instrument_id,
+                    &params.audio_effects,
+                );
+                commands.push(
                     InstrumentCmd::PassOnSynthCmd {
                         instrument_id,
                         synth_cmd: SynthCmd::EnvelopeCommand {
@@ -84,38 +133,48 @@ pub fn hydrate_song(audio: &mut BlightAudio, song: &Song) -> Result<()> {
                     }
                     .into(),
                 );
-
-                send_amp_envelope(audio, instrument_id, &params.amp_envelope);
+                push_amp_envelope_commands(&mut commands, instrument_id, &params.amp_envelope);
             }
             InstrumentData::SnareDrum(params) => {
-                let instrument = audio
-                    .get_instrument_factory()
-                    .create_snare_drum(instrument_id, 0.0);
-                audio.send_command(InstrumentCmd::AddInstrument { instrument }.into());
-                apply_effects(audio, instrument_id, &params.audio_effects);
-                send_amp_envelope(audio, instrument_id, &params.amp_envelope);
-            }
-            InstrumentData::DFAM(params) => {
-                let instrument = audio
-                    .get_instrument_factory()
-                    .create_dfam(instrument_id, 0.0);
-                audio.send_command(InstrumentCmd::AddInstrument { instrument }.into());
-
-                let ladder = audio.get_effect_factory().create_moog_ladder(
-                    DEFAULT_INSTRUMENT_EFFECT_ID,
-                    500.0,
-                    0.5,
-                );
-                audio.send_command(
-                    InstrumentCmd::AddEffect {
-                        instrument_id,
-                        effect: ladder,
+                commands.push(
+                    InstrumentCmd::AddInstrument {
+                        instrument: instrument_factory.create_snare_drum(instrument_id, 0.0),
                     }
                     .into(),
                 );
-
-                apply_effects(audio, instrument_id, &params.audio_effects);
-                send_amp_envelope(audio, instrument_id, &params.amp_envelope);
+                push_effect_commands(
+                    &mut commands,
+                    effect_factory,
+                    instrument_id,
+                    &params.audio_effects,
+                );
+                push_amp_envelope_commands(&mut commands, instrument_id, &params.amp_envelope);
+            }
+            InstrumentData::DFAM(params) => {
+                commands.push(
+                    InstrumentCmd::AddInstrument {
+                        instrument: instrument_factory.create_dfam(instrument_id, 0.0),
+                    }
+                    .into(),
+                );
+                commands.push(
+                    InstrumentCmd::AddEffect {
+                        instrument_id,
+                        effect: effect_factory.create_moog_ladder(
+                            DEFAULT_INSTRUMENT_EFFECT_ID,
+                            500.0,
+                            0.5,
+                        ),
+                    }
+                    .into(),
+                );
+                push_effect_commands(
+                    &mut commands,
+                    effect_factory,
+                    instrument_id,
+                    &params.audio_effects,
+                );
+                push_amp_envelope_commands(&mut commands, instrument_id, &params.amp_envelope);
             }
             unsupported => {
                 bail!("unsupported instrument type in song hydration: {unsupported:?}");
@@ -123,25 +182,29 @@ pub fn hydrate_song(audio: &mut BlightAudio, song: &Song) -> Result<()> {
         }
     }
 
-    Ok(())
+    Ok(commands)
 }
 
-fn send_amp_envelope(
-    audio: &mut BlightAudio,
+fn push_amp_envelope_commands(
+    commands: &mut Vec<Command>,
     instrument_id: InstrumentId,
-    env: &AmpEnvelopeParams,
+    envelope: &AmpEnvelopeParams,
 ) {
     for command in [
-        EnvelopeCmd::SetAttack { attack: env.attack },
-        EnvelopeCmd::SetDecay { decay: env.decay },
+        EnvelopeCmd::SetAttack {
+            attack: envelope.attack,
+        },
+        EnvelopeCmd::SetDecay {
+            decay: envelope.decay,
+        },
         EnvelopeCmd::SetSustain {
-            sustain: env.sustain,
+            sustain: envelope.sustain,
         },
         EnvelopeCmd::SetRelease {
-            release: env.release,
+            release: envelope.release,
         },
     ] {
-        audio.send_command(
+        commands.push(
             InstrumentCmd::PassOnSynthCmd {
                 instrument_id,
                 synth_cmd: SynthCmd::EnvelopeCommand {
@@ -154,9 +217,14 @@ fn send_amp_envelope(
     }
 }
 
-fn apply_effects(audio: &mut BlightAudio, instrument_id: InstrumentId, effects: &[AudioEffect]) {
+fn push_effect_commands(
+    commands: &mut Vec<Command>,
+    effect_factory: &EffectFactory,
+    instrument_id: InstrumentId,
+    effects: &[AudioEffect],
+) {
     for effect in effects {
-        match effect {
+        let effect = match effect {
             AudioEffect::Reverb {
                 mix,
                 decay_time,
@@ -164,22 +232,13 @@ fn apply_effects(audio: &mut BlightAudio, instrument_id: InstrumentId, effects: 
                 diffusion,
                 damping,
             } => {
-                let mut reverb = audio
-                    .get_effect_factory()
-                    .create_mono_reverb(DEFAULT_INSTRUMENT_EFFECT_ID);
+                let mut reverb = effect_factory.create_mono_reverb(DEFAULT_INSTRUMENT_EFFECT_ID);
                 MonoEffect::set_parameter(&mut *reverb, RP::Mix.as_index(), (*mix).clamp(0.0, 1.0));
                 MonoEffect::set_parameter(&mut *reverb, RP::Decay.as_index(), *decay_time);
                 MonoEffect::set_parameter(&mut *reverb, RP::RoomSize.as_index(), *room_size);
                 MonoEffect::set_parameter(&mut *reverb, RP::Damping.as_index(), *damping);
                 MonoEffect::set_parameter(&mut *reverb, RP::Diffusion.as_index(), *diffusion);
-
-                audio.send_command(
-                    InstrumentCmd::AddEffect {
-                        instrument_id,
-                        effect: reverb,
-                    }
-                    .into(),
-                );
+                reverb
             }
             AudioEffect::Delay {
                 time,
@@ -187,7 +246,7 @@ fn apply_effects(audio: &mut BlightAudio, instrument_id: InstrumentId, effects: 
                 feedback,
                 mix,
             } => {
-                let mut delay = audio.get_effect_factory().create_mono_delay(
+                let mut delay = effect_factory.create_mono_delay(
                     DEFAULT_INSTRUMENT_EFFECT_ID,
                     *time,
                     *num_taps as usize,
@@ -198,16 +257,16 @@ fn apply_effects(audio: &mut BlightAudio, instrument_id: InstrumentId, effects: 
                 MonoEffect::set_parameter(&mut *delay, DP::NumTaps.as_index(), *num_taps as f32);
                 MonoEffect::set_parameter(&mut *delay, DP::Feedback.as_index(), *feedback);
                 MonoEffect::set_parameter(&mut *delay, DP::Mix.as_index(), *mix);
-
-                audio.send_command(
-                    InstrumentCmd::AddEffect {
-                        instrument_id,
-                        effect: delay,
-                    }
-                    .into(),
-                );
+                delay
             }
-        }
+        };
+        commands.push(
+            InstrumentCmd::AddEffect {
+                instrument_id,
+                effect,
+            }
+            .into(),
+        );
     }
 }
 

@@ -1,0 +1,50 @@
+{
+  "format_version": 1,
+  "baseline_kind": "characterization",
+  "canonical_platform": "macos-aarch64",
+  "known_limitations": [
+    "#132 transport-independent rendering and release/effect tails",
+    "#134 sample-accurate event scheduling",
+    "#136 mixer gain staging and clipping"
+  ],
+  "config": {
+    "sample_rate": 48000,
+    "block_size": 256,
+    "max_frames": 5760000
+  },
+  "songs": {
+    "calibration.json": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 1536000,
+      "pcm_sha256": "5a2087c55868be1270f631521d0e38f68000935a4e896ceac2deb56af7c0b59c",
+      "peak_left": 0.70640814,
+      "peak_right": 0.70640814,
+      "rms_left": 0.20414215,
+      "rms_right": 0.20414215,
+      "clipped_samples": 0
+    },
+    "drum_crap.json": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 1536000,
+      "pcm_sha256": "75ec52f5e198e9001316cc04b03296db2a4107c70fd2bdcbcce20d05fb1c0a99",
+      "peak_left": 1.3507674,
+      "peak_right": 1.3507674,
+      "rms_left": 0.12759116,
+      "rms_right": 0.12759116,
+      "clipped_samples": 344
+    },
+    "ending_theme_no_effect.json": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 1024000,
+      "pcm_sha256": "08edb8e205121cd9b4a5900de850202d04fea041ef70b285a9b68ef974d2b67f",
+      "peak_left": 1.9216841,
+      "peak_right": 1.9216841,
+      "rms_left": 0.33914942,
+      "rms_right": 0.33914942,
+      "clipped_samples": 17926
+    }
+  }
+}

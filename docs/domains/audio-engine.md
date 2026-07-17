@@ -2,7 +2,7 @@
 title: Audio Engine Domain
 summary: Focused context for DSP, instruments, effects, rendering, and RT contracts.
 status: current
-updated: 2026-07-18
+updated: 2026-07-19
 issues: [132, 133, 134, 135, 136, 137]
 ---
 
@@ -38,9 +38,10 @@ Read parameter/state/composition pages only when the issue changes those contrac
 - `dsp/src/instruments/`
 - `dsp/src/effects/`
 - `audio_backend/src/audio_processor/mod.rs`
-- `audio_backend/src/player/tracker_synthesizer.rs` (tracker-only adapter)
+- `audio_backend/src/offline.rs`
+- `audio_backend/src/player/tracker_engine_adapter.rs` (tracker-only adapter)
 
-Do not read every effect/instrument implementation unless the issue targets it. Generic instrument/mixer rendering belongs to `engine`; tracker track caching and document interpretation remain in `audio_backend` until the composition adapter is extracted.
+Do not read every effect/instrument implementation unless the issue targets it. Generic instrument/mixer rendering belongs to `engine`; tracker track caching and document interpretation remain in `audio_backend` until the composition adapter is extracted. End-to-end behavior is characterized by the [offline render contract](../architecture/offline-render-contract.md).
 
 ## Command ownership
 

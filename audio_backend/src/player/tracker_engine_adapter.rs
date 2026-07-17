@@ -10,12 +10,12 @@ use crate::id::InstrumentId;
 ///
 /// Track-to-last-instrument state remains here because it belongs to tracker
 /// event interpretation, not to generic sound rendering.
-pub struct Synthesizer {
+pub struct TrackerEngineAdapter {
     engine: Engine,
     track_last_instrument: HashMap<usize, InstrumentId>,
 }
 
-impl Synthesizer {
+impl TrackerEngineAdapter {
     pub fn new() -> Self {
         Self {
             engine: Engine::new(),
