@@ -33,7 +33,7 @@ flowchart LR
 
 ## Current-to-target note
 
-The `engine` crate owns generic instrument dispatch, instrument/master command types, deterministic planar mixing, and master effects. `audio_backend` provides the tracker adapter, shared hydration, resources, and deterministic offline rendering in host-free builds. Its optional default `standalone` feature contains CPAL, callback/queue adaptation, metering, OSC, and the temporary current-thread Tokio runtime under `audio_backend/src/standalone/`. The committed JSON-song PCM references characterize the shared render path before remaining composition semantics work.
+The M0 mechanical boundaries are complete and enforced in the [current crate dependency graph](crate-dependency-graph.md). The `engine` crate owns generic instrument dispatch, instrument/master command types, deterministic planar mixing, and master effects. `audio_backend` provides the tracker adapter, shared hydration, resources, and deterministic offline rendering in host-free builds. Its optional default `standalone` feature contains CPAL, callback/queue adaptation, metering, OSC, and the temporary current-thread Tokio runtime under `audio_backend/src/standalone/`. The committed JSON-song PCM references characterize the shared render path before M1 defines final composition/events, timing, routing, parameters, and state semantics.
 
 ## Parallelization boundary
 
