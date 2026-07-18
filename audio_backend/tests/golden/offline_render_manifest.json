@@ -24,17 +24,6 @@
       "rms_right": 0.20414215,
       "clipped_samples": 0
     },
-    "drum_crap.json": {
-      "sample_rate": 48000,
-      "channels": 2,
-      "frames": 1536000,
-      "pcm_sha256": "75ec52f5e198e9001316cc04b03296db2a4107c70fd2bdcbcce20d05fb1c0a99",
-      "peak_left": 1.3507674,
-      "peak_right": 1.3507674,
-      "rms_left": 0.12759116,
-      "rms_right": 0.12759116,
-      "clipped_samples": 344
-    },
     "ending_theme_no_effect.json": {
       "sample_rate": 48000,
       "channels": 2,

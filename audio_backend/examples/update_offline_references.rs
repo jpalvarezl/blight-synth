@@ -5,11 +5,7 @@ use audio_backend::{
     render_json_song, OfflineGoldenManifest, OfflineRenderConfig, OfflineRenderReference,
 };
 
-const SONGS: [&str; 3] = [
-    "calibration.json",
-    "drum_crap.json",
-    "ending_theme_no_effect.json",
-];
+const SONGS: [&str; 2] = ["calibration.json", "ending_theme_no_effect.json"];
 
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();

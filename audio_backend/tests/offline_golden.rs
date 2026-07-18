@@ -25,7 +25,7 @@ fn repository_songs_match_reviewed_offline_references() {
     let manifest = load_manifest();
     assert_eq!(manifest.format_version, 1);
     assert_eq!(manifest.baseline_kind, "characterization");
-    assert_eq!(manifest.songs.len(), 3);
+    assert_eq!(manifest.songs.len(), 2);
 
     let mut actual_references = BTreeMap::<String, OfflineRenderReference>::new();
     for (song_name, expected) in &manifest.songs {

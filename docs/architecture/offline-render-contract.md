@@ -41,7 +41,7 @@ Normal tests never rewrite expected output. The only supported update command is
 cargo run -p audio_backend --example update_offline_references -- --update-reference
 ```
 
-It renders every repository song twice, rejects nondeterminism, writes review WAVs under `target/offline-renders/`, and updates `audio_backend/tests/golden/offline_render_manifest.json`.
+It renders every supported reference song twice, rejects nondeterminism, writes review WAVs under `target/offline-renders/`, and updates `audio_backend/tests/golden/offline_render_manifest.json`. Historical files that no longer satisfy the current schema are excluded rather than silently retrofitted.
 
 Before committing an update:
 

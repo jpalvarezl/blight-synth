@@ -12,7 +12,7 @@ branch: issue/164-offline-goldens
 
 ## Goal
 
-Turn the three repository JSON synth/drum songs into deterministic, hardware-free end-to-end PCM references, add playable WAV output, and finalize parent #155.
+Turn the supported current-schema JSON synth/drum songs into deterministic, hardware-free end-to-end PCM references, add playable WAV output, and finalize parent #155. The historical `drum_crap.json` is deliberately excluded rather than retrofitted into the current schema.
 
 ## Read first
 
@@ -43,7 +43,7 @@ No sample-accurate scheduling, transport-independent tails, external sample pack
 ## Plan
 
 - [x] Add canonical offline render and PCM/reference APIs.
-- [x] Render all repository JSON songs through shared hydration/Player/Engine/DSP.
+- [x] Render supported current-schema reference songs through shared hydration/Player/Engine/DSP.
 - [x] Enforce deterministic mix/random/termination behavior.
 - [x] Add exact hashes, metrics, mutation sensitivity, and explicit `--update-reference` workflow.
 - [x] Add playable WAV CLI/script and direct engine harness.
@@ -55,10 +55,10 @@ No sample-accurate scheduling, transport-independent tails, external sample pack
 
 - [x] `cargo fmt --all -- --check`
 - [x] `cargo clippy --workspace --all-targets -- -D warnings`
-- [x] `cargo test --workspace --all-targets` — 49 tests
+- [x] `cargo test --workspace --all-targets` — 48 tests
 - [x] `cargo test -p audio_backend --test offline_golden`
 - [x] `cargo run -p engine --example offline_render`
-- [x] `scripts/render_repo_songs.sh target/offline-renders-script`
+- [x] `scripts/render_reference_songs.sh target/offline-renders-script`
 - [x] `python3 scripts/check_architecture.py`
 - [x] `python3 scripts/docs/check_docs.py`
 - [x] `python3 scripts/docs/sync_roadmap.py --stdout > /dev/null`
@@ -66,7 +66,7 @@ No sample-accurate scheduling, transport-independent tails, external sample pack
 
 ## Handoff
 
-- Completed: shared offline hydration, bounded tracker renderer, canonical PCM/WAV path, deterministic BTreeMap mixing, SHA-256 references/metrics for all repository songs, mutation sensitivity, explicit reference update tool, direct engine harness, scripts/docs, legacy kick JSON compatibility, and tracker adapter rename.
+- Completed: shared offline hydration, bounded tracker renderer, canonical PCM/WAV path, deterministic BTreeMap mixing, SHA-256 references/metrics for supported reference songs, mutation sensitivity, explicit reference update tool, direct engine harness, scripts/docs, and tracker adapter rename.
 - Remaining: hosted cross-platform hash validation, Copilot/human review, and one listening review of the initial WAV baseline.
-- Known risks: the characterization records block-boundary timing/tail limitations and exposes clipping in `drum_crap` and `ending_theme_no_effect`; #132/#134/#136 must intentionally update references when correcting them.
+- Known risks: the characterization records block-boundary timing/tail limitations and exposes clipping in `ending_theme_no_effect`; #132/#134/#136 must intentionally update references when correcting them. Historical `drum_crap.json` remains load-incompatible by design until a real migration policy exists.
 - Next action: open PR and inspect Ubuntu/macOS exact hash checks.

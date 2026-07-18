@@ -40,10 +40,10 @@ See [`scripts/README.md`](scripts/README.md) for roadmap-generator and manual au
 
 ## Offline song rendering and golden regression tests
 
-Render every repository song without opening an audio device:
+Render the supported synth/drum reference songs without opening an audio device:
 
 ```bash
-scripts/render_repo_songs.sh
+scripts/render_reference_songs.sh
 ```
 
 Or render one JSON song:

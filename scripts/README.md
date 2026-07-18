@@ -27,7 +27,7 @@ The committed roadmap is an offline snapshot of live GitHub metadata. Maintainer
 
 ## Offline render regression workflow
 
-- `scripts/render_repo_songs.sh` — render the three root JSON songs to playable WAVs under `target/offline-renders/`.
+- `scripts/render_reference_songs.sh` — render the supported current-schema reference songs to playable WAVs under `target/offline-renders/`.
 - `cargo test -p audio_backend --test offline_golden` — verify deterministic end-to-end song references.
 - `cargo run -p audio_backend --example update_offline_references -- --update-reference` — intentionally rewrite reviewed hashes/metrics and generate listening WAVs. Never run this as an automatic CI repair.
 

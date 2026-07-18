@@ -58,32 +58,12 @@ pub struct PitchEnvelopeParams {
     pub decay_time: f32,
 }
 
-impl Default for PitchEnvelopeParams {
-    fn default() -> Self {
-        Self {
-            freq_delta: -100.0,
-            decay_time: 0.05,
-        }
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 /// Parameters for a Kick Drum percussion instrument.
 pub struct KickDrumParams {
     pub audio_effects: Vec<AudioEffect>,
-    #[serde(default = "default_kick_amp_envelope")]
     pub amp_envelope: AmpEnvelopeParams,
-    #[serde(default)]
     pub pitch_envelope: PitchEnvelopeParams,
-}
-
-fn default_kick_amp_envelope() -> AmpEnvelopeParams {
-    AmpEnvelopeParams {
-        attack: 0.01,
-        decay: 0.1,
-        sustain: 0.0,
-        release: 0.1,
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
@@ -183,22 +163,4 @@ pub enum AudioEffect {
         mix: f32,
     }, //     Distortion { gain: f32, mix: f32 },
        //     Chorus { depth: f32, rate: f32 },
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn legacy_kick_json_uses_compatible_envelope_defaults() {
-        let params: KickDrumParams =
-            serde_json::from_str(r#"{"audio_effects":[]}"#).expect("deserialize legacy kick");
-
-        assert_eq!(params.amp_envelope.attack, 0.01);
-        assert_eq!(params.amp_envelope.decay, 0.1);
-        assert_eq!(params.amp_envelope.sustain, 0.0);
-        assert_eq!(params.amp_envelope.release, 0.1);
-        assert_eq!(params.pitch_envelope.freq_delta, -100.0);
-        assert_eq!(params.pitch_envelope.decay_time, 0.05);
-    }
 }
