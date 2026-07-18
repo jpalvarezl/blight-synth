@@ -1,7 +1,5 @@
 mod commands;
 
-use std::collections::HashMap;
-
 pub use commands::*;
 use dsp::{
     id::{EffectId, InstrumentId},
@@ -11,13 +9,21 @@ use dsp::{
 const DEFAULT_INSTRUMENT_CAPACITY: usize = 64;
 const DEFAULT_MASTER_EFFECT_CAPACITY: usize = 8;
 
+struct InstrumentSlot {
+    id: InstrumentId,
+    instrument: Box<dyn InstrumentTrait>,
+}
+
 /// Host-independent runtime for instrument dispatch, mixing, and master effects.
 ///
 /// `Engine` owns live sound-producing state but no audio device, composition
 /// document, clock, file loader, network socket, or UI. Hosts provide planar
 /// buffers and composition adapters decide which methods to call and when.
 pub struct Engine {
-    instruments: HashMap<InstrumentId, Box<dyn InstrumentTrait>>,
+    // Sorted, contiguous slots provide deterministic mix order and avoid
+    // per-block hashing/tree traversal. A fixed hard capacity/stealing policy
+    // remains part of #137; this vector is preallocated to the current limit.
+    instruments: Vec<InstrumentSlot>,
     master_effects: StereoEffectChain,
 }
 
@@ -30,7 +36,7 @@ impl Default for Engine {
 impl Engine {
     pub fn new() -> Self {
         Self {
-            instruments: HashMap::with_capacity(DEFAULT_INSTRUMENT_CAPACITY),
+            instruments: Vec::with_capacity(DEFAULT_INSTRUMENT_CAPACITY),
             master_effects: StereoEffectChain::new(DEFAULT_MASTER_EFFECT_CAPACITY),
         }
     }
@@ -88,13 +94,13 @@ impl Engine {
     }
 
     pub fn note_on(&mut self, instrument_id: InstrumentId, note: u8, velocity: u8) {
-        if let Some(instrument) = self.instruments.get_mut(&instrument_id) {
+        if let Some(instrument) = self.instrument_mut(instrument_id) {
             instrument.note_on(note, velocity);
         }
     }
 
     pub fn note_off(&mut self, instrument_id: InstrumentId) {
-        if let Some(instrument) = self.instruments.get_mut(&instrument_id) {
+        if let Some(instrument) = self.instrument_mut(instrument_id) {
             instrument.note_off();
         }
     }
@@ -111,14 +117,20 @@ impl Engine {
         let left = &mut left[..frame_count];
         let right = &mut right[..frame_count];
 
-        for instrument in self.instruments.values_mut() {
-            instrument.process(left, right, sample_rate);
+        for slot in &mut self.instruments {
+            slot.instrument.process(left, right, sample_rate);
         }
         self.master_effects.process(left, right, sample_rate);
     }
 
     pub fn add_instrument(&mut self, instrument: Box<dyn InstrumentTrait>) {
-        self.instruments.insert(instrument.id(), instrument);
+        let id = instrument.id();
+        match self.instruments.binary_search_by_key(&id, |slot| slot.id) {
+            Ok(index) => self.instruments[index].instrument = instrument,
+            Err(index) => self
+                .instruments
+                .insert(index, InstrumentSlot { id, instrument }),
+        }
     }
 
     pub fn clear_instruments(&mut self) {
@@ -131,7 +143,7 @@ impl Engine {
         instrument_id: InstrumentId,
         effect: Box<dyn MonoEffect>,
     ) {
-        if let Some(instrument) = self.instruments.get_mut(&instrument_id) {
+        if let Some(instrument) = self.instrument_mut(instrument_id) {
             instrument.add_effect(effect);
         }
     }
@@ -141,19 +153,19 @@ impl Engine {
         instrument_id: InstrumentId,
         effects: VoiceEffects,
     ) {
-        if let Some(instrument) = self.instruments.get_mut(&instrument_id) {
+        if let Some(instrument) = self.instrument_mut(instrument_id) {
             instrument.add_voice_effects(effects);
         }
     }
 
     pub fn stop_all_notes(&mut self) {
-        for instrument in self.instruments.values_mut() {
-            instrument.note_off();
+        for slot in &mut self.instruments {
+            slot.instrument.note_off();
         }
     }
 
     pub fn set_instrument_pan(&mut self, instrument_id: InstrumentId, pan: f32) {
-        if let Some(instrument) = self.instruments.get_mut(&instrument_id) {
+        if let Some(instrument) = self.instrument_mut(instrument_id) {
             instrument.set_pan(pan);
         }
     }
@@ -163,8 +175,7 @@ impl Engine {
         instrument_id: InstrumentId,
         command: &SynthCmd,
     ) -> bool {
-        self.instruments
-            .get_mut(&instrument_id)
+        self.instrument_mut(instrument_id)
             .is_some_and(|instrument| instrument.try_handle_command(command))
     }
 
@@ -175,9 +186,20 @@ impl Engine {
         param_index: u32,
         value: f32,
     ) {
-        if let Some(instrument) = self.instruments.get_mut(&instrument_id) {
+        if let Some(instrument) = self.instrument_mut(instrument_id) {
             instrument.set_effect_parameter(effect_id, param_index, value);
         }
+    }
+
+    fn instrument_mut(
+        &mut self,
+        instrument_id: InstrumentId,
+    ) -> Option<&mut (dyn InstrumentTrait + '_)> {
+        let index = self
+            .instruments
+            .binary_search_by_key(&instrument_id, |slot| slot.id)
+            .ok()?;
+        Some(self.instruments[index].instrument.as_mut())
     }
 
     pub fn add_master_effect(&mut self, effect: Box<dyn StereoEffect>) {
@@ -319,6 +341,36 @@ mod tests {
         assert_eq!(note_ons.load(Ordering::Relaxed), 1);
         assert_eq!(note_offs.load(Ordering::Relaxed), 1);
         assert_eq!(f32::from_bits(effect_value.load(Ordering::Relaxed)), 0.75);
+    }
+
+    #[test]
+    fn instrument_slots_remain_sorted_and_replace_duplicate_ids() {
+        let counters = || {
+            (
+                Arc::new(AtomicUsize::new(0)),
+                Arc::new(AtomicUsize::new(0)),
+                Arc::new(AtomicU32::new(0)),
+            )
+        };
+        let mut engine = Engine::new();
+        for id in [3, 1, 2, 2] {
+            let (note_ons, note_offs, effect_value) = counters();
+            engine.add_instrument(Box::new(TestInstrument {
+                id,
+                note_ons,
+                note_offs,
+                effect_value,
+            }));
+        }
+
+        assert_eq!(
+            engine
+                .instruments
+                .iter()
+                .map(|slot| slot.id)
+                .collect::<Vec<_>>(),
+            [1, 2, 3]
+        );
     }
 
     #[test]

@@ -2,7 +2,7 @@
 title: Repository Validation Scripts
 summary: Local commands corresponding to the hardware-free CI baseline and manual audio checks.
 status: current
-updated: 2026-07-15
+updated: 2026-07-19
 issues: [131]
 ---
 
@@ -24,6 +24,14 @@ python3 scripts/docs/sync_roadmap.py --stdout > /dev/null
 These commands must not open an audio device. The architecture checker enforces the current M0 dependency baseline, including the rule that portable DSP/model crates cannot depend on host, file-decoder, or platform-resource layers. #157 will reconcile the final M0 graph after engine/host extraction.
 
 The committed roadmap is an offline snapshot of live GitHub metadata. Maintainers regenerate it after roadmap changes with `python3 scripts/docs/sync_roadmap.py`; CI exercises the generator but does not require an unrelated live issue update to be committed in every code PR.
+
+## Offline render regression workflow
+
+- `scripts/render_reference_songs.sh` — render the supported current-schema reference songs to playable WAVs under `target/offline-renders/`.
+- `cargo test -p audio_backend --test offline_golden` — verify deterministic end-to-end song references.
+- `cargo run -p audio_backend --example update_offline_references -- --update-reference` — intentionally rewrite reviewed hashes/metrics and generate listening WAVs. Never run this as an automatic CI repair.
+
+See [`docs/architecture/offline-render-contract.md`](../docs/architecture/offline-render-contract.md) before accepting reference changes.
 
 ## Focused and manual checks
 

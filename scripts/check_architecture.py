@@ -70,6 +70,12 @@ REQUIRED = {
     "engine": {"dsp"},
     "audio_backend": {"dsp", "engine", "sequencer"},
 }
+ALLOWED = {
+    # Keep the host-independent render runtime deliberately narrow. Any new
+    # dependency requires an explicit architecture change rather than merely
+    # avoiding the known-forbidden list above.
+    "engine": {"dsp"},
+}
 
 
 def metadata() -> dict:
@@ -109,6 +115,13 @@ def main() -> int:
             continue
         for dependency in sorted(packages[package] & forbidden):
             errors.append(f"`{package}` must not depend on `{dependency}`")
+
+    for package, allowed in ALLOWED.items():
+        if package not in packages:
+            errors.append(f"workspace package `{package}` is missing")
+            continue
+        for dependency in sorted(packages[package] - allowed):
+            errors.append(f"`{package}` has non-allowlisted dependency `{dependency}`")
 
     for package, required in REQUIRED.items():
         if package not in packages:

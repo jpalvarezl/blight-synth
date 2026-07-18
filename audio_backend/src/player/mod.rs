@@ -1,4 +1,4 @@
-mod tracker_synthesizer;
+mod tracker_engine_adapter;
 
 use std::sync::Arc;
 
@@ -52,14 +52,14 @@ impl Default for PlayerPosition {
 }
 
 /// The Player is the main "conductor" of the song. It reads the song data,
-/// keeps track of time, and sends commands to the AudioEngine.
+/// keeps track of time, and translates tracker state into engine operations.
 pub struct Player {
     song: Arc<Song>,
     timing: TimingState,
     position: PlayerPosition,
     is_playing: bool,
     loop_enabled: bool,
-    synthesizer: tracker_synthesizer::Synthesizer,
+    engine_adapter: tracker_engine_adapter::TrackerEngineAdapter,
 }
 
 impl Player {
@@ -76,7 +76,7 @@ impl Player {
             position: PlayerPosition::default(),
             is_playing: false,
             loop_enabled: false,
-            synthesizer: tracker_synthesizer::Synthesizer::new(),
+            engine_adapter: tracker_engine_adapter::TrackerEngineAdapter::new(),
         }
     }
 
@@ -84,10 +84,14 @@ impl Player {
         self.is_playing = true;
     }
 
+    pub(crate) fn is_playing(&self) -> bool {
+        self.is_playing
+    }
+
     pub fn stop(&mut self) {
         self.is_playing = false;
         self.position = PlayerPosition::default(); // Reset position
-        self.synthesizer.stop_all_notes(); // Stop all notes when stopping playback
+        self.engine_adapter.stop_all_notes(); // Stop all notes when stopping playback
     }
 
     fn set_song(&mut self, song: Arc<Song>) {
@@ -101,7 +105,7 @@ impl Player {
     fn load_song(&mut self, song: Arc<Song>) {
         debug!("Loading song: {}", song.name);
         self.stop();
-        self.synthesizer.clear_instruments();
+        self.engine_adapter.clear_instruments();
         self.set_song(song);
     }
 
@@ -122,14 +126,16 @@ impl Player {
                 self.loop_enabled = enabled;
             }
             Command::Transport(TransportCmd::PlayLastSong) => self.play(),
-            Command::Instrument(command) => self.synthesizer.handle_engine_command(command.into()),
-            Command::Mixer(command) => self.synthesizer.handle_engine_command(command.into()),
+            Command::Instrument(command) => {
+                self.engine_adapter.handle_engine_command(command.into())
+            }
+            Command::Mixer(command) => self.engine_adapter.handle_engine_command(command.into()),
         }
     }
 
     /// This is the main function to be called from your audio callback.
     /// It processes a block of samples, advances the sequencer state,
-    /// and sends forwards audio buffers to the synthesizer.
+    /// and forwards audio buffers to the engine adapter.
     pub fn process(
         &mut self,
         left: &mut [f32],
@@ -145,9 +151,12 @@ impl Player {
 
         for _ in 0..ticks_to_process {
             self.advance_tick();
+            if !self.is_playing {
+                break;
+            }
         }
 
-        self.synthesizer.process(left, right, sample_rate);
+        self.engine_adapter.process(left, right, sample_rate);
     }
 
     /// This is the heart of the sequencer. It processes a single tick,
@@ -190,7 +199,7 @@ impl Player {
                 if self.position.song_step >= self.song.arrangement.len() {
                     // End of song reached
                     if self.loop_enabled {
-                        // self.synthesizer.stop_all_notes();
+                        // self.engine_adapter.stop_all_notes();
                         self.position.reset();
                         self.timing.reset();
                         debug!("Looping back to start of song");
@@ -235,7 +244,7 @@ impl Player {
                 if let Some(phrase) = self.song.phrase_bank.get(phrase_index) {
                     if let Some(event) = phrase.events.get(track_pos.phrase_step as usize) {
                         // Fetch instrument_id if there is a track specified one
-                        let instrument_id = self.synthesizer.cache_instrument_id_for_track(
+                        let instrument_id = self.engine_adapter.cache_instrument_id_for_track(
                             track_index,
                             event.instrument_id as InstrumentId,
                         );
@@ -254,16 +263,46 @@ impl Player {
                             // let instrument_id = 1;
                             // Default missing volume (0 from UI meaning blank) to full velocity (255)
                             let velocity = if event.volume == 0 { 255 } else { event.volume };
-                            self.synthesizer
+                            self.engine_adapter
                                 .note_on(instrument_id, event.note, velocity);
                         } else if event.note == NoteSentinelValues::NoteOff as u8 {
                             // Handle NoteOff events
-                            self.synthesizer.note_off(instrument_id);
+                            self.engine_adapter.note_off(instrument_id);
                         }
                         // TODO: effects, etc.
                     }
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stops_processing_remaining_ticks_after_reaching_song_end() {
+        let mut song = Song::new("single arrangement row");
+        song.initial_bpm = 120;
+        song.initial_speed = 1;
+        let mut player = Player::new(Arc::new(song), 48_000.0);
+        player.play();
+        let mut left = [0.0];
+        let mut right = [0.0];
+
+        // At 120 BPM one tick is 1,000 samples. Three hundred ticks are
+        // enough to finish the fixed 16x16 tracker chain in one process call,
+        // leaving additional ticks that must not restart the reset position.
+        player.process(&mut left, &mut right, 48_000.0, 300_000);
+
+        assert!(!player.is_playing());
+        assert_eq!(player.position.song_step, 0);
+        assert_eq!(player.position.tick_counter, 0);
+        assert!(player
+            .position
+            .track_positions
+            .iter()
+            .all(|position| position.chain_step == 0 && position.phrase_step == 0));
     }
 }

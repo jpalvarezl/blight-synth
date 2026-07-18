@@ -13,4 +13,4 @@ A packet is a handoff cache, not a second specification. It links to the issue a
 
 ## Active
 
-- [Issue #163 — engine command ownership](issue-0163-engine-command-ownership.md)
+- [Issue #164 — offline golden renders](issue-0164-offline-goldens.md)
