@@ -16,7 +16,7 @@ GitHub Issues own live task status. Specifications, architecture contracts, and 
 
 - `dsp/` — Portable DSP data and processing primitives: instruments, voices, effects, factories, and immutable sample data. It has no file/platform loader dependencies.
 - `engine/` — Host-independent instrument runtime, planar mixer, and master-effects renderer. It owns no composition documents, devices, files, network sockets, or UI.
-- `audio_backend/` — Current CPAL standalone host, tracker adapter, command transport, OSC, metering, hydration, and non-RT WAV/DLS resource loading.
+- `audio_backend/` — Tracker/offline adapters plus an optional default `standalone` feature containing CPAL, command transport, OSC, metering, and the temporary current-thread Tokio runtime.
 - `sequencer/` — Current tracker document, timing, and `Song -> Chain -> Phrase` composition model.
 - `tracker_gui/` — Current egui debug/reference interface; it does not dictate the future composition UI.
 - `utils/` — Music theory utilities such as notes and scales.
@@ -32,6 +32,7 @@ The hardware-free CI baseline has direct local equivalents:
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace --all-targets
+cargo test -p audio_backend --no-default-features --all-targets
 python3 scripts/check_architecture.py
 python3 scripts/docs/check_docs.py
 ```

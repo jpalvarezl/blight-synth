@@ -1,18 +1,20 @@
-use anyhow::{bail, Context, Result};
-use sequencer::{
-    cli::FileFormat,
-    models::{AmpEnvelopeParams, AudioEffect, InstrumentData, Song, Waveform},
-    project::open_song_from_file,
-};
+#[cfg(feature = "standalone")]
+use anyhow::Context;
+use anyhow::{bail, Result};
+use sequencer::models::{AmpEnvelopeParams, AudioEffect, InstrumentData, Song, Waveform};
+#[cfg(feature = "standalone")]
+use sequencer::{cli::FileFormat, project::open_song_from_file};
+#[cfg(feature = "standalone")]
 use std::{path::Path, sync::Arc};
 
 use crate::{
     effects::{DelayParameter as DP, ReverbParameter as RP},
     id::{EffectId, InstrumentId},
     instruments::Waveform as BackendWaveform,
-    BlightAudio, Command, EffectFactory, EnvelopeCmd, InstrumentCmd, InstrumentFactory, MonoEffect,
-    SequencerCmd, SynthCmd,
+    Command, EffectFactory, EnvelopeCmd, InstrumentCmd, InstrumentFactory, MonoEffect, SynthCmd,
 };
+#[cfg(feature = "standalone")]
+use crate::{BlightAudio, SequencerCmd};
 
 const DEFAULT_INSTRUMENT_EFFECT_ID: EffectId = 1;
 
@@ -20,6 +22,7 @@ const DEFAULT_INSTRUMENT_EFFECT_ID: EffectId = 1;
 ///
 /// This is the shared path for standalone OSC `/song/load` and examples. It queues a
 /// `SequencerCmd::LoadSong` first, then queues instrument hydration commands.
+#[cfg(feature = "standalone")]
 pub fn load_song_file_into_audio(audio: &mut BlightAudio, path: &Path) -> Result<Song> {
     log::info!("loading song from {}", path.display());
     let song = open_song_from_file(&path.to_path_buf(), &FileFormat::Json)
@@ -37,6 +40,7 @@ pub fn load_song_file_into_audio(audio: &mut BlightAudio, path: &Path) -> Result
 }
 
 /// Queue commands that create backend instruments/effects from a serialized song.
+#[cfg(feature = "standalone")]
 pub fn hydrate_song(audio: &mut BlightAudio, song: &Song) -> Result<()> {
     let commands = build_hydration_commands_with_factories(
         song,

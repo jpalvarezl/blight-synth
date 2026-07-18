@@ -16,6 +16,8 @@ Run from the repository root:
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace --all-targets
+cargo clippy -p audio_backend --no-default-features --all-targets -- -D warnings
+cargo test -p audio_backend --no-default-features --all-targets
 python3 scripts/check_architecture.py
 python3 scripts/docs/check_docs.py
 python3 scripts/docs/sync_roadmap.py --stdout > /dev/null

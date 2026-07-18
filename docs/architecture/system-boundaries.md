@@ -33,7 +33,7 @@ flowchart LR
 
 ## Current-to-target note
 
-The `engine` crate now owns generic instrument dispatch, instrument/master command types, deterministic planar mixing, and master effects. `MixerCmd` is master-only; instrument effect operations belong to `InstrumentCmd`. `audio_backend` provides the tracker adapter, shared hydration, deterministic offline render host, and the still-combined CPAL/OSC standalone host. The committed JSON-song PCM references characterize this complete path before the remaining host/composition semantic work.
+The `engine` crate owns generic instrument dispatch, instrument/master command types, deterministic planar mixing, and master effects. `audio_backend` provides the tracker adapter, shared hydration, resources, and deterministic offline rendering in host-free builds. Its optional default `standalone` feature contains CPAL, callback/queue adaptation, metering, OSC, and the temporary current-thread Tokio runtime under `audio_backend/src/standalone/`. The committed JSON-song PCM references characterize the shared render path before remaining composition semantics work.
 
 ## Parallelization boundary
 

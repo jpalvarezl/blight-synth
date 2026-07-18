@@ -13,4 +13,4 @@ A packet is a handoff cache, not a second specification. It links to the issue a
 
 ## Active
 
-- [Issue #164 — offline golden renders](issue-0164-offline-goldens.md)
+- [Issue #156 — standalone host boundary](issue-0156-standalone-host.md)

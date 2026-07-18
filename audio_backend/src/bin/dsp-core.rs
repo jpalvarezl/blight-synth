@@ -3,7 +3,7 @@ use std::io::{self, Write};
 use anyhow::Result;
 use audio_backend::{BlightAudio, MixerCmd, OscServer, MASTER_GAIN_EFFECT_ID};
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
     env_logger::init();
 
