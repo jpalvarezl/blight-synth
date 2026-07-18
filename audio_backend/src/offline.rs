@@ -7,6 +7,12 @@ use sha2::{Digest, Sha256};
 
 use crate::{build_song_hydration_commands, Player, SequencerCmd, TransportCmd};
 
+/// Versioned golden-render profile values, not device/runtime defaults.
+///
+/// 48 kHz is the project reference rate; 256 frames is a representative bounded
+/// callback partition; 120 seconds is a CI safety ceiling well above current
+/// reference-song durations. Changing these values intentionally invalidates
+/// the render references.
 pub const CANONICAL_SAMPLE_RATE: u32 = 48_000;
 pub const CANONICAL_BLOCK_SIZE: usize = 256;
 pub const CANONICAL_MAX_FRAMES: usize = CANONICAL_SAMPLE_RATE as usize * 120;
@@ -109,6 +115,11 @@ impl OfflineRender {
         }
     }
 
+    /// Wrap canonical PCM in a WAV container for listening.
+    ///
+    /// CPAL only streams buffers to audio devices; it does not encode offline
+    /// files. Hound remains confined to this host/I/O crate and is not an
+    /// `engine` or `dsp` dependency.
     pub fn write_wav(&self, path: &Path) -> Result<()> {
         if let Some(parent) = path
             .parent()
@@ -298,5 +309,30 @@ mod tests {
         assert_eq!(quantize_pcm16(0.0), 0);
         assert_eq!(quantize_pcm16(1.0), i16::MAX);
         assert_eq!(quantize_pcm16(2.0), i16::MAX);
+    }
+
+    #[test]
+    fn pcm_quantization_rounds_regular_samples_symmetrically() {
+        assert_eq!(quantize_pcm16(0.5), 16_384);
+        assert_eq!(quantize_pcm16(-0.5), -16_384);
+        assert_eq!(quantize_pcm16(0.25), 8_192);
+        assert_eq!(quantize_pcm16(-0.25), -8_192);
+    }
+
+    #[test]
+    fn canonical_pcm_is_stereo_interleaved_little_endian() {
+        let render = OfflineRender {
+            sample_rate: 48_000,
+            left: vec![0.5, 0.25],
+            right: vec![-0.5, -0.25],
+        };
+
+        let pcm = render.canonical_pcm();
+        assert_eq!(pcm, [16_384, -16_384, 8_192, -8_192]);
+        let bytes = pcm
+            .iter()
+            .flat_map(|sample| sample.to_le_bytes())
+            .collect::<Vec<_>>();
+        assert_eq!(bytes, [0x00, 0x40, 0x00, 0xC0, 0x00, 0x20, 0x00, 0xE0]);
     }
 }

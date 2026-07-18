@@ -22,7 +22,9 @@ Offline song renders are the end-to-end regression gate for JSON loading, tracke
 | Instrument mix order | Ascending stable `InstrumentId` |
 | Random sources | Fixed implementation seeds |
 
-SHA-256 covers only canonical PCM bytes, not WAV headers or filesystem metadata. The manifest also records frame count, per-channel peak/RMS, and pre-quantization clipping count.
+SHA-256 covers only canonical PCM bytes, not WAV headers or filesystem metadata. The manifest also records frame count, per-channel peak/RMS, and pre-quantization clipping count. The engine uses a preallocated, sorted `Vec<InstrumentSlot>` so render order is explicit and cache-friendly; #137 owns the final hard-capacity/overflow policy.
+
+CPAL is intentionally absent from this path because it streams to real devices rather than encoding offline files. Hound is used only in the host/I/O layer to wrap the already-rendered canonical PCM in a WAV container for listening.
 
 ## Characterization policy
 
