@@ -3,25 +3,85 @@ name = "audio_backend"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["standalone"]
+standalone = [
+    "dep:cpal",
+    "dep:env_logger",
+    "dep:ringbuf",
+    "dep:rosc",
+    "dep:tokio",
+]
+
 [[bin]]
 name = "dsp-core"
 path = "src/bin/dsp-core.rs"
+required-features = ["standalone"]
+
+[[example]]
+name = "cycle_waveforms"
+required-features = ["standalone"]
+
+[[example]]
+name = "envelope"
+required-features = ["standalone"]
+
+[[example]]
+name = "master_gain"
+required-features = ["standalone"]
+
+[[example]]
+name = "meter_listen"
+required-features = ["standalone"]
+
+[[example]]
+name = "osc_control"
+required-features = ["standalone"]
+
+[[example]]
+name = "play_song_file"
+required-features = ["standalone"]
+
+[[example]]
+name = "polyphonic_song"
+required-features = ["standalone"]
+
+[[example]]
+name = "sample_playback_from_file"
+required-features = ["standalone"]
+
+[[example]]
+name = "sample_playback_from_gl_instruments"
+required-features = ["standalone"]
+
+[[example]]
+name = "simple_setup"
+required-features = ["standalone"]
+
+[[example]]
+name = "simple_song"
+required-features = ["standalone"]
+
+[[example]]
+name = "voice_effects"
+required-features = ["standalone"]
 
 [dependencies]
 dsp = { workspace = true }
 engine = { workspace = true }
-cpal = { workspace = true }
 anyhow = { workspace = true }
 log = { workspace = true }
-env_logger = { workspace = true }
-ringbuf = { workspace = true }
-rosc = { workspace = true }
-tokio = { workspace = true }
 sequencer = { workspace = true }
 hound = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
+
+cpal = { workspace = true, optional = true }
+env_logger = { workspace = true, optional = true }
+ringbuf = { workspace = true, optional = true }
+rosc = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 os_dls = { workspace = true }

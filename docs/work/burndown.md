@@ -2,7 +2,7 @@
 title: Generated Roadmap Burndown
 summary: Offline Obsidian snapshot generated from GitHub roadmap issue metadata.
 status: generated
-source-updated: 2026-07-17T22:11:43Z
+source-updated: 2026-07-18T19:57:22Z
 generator: scripts/docs/sync_roadmap.py
 ---
 
@@ -11,13 +11,13 @@ generator: scripts/docs/sync_roadmap.py
 > [!warning] Generated file
 > GitHub Issues are canonical. Do not edit this page manually. Run `python3 scripts/docs/sync_roadmap.py`.
 
-Data snapshot through `2026-07-17T22:11:43Z`.
+Data snapshot through `2026-07-18T19:57:22Z`.
 
 ## Summary
 
 | Milestone | Open | Done | Ready | In progress | Blocked | Backlog | Sized points done/total | Unsized |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| M0: Architecture & Repository Baseline | 5 | 9 | 0 | 2 | 3 | 0 | 20/27 | 3 |
+| M0: Architecture & Repository Baseline | 3 | 11 | 0 | 1 | 2 | 0 | 23/27 | 3 |
 | M1: Host-Independent Engine & RT Contracts | 10 | 0 | 0 | 0 | 0 | 10 | 0/0 | 10 |
 | M2: Standalone Host & Control Protocol | 6 | 0 | 0 | 0 | 1 | 5 | 0/3 | 5 |
 | M3: JS/TS Composition UI & Standalone App | 9 | 0 | 0 | 0 | 0 | 9 | 0/0 | 9 |
@@ -29,10 +29,8 @@ Data snapshot through `2026-07-17T22:11:43Z`.
 ### M0: Architecture & Repository Baseline
 
 - [ ] [#130](https://github.com/jpalvarezl/blight-synth/issues/130) Refactor workspace boundaries around a host-independent engine — `blocked`, `epic`, unassigned
-- [ ] [#155](https://github.com/jpalvarezl/blight-synth/issues/155) Extract the host-independent engine crate mechanically — `in-progress`, `epic`, @jpalvarezl
-- [ ] [#156](https://github.com/jpalvarezl/blight-synth/issues/156) Isolate CPAL/OSC and simplify the standalone host threading model — `blocked`, `M`, unassigned
+- [ ] [#156](https://github.com/jpalvarezl/blight-synth/issues/156) Isolate CPAL/OSC and simplify the standalone host threading model — `in-progress`, `M`, @jpalvarezl
 - [ ] [#157](https://github.com/jpalvarezl/blight-synth/issues/157) Finalize and enforce the M0 crate dependency graph — `blocked`, `S`, unassigned
-- [ ] [#164](https://github.com/jpalvarezl/blight-synth/issues/164) Add deterministic golden offline renders and finalize #155 — `in-progress`, `M`, @jpalvarezl
 
 ## All roadmap tasks
 
@@ -46,12 +44,12 @@ Data snapshot through `2026-07-17T22:11:43Z`.
 - [x] [#149](https://github.com/jpalvarezl/blight-synth/issues/149) Make `utils` and `os_dls` strict-Clippy clean — `done`, `S`, @jpalvarezl
 - [x] [#150](https://github.com/jpalvarezl/blight-synth/issues/150) Make DSP and remaining workspace targets strict-Clippy clean — `done`, `M`, @jpalvarezl
 - [x] [#154](https://github.com/jpalvarezl/blight-synth/issues/154) Move sample and platform resource loading out of `dsp` — `done`, `M`, @jpalvarezl
-- [ ] [#155](https://github.com/jpalvarezl/blight-synth/issues/155) Extract the host-independent engine crate mechanically — `in-progress`, `epic`, @jpalvarezl
-- [ ] [#156](https://github.com/jpalvarezl/blight-synth/issues/156) Isolate CPAL/OSC and simplify the standalone host threading model — `blocked`, `M`, unassigned
+- [x] [#155](https://github.com/jpalvarezl/blight-synth/issues/155) Extract the host-independent engine crate mechanically — `done`, `epic`, @jpalvarezl
+- [ ] [#156](https://github.com/jpalvarezl/blight-synth/issues/156) Isolate CPAL/OSC and simplify the standalone host threading model — `in-progress`, `M`, @jpalvarezl
 - [ ] [#157](https://github.com/jpalvarezl/blight-synth/issues/157) Finalize and enforce the M0 crate dependency graph — `blocked`, `S`, unassigned
 - [x] [#162](https://github.com/jpalvarezl/blight-synth/issues/162) Extract the host-independent engine render core — `done`, `M`, @jpalvarezl
 - [x] [#163](https://github.com/jpalvarezl/blight-synth/issues/163) Separate engine command ownership from standalone transport commands — `done`, `M`, @jpalvarezl
-- [ ] [#164](https://github.com/jpalvarezl/blight-synth/issues/164) Add deterministic golden offline renders and finalize #155 — `in-progress`, `M`, @jpalvarezl
+- [x] [#164](https://github.com/jpalvarezl/blight-synth/issues/164) Add deterministic golden offline renders and finalize #155 — `done`, `M`, @jpalvarezl
 
 ### M1: Host-Independent Engine & RT Contracts
 

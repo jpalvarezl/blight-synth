@@ -46,6 +46,11 @@ jobs:
       - name: Check Clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
 
+      - name: Check host-free audio backend
+        run: |
+          cargo clippy -p audio_backend --no-default-features --all-targets -- -D warnings
+          cargo test -p audio_backend --no-default-features --all-targets
+
       - name: Run hardware-free workspace tests
         run: cargo test --workspace --all-targets
 

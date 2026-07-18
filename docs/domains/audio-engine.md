@@ -37,7 +37,7 @@ Read parameter/state/composition pages only when the issue changes those contrac
 - `dsp/src/synth_infra/`
 - `dsp/src/instruments/`
 - `dsp/src/effects/`
-- `audio_backend/src/audio_processor/mod.rs`
+- `audio_backend/src/standalone/audio_processor/mod.rs` (standalone callback adapter)
 - `audio_backend/src/offline.rs`
 - `audio_backend/src/player/tracker_engine_adapter.rs` (tracker-only adapter)
 

@@ -76,6 +76,7 @@ ALLOWED = {
     # avoiding the known-forbidden list above.
     "engine": {"dsp"},
 }
+STANDALONE_OPTIONAL_DEPENDENCIES = {"cpal", "env_logger", "ringbuf", "rosc", "tokio"}
 
 
 def metadata() -> dict:
@@ -103,9 +104,11 @@ def metadata() -> dict:
 
 
 def main() -> int:
+    workspace = metadata()
+    package_records = {package["name"]: package for package in workspace["packages"]}
     packages = {
-        package["name"]: {dependency["name"] for dependency in package["dependencies"]}
-        for package in metadata()["packages"]
+        name: {dependency["name"] for dependency in package["dependencies"]}
+        for name, package in package_records.items()
     }
     errors = []
 
@@ -129,6 +132,46 @@ def main() -> int:
             continue
         for dependency in sorted(required - packages[package]):
             errors.append(f"`{package}` must depend on `{dependency}`")
+
+    audio_backend = package_records.get("audio_backend")
+    if audio_backend is not None:
+        dependency_records = {
+            dependency["name"]: dependency
+            for dependency in audio_backend["dependencies"]
+        }
+        standalone_feature = set(audio_backend["features"].get("standalone", []))
+        for dependency in sorted(STANDALONE_OPTIONAL_DEPENDENCIES):
+            record = dependency_records.get(dependency)
+            if record is None:
+                errors.append(f"`audio_backend` standalone dependency `{dependency}` is missing")
+                continue
+            if not record["optional"]:
+                errors.append(
+                    f"`audio_backend` standalone dependency `{dependency}` must be optional"
+                )
+            if f"dep:{dependency}" not in standalone_feature:
+                errors.append(
+                    f"`audio_backend` standalone feature must enable `dep:{dependency}`"
+                )
+
+        tokio = dependency_records.get("tokio")
+        if tokio is not None:
+            tokio_features = set(tokio["features"])
+            if "rt-multi-thread" in tokio_features:
+                errors.append("Tokio must not enable the multi-thread runtime")
+            if "rt" not in tokio_features:
+                errors.append("Tokio current-thread runtime requires the `rt` feature")
+
+        dsp_core = next(
+            (
+                target
+                for target in audio_backend["targets"]
+                if target["name"] == "dsp-core" and "bin" in target["kind"]
+            ),
+            None,
+        )
+        if dsp_core is None or "standalone" not in dsp_core["required-features"]:
+            errors.append("`dsp-core` must require the `standalone` feature")
 
     if errors:
         print("architecture dependency check failed:", file=sys.stderr)
