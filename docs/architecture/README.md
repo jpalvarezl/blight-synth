@@ -11,6 +11,7 @@ updated: 2026-07-14
 
 - [Product and host topology](product-topology.md) — accepted standalone-first target matrix, diagrams, and authority.
 - [System boundaries](system-boundaries.md) — target dependency direction and ownership.
+- [M0 crate dependency graph](crate-dependency-graph.md) — current enforced crate/feature dependencies and compatibility shims.
 - [Offline render contract](offline-render-contract.md) — canonical PCM, golden regression policy, and reference updates.
 - [Current product specification](../spec/current-product.md) — what architecture is serving.
 - [ADR index](../decisions/README.md) — accepted decisions.

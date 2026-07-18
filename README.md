@@ -9,6 +9,7 @@ blight-synth is an experimental composition environment and modular real-time so
 - GitHub issue [#144](https://github.com/jpalvarezl/blight-synth/issues/144) is the canonical roadmap; [`docs/work/burndown.md`](docs/work/burndown.md) is its generated offline snapshot.
 - [`docs/spec/current-product.md`](docs/spec/current-product.md) records the current product direction and open composition questions.
 - [`docs/architecture/product-topology.md`](docs/architecture/product-topology.md) documents standalone and optional-plugin boundaries, while [ADR 0001](docs/decisions/0001-product-and-host-priorities.md) records the accepted decision.
+- [`docs/architecture/crate-dependency-graph.md`](docs/architecture/crate-dependency-graph.md) records the current CI-enforced M0 crate and feature boundaries.
 
 GitHub Issues own live task status. Specifications, architecture contracts, and accepted decisions live in `docs/`; code and tests describe current implementation behavior.
 

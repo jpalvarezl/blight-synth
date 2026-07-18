@@ -71,12 +71,31 @@ REQUIRED = {
     "audio_backend": {"dsp", "engine", "sequencer"},
 }
 ALLOWED = {
-    # Keep the host-independent render runtime deliberately narrow. Any new
-    # dependency requires an explicit architecture change rather than merely
-    # avoiding the known-forbidden list above.
+    # These exact allowlists make dependency growth in portable crates an
+    # explicit architecture change rather than a way to route around the
+    # known-forbidden list above.
+    "dsp": {"arrayvec", "log", "utils"},
     "engine": {"dsp"},
+    "sequencer": {"anyhow", "bincode", "clap", "serde", "serde_json", "serde_with"},
+    "utils": {"serde", "serde_json"},
+    "os_dls": {"riff"},
 }
 STANDALONE_OPTIONAL_DEPENDENCIES = {"cpal", "env_logger", "ringbuf", "rosc", "tokio"}
+STANDALONE_EXAMPLES = {
+    "cycle_waveforms",
+    "envelope",
+    "master_gain",
+    "meter_listen",
+    "osc_control",
+    "play_song_file",
+    "polyphonic_song",
+    "sample_playback_from_file",
+    "sample_playback_from_gl_instruments",
+    "simple_setup",
+    "simple_song",
+    "voice_effects",
+}
+HOST_FREE_EXAMPLES = {"render_song", "update_offline_references"}
 
 
 def metadata() -> dict:
@@ -162,6 +181,22 @@ def main() -> int:
             if "rt" not in tokio_features:
                 errors.append("Tokio current-thread runtime requires the `rt` feature")
 
+        example_targets = {
+            target["name"]: target
+            for target in audio_backend["targets"]
+            if "example" in target["kind"]
+        }
+        for example in sorted(STANDALONE_EXAMPLES):
+            target = example_targets.get(example)
+            if target is None or "standalone" not in target.get("required-features", []):
+                errors.append(f"standalone example `{example}` must require `standalone`")
+        for example in sorted(HOST_FREE_EXAMPLES):
+            target = example_targets.get(example)
+            if target is None:
+                errors.append(f"host-free example `{example}` is missing")
+            elif "standalone" in target.get("required-features", []):
+                errors.append(f"host-free example `{example}` must not require `standalone`")
+
         dsp_core = next(
             (
                 target
@@ -170,7 +205,7 @@ def main() -> int:
             ),
             None,
         )
-        if dsp_core is None or "standalone" not in dsp_core["required-features"]:
+        if dsp_core is None or "standalone" not in dsp_core.get("required-features", []):
             errors.append("`dsp-core` must require the `standalone` feature")
 
     if errors:
