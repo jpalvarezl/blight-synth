@@ -151,6 +151,9 @@ impl Player {
 
         for _ in 0..ticks_to_process {
             self.advance_tick();
+            if !self.is_playing {
+                break;
+            }
         }
 
         self.engine_adapter.process(left, right, sample_rate);
@@ -271,5 +274,35 @@ impl Player {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stops_processing_remaining_ticks_after_reaching_song_end() {
+        let mut song = Song::new("single arrangement row");
+        song.initial_bpm = 120;
+        song.initial_speed = 1;
+        let mut player = Player::new(Arc::new(song), 48_000.0);
+        player.play();
+        let mut left = [0.0];
+        let mut right = [0.0];
+
+        // At 120 BPM one tick is 1,000 samples. Three hundred ticks are
+        // enough to finish the fixed 16x16 tracker chain in one process call,
+        // leaving additional ticks that must not restart the reset position.
+        player.process(&mut left, &mut right, 48_000.0, 300_000);
+
+        assert!(!player.is_playing());
+        assert_eq!(player.position.song_step, 0);
+        assert_eq!(player.position.tick_counter, 0);
+        assert!(player
+            .position
+            .track_positions
+            .iter()
+            .all(|position| position.chain_step == 0 && position.phrase_step == 0));
     }
 }

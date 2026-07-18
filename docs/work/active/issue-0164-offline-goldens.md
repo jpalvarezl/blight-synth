@@ -55,7 +55,7 @@ No sample-accurate scheduling, transport-independent tails, external sample pack
 
 - [x] `cargo fmt --all -- --check`
 - [x] `cargo clippy --workspace --all-targets -- -D warnings`
-- [x] `cargo test --workspace --all-targets` — 51 tests
+- [x] `cargo test --workspace --all-targets` — 52 tests
 - [x] `cargo test -p audio_backend --test offline_golden`
 - [x] `cargo run -p engine --example offline_render`
 - [x] `scripts/render_reference_songs.sh target/offline-renders-script`
