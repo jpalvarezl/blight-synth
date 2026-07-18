@@ -2,7 +2,7 @@
 title: Active Task Packets
 summary: Index of temporary focused packets for work currently in progress.
 status: current
-updated: 2026-07-15
+updated: 2026-07-18
 ---
 
 # Active Task Packets
@@ -13,4 +13,4 @@ A packet is a handoff cache, not a second specification. It links to the issue a
 
 ## Active
 
-- [Issue #157 — finalize M0](issue-0157-finalize-m0.md)
+No active task packets. M0 is complete; the next work begins M1 contract design.
