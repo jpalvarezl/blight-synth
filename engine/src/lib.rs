@@ -8,6 +8,9 @@ use dsp::{
 
 const DEFAULT_INSTRUMENT_CAPACITY: usize = 64;
 const DEFAULT_MASTER_EFFECT_CAPACITY: usize = 8;
+// Transitional bound matching current Voice scratch buffers. #132 will make
+// this part of explicit Engine preparation/configuration.
+const MAX_PROCESS_FRAMES: usize = 4_096;
 
 struct InstrumentSlot {
     id: InstrumentId,
@@ -117,10 +120,15 @@ impl Engine {
         let left = &mut left[..frame_count];
         let right = &mut right[..frame_count];
 
-        for slot in &mut self.instruments {
-            slot.instrument.process(left, right, sample_rate);
+        for (left, right) in left
+            .chunks_mut(MAX_PROCESS_FRAMES)
+            .zip(right.chunks_mut(MAX_PROCESS_FRAMES))
+        {
+            for slot in &mut self.instruments {
+                slot.instrument.process(left, right, sample_rate);
+            }
+            self.master_effects.process(left, right, sample_rate);
         }
-        self.master_effects.process(left, right, sample_rate);
     }
 
     pub fn add_instrument(&mut self, instrument: Box<dyn InstrumentTrait>) {
@@ -268,6 +276,37 @@ mod tests {
         }
     }
 
+    struct BoundedInstrument {
+        id: InstrumentId,
+    }
+
+    impl InstrumentTrait for BoundedInstrument {
+        fn id(&self) -> InstrumentId {
+            self.id
+        }
+
+        fn note_on(&mut self, _note: u8, _velocity: u8) {}
+
+        fn note_off(&mut self) {}
+
+        fn process(&mut self, left: &mut [f32], right: &mut [f32], _sample_rate: f32) {
+            assert!(left.len() <= MAX_PROCESS_FRAMES);
+            assert_eq!(left.len(), right.len());
+            left.fill(0.25);
+            right.fill(0.5);
+        }
+
+        fn set_pan(&mut self, _pan: f32) {}
+
+        fn add_effect(&mut self, _effect: Box<dyn MonoEffect>) {}
+
+        fn set_effect_parameter(&mut self, _effect_id: EffectId, _param_index: u32, _value: f32) {}
+
+        fn try_handle_command(&mut self, _command: &SynthCmd) -> bool {
+            false
+        }
+    }
+
     struct ScaleEffect {
         id: EffectId,
         scale: f32,
@@ -371,6 +410,19 @@ mod tests {
                 .collect::<Vec<_>>(),
             [1, 2, 3]
         );
+    }
+
+    #[test]
+    fn chunks_buffers_larger_than_prepared_voice_scratch_space() {
+        let mut engine = Engine::new();
+        engine.add_instrument(Box::new(BoundedInstrument { id: 1 }));
+        let mut left = vec![0.0; MAX_PROCESS_FRAMES * 2 + 17];
+        let mut right = vec![0.0; left.len()];
+
+        engine.process(&mut left, &mut right, 48_000.0);
+
+        assert!(left.iter().all(|sample| *sample == 0.25));
+        assert!(right.iter().all(|sample| *sample == 0.5));
     }
 
     #[test]

@@ -1,5 +1,4 @@
 use crate::{id::EffectId, MonoEffect};
-use log::warn;
 
 #[repr(u32)]
 #[derive(Clone, Copy, Debug)]
@@ -160,7 +159,7 @@ impl MonoEffect for Delay {
             }
             2 => self.set_feedback(value),
             3 => self.set_mix(value),
-            _ => warn!("Invalid parameter index for delay effect"),
+            _ => crate::rt_debug_log!("Invalid parameter index for delay effect"),
         }
     }
 

@@ -69,7 +69,7 @@ impl SynthNode for SnareDrumVoice {
                     _ => false,
                 },
                 None => {
-                    log::error!("Envelope ID must be specified for SnareDrumVoice");
+                    crate::rt_debug_log!("Envelope ID must be specified for SnareDrumVoice");
                     false
                 }
             },

@@ -94,8 +94,6 @@ impl AudioProcessor {
 
     fn process_chunk(&mut self, output_buffer: &mut [f32]) {
         let frame_count = output_buffer.len() / self.channels;
-        debug_assert!(frame_count <= MAX_BUFFER_SIZE);
-
         let (left, right) = (
             &mut self.left_buf[..frame_count],
             &mut self.right_buf[..frame_count],

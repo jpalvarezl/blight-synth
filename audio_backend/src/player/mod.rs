@@ -2,7 +2,6 @@ mod tracker_engine_adapter;
 
 use std::sync::Arc;
 
-use log::debug;
 use sequencer::{
     models::{NoteSentinelValues, Song, DEFAULT_CHAIN_LENGTH, DEFAULT_PHRASE_LENGTH, MAX_TRACKS},
     timing::TimingState,
@@ -103,7 +102,7 @@ impl Player {
     }
 
     fn load_song(&mut self, song: Arc<Song>) {
-        debug!("Loading song: {}", song.name);
+        dsp::rt_debug_log!("Loading song: {}", song.name);
         self.stop();
         self.engine_adapter.clear_instruments();
         self.set_song(song);
@@ -115,7 +114,7 @@ impl Player {
                 self.load_song(song);
             }
             Command::Sequencer(SequencerCmd::PlaySong { song }) => {
-                debug!("Playing song: {}", song.name);
+                dsp::rt_debug_log!("Playing song: {}", song.name);
                 self.set_song(song);
                 self.play();
             }
@@ -202,11 +201,11 @@ impl Player {
                         // self.engine_adapter.stop_all_notes();
                         self.position.reset();
                         self.timing.reset();
-                        debug!("Looping back to start of song");
+                        dsp::rt_debug_log!("Looping back to start of song");
                     } else {
                         // Stop playback and reset state
                         self.stop();
-                        debug!("Reached end of song, stopping playback");
+                        dsp::rt_debug_log!("Reached end of song, stopping playback");
                     }
                 }
             }
@@ -225,9 +224,12 @@ impl Player {
             let track_pos = &self.position.track_positions[track_index];
             let chain_index = current_song_row.chain_indices[track_index];
 
-            debug!(
+            dsp::rt_debug_log!(
                 "Processing track {}: chain_index={}, chain_step={}, phrase_step={}",
-                track_index, chain_index, track_pos.chain_step, track_pos.phrase_step
+                track_index,
+                chain_index,
+                track_pos.chain_step,
+                track_pos.phrase_step
             );
 
             if chain_index == sequencer::models::EMPTY_CHAIN_SLOT {
@@ -253,7 +255,7 @@ impl Player {
                         if event.note != NoteSentinelValues::NoNote as u8
                             && event.note != NoteSentinelValues::NoteOff as u8
                         {
-                            debug!(
+                            dsp::rt_debug_log!(
                                 "Playing note: {} on track: {} with velocity: {} and instrument_id: {}",
                                 event.note, track_index, event.volume, instrument_id
                             );

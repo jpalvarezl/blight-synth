@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use engine::{Engine, EngineCommand};
-use log::debug;
 use sequencer::models::{MAX_TRACKS, NO_INSTRUMENT};
 
 use crate::id::InstrumentId;
@@ -24,7 +23,7 @@ impl TrackerEngineAdapter {
     }
 
     pub fn note_on(&mut self, instrument_id: InstrumentId, note: u8, velocity: u8) {
-        debug!("Playing note: {} on instrument: {}", note, instrument_id);
+        dsp::rt_debug_log!("Playing note: {} on instrument: {}", note, instrument_id);
         self.engine.note_on(instrument_id, note, velocity);
     }
 
@@ -76,15 +75,18 @@ impl TrackerEngineAdapter {
             .insert(track_index, instrument_id)
         {
             Some(previous_id) => {
-                debug!(
+                dsp::rt_debug_log!(
                     "Track {}: Updated last instrument from {} to {}",
-                    track_index, previous_id, instrument_id
+                    track_index,
+                    previous_id,
+                    instrument_id
                 );
                 self.engine.note_off(previous_id);
             }
-            None => debug!(
+            None => dsp::rt_debug_log!(
                 "Track {}: Set last instrument to {}",
-                track_index, instrument_id
+                track_index,
+                instrument_id
             ),
         }
     }

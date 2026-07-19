@@ -35,6 +35,7 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace --all-targets
 cargo test -p audio_backend --no-default-features --all-targets
 python3 scripts/check_architecture.py
+python3 scripts/check_rt_logging.py
 python3 scripts/docs/check_docs.py
 ```
 

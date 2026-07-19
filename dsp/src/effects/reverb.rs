@@ -1,5 +1,3 @@
-use log::{info, warn};
-
 use crate::{id::EffectId, MonoEffect, Smoother, StereoEffect};
 
 #[repr(u32)]
@@ -235,7 +233,7 @@ impl MonoEffect for Reverb {
 
             // Mix wet and dry signals using single mix parameter
             let mix = self.mix.next_value();
-            info!("Reverb mix value: {}", mix);
+            crate::rt_debug_log!("Reverb mix value: {}", mix);
             *sample = (1.0 - mix) * input + mix * output;
         }
     }
@@ -247,7 +245,7 @@ impl MonoEffect for Reverb {
             2 => self.set_room_size(value, self.sample_rate),
             3 => self.set_damping(value),
             4 => self.set_diffusion(value),
-            _ => warn!("Invalid parameter index for reverb effect"),
+            _ => crate::rt_debug_log!("Invalid parameter index for reverb effect"),
         }
     }
 

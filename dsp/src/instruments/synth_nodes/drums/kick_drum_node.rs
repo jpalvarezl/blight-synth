@@ -63,7 +63,7 @@ impl SynthNode for KickDrumVoice {
                 Some(1) => self.pitch_env.handle_command(command),
                 Some(_) => false,
                 None => {
-                    log::warn!("No Envelope ID defined commands are ignored");
+                    crate::rt_debug_log!("No Envelope ID defined; command ignored");
                     false
                 }
             },
