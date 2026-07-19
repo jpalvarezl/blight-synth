@@ -47,6 +47,8 @@ Inside callback-reachable code, including destructors triggered there:
 7. **No parsing, factory construction, sample decoding, schema migration, or graph compilation.**
 8. **No randomized execution order.** Render order and overload behavior are deterministic.
 
+Rust `log` macros are not automatically stripped from release builds. The `log` facade normally retains a static-level check plus runtime max-level/dispatch behavior, and an installed logger may format, lock, or perform I/O. Compile-time `release_max_level_*` features can remove selected levels, but this workspace does not enable them and host/plugin build profiles are not a sufficient contract. Callback code therefore uses bounded telemetry/counters rather than relying on logging being disabled.
+
 Allowed operations include bounded slice/array iteration, arithmetic/DSP, exclusive mutation of prepared state, nonblocking bounded queue operations, and documented atomics with explicit ordering.
 
 ## Prepared-state rule
