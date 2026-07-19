@@ -34,14 +34,24 @@ The control side may allocate, parse, log, access files/network, build factories
 
 Optional workers may perform blocking I/O and decoding. They never mutate live Engine state directly and communicate through the NRT owner/bounded handoff.
 
+## Build and diagnostic modes
+
+The project values ordinary debugging more than pretending every developer build is production-real-time safe.
+
+- **Developer diagnostic builds** may enable direct, compile-time-gated callback logging for functional debugging. Such builds are explicitly not valid for timing, underrun, or allocation-performance claims; logger formatting/locking can glitch audio.
+- **Strict RT validation and production builds** compile callback debug logs out and enforce the hard rules below. Allocation/stress tests run with callback diagnostics disabled.
+- **NRT logging** remains available in both debug and release builds for device, project, protocol, lifecycle, and support diagnostics.
+
+A small `rt_debug_log!`-style wrapper should make the exception visible and remove the complete call site/argument evaluation when disabled. We should not build a lock-free diagnostic subsystem until release callback telemetry is a demonstrated requirement.
+
 ## Hard callback rules
 
-Inside callback-reachable code, including destructors triggered there:
+Inside callback-reachable code in strict RT builds, including destructors triggered there:
 
 1. **No heap allocation or deallocation.** Destruction is as important as construction: dropping the last `Box`, `Vec`, `Arc`, song, effect, sample, or graph on RT violates the contract.
 2. **No blocking or contended locks.** No mutexes, condition variables, waiting channels, thread joins, sleeps, or operations with unbounded retry.
 3. **No file, network, terminal, device-management, or other syscall-oriented I/O.**
-4. **No logging or formatting.** `log!`, `println!`, `eprintln!`, formatted error construction, and logger callbacks are NRT operations.
+4. **No production/RT-validation logging or formatting.** Direct callback logs are allowed only through the explicitly compile-time-gated developer diagnostic wrapper; `println!`, `eprintln!`, formatted errors, and normal logger callbacks are otherwise NRT operations.
 5. **No panic/unwind across the host boundary.** Callback inputs and capacities have defined fallback/error behavior in all build modes.
 6. **No unbounded work.** Every command, event, voice, instrument, effect, and sample loop has an explicit configured maximum or bounded input slice.
 7. **No parsing, factory construction, sample decoding, schema migration, or graph compilation.**
@@ -91,7 +101,7 @@ Queue capacity alone is not a callback budget. The RT loop processes at most a d
 - Continuous values coalesce by contract rather than filling the structural queue.
 - Structural updates are not silently dropped.
 - Event overflow behavior is explicit and deterministic; all-notes-off/recovery remains possible.
-- Capacity exhaustion increments bounded telemetry and never logs from RT.
+- Capacity exhaustion increments a bounded counter/status in strict RT builds. Developer diagnostic builds may additionally emit a compile-time-gated callback log.
 
 ## Deferred reclamation
 
@@ -109,7 +119,7 @@ If the retirement handoff is full, RT follows a predeclared non-allocating polic
 
 ## Errors, panics, and telemetry
 
-RT methods do not build rich errors. They return compact status codes, counters, or fixed telemetry where action is possible; NRT formats/logs them. Missing IDs and malformed buffers use documented no-op/silence/truncation behavior. Capacity/configuration errors are rejected during preparation.
+RT methods do not build rich errors in strict builds. They return compact status codes/counters where action is possible; NRT formats/logs them. Developer diagnostic builds may use compile-time-gated direct logs for functional debugging, accepting that those builds are not RT-performance evidence. Missing IDs and malformed buffers use documented no-op/silence/truncation behavior. Capacity/configuration errors are rejected during preparation.
 
 A future FFI wrapper catches panics outside the RT entry and must never permit unwinding into C/C++. Panic containment is a last boundary defense, not permission for callback panics.
 
@@ -147,7 +157,7 @@ A future FFI wrapper catches panics outside the RT entry and must never permit u
 - #172: test-only allocation/deallocation instrumentation around representative prepared processing, with a known-failing allocation fixture.
 - #173: bounded command/burst/backpressure/fairness tests.
 - #174: thread-identified drop probes and stress tests for swap/retire/shutdown ownership.
-- #175: static inventory plus malformed-input/capacity/block-size hot-path stress tests and removal of callback logging.
+- #175: central debug-only callback logging macro, release compile-out checks, static inventory, and malformed-input/capacity/block-size hot-path stress tests.
 - Existing golden renders: detect accidental sonic/timing behavior changes while enforcement lands.
 
 ## Relationship to Engine lifecycle (#132)
