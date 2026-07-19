@@ -48,9 +48,9 @@ No runtime enforcement implementation or final event/parameter/state API.
 
 ## Verification
 
-- [ ] `python3 scripts/docs/check_docs.py`
-- [ ] `python3 scripts/docs/sync_roadmap.py --check`
-- [ ] `git diff --check`
+- [x] `python3 scripts/docs/check_docs.py`
+- [x] `python3 scripts/docs/sync_roadmap.py --check`
+- [x] `git diff --check`
 
 ## Handoff
 
