@@ -203,7 +203,9 @@ impl Reverb {
     }
     // Adjust wet/dry mix with a single parameter
     pub fn set_mix(&mut self, mix: f32) {
-        self.mix.set_target(mix.clamp(0.0, 1.0));
+        let mix = mix.clamp(0.0, 1.0);
+        crate::rt_debug_log!("Reverb mix target: {}", mix);
+        self.mix.set_target(mix);
     }
 }
 
@@ -233,7 +235,6 @@ impl MonoEffect for Reverb {
 
             // Mix wet and dry signals using single mix parameter
             let mix = self.mix.next_value();
-            crate::rt_debug_log!("Reverb mix value: {}", mix);
             *sample = (1.0 - mix) * input + mix * output;
         }
     }
