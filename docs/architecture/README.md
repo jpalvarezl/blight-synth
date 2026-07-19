@@ -2,7 +2,7 @@
 title: Architecture Index
 summary: Routing page for cross-domain contracts and target architecture.
 status: current
-updated: 2026-07-14
+updated: 2026-07-19
 ---
 
 # Architecture

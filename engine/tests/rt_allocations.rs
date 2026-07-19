@@ -59,29 +59,85 @@ struct AllocationCounts {
     reallocations: usize,
 }
 
-struct TrackingGuard;
+struct TrackingGuard {
+    previous_tracking: bool,
+    previous_counts: AllocationCounts,
+}
 
-impl Drop for TrackingGuard {
-    fn drop(&mut self) {
-        TRACKING.with(|tracking| tracking.set(false));
+impl TrackingGuard {
+    fn enter() -> Self {
+        let previous_tracking = TRACKING.with(|tracking| tracking.replace(true));
+        let previous_counts = current_counts();
+        set_counts(AllocationCounts {
+            allocations: 0,
+            deallocations: 0,
+            reallocations: 0,
+        });
+        Self {
+            previous_tracking,
+            previous_counts,
+        }
     }
 }
 
-fn measure_allocations(operation: impl FnOnce()) -> AllocationCounts {
-    ALLOCATIONS.with(|count| count.set(0));
-    DEALLOCATIONS.with(|count| count.set(0));
-    REALLOCATIONS.with(|count| count.set(0));
-    TRACKING.with(|tracking| tracking.set(true));
-    let guard = TrackingGuard;
+impl Drop for TrackingGuard {
+    fn drop(&mut self) {
+        let measured = current_counts();
+        let restored = if self.previous_tracking {
+            AllocationCounts {
+                allocations: self.previous_counts.allocations + measured.allocations,
+                deallocations: self.previous_counts.deallocations + measured.deallocations,
+                reallocations: self.previous_counts.reallocations + measured.reallocations,
+            }
+        } else {
+            self.previous_counts
+        };
+        set_counts(restored);
+        TRACKING.with(|tracking| tracking.set(self.previous_tracking));
+    }
+}
 
-    operation();
-
-    drop(guard);
+fn current_counts() -> AllocationCounts {
     AllocationCounts {
         allocations: ALLOCATIONS.with(Cell::get),
         deallocations: DEALLOCATIONS.with(Cell::get),
         reallocations: REALLOCATIONS.with(Cell::get),
     }
+}
+
+fn set_counts(counts: AllocationCounts) {
+    ALLOCATIONS.with(|count| count.set(counts.allocations));
+    DEALLOCATIONS.with(|count| count.set(counts.deallocations));
+    REALLOCATIONS.with(|count| count.set(counts.reallocations));
+}
+
+fn measure_allocations(operation: impl FnOnce()) -> AllocationCounts {
+    let counts;
+    {
+        let _guard = TrackingGuard::enter();
+        operation();
+        counts = current_counts();
+    }
+    counts
+}
+
+#[test]
+fn nested_measurements_restore_and_accumulate_outer_tracking_state() {
+    let inner_counts = Cell::new(None);
+
+    let outer_counts = measure_allocations(|| {
+        black_box(vec![0_u8; 16]);
+        inner_counts.set(Some(measure_allocations(|| {
+            black_box(vec![0_u8; 32]);
+        })));
+        black_box(vec![0_u8; 64]);
+    });
+
+    let inner_counts = inner_counts.get().expect("inner measurement completed");
+    assert!(inner_counts.allocations > 0);
+    assert!(inner_counts.deallocations > 0);
+    assert!(outer_counts.allocations >= inner_counts.allocations + 2);
+    assert!(outer_counts.deallocations >= inner_counts.deallocations + 2);
 }
 
 #[test]

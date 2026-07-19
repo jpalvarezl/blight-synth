@@ -8,7 +8,7 @@ issues: [133, 172, 174]
 
 # RT Allocation Audit Harness
 
-`engine/tests/rt_allocations.rs` installs a test-binary-local global allocator wrapper around `System`. Thread-local counters are enabled only around the operation under measurement, so test setup, factory construction, and assertion formatting are excluded.
+`engine/tests/rt_allocations.rs` installs a test-binary-local global allocator wrapper around `System`. Thread-local counters are enabled only around the operation under measurement, so test setup, factory construction, and assertion formatting are excluded. Measurement guards restore prior tracking/counters on scope exit (including unwinding); nested scopes are tested and contribute their counts to the outer scope.
 
 ## Current representative path
 

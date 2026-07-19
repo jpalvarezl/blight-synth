@@ -49,7 +49,7 @@ No production allocator, structural replacement, command budget, logger migratio
 - [x] `cargo test -p engine --test rt_allocations -- --nocapture`
 - [x] `cargo fmt --all -- --check`
 - [x] `cargo clippy --workspace --all-targets -- -D warnings`
-- [x] `cargo test --workspace --all-targets` — 54 tests
+- [x] `cargo test --workspace --all-targets` — 55 tests
 - [x] `cargo clippy -p audio_backend --no-default-features --all-targets -- -D warnings`
 - [x] `cargo test -p audio_backend --no-default-features --all-targets` — 10 tests
 - [x] `python3 scripts/check_architecture.py`
