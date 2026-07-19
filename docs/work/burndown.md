@@ -2,7 +2,7 @@
 title: Generated Roadmap Burndown
 summary: Offline Obsidian snapshot generated from GitHub roadmap issue metadata.
 status: generated
-source-updated: 2026-07-19T19:27:39Z
+source-updated: 2026-07-19T20:40:41Z
 generator: scripts/docs/sync_roadmap.py
 ---
 
@@ -11,14 +11,14 @@ generator: scripts/docs/sync_roadmap.py
 > [!warning] Generated file
 > GitHub Issues are canonical. Do not edit this page manually. Run `python3 scripts/docs/sync_roadmap.py`.
 
-Data snapshot through `2026-07-19T19:27:39Z`.
+Data snapshot through `2026-07-19T20:40:41Z`.
 
 ## Summary
 
 | Milestone | Open | Done | Ready | In progress | Blocked | Backlog | Sized points done/total | Unsized |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | M0: Architecture & Repository Baseline | 0 | 14 | 0 | 0 | 0 | 0 | 27/27 | 3 |
-| M1: Host-Independent Engine & RT Contracts | 14 | 1 | 1 | 3 | 2 | 8 | 1/13 | 10 |
+| M1: Host-Independent Engine & RT Contracts | 13 | 2 | 1 | 2 | 2 | 8 | 4/13 | 10 |
 | M2: Standalone Host & Control Protocol | 6 | 0 | 0 | 0 | 1 | 5 | 0/3 | 5 |
 | M3: JS/TS Composition UI & Standalone App | 9 | 0 | 0 | 0 | 0 | 9 | 0/0 | 9 |
 | M4 (Optional): Desktop Plugins (VST3/AU) | 7 | 0 | 0 | 0 | 0 | 7 | 0/0 | 7 |
@@ -38,7 +38,6 @@ Data snapshot through `2026-07-19T19:27:39Z`.
 - [ ] [#137](https://github.com/jpalvarezl/blight-synth/issues/137) Complete polyphony, note identity, and voice-allocation semantics — `backlog`, `unsized`, unassigned
 - [ ] [#138](https://github.com/jpalvarezl/blight-synth/issues/138) Define versioned engine state snapshots and migrations — `backlog`, `unsized`, unassigned
 - [ ] [#145](https://github.com/jpalvarezl/blight-synth/issues/145) Decouple composition runtimes from the audio engine through an event-source contract — `backlog`, `unsized`, unassigned
-- [ ] [#172](https://github.com/jpalvarezl/blight-synth/issues/172) Add an allocation/deallocation audit harness for engine processing — `in-progress`, `M`, @jpalvarezl
 - [ ] [#173](https://github.com/jpalvarezl/blight-synth/issues/173) Bound callback control work and make queue backpressure observable — `ready`, `M`, unassigned
 - [ ] [#174](https://github.com/jpalvarezl/blight-synth/issues/174) Defer reclamation for structural engine and song updates — `blocked`, `L`, unassigned
 - [ ] [#175](https://github.com/jpalvarezl/blight-synth/issues/175) Remove callback logging and panic paths, then stress the RT hot path — `in-progress`, `S`, @jpalvarezl
@@ -75,7 +74,7 @@ Data snapshot through `2026-07-19T19:27:39Z`.
 - [ ] [#138](https://github.com/jpalvarezl/blight-synth/issues/138) Define versioned engine state snapshots and migrations — `backlog`, `unsized`, unassigned
 - [ ] [#145](https://github.com/jpalvarezl/blight-synth/issues/145) Decouple composition runtimes from the audio engine through an event-source contract — `backlog`, `unsized`, unassigned
 - [x] [#171](https://github.com/jpalvarezl/blight-synth/issues/171) Specify the real-time contract and inventory current violations — `done`, `S`, @jpalvarezl
-- [ ] [#172](https://github.com/jpalvarezl/blight-synth/issues/172) Add an allocation/deallocation audit harness for engine processing — `in-progress`, `M`, @jpalvarezl
+- [x] [#172](https://github.com/jpalvarezl/blight-synth/issues/172) Add an allocation/deallocation audit harness for engine processing — `done`, `M`, @jpalvarezl
 - [ ] [#173](https://github.com/jpalvarezl/blight-synth/issues/173) Bound callback control work and make queue backpressure observable — `ready`, `M`, unassigned
 - [ ] [#174](https://github.com/jpalvarezl/blight-synth/issues/174) Defer reclamation for structural engine and song updates — `blocked`, `L`, unassigned
 - [ ] [#175](https://github.com/jpalvarezl/blight-synth/issues/175) Remove callback logging and panic paths, then stress the RT hot path — `in-progress`, `S`, @jpalvarezl

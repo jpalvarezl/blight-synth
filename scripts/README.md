@@ -19,11 +19,12 @@ cargo test --workspace --all-targets
 cargo clippy -p audio_backend --no-default-features --all-targets -- -D warnings
 cargo test -p audio_backend --no-default-features --all-targets
 python3 scripts/check_architecture.py
+python3 scripts/check_rt_logging.py
 python3 scripts/docs/check_docs.py
 python3 scripts/docs/sync_roadmap.py --stdout > /dev/null
 ```
 
-These commands must not open an audio device. The architecture checker enforces the current M0 dependency baseline, including the rule that portable DSP/model crates cannot depend on host, file-decoder, or platform-resource layers. #157 will reconcile the final M0 graph after engine/host extraction.
+These commands must not open an audio device. The architecture checker enforces the current crate boundary, while the RT logging checker rejects accidental direct logger/printing calls in known callback-reachable modules. Developer callback diagnostics use `dsp::rt_debug_log!`, which is compiled out when `debug_assertions` are disabled.
 
 The committed roadmap is an offline snapshot of live GitHub metadata. Maintainers regenerate it after roadmap changes with `python3 scripts/docs/sync_roadmap.py`; CI exercises the generator but does not require an unrelated live issue update to be committed in every code PR.
 

@@ -83,13 +83,22 @@ impl<S: SynthNode> InstrumentTrait for PolyphonicInstrument<S> {
     }
 
     fn note_on(&mut self, note: u8, velocity: u8) {
-        log::info!("Looking for voice");
-        for voice in &self.voices {
-            log::info!(
-                "Checking voice with ID: {:#?}, state: {}",
-                voice.note_id,
-                voice.inner.is_active()
+        #[cfg(debug_assertions)]
+        if crate::__rt_log_enabled(crate::__RtLogLevel::Debug) {
+            crate::__emit_rt_log(
+                crate::__RtLogLevel::Debug,
+                format_args!("Looking for voice"),
             );
+            for voice in &self.voices {
+                crate::__emit_rt_log(
+                    crate::__RtLogLevel::Debug,
+                    format_args!(
+                        "Checking voice with ID: {:#?}, state: {}",
+                        voice.note_id,
+                        voice.inner.is_active()
+                    ),
+                );
+            }
         }
         // Find a free voice or a voice with the same note to retrigger envelope
         let free_voice = self
@@ -97,7 +106,7 @@ impl<S: SynthNode> InstrumentTrait for PolyphonicInstrument<S> {
             .iter_mut()
             .find(|slot| !slot.inner.is_active() || slot.note_id == Some(note));
 
-        log::info!(
+        crate::rt_debug_log!(
             "Free voice found: {:?}, ID is: {:?}",
             free_voice.is_some(),
             free_voice.as_ref().map(|slot| slot.note_id)
@@ -138,7 +147,9 @@ impl<S: SynthNode> InstrumentTrait for PolyphonicInstrument<S> {
     fn add_effect(&mut self, _effect: Box<dyn MonoEffect>) {
         // Polyphonic instruments require one effect instance per voice.
         // Use add_voice_effects with pre-constructed per-voice effects instead.
-        log::warn!("PolyphonicInstrument: add_effect is a no-op; use add_voice_effects instead");
+        crate::rt_warn_log!(
+            "PolyphonicInstrument: add_effect is a no-op; use add_voice_effects instead"
+        );
     }
 
     fn add_voice_effects(&mut self, effects: VoiceEffects) {

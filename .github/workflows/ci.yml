@@ -51,11 +51,19 @@ jobs:
           cargo clippy -p audio_backend --no-default-features --all-targets -- -D warnings
           cargo test -p audio_backend --no-default-features --all-targets
 
+      - name: Verify release callback debug logs compile out
+        env:
+          RUSTFLAGS: -D warnings
+        run: cargo test --release -p dsp diagnostics::tests::argument_evaluation_matches_diagnostic_build_mode
+
       - name: Run hardware-free workspace tests
         run: cargo test --workspace --all-targets
 
       - name: Check dependency direction
         run: python3 scripts/check_architecture.py
+
+      - name: Check callback logging policy
+        run: python3 scripts/check_rt_logging.py
 
       - name: Check documentation
         run: python3 scripts/docs/check_docs.py

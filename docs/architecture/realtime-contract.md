@@ -42,7 +42,7 @@ The project values ordinary debugging more than pretending every developer build
 - **Strict RT validation and production builds** compile callback debug logs out and enforce the hard rules below. Allocation/stress tests run with callback diagnostics disabled.
 - **NRT logging** remains available in both debug and release builds for device, project, protocol, lifecycle, and support diagnostics.
 
-A small `rt_debug_log!`-style wrapper should make the exception visible and remove the complete call site/argument evaluation when disabled. We should not build a lock-free diagnostic subsystem until release callback telemetry is a demonstrated requirement.
+The shared `dsp::rt_{debug,info,warn,error}_log!` wrappers preserve normal severity levels in developer builds: they perform one runtime enabled check before evaluating arguments, delegate to `log`, and remove the complete call site/argument evaluation when `debug_assertions` are disabled. A release-mode unit test and static callback-path checker enforce that policy. We should not build a lock-free diagnostic subsystem until release callback telemetry is a demonstrated requirement.
 
 ## Hard callback rules
 
