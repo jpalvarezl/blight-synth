@@ -246,7 +246,7 @@ impl MonoEffect for Reverb {
             2 => self.set_room_size(value, self.sample_rate),
             3 => self.set_damping(value),
             4 => self.set_diffusion(value),
-            _ => crate::rt_debug_log!("Invalid parameter index for reverb effect"),
+            _ => crate::rt_warn_log!("Invalid parameter index for reverb effect"),
         }
     }
 

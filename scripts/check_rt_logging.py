@@ -41,7 +41,10 @@ def main() -> int:
                     )
 
     if errors:
-        print("RT logging check failed; use dsp::rt_debug_log! for developer diagnostics:", file=sys.stderr)
+        print(
+            "RT logging check failed; use dsp::rt_{debug,info,warn,error}_log! for developer diagnostics:",
+            file=sys.stderr,
+        )
         for error in errors:
             print(f"- {error}", file=sys.stderr)
         return 1

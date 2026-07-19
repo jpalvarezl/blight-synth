@@ -71,7 +71,7 @@ impl StereoEffectChain {
         if self.effects.len() < self.effects.capacity() {
             self.effects.push(effect);
         } else {
-            crate::rt_debug_log!("Effect chain is full, cannot add new effect");
+            crate::rt_warn_log!("Effect chain is full, cannot add new effect");
         }
     }
 
@@ -164,7 +164,7 @@ impl MonoEffectChain {
         if self.effects.len() < self.effects.capacity() {
             self.effects.push(effect);
         } else {
-            crate::rt_debug_log!("Mono effect chain is full, cannot add new effect");
+            crate::rt_warn_log!("Mono effect chain is full, cannot add new effect");
         }
     }
 

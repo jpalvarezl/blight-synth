@@ -159,7 +159,7 @@ impl MonoEffect for Delay {
             }
             2 => self.set_feedback(value),
             3 => self.set_mix(value),
-            _ => crate::rt_debug_log!("Invalid parameter index for delay effect"),
+            _ => crate::rt_warn_log!("Invalid parameter index for delay effect"),
         }
     }
 
