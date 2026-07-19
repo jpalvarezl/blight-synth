@@ -154,7 +154,7 @@ A future FFI wrapper catches panics outside the RT entry and must never permit u
 
 ## Verification plan
 
-- #172: test-only allocation/deallocation instrumentation around representative prepared processing, with a known-failing allocation fixture.
+- #172: [`engine/tests/rt_allocations.rs`](../../engine/tests/rt_allocations.rs) provides test-only allocation/deallocation instrumentation around representative prepared processing plus a known-allocating self-test fixture; [harness details](rt-allocation-audit.md).
 - #173: bounded command/burst/backpressure/fairness tests.
 - #174: thread-identified drop probes and stress tests for swap/retire/shutdown ownership.
 - #175: central debug-only callback logging macro, release compile-out checks, static inventory, and malformed-input/capacity/block-size hot-path stress tests.

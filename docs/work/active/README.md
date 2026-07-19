@@ -2,7 +2,7 @@
 title: Active Task Packets
 summary: Index of temporary focused packets for work currently in progress.
 status: current
-updated: 2026-07-18
+updated: 2026-07-19
 ---
 
 # Active Task Packets
@@ -13,4 +13,5 @@ A packet is a handoff cache, not a second specification. It links to the issue a
 
 ## Active
 
-- [Issue #171 — real-time contract](issue-0171-realtime-contract.md)
+- [Issue #172 — RT allocation audit](issue-0172-allocation-audit.md)
+- Issue #175 is active in parallel on its own worktree/PR.
