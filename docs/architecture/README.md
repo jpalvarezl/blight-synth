@@ -13,6 +13,7 @@ updated: 2026-07-14
 - [System boundaries](system-boundaries.md) — target dependency direction and ownership.
 - [M0 crate dependency graph](crate-dependency-graph.md) — current enforced crate/feature dependencies and compatibility shims.
 - [Offline render contract](offline-render-contract.md) — canonical PCM, golden regression policy, and reference updates.
+- [Real-time audio contract](realtime-contract.md) — proposed callback rules, ownership, overload, reclamation, and current violations.
 - [Current product specification](../spec/current-product.md) — what architecture is serving.
 - [ADR index](../decisions/README.md) — accepted decisions.
 
