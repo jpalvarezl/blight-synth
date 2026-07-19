@@ -11,8 +11,9 @@ issues: [132, 133, 134, 135, 136, 137]
 ## Read first
 
 1. [Target system boundaries](../architecture/system-boundaries.md)
-2. Owning GitHub issue
-3. The narrow current code entry point below
+2. [Real-time audio contract](../architecture/realtime-contract.md) for callback-reachable changes
+3. Owning GitHub issue
+4. The narrow current code entry point below
 
 Read parameter/state/composition pages only when the issue changes those contracts.
 

@@ -13,4 +13,4 @@ A packet is a handoff cache, not a second specification. It links to the issue a
 
 ## Active
 
-No active task packets. M0 is complete; the next work begins M1 contract design.
+- [Issue #171 — real-time contract](issue-0171-realtime-contract.md)
