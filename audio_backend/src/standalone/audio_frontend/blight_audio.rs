@@ -1,4 +1,4 @@
-use super::{BlightAudio, CommandSubmissionStatus};
+use super::{BlightAudio, CommandSubmission};
 use crate::{
     AudioProcessor, Command, EffectFactory, InstrumentFactory, MeterState, ResourceManager,
     VoiceFactory,
@@ -116,10 +116,11 @@ impl BlightAudio {
 
     /// Attempts to submit one command without blocking.
     ///
-    /// A rejected command remains on this non-real-time thread and is dropped
-    /// here. Callers that acknowledge state changes must do so only when this
-    /// returns [`CommandSubmissionStatus::Accepted`].
-    pub fn send_command(&mut self, command: Command) -> CommandSubmissionStatus {
+    /// A rejected command is returned in [`CommandSubmission::Full`] or
+    /// [`CommandSubmission::Disconnected`] so this non-real-time caller can
+    /// retry or defer it. Callers that acknowledge state changes must do so
+    /// only when this returns [`CommandSubmission::Accepted`].
+    pub fn send_command(&mut self, command: Command) -> CommandSubmission {
         try_send_command(&mut self.command_tx, command)
     }
 
@@ -149,15 +150,15 @@ impl BlightAudio {
 fn try_send_command(
     command_tx: &mut ringbuf::HeapProd<Command>,
     command: Command,
-) -> CommandSubmissionStatus {
+) -> CommandSubmission {
     if !command_tx.read_is_held() {
-        return CommandSubmissionStatus::Disconnected;
+        return CommandSubmission::Disconnected(command);
     }
 
     match command_tx.try_push(command) {
-        Ok(()) => CommandSubmissionStatus::Accepted,
-        Err(_command) if !command_tx.read_is_held() => CommandSubmissionStatus::Disconnected,
-        Err(_command) => CommandSubmissionStatus::Full,
+        Ok(()) => CommandSubmission::Accepted,
+        Err(command) if !command_tx.read_is_held() => CommandSubmission::Disconnected(command),
+        Err(command) => CommandSubmission::Full(command),
     }
 }
 
@@ -175,29 +176,36 @@ mod tests {
         let rb = SharedRb::<Heap<Command>>::new(2);
         let (mut command_tx, mut command_rx) = rb.split();
 
-        assert_eq!(
+        assert!(matches!(
             try_send_command(&mut command_tx, command()),
-            CommandSubmissionStatus::Accepted
-        );
-        assert_eq!(
+            CommandSubmission::Accepted
+        ));
+        assert!(matches!(
             try_send_command(&mut command_tx, command()),
-            CommandSubmissionStatus::Accepted
-        );
-        assert_eq!(
-            try_send_command(&mut command_tx, command()),
-            CommandSubmissionStatus::Full
-        );
+            CommandSubmission::Accepted
+        ));
+        let full = try_send_command(&mut command_tx, command());
+        assert!(matches!(full, CommandSubmission::Full(_)));
+        let rejected_command = full
+            .into_rejected_command()
+            .expect("full submission returns the command");
+        assert!(matches!(
+            &rejected_command,
+            Command::Transport(TransportCmd::PlayLastSong)
+        ));
 
         assert!(command_rx.try_pop().is_some());
-        assert_eq!(
-            try_send_command(&mut command_tx, command()),
-            CommandSubmissionStatus::Accepted
-        );
+        assert!(matches!(
+            try_send_command(&mut command_tx, rejected_command),
+            CommandSubmission::Accepted
+        ));
 
         drop(command_rx);
-        assert_eq!(
-            try_send_command(&mut command_tx, command()),
-            CommandSubmissionStatus::Disconnected
-        );
+        let disconnected = try_send_command(&mut command_tx, command());
+        assert!(matches!(disconnected, CommandSubmission::Disconnected(_)));
+        assert!(matches!(
+            disconnected.into_rejected_command(),
+            Some(Command::Transport(TransportCmd::PlayLastSong))
+        ));
     }
 }

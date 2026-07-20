@@ -6,8 +6,8 @@ use std::time::Duration;
 use tokio::net::UdpSocket;
 
 use crate::{
-    id::EffectId, load_song_file_into_audio, BlightAudio, Command, CommandSubmissionStatus,
-    MeterLevels, MeterState, MixerCmd, TransportCmd,
+    id::EffectId, load_song_file_into_audio, BlightAudio, Command, CommandSubmission,
+    CommandSubmissionStatus, MeterLevels, MeterState, MixerCmd, TransportCmd,
 };
 
 pub const OSC_LISTEN_ADDR: &str = "127.0.0.1:9000";
@@ -45,10 +45,11 @@ struct OscCommand {
 impl OscCommand {
     fn submit(
         self,
-        submit: impl FnOnce(Command) -> CommandSubmissionStatus,
+        submit: impl FnOnce(Command) -> CommandSubmission,
     ) -> (CommandSubmissionStatus, Option<OscPacket>) {
-        let status = submit(self.command);
-        let response = status
+        let outcome = submit(self.command);
+        let status = outcome.status();
+        let response = outcome
             .is_accepted()
             .then_some(self.accepted_response)
             .flatten();
@@ -428,7 +429,7 @@ mod tests {
             .into_iter()
             .next()
             .unwrap()
-            .submit(|_| CommandSubmissionStatus::Accepted);
+            .submit(|_| CommandSubmission::Accepted);
         let response = response.unwrap();
         let (id, echoed) = param_echo_args(&response);
         assert_eq!(id, "gain");
@@ -445,12 +446,19 @@ mod tests {
                 "/param/set",
                 vec![OscType::String("gain".to_string()), OscType::Float(0.5)],
             ));
-            let (reported_status, response) = dispatch
-                .commands
-                .into_iter()
-                .next()
-                .unwrap()
-                .submit(|_| status);
+            let (reported_status, response) =
+                dispatch
+                    .commands
+                    .into_iter()
+                    .next()
+                    .unwrap()
+                    .submit(|command| match status {
+                        CommandSubmissionStatus::Full => CommandSubmission::Full(command),
+                        CommandSubmissionStatus::Disconnected => {
+                            CommandSubmission::Disconnected(command)
+                        }
+                        CommandSubmissionStatus::Accepted => unreachable!("test covers rejections"),
+                    });
 
             assert_eq!(reported_status, status);
             assert!(response.is_none());
@@ -479,7 +487,7 @@ mod tests {
             .into_iter()
             .next()
             .unwrap()
-            .submit(|_| CommandSubmissionStatus::Accepted);
+            .submit(|_| CommandSubmission::Accepted);
         assert!((param_echo_args(&response.unwrap()).1 - 1.0).abs() < 1e-6);
     }
 
@@ -501,7 +509,7 @@ mod tests {
             .into_iter()
             .next()
             .unwrap()
-            .submit(|_| CommandSubmissionStatus::Accepted);
+            .submit(|_| CommandSubmission::Accepted);
         assert!((param_echo_args(&response.unwrap()).1 - 1.0).abs() < 1e-6);
 
         // Zero (and below) floors to silence.
@@ -520,7 +528,7 @@ mod tests {
             .into_iter()
             .next()
             .unwrap()
-            .submit(|_| CommandSubmissionStatus::Accepted);
+            .submit(|_| CommandSubmission::Accepted);
         assert!((param_echo_args(&response.unwrap()).1 - 0.0).abs() < 1e-6);
     }
 

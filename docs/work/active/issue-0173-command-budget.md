@@ -85,6 +85,7 @@ Potential parallel conflicts: issue #175 touches callback logging and malformed-
 - 2026-07-20 — `Accepted` means enqueued, not yet applied. OSC parameter echoes and song-loaded responses are suppressed when queue submission reports full/disconnected.
 - 2026-07-20 — Finite FIFO bursts make progress and preserve command order. Priority recovery lanes and sustained-traffic class fairness remain out of scope with final queue separation.
 - 2026-07-20 — Independent diff review approved the change with no blocking findings; partial hydration and ignored GUI statuses remain documented follow-up risks.
+- 2026-07-20 — PR review correctly noted that status-only rejection consumed non-Clone commands. `CommandSubmission::Full/Disconnected` now return the original command so NRT callers can retry or defer it.
 
 ## Verification
 
@@ -100,8 +101,8 @@ Potential parallel conflicts: issue #175 touches callback logging and malformed-
 
 ## Handoff
 
-- Completed: 64-item callback budget, observable queue status, accepted-only OSC acknowledgements, hydration rejection propagation, focused stress/recovery tests, local validation, and independent diff review.
+- Completed: 64-item callback budget, observable and retryable queue rejection, accepted-only OSC acknowledgements, hydration rejection propagation, focused stress/recovery tests, local validation, and independent diff review.
 - Remaining: hosted CI and PR/human review.
 - Known failures/risks: the compatibility queue still combines traffic classes; sustained traffic has no priority recovery lane. Multi-command hydration can be partially enqueued before a later rejection, although OSC reports an error rather than false success; atomic prepared-state installation remains with #174/#138.
-- Next smallest action: push the branch and open the issue PR.
+- Next smallest action: push the review fix, resolve the PR thread, and await hosted CI.
 - Files a new agent should read next: this packet and the five Read first entries above.

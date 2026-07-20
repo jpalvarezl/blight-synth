@@ -3,7 +3,7 @@ mod blight_audio;
 use crate::Command;
 use crate::MeterState;
 use ringbuf::HeapProd;
-use std::sync::Arc;
+use std::{fmt, sync::Arc};
 
 use crate::EffectFactory;
 use crate::{InstrumentFactory, ResourceManager, VoiceFactory};
@@ -22,6 +22,47 @@ pub enum CommandSubmissionStatus {
 impl CommandSubmissionStatus {
     pub fn is_accepted(self) -> bool {
         self == Self::Accepted
+    }
+}
+
+/// Outcome of submitting an owned command to the bounded callback queue.
+///
+/// Rejected variants return the original command so the non-real-time caller
+/// can retry, defer, or drop prepared state deliberately.
+pub enum CommandSubmission {
+    Accepted,
+    Full(Command),
+    Disconnected(Command),
+}
+
+impl CommandSubmission {
+    pub fn status(&self) -> CommandSubmissionStatus {
+        match self {
+            Self::Accepted => CommandSubmissionStatus::Accepted,
+            Self::Full(_) => CommandSubmissionStatus::Full,
+            Self::Disconnected(_) => CommandSubmissionStatus::Disconnected,
+        }
+    }
+
+    pub fn is_accepted(&self) -> bool {
+        self.status().is_accepted()
+    }
+
+    pub fn into_rejected_command(self) -> Option<Command> {
+        match self {
+            Self::Accepted => None,
+            Self::Full(command) | Self::Disconnected(command) => Some(command),
+        }
+    }
+}
+
+impl fmt::Debug for CommandSubmission {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(match self {
+            Self::Accepted => "Accepted",
+            Self::Full(_) => "Full(..)",
+            Self::Disconnected(_) => "Disconnected(..)",
+        })
     }
 }
 

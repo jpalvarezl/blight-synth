@@ -96,7 +96,7 @@ The transitional standalone compatibility queue consumes at most **64 command it
 
 ## Backpressure and overload
 
-- `BlightAudio::send_command` returns `CommandSubmissionStatus::{Accepted, Full, Disconnected}` without blocking.
+- `BlightAudio::send_command` returns `CommandSubmission::{Accepted, Full(Command), Disconnected(Command)}` without blocking. Rejection returns the original owned command so NRT can retry, defer, or deliberately discard prepared state; `CommandSubmission::status` exposes the lightweight status.
 - State-changing protocol acknowledgements are emitted only after `Accepted`, never after a `Full` or `Disconnected` rejection.
 - Continuous values coalesce by contract rather than filling the structural queue.
 - Structural updates are not silently dropped.
@@ -147,7 +147,7 @@ A future FFI wrapper catches panics outside the RT entry and must never permit u
 - Engine instrument render order uses a sorted preallocated slot vector.
 - Voice effect batches use fixed-capacity `ArrayVec` containers.
 - Meter handoff uses nonblocking atomics and performs network/formatting work outside RT.
-- The transitional standalone command queue applies a 64-command FIFO prefix per callback; submissions report accepted/full/disconnected and OSC success responses require acceptance.
+- The transitional standalone command queue applies a 64-command FIFO prefix per callback; submissions report accepted/full/disconnected, return rejected commands to NRT, and require acceptance for OSC success responses.
 - Factories and project/sample decoding already live on NRT paths by architecture.
 - Offline golden renders provide end-to-end behavioral regression evidence, though they do not prove allocation safety.
 
