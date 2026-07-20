@@ -2,7 +2,7 @@
 title: Real-Time Audio Contract
 summary: Proposed callback safety, bounded-work, ownership, overload, and verification rules for M1.
 status: draft
-updated: 2026-07-18
+updated: 2026-07-20
 issues: [101, 132, 133, 134, 138, 171, 172, 173, 174, 175]
 ---
 
@@ -92,12 +92,12 @@ Instrument/effect/song/routing replacement uses infrequent prepared objects or s
 
 Queue capacity alone is not a callback budget. The RT loop processes at most a documented number of structural/control items per block, then renders. A producer burst cannot consume the complete callback deadline. Remaining work stays queued or is coalesced according to class.
 
-#173 must define and test the initial command budget, queue fairness, producer status, and recovery behavior. #134 separately defines the event budget and timing contract.
+The transitional standalone compatibility queue consumes at most **64 command items per host callback block**, in FIFO order, before rendering. A backlog remains queued for later blocks, including when one callback is split into multiple internal 4096-frame render chunks. This is an item-count bound; worst-case command cost still depends on the prepared-state, capacity, and deferred-reclamation work owned by #137/#174. The initial budget is intentionally independent of queue capacity and does not define the future timestamped-event budget; #134 separately owns event capacity and timing.
 
 ## Backpressure and overload
 
-- NRT submission returns an observable accepted/full/disconnected or equivalent status.
-- State-changing protocol acknowledgements are emitted only after accepted semantics, never after silent rejection.
+- `BlightAudio::send_command` returns `CommandSubmissionStatus::{Accepted, Full, Disconnected}` without blocking.
+- State-changing protocol acknowledgements are emitted only after `Accepted`, never after a `Full` or `Disconnected` rejection.
 - Continuous values coalesce by contract rather than filling the structural queue.
 - Structural updates are not silently dropped.
 - Event overflow behavior is explicit and deterministic; all-notes-off/recovery remains possible.
@@ -127,8 +127,6 @@ A future FFI wrapper catches panics outside the RT entry and must never permit u
 
 | Current path/behavior | Contract gap | Owner |
 |---|---|---|
-| `standalone/audio_processor`: drains `while let Some(command)` | No explicit per-block command budget/fairness | #173 |
-| `BlightAudio::send_command`: returns `()` and prints on full queue | Producer cannot react; protocol can imply false success | #173, #104 |
 | `Engine::add_instrument`, sorted `Vec::insert`, replacement, `clear_instruments` | May allocate past capacity and drops replaced/all boxed instruments on RT | #174; hard capacity #137 |
 | Instrument/effect commands carry `Box`/`ArrayVec<Box<_>>` | Consuming/rejecting/replacing can destroy heap owners on RT | #174 |
 | `Player::load_song` replaces `Arc<Song>` and clears instruments | Last-owner song/graph destruction can occur on RT | #174/#138 |
@@ -149,6 +147,7 @@ A future FFI wrapper catches panics outside the RT entry and must never permit u
 - Engine instrument render order uses a sorted preallocated slot vector.
 - Voice effect batches use fixed-capacity `ArrayVec` containers.
 - Meter handoff uses nonblocking atomics and performs network/formatting work outside RT.
+- The transitional standalone command queue applies a 64-command FIFO prefix per callback; submissions report accepted/full/disconnected and OSC success responses require acceptance.
 - Factories and project/sample decoding already live on NRT paths by architecture.
 - Offline golden renders provide end-to-end behavioral regression evidence, though they do not prove allocation safety.
 

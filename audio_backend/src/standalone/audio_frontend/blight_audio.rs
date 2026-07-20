@@ -1,4 +1,4 @@
-use super::BlightAudio;
+use super::{BlightAudio, CommandSubmissionStatus};
 use crate::{
     AudioProcessor, Command, EffectFactory, InstrumentFactory, MeterState, ResourceManager,
     VoiceFactory,
@@ -114,12 +114,13 @@ impl BlightAudio {
         })
     }
 
-    /// Public method to send a command to the audio thread.
-    pub fn send_command(&mut self, command: Command) {
-        if self.command_tx.try_push(command).is_err() {
-            // In a real app, handle this more gracefully (e.g., log, drop command).
-            eprintln!("Command queue is full. Command dropped.");
-        }
+    /// Attempts to submit one command without blocking.
+    ///
+    /// A rejected command remains on this non-real-time thread and is dropped
+    /// here. Callers that acknowledge state changes must do so only when this
+    /// returns [`CommandSubmissionStatus::Accepted`].
+    pub fn send_command(&mut self, command: Command) -> CommandSubmissionStatus {
+        try_send_command(&mut self.command_tx, command)
     }
 
     pub fn get_voice_factory(&self) -> &VoiceFactory {
@@ -142,5 +143,61 @@ impl BlightAudio {
     /// `Arc` bump); callers read levels via [`MeterState::take_levels`].
     pub fn meter_state(&self) -> Arc<MeterState> {
         self.meter.clone()
+    }
+}
+
+fn try_send_command(
+    command_tx: &mut ringbuf::HeapProd<Command>,
+    command: Command,
+) -> CommandSubmissionStatus {
+    if !command_tx.read_is_held() {
+        return CommandSubmissionStatus::Disconnected;
+    }
+
+    match command_tx.try_push(command) {
+        Ok(()) => CommandSubmissionStatus::Accepted,
+        Err(_command) if !command_tx.read_is_held() => CommandSubmissionStatus::Disconnected,
+        Err(_command) => CommandSubmissionStatus::Full,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::TransportCmd;
+
+    fn command() -> Command {
+        TransportCmd::PlayLastSong.into()
+    }
+
+    #[test]
+    fn command_submission_reports_saturation_recovery_and_disconnection() {
+        let rb = SharedRb::<Heap<Command>>::new(2);
+        let (mut command_tx, mut command_rx) = rb.split();
+
+        assert_eq!(
+            try_send_command(&mut command_tx, command()),
+            CommandSubmissionStatus::Accepted
+        );
+        assert_eq!(
+            try_send_command(&mut command_tx, command()),
+            CommandSubmissionStatus::Accepted
+        );
+        assert_eq!(
+            try_send_command(&mut command_tx, command()),
+            CommandSubmissionStatus::Full
+        );
+
+        assert!(command_rx.try_pop().is_some());
+        assert_eq!(
+            try_send_command(&mut command_tx, command()),
+            CommandSubmissionStatus::Accepted
+        );
+
+        drop(command_rx);
+        assert_eq!(
+            try_send_command(&mut command_tx, command()),
+            CommandSubmissionStatus::Disconnected
+        );
     }
 }

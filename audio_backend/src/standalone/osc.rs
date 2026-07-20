@@ -6,8 +6,8 @@ use std::time::Duration;
 use tokio::net::UdpSocket;
 
 use crate::{
-    id::EffectId, load_song_file_into_audio, BlightAudio, Command, MeterLevels, MeterState,
-    MixerCmd, TransportCmd,
+    id::EffectId, load_song_file_into_audio, BlightAudio, Command, CommandSubmissionStatus,
+    MeterLevels, MeterState, MixerCmd, TransportCmd,
 };
 
 pub const OSC_LISTEN_ADDR: &str = "127.0.0.1:9000";
@@ -37,9 +37,28 @@ pub struct OscServer {
     send_addr: SocketAddr,
 }
 
+struct OscCommand {
+    command: Command,
+    accepted_response: Option<OscPacket>,
+}
+
+impl OscCommand {
+    fn submit(
+        self,
+        submit: impl FnOnce(Command) -> CommandSubmissionStatus,
+    ) -> (CommandSubmissionStatus, Option<OscPacket>) {
+        let status = submit(self.command);
+        let response = status
+            .is_accepted()
+            .then_some(self.accepted_response)
+            .flatten();
+        (status, response)
+    }
+}
+
 #[derive(Default)]
 struct OscDispatch {
-    commands: Vec<Command>,
+    commands: Vec<OscCommand>,
     song_loads: Vec<PathBuf>,
     responses: Vec<OscPacket>,
 }
@@ -134,9 +153,22 @@ impl OscServer {
             }
         }
 
-        for command in dispatch.commands {
+        for submission in dispatch.commands {
             log::debug!("dispatching OSC-derived command");
-            audio.send_command(command);
+            let (status, accepted_response) =
+                submission.submit(|command| audio.send_command(command));
+            if let Some(response) = accepted_response {
+                responses.push(response);
+            }
+            match status {
+                CommandSubmissionStatus::Accepted => {}
+                CommandSubmissionStatus::Full => {
+                    log::warn!("OSC command rejected: audio command queue is full");
+                }
+                CommandSubmissionStatus::Disconnected => {
+                    log::error!("OSC command rejected: audio callback is disconnected");
+                }
+            }
         }
 
         for response in responses {
@@ -177,7 +209,10 @@ fn handle_message(message: OscMessage) -> OscDispatch {
         "/transport/play" => {
             log::info!("OSC /transport/play -> TransportCmd::PlayLastSong");
             OscDispatch {
-                commands: vec![TransportCmd::PlayLastSong.into()],
+                commands: vec![OscCommand {
+                    command: TransportCmd::PlayLastSong.into(),
+                    accepted_response: None,
+                }],
                 song_loads: Vec::new(),
                 responses: Vec::new(),
             }
@@ -185,7 +220,10 @@ fn handle_message(message: OscMessage) -> OscDispatch {
         "/transport/stop" => {
             log::info!("OSC /transport/stop -> TransportCmd::StopSong");
             OscDispatch {
-                commands: vec![TransportCmd::StopSong.into()],
+                commands: vec![OscCommand {
+                    command: TransportCmd::StopSong.into(),
+                    accepted_response: None,
+                }],
                 song_loads: Vec::new(),
                 responses: Vec::new(),
             }
@@ -236,15 +274,18 @@ fn handle_param_set(message: OscMessage) -> OscDispatch {
                 "OSC /param/set gain {normalized} (norm) -> {db} dB -> MixerCmd::SetMasterEffectParameter"
             );
             OscDispatch {
-                commands: vec![MixerCmd::SetMasterEffectParameter {
-                    effect_id: MASTER_GAIN_EFFECT_ID,
-                    param_index: MASTER_GAIN_PARAM_INDEX,
-                    value: db,
-                }
-                .into()],
+                commands: vec![OscCommand {
+                    command: MixerCmd::SetMasterEffectParameter {
+                        effect_id: MASTER_GAIN_EFFECT_ID,
+                        param_index: MASTER_GAIN_PARAM_INDEX,
+                        value: db,
+                    }
+                    .into(),
+                    // Echo only after the bounded audio queue accepts the value.
+                    accepted_response: Some(param_echo(param_id, normalized)),
+                }],
                 song_loads: Vec::new(),
-                // Echo the normalized value the core accepted (clamped).
-                responses: vec![param_echo(param_id, normalized)],
+                responses: Vec::new(),
             }
         }
         unknown => {
@@ -371,7 +412,7 @@ mod tests {
             effect_id,
             param_index,
             value,
-        }) = &dispatch.commands[0]
+        }) = &dispatch.commands[0].command
         else {
             panic!("expected MixerCmd::SetMasterEffectParameter");
         };
@@ -380,10 +421,40 @@ mod tests {
         // 0.5 linear amplitude ~= -6.02 dB.
         assert!((*value - (-6.0206)).abs() < 1e-3, "got {value}");
 
-        // Echo mirrors the normalized value the core accepted.
-        let (id, echoed) = param_echo_args(&dispatch.responses[0]);
+        // Echo is held until queue submission confirms acceptance.
+        assert!(dispatch.responses.is_empty());
+        let (_, response) = dispatch
+            .commands
+            .into_iter()
+            .next()
+            .unwrap()
+            .submit(|_| CommandSubmissionStatus::Accepted);
+        let response = response.unwrap();
+        let (id, echoed) = param_echo_args(&response);
         assert_eq!(id, "gain");
         assert!((echoed - 0.5).abs() < 1e-6);
+    }
+
+    #[test]
+    fn rejected_param_submission_does_not_release_success_echo() {
+        for status in [
+            CommandSubmissionStatus::Full,
+            CommandSubmissionStatus::Disconnected,
+        ] {
+            let dispatch = dispatch_packet(message(
+                "/param/set",
+                vec![OscType::String("gain".to_string()), OscType::Float(0.5)],
+            ));
+            let (reported_status, response) = dispatch
+                .commands
+                .into_iter()
+                .next()
+                .unwrap()
+                .submit(|_| status);
+
+            assert_eq!(reported_status, status);
+            assert!(response.is_none());
+        }
     }
 
     #[test]
@@ -395,7 +466,7 @@ mod tests {
         ));
 
         let Command::Mixer(MixerCmd::SetMasterEffectParameter { value, .. }) =
-            &dispatch.commands[0]
+            &dispatch.commands[0].command
         else {
             panic!("expected MixerCmd::SetMasterEffectParameter");
         };
@@ -403,7 +474,13 @@ mod tests {
             (*value - 0.0).abs() < 1e-4,
             "unity gain -> 0 dB, got {value}"
         );
-        assert!((param_echo_args(&dispatch.responses[0]).1 - 1.0).abs() < 1e-6);
+        let (_, response) = dispatch
+            .commands
+            .into_iter()
+            .next()
+            .unwrap()
+            .submit(|_| CommandSubmissionStatus::Accepted);
+        assert!((param_echo_args(&response.unwrap()).1 - 1.0).abs() < 1e-6);
     }
 
     #[test]
@@ -413,24 +490,38 @@ mod tests {
             "/param/set",
             vec![OscType::String("gain".to_string()), OscType::Float(2.0)],
         ));
-        let Command::Mixer(MixerCmd::SetMasterEffectParameter { value, .. }) = &high.commands[0]
+        let Command::Mixer(MixerCmd::SetMasterEffectParameter { value, .. }) =
+            &high.commands[0].command
         else {
             panic!("expected MixerCmd::SetMasterEffectParameter");
         };
         assert!((*value - 0.0).abs() < 1e-4);
-        assert!((param_echo_args(&high.responses[0]).1 - 1.0).abs() < 1e-6);
+        let (_, response) = high
+            .commands
+            .into_iter()
+            .next()
+            .unwrap()
+            .submit(|_| CommandSubmissionStatus::Accepted);
+        assert!((param_echo_args(&response.unwrap()).1 - 1.0).abs() < 1e-6);
 
         // Zero (and below) floors to silence.
         let low = dispatch_packet(message(
             "/param/set",
             vec![OscType::String("gain".to_string()), OscType::Float(0.0)],
         ));
-        let Command::Mixer(MixerCmd::SetMasterEffectParameter { value, .. }) = &low.commands[0]
+        let Command::Mixer(MixerCmd::SetMasterEffectParameter { value, .. }) =
+            &low.commands[0].command
         else {
             panic!("expected MixerCmd::SetMasterEffectParameter");
         };
         assert_eq!(*value, GAIN_FLOOR_DB);
-        assert!((param_echo_args(&low.responses[0]).1 - 0.0).abs() < 1e-6);
+        let (_, response) = low
+            .commands
+            .into_iter()
+            .next()
+            .unwrap()
+            .submit(|_| CommandSubmissionStatus::Accepted);
+        assert!((param_echo_args(&response.unwrap()).1 - 0.0).abs() < 1e-6);
     }
 
     #[test]
@@ -438,14 +529,14 @@ mod tests {
         let play_dispatch = dispatch_packet(message("/transport/play", vec![]));
         assert_eq!(play_dispatch.commands.len(), 1);
         assert!(matches!(
-            play_dispatch.commands[0],
+            play_dispatch.commands[0].command,
             Command::Transport(TransportCmd::PlayLastSong)
         ));
 
         let stop_dispatch = dispatch_packet(message("/transport/stop", vec![]));
         assert_eq!(stop_dispatch.commands.len(), 1);
         assert!(matches!(
-            stop_dispatch.commands[0],
+            stop_dispatch.commands[0].command,
             Command::Transport(TransportCmd::StopSong)
         ));
     }
