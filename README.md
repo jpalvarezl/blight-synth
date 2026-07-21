@@ -183,18 +183,30 @@ let instrument = audio
     .get_instrument_factory()
     .create_simple_oscillator(instrument_id, 0.0);
 
-audio.send_command(audio_backend::InstrumentCmd::AddInstrument { instrument }.into());
+audio
+    .send_command(audio_backend::InstrumentCmd::AddInstrument { instrument }.into())
+    .map_err(|(reason, _command)| reason)
+    .unwrap();
 // Current adapter rendering is transport-gated; M1 will separate live rendering from tracker transport.
-audio.send_command(audio_backend::TransportCmd::PlayLastSong.into());
-audio.send_command(
-    audio_backend::InstrumentCmd::NoteOn {
-        instrument_id,
-        note: 60,
-        velocity: 127,
-    }
-    .into(),
-);
-audio.send_command(audio_backend::InstrumentCmd::NoteOff { instrument_id }.into());
+audio
+    .send_command(audio_backend::TransportCmd::PlayLastSong.into())
+    .map_err(|(reason, _command)| reason)
+    .unwrap();
+audio
+    .send_command(
+        audio_backend::InstrumentCmd::NoteOn {
+            instrument_id,
+            note: 60,
+            velocity: 127,
+        }
+        .into(),
+    )
+    .map_err(|(reason, _command)| reason)
+    .unwrap();
+audio
+    .send_command(audio_backend::InstrumentCmd::NoteOff { instrument_id }.into())
+    .map_err(|(reason, _command)| reason)
+    .unwrap();
 ```
 
 Tracker mode (sequencer-driven):
@@ -204,6 +216,12 @@ use std::sync::Arc;
 use audio_backend::{SequencerCmd, TransportCmd};
 let song = Arc::new(sequencer::models::Song::new("My Song"));
 let mut audio = audio_backend::BlightAudio::with_song(song.clone()).unwrap();
-audio.send_command(SequencerCmd::PlaySong { song }.into());
-audio.send_command(TransportCmd::StopSong.into());
+audio
+    .send_command(SequencerCmd::PlaySong { song }.into())
+    .map_err(|(reason, _command)| reason)
+    .unwrap();
+audio
+    .send_command(TransportCmd::StopSong.into())
+    .map_err(|(reason, _command)| reason)
+    .unwrap();
 ```

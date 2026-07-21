@@ -99,9 +99,12 @@ impl AudioManager {
     }
 
     pub fn set_looping(&mut self, enabled: bool) {
-        self.loop_enabled = enabled;
         if let Some(audio) = &mut self.audio {
-            submit_command(audio, TransportCmd::SetLooping { enabled }.into());
+            if submit_command(audio, TransportCmd::SetLooping { enabled }.into()) {
+                self.loop_enabled = enabled;
+            }
+        } else {
+            self.loop_enabled = enabled;
         }
     }
 

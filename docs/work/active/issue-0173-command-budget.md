@@ -65,6 +65,7 @@ Expected paths:
 - `audio_backend/examples/`
 - `tracker_gui/src/audio.rs`
 - `tracker_gui/src/instrument_manager/backend.rs`
+- `README.md`
 - `docs/architecture/realtime-contract.md`
 - `docs/work/active/`
 
@@ -93,6 +94,7 @@ Potential parallel conflicts: issue #175 touches callback logging and malformed-
 - 2026-07-21 — Human review rejected the duplicated status/outcome API. Replaced it with the idiomatic `CommandSubmissionResult` alias (`Result<(), (CommandSubmissionError, Box<Command>)>`), moved testable queue ownership into `CommandSender`, and made production callers handle rejection while examples explicitly discard it. Rejection-only NRT boxing avoids a large `Result` representation without touching RT.
 - 2026-07-21 — Retained the 64-item transitional budget with explicit roadmap ownership: #101/#134 retire the mixed queue in favor of traffic-specific coalescing/event mechanisms.
 - 2026-07-21 — Confirmed `OscCommand` already carries `rosc::OscPacket`; NRT OSC rejection logs intentionally remain available in release per the RT logging contract.
+- 2026-07-21 — Independent revision review approved with no warnings. Applied its useful suggestions: updated README API examples, changed acknowledgement wording to `Ok(())`, and gated tracker loop state on queue acceptance.
 
 ## Verification
 
