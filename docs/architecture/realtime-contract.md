@@ -92,11 +92,11 @@ Instrument/effect/song/routing replacement uses infrequent prepared objects or s
 
 Queue capacity alone is not a callback budget. The RT loop processes at most a documented number of structural/control items per block, then renders. A producer burst cannot consume the complete callback deadline. Remaining work stays queued or is coalesced according to class.
 
-The transitional standalone compatibility queue consumes at most **64 command items per host callback block**, in FIFO order, before rendering. A backlog remains queued for later blocks, including when one callback is split into multiple internal 4096-frame render chunks. This is an item-count bound; worst-case command cost still depends on the prepared-state, capacity, and deferred-reclamation work owned by #137/#174. The initial budget is intentionally independent of queue capacity and does not define the future timestamped-event budget; #134 separately owns event capacity and timing.
+The transitional standalone compatibility queue consumes at most **64 command items per host callback block**, in FIFO order, before rendering. A backlog remains queued for later blocks, including when one callback is split into multiple internal 4096-frame render chunks. This is an item-count bound; worst-case command cost still depends on the prepared-state, capacity, and deferred-reclamation work owned by #137/#174. The initial budget is intentionally independent of queue capacity and does not define the future timestamped-event budget. It will be retired with this mixed compatibility queue when #101/#134 introduce coalesced continuous values and bounded timestamped events with traffic-specific overload behavior.
 
 ## Backpressure and overload
 
-- `BlightAudio::send_command` returns `CommandSubmission::{Accepted, Full(Command), Disconnected(Command)}` without blocking. Rejection returns the original owned command so NRT can retry, defer, or deliberately discard prepared state; `CommandSubmission::status` exposes the lightweight status.
+- `BlightAudio::send_command` returns `CommandSubmissionResult`, an alias for `Result<(), (CommandSubmissionError, Box<Command>)>`, without blocking. `Ok(())` means accepted; `CommandSubmissionError::{Full, Disconnected}` reports rejection and returns the original owned command so NRT can retry, defer, or deliberately discard prepared state. Boxing occurs only on the rejecting NRT path and keeps the result representation small without adding callback-side allocation.
 - State-changing protocol acknowledgements are emitted only after `Accepted`, never after a `Full` or `Disconnected` rejection.
 - Continuous values coalesce by contract rather than filling the structural queue.
 - Structural updates are not silently dropped.
@@ -147,7 +147,7 @@ A future FFI wrapper catches panics outside the RT entry and must never permit u
 - Engine instrument render order uses a sorted preallocated slot vector.
 - Voice effect batches use fixed-capacity `ArrayVec` containers.
 - Meter handoff uses nonblocking atomics and performs network/formatting work outside RT.
-- The transitional standalone command queue applies a 64-command FIFO prefix per callback; submissions report accepted/full/disconnected, return rejected commands to NRT, and require acceptance for OSC success responses.
+- The transitional standalone command queue applies a 64-command FIFO prefix per callback; submissions return an idiomatic result plus rejected commands to NRT, and require acceptance for OSC success responses.
 - Factories and project/sample decoding already live on NRT paths by architecture.
 - Offline golden renders provide end-to-end behavioral regression evidence, though they do not prove allocation safety.
 

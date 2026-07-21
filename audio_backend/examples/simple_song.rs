@@ -10,7 +10,7 @@ pub fn main() {
     let bass_instrument_id: InstrumentId = 1;
     match &mut BlightAudio::with_song(Arc::new(load_song(lead_instrument_id, bass_instrument_id))) {
         Ok(audio) => {
-            audio.send_command(
+            let _ = audio.send_command(
                 audio_backend::InstrumentCmd::AddInstrument {
                     instrument: audio
                         .get_instrument_factory()
@@ -19,7 +19,7 @@ pub fn main() {
                 .into(),
             );
 
-            audio.send_command(
+            let _ = audio.send_command(
                 audio_backend::InstrumentCmd::AddInstrument {
                     instrument: audio
                         .get_instrument_factory()
@@ -31,7 +31,7 @@ pub fn main() {
                 }
                 .into(),
             );
-            audio.send_command(audio_backend::TransportCmd::PlayLastSong.into());
+            let _ = audio.send_command(audio_backend::TransportCmd::PlayLastSong.into());
             thread::sleep(Duration::from_millis(20000));
         }
         Err(e) => {

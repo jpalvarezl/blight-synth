@@ -16,7 +16,6 @@ branch: issue/173-command-budget
 - Owner: jpalvarezl
 - Status: in-progress
 - Branch: `issue/173-command-budget`
-- Worktree: `/Users/jpalvarezl/code/blight-173-command-budget`
 - Base branch/SHA: `origin/main` / `f9e02d6`
 - Head SHA: see `issue/173-command-budget` branch head
 - Last handoff: 2026-07-20
@@ -62,6 +61,10 @@ Expected paths:
 - `audio_backend/src/standalone/audio_frontend/`
 - `audio_backend/src/standalone/osc.rs`
 - `audio_backend/src/song_hydration.rs`
+- `audio_backend/src/bin/dsp-core.rs`
+- `audio_backend/examples/`
+- `tracker_gui/src/audio.rs`
+- `tracker_gui/src/instrument_manager/backend.rs`
 - `docs/architecture/realtime-contract.md`
 - `docs/work/active/`
 
@@ -87,12 +90,15 @@ Potential parallel conflicts: issue #175 touches callback logging and malformed-
 - 2026-07-20 — Independent diff review approved the change with no blocking findings; partial hydration and ignored GUI statuses remain documented follow-up risks.
 - 2026-07-20 — PR review correctly noted that status-only rejection consumed non-Clone commands. `CommandSubmission::Full/Disconnected` now return the original command so NRT callers can retry or defer it.
 - 2026-07-20 — Review fix pushed as `a15bf0c`, review thread resolved, and both hosted CI jobs passed.
+- 2026-07-21 — Human review rejected the duplicated status/outcome API. Replaced it with the idiomatic `CommandSubmissionResult` alias (`Result<(), (CommandSubmissionError, Box<Command>)>`), moved testable queue ownership into `CommandSender`, and made production callers handle rejection while examples explicitly discard it. Rejection-only NRT boxing avoids a large `Result` representation without touching RT.
+- 2026-07-21 — Retained the 64-item transitional budget with explicit roadmap ownership: #101/#134 retire the mixed queue in favor of traffic-specific coalescing/event mechanisms.
+- 2026-07-21 — Confirmed `OscCommand` already carries `rosc::OscPacket`; NRT OSC rejection logs intentionally remain available in release per the RT logging contract.
 
 ## Verification
 
 - [x] `cargo fmt --all -- --check`
 - [x] `cargo clippy --workspace --all-targets -- -D warnings`
-- [x] `cargo test --workspace --all-targets` — 60 tests plus examples
+- [x] `cargo test --workspace --all-targets` — 61 tests plus examples
 - [x] `cargo clippy -p audio_backend --no-default-features --all-targets -- -D warnings`
 - [x] `cargo test -p audio_backend --no-default-features --all-targets` — 10 tests plus examples
 - [x] `python3 scripts/check_rt_logging.py`
@@ -103,8 +109,8 @@ Potential parallel conflicts: issue #175 touches callback logging and malformed-
 
 ## Handoff
 
-- Completed: 64-item callback budget, observable and retryable queue rejection, accepted-only OSC acknowledgements, hydration rejection propagation, focused stress/recovery tests, local validation, and independent diff review.
-- Remaining: PR/human review and merge.
+- Completed: 64-item callback budget, idiomatic observable/retryable queue rejection, accepted-only OSC acknowledgements, hydration rejection propagation, focused stress/recovery tests, and complete local validation of the human-review revision.
+- Remaining: re-request Copilot review, address applicable findings, run hosted CI, and obtain final human review.
 - Known failures/risks: the compatibility queue still combines traffic classes; sustained traffic has no priority recovery lane. Multi-command hydration can be partially enqueued before a later rejection, although OSC reports an error rather than false success; atomic prepared-state installation remains with #174/#138.
-- Next smallest action: merge PR #180 after final review.
+- Next smallest action: independently review and push the human-review revision, then re-request Copilot review.
 - Files a new agent should read next: this packet and the five Read first entries above.

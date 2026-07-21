@@ -7,7 +7,7 @@ pub fn main() {
         Ok(audio) => {
             println!("BlightAudio initialized successfully!");
             let stereo_gain_id = 0;
-            audio.send_command(
+            let _ = audio.send_command(
                 MixerCmd::AddMasterEffect {
                     effect: audio
                         .get_effect_factory()
@@ -17,7 +17,7 @@ pub fn main() {
             );
 
             let inst_id: InstrumentId = 1;
-            audio.send_command(
+            let _ = audio.send_command(
                 InstrumentCmd::AddInstrument {
                     instrument: audio
                         .get_instrument_factory()
@@ -25,9 +25,9 @@ pub fn main() {
                 }
                 .into(),
             );
-            audio.send_command(audio_backend::TransportCmd::PlayLastSong.into());
+            let _ = audio.send_command(audio_backend::TransportCmd::PlayLastSong.into());
 
-            audio.send_command(
+            let _ = audio.send_command(
                 InstrumentCmd::NoteOn {
                     instrument_id: inst_id,
                     note: 60,
@@ -38,7 +38,7 @@ pub fn main() {
 
             // Play a very short note - 200ms
             thread::sleep(std::time::Duration::from_millis(200));
-            audio.send_command(
+            let _ = audio.send_command(
                 InstrumentCmd::NoteOff {
                     instrument_id: inst_id,
                 }
@@ -48,7 +48,7 @@ pub fn main() {
             // Wait to hear the release decay
             thread::sleep(std::time::Duration::from_millis(1000));
 
-            audio.send_command(
+            let _ = audio.send_command(
                 MixerCmd::SetMasterEffectParameter {
                     effect_id: stereo_gain_id,
                     param_index: 0,
@@ -65,9 +65,9 @@ pub fn main() {
             let i3 = audio
                 .get_instrument_factory()
                 .create_simple_oscillator(inst3, 0.0);
-            audio.send_command(InstrumentCmd::AddInstrument { instrument: i2 }.into());
-            audio.send_command(InstrumentCmd::AddInstrument { instrument: i3 }.into());
-            audio.send_command(
+            let _ = audio.send_command(InstrumentCmd::AddInstrument { instrument: i2 }.into());
+            let _ = audio.send_command(InstrumentCmd::AddInstrument { instrument: i3 }.into());
+            let _ = audio.send_command(
                 InstrumentCmd::NoteOn {
                     instrument_id: inst_id,
                     note: 60,
@@ -75,7 +75,7 @@ pub fn main() {
                 }
                 .into(),
             );
-            audio.send_command(
+            let _ = audio.send_command(
                 InstrumentCmd::NoteOn {
                     instrument_id: inst2,
                     note: 64,
@@ -83,7 +83,7 @@ pub fn main() {
                 }
                 .into(),
             );
-            audio.send_command(
+            let _ = audio.send_command(
                 InstrumentCmd::NoteOn {
                     instrument_id: inst3,
                     note: 67,
@@ -95,19 +95,19 @@ pub fn main() {
             thread::sleep(std::time::Duration::from_millis(500));
 
             // Stop all notes
-            audio.send_command(
+            let _ = audio.send_command(
                 InstrumentCmd::NoteOff {
                     instrument_id: inst_id,
                 }
                 .into(),
             );
-            audio.send_command(
+            let _ = audio.send_command(
                 InstrumentCmd::NoteOff {
                     instrument_id: inst2,
                 }
                 .into(),
             );
-            audio.send_command(
+            let _ = audio.send_command(
                 InstrumentCmd::NoteOff {
                     instrument_id: inst3,
                 }

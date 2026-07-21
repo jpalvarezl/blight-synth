@@ -29,12 +29,12 @@ fn main() -> Result<()> {
     );
 
     log::info!("sending PlayLastSong");
-    audio.send_command(TransportCmd::PlayLastSong.into());
+    let _ = audio.send_command(TransportCmd::PlayLastSong.into());
     println!("Playing for {duration_seconds}s...");
     thread::sleep(Duration::from_secs(duration_seconds));
 
     log::info!("sending StopSong");
-    audio.send_command(TransportCmd::StopSong.into());
+    let _ = audio.send_command(TransportCmd::StopSong.into());
     println!("Stopped.");
 
     Ok(())

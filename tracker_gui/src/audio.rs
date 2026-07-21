@@ -1,5 +1,5 @@
 use crate::instrument_manager::backend::hydrate_instrument;
-use audio_backend::{BlightAudio, SequencerCmd, TransportCmd};
+use audio_backend::{BlightAudio, Command, CommandSubmissionError, SequencerCmd, TransportCmd};
 use sequencer::models::Song;
 use std::sync::Arc;
 
@@ -24,7 +24,8 @@ impl AudioManager {
                 Ok(mut audio) => {
                     self.hydrate_from_song(&mut audio, song);
                     // Ensure backend loop state matches UI preference
-                    audio.send_command(
+                    submit_command(
+                        &mut audio,
                         TransportCmd::SetLooping {
                             enabled: self.loop_enabled,
                         }
@@ -45,7 +46,8 @@ impl AudioManager {
             Ok(mut audio) => {
                 self.hydrate_from_song(&mut audio, song);
                 // Keep loop state in sync after reset
-                audio.send_command(
+                submit_command(
+                    &mut audio,
                     TransportCmd::SetLooping {
                         enabled: self.loop_enabled,
                     }
@@ -65,20 +67,24 @@ impl AudioManager {
         self.init_audio(song);
 
         if let Some(audio) = &mut self.audio {
-            audio.send_command(
+            let accepted = submit_command(
+                audio,
                 SequencerCmd::PlaySong {
                     song: Arc::new(song.clone()),
                 }
                 .into(),
             );
-            self.is_playing = true;
-            log::info!("Playing song: {}", song.name);
+            if accepted {
+                self.is_playing = true;
+                log::info!("Playing song: {}", song.name);
+            }
         }
     }
 
     pub fn stop_song(&mut self) {
-        if let Some(audio) = &mut self.audio {
-            audio.send_command(TransportCmd::StopSong.into());
+        if let Some(audio) = &mut self.audio
+            && submit_command(audio, TransportCmd::StopSong.into())
+        {
             self.is_playing = false;
             log::info!("Stopped song");
         }
@@ -95,7 +101,7 @@ impl AudioManager {
     pub fn set_looping(&mut self, enabled: bool) {
         self.loop_enabled = enabled;
         if let Some(audio) = &mut self.audio {
-            audio.send_command(TransportCmd::SetLooping { enabled }.into());
+            submit_command(audio, TransportCmd::SetLooping { enabled }.into());
         }
     }
 
@@ -109,7 +115,7 @@ impl AudioManager {
     /// every update flows through the same queue.
     pub fn dispatch(&mut self, cmd: impl Into<audio_backend::Command>) {
         if let Some(audio) = &mut self.audio {
-            audio.send_command(cmd.into());
+            submit_command(audio, cmd.into());
         }
     }
 
@@ -119,6 +125,20 @@ impl AudioManager {
     pub fn hydrate_from_song(&self, audio: &mut BlightAudio, song: &Song) {
         for inst in &song.instrument_bank {
             hydrate_instrument(audio, inst.id as u8, &inst.data);
+        }
+    }
+}
+
+pub(crate) fn submit_command(audio: &mut BlightAudio, command: Command) -> bool {
+    match audio.send_command(command) {
+        Ok(()) => true,
+        Err((CommandSubmissionError::Full, _command)) => {
+            log::warn!("audio command rejected: command queue is full");
+            false
+        }
+        Err((CommandSubmissionError::Disconnected, _command)) => {
+            log::error!("audio command rejected: audio callback is disconnected");
+            false
         }
     }
 }

@@ -6,8 +6,8 @@ use std::time::Duration;
 use tokio::net::UdpSocket;
 
 use crate::{
-    id::EffectId, load_song_file_into_audio, BlightAudio, Command, CommandSubmission,
-    CommandSubmissionStatus, MeterLevels, MeterState, MixerCmd, TransportCmd,
+    id::EffectId, load_song_file_into_audio, BlightAudio, Command, CommandSubmissionError,
+    CommandSubmissionResult, MeterLevels, MeterState, MixerCmd, TransportCmd,
 };
 
 pub const OSC_LISTEN_ADDR: &str = "127.0.0.1:9000";
@@ -45,15 +45,9 @@ struct OscCommand {
 impl OscCommand {
     fn submit(
         self,
-        submit: impl FnOnce(Command) -> CommandSubmission,
-    ) -> (CommandSubmissionStatus, Option<OscPacket>) {
-        let outcome = submit(self.command);
-        let status = outcome.status();
-        let response = outcome
-            .is_accepted()
-            .then_some(self.accepted_response)
-            .flatten();
-        (status, response)
+        submit: impl FnOnce(Command) -> CommandSubmissionResult,
+    ) -> Result<Option<OscPacket>, (CommandSubmissionError, Box<Command>)> {
+        submit(self.command).map(|()| self.accepted_response)
     }
 }
 
@@ -156,17 +150,13 @@ impl OscServer {
 
         for submission in dispatch.commands {
             log::debug!("dispatching OSC-derived command");
-            let (status, accepted_response) =
-                submission.submit(|command| audio.send_command(command));
-            if let Some(response) = accepted_response {
-                responses.push(response);
-            }
-            match status {
-                CommandSubmissionStatus::Accepted => {}
-                CommandSubmissionStatus::Full => {
+            match submission.submit(|command| audio.send_command(command)) {
+                Ok(Some(response)) => responses.push(response),
+                Ok(None) => {}
+                Err((CommandSubmissionError::Full, _command)) => {
                     log::warn!("OSC command rejected: audio command queue is full");
                 }
-                CommandSubmissionStatus::Disconnected => {
+                Err((CommandSubmissionError::Disconnected, _command)) => {
                     log::error!("OSC command rejected: audio callback is disconnected");
                 }
             }
@@ -380,6 +370,14 @@ mod tests {
         (param_id, *value)
     }
 
+    fn accepted_response(command: OscCommand) -> OscPacket {
+        match command.submit(|_| Ok(())) {
+            Ok(Some(response)) => response,
+            Ok(None) => panic!("expected an acceptance response"),
+            Err(_) => panic!("expected command acceptance"),
+        }
+    }
+
     #[test]
     fn song_load_records_path_for_runtime_loading() {
         let dispatch = dispatch_packet(message(
@@ -424,13 +422,7 @@ mod tests {
 
         // Echo is held until queue submission confirms acceptance.
         assert!(dispatch.responses.is_empty());
-        let (_, response) = dispatch
-            .commands
-            .into_iter()
-            .next()
-            .unwrap()
-            .submit(|_| CommandSubmission::Accepted);
-        let response = response.unwrap();
+        let response = accepted_response(dispatch.commands.into_iter().next().unwrap());
         let (id, echoed) = param_echo_args(&response);
         assert_eq!(id, "gain");
         assert!((echoed - 0.5).abs() < 1e-6);
@@ -438,30 +430,25 @@ mod tests {
 
     #[test]
     fn rejected_param_submission_does_not_release_success_echo() {
-        for status in [
-            CommandSubmissionStatus::Full,
-            CommandSubmissionStatus::Disconnected,
+        for reason in [
+            CommandSubmissionError::Full,
+            CommandSubmissionError::Disconnected,
         ] {
             let dispatch = dispatch_packet(message(
                 "/param/set",
                 vec![OscType::String("gain".to_string()), OscType::Float(0.5)],
             ));
-            let (reported_status, response) =
-                dispatch
-                    .commands
-                    .into_iter()
-                    .next()
-                    .unwrap()
-                    .submit(|command| match status {
-                        CommandSubmissionStatus::Full => CommandSubmission::Full(command),
-                        CommandSubmissionStatus::Disconnected => {
-                            CommandSubmission::Disconnected(command)
-                        }
-                        CommandSubmissionStatus::Accepted => unreachable!("test covers rejections"),
-                    });
+            let result = dispatch
+                .commands
+                .into_iter()
+                .next()
+                .unwrap()
+                .submit(|command| Err((reason, Box::new(command))));
 
-            assert_eq!(reported_status, status);
-            assert!(response.is_none());
+            match result {
+                Err((reported_reason, _command)) => assert_eq!(reported_reason, reason),
+                Ok(_) => panic!("a rejected command must not release its response"),
+            }
         }
     }
 
@@ -482,13 +469,8 @@ mod tests {
             (*value - 0.0).abs() < 1e-4,
             "unity gain -> 0 dB, got {value}"
         );
-        let (_, response) = dispatch
-            .commands
-            .into_iter()
-            .next()
-            .unwrap()
-            .submit(|_| CommandSubmission::Accepted);
-        assert!((param_echo_args(&response.unwrap()).1 - 1.0).abs() < 1e-6);
+        let response = accepted_response(dispatch.commands.into_iter().next().unwrap());
+        assert!((param_echo_args(&response).1 - 1.0).abs() < 1e-6);
     }
 
     #[test]
@@ -504,13 +486,8 @@ mod tests {
             panic!("expected MixerCmd::SetMasterEffectParameter");
         };
         assert!((*value - 0.0).abs() < 1e-4);
-        let (_, response) = high
-            .commands
-            .into_iter()
-            .next()
-            .unwrap()
-            .submit(|_| CommandSubmission::Accepted);
-        assert!((param_echo_args(&response.unwrap()).1 - 1.0).abs() < 1e-6);
+        let response = accepted_response(high.commands.into_iter().next().unwrap());
+        assert!((param_echo_args(&response).1 - 1.0).abs() < 1e-6);
 
         // Zero (and below) floors to silence.
         let low = dispatch_packet(message(
@@ -523,13 +500,8 @@ mod tests {
             panic!("expected MixerCmd::SetMasterEffectParameter");
         };
         assert_eq!(*value, GAIN_FLOOR_DB);
-        let (_, response) = low
-            .commands
-            .into_iter()
-            .next()
-            .unwrap()
-            .submit(|_| CommandSubmission::Accepted);
-        assert!((param_echo_args(&response.unwrap()).1 - 0.0).abs() < 1e-6);
+        let response = accepted_response(low.commands.into_iter().next().unwrap());
+        assert!((param_echo_args(&response).1 - 0.0).abs() < 1e-6);
     }
 
     #[test]

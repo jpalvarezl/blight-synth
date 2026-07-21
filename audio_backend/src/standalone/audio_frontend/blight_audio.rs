@@ -1,4 +1,4 @@
-use super::{BlightAudio, CommandSubmission};
+use super::{BlightAudio, CommandSender, CommandSubmissionResult};
 use crate::{
     AudioProcessor, Command, EffectFactory, InstrumentFactory, MeterState, ResourceManager,
     VoiceFactory,
@@ -26,6 +26,8 @@ impl BlightAudio {
         let rb = SharedRb::<Heap<Command>>::new(1024);
         let (command_tx, command_rx) = rb.split();
 
+        let command_sender = CommandSender::new(command_tx);
+
         // Create the real-time processor and move it into the audio thread.
         let meter = Arc::new(MeterState::new());
         let mut audio_processor =
@@ -49,7 +51,7 @@ impl BlightAudio {
         stream.play()?;
 
         Ok(BlightAudio {
-            command_tx,
+            command_sender,
             instrument_factory,
             voice_factory,
             resource_manager,
@@ -76,6 +78,8 @@ impl BlightAudio {
         // Create the SPSC ring buffer for commands using a heap-allocated buffer.
         let rb = SharedRb::<Heap<Command>>::new(1024);
         let (command_tx, command_rx) = rb.split();
+
+        let command_sender = CommandSender::new(command_tx);
 
         // Create the real-time processor seeded with a Song.
         let meter = Arc::new(MeterState::new());
@@ -104,7 +108,7 @@ impl BlightAudio {
         stream.play()?;
 
         Ok(BlightAudio {
-            command_tx,
+            command_sender,
             instrument_factory,
             voice_factory,
             resource_manager,
@@ -116,12 +120,11 @@ impl BlightAudio {
 
     /// Attempts to submit one command without blocking.
     ///
-    /// A rejected command is returned in [`CommandSubmission::Full`] or
-    /// [`CommandSubmission::Disconnected`] so this non-real-time caller can
-    /// retry or defer it. Callers that acknowledge state changes must do so
-    /// only when this returns [`CommandSubmission::Accepted`].
-    pub fn send_command(&mut self, command: Command) -> CommandSubmission {
-        try_send_command(&mut self.command_tx, command)
+    /// A rejected command is returned with its failure reason so this
+    /// non-real-time caller can retry or defer it. Callers that acknowledge
+    /// state changes must do so only after `Ok(())`.
+    pub fn send_command(&mut self, command: Command) -> CommandSubmissionResult {
+        self.command_sender.send(command)
     }
 
     pub fn get_voice_factory(&self) -> &VoiceFactory {
@@ -144,68 +147,5 @@ impl BlightAudio {
     /// `Arc` bump); callers read levels via [`MeterState::take_levels`].
     pub fn meter_state(&self) -> Arc<MeterState> {
         self.meter.clone()
-    }
-}
-
-fn try_send_command(
-    command_tx: &mut ringbuf::HeapProd<Command>,
-    command: Command,
-) -> CommandSubmission {
-    if !command_tx.read_is_held() {
-        return CommandSubmission::Disconnected(command);
-    }
-
-    match command_tx.try_push(command) {
-        Ok(()) => CommandSubmission::Accepted,
-        Err(command) if !command_tx.read_is_held() => CommandSubmission::Disconnected(command),
-        Err(command) => CommandSubmission::Full(command),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::TransportCmd;
-
-    fn command() -> Command {
-        TransportCmd::PlayLastSong.into()
-    }
-
-    #[test]
-    fn command_submission_reports_saturation_recovery_and_disconnection() {
-        let rb = SharedRb::<Heap<Command>>::new(2);
-        let (mut command_tx, mut command_rx) = rb.split();
-
-        assert!(matches!(
-            try_send_command(&mut command_tx, command()),
-            CommandSubmission::Accepted
-        ));
-        assert!(matches!(
-            try_send_command(&mut command_tx, command()),
-            CommandSubmission::Accepted
-        ));
-        let full = try_send_command(&mut command_tx, command());
-        assert!(matches!(full, CommandSubmission::Full(_)));
-        let rejected_command = full
-            .into_rejected_command()
-            .expect("full submission returns the command");
-        assert!(matches!(
-            &rejected_command,
-            Command::Transport(TransportCmd::PlayLastSong)
-        ));
-
-        assert!(command_rx.try_pop().is_some());
-        assert!(matches!(
-            try_send_command(&mut command_tx, rejected_command),
-            CommandSubmission::Accepted
-        ));
-
-        drop(command_rx);
-        let disconnected = try_send_command(&mut command_tx, command());
-        assert!(matches!(disconnected, CommandSubmission::Disconnected(_)));
-        assert!(matches!(
-            disconnected.into_rejected_command(),
-            Some(Command::Transport(TransportCmd::PlayLastSong))
-        ));
     }
 }
