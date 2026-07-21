@@ -97,6 +97,7 @@ Potential parallel conflicts: issue #175 touches callback logging and malformed-
 - 2026-07-21 — Independent revision review approved with no warnings. Applied its useful suggestions: updated README API examples, changed acknowledgement wording to `Ok(())`, and gated tracker loop state on queue acceptance.
 - 2026-07-21 — Re-requested Copilot review at `d0a16e1`; it reviewed all 23 files with no published comments. Applied its sensible low-confidence suggestions by stopping tracker hydration/envelope/effect batches after the first rejection.
 - 2026-07-21 — Re-requested Copilot review again at `4667776`; applied both findings by lowering burst-prone GUI `Full` logging to debug and adding actionable README submission failure messages.
+- 2026-07-21 — Final revision `b95b3af` has no unresolved review threads; both hosted CI jobs passed.
 
 ## Verification
 
@@ -113,8 +114,8 @@ Potential parallel conflicts: issue #175 touches callback logging and malformed-
 
 ## Handoff
 
-- Completed: 64-item callback budget, idiomatic observable/retryable queue rejection, accepted-only OSC acknowledgements, hydration rejection propagation, focused stress/recovery tests, and complete local validation of the human-review revision.
-- Remaining: re-request Copilot review, address applicable findings, run hosted CI, and obtain final human review.
+- Completed: 64-item callback budget, idiomatic observable/retryable queue rejection, accepted-only OSC acknowledgements, hydration rejection propagation, focused stress/recovery tests, complete local/hosted validation, resolved human feedback, and two requested Copilot review passes with applicable findings addressed.
+- Remaining: final human review and merge.
 - Known failures/risks: the compatibility queue still combines traffic classes; sustained traffic has no priority recovery lane. Multi-command hydration can be partially enqueued before a later rejection, although OSC reports an error rather than false success; atomic prepared-state installation remains with #174/#138.
-- Next smallest action: independently review and push the human-review revision, then re-request Copilot review.
+- Next smallest action: merge PR #180 after final human approval.
 - Files a new agent should read next: this packet and the five Read first entries above.
