@@ -186,12 +186,12 @@ let instrument = audio
 audio
     .send_command(audio_backend::InstrumentCmd::AddInstrument { instrument }.into())
     .map_err(|(reason, _command)| reason)
-    .unwrap();
+    .expect("failed to queue instrument creation");
 // Current adapter rendering is transport-gated; M1 will separate live rendering from tracker transport.
 audio
     .send_command(audio_backend::TransportCmd::PlayLastSong.into())
     .map_err(|(reason, _command)| reason)
-    .unwrap();
+    .expect("failed to queue transport start");
 audio
     .send_command(
         audio_backend::InstrumentCmd::NoteOn {
@@ -202,11 +202,11 @@ audio
         .into(),
     )
     .map_err(|(reason, _command)| reason)
-    .unwrap();
+    .expect("failed to queue note-on");
 audio
     .send_command(audio_backend::InstrumentCmd::NoteOff { instrument_id }.into())
     .map_err(|(reason, _command)| reason)
-    .unwrap();
+    .expect("failed to queue note-off");
 ```
 
 Tracker mode (sequencer-driven):
@@ -219,9 +219,9 @@ let mut audio = audio_backend::BlightAudio::with_song(song.clone()).unwrap();
 audio
     .send_command(SequencerCmd::PlaySong { song }.into())
     .map_err(|(reason, _command)| reason)
-    .unwrap();
+    .expect("failed to queue song playback");
 audio
     .send_command(TransportCmd::StopSong.into())
     .map_err(|(reason, _command)| reason)
-    .unwrap();
+    .expect("failed to queue transport stop");
 ```

@@ -136,7 +136,7 @@ pub(crate) fn submit_command(audio: &mut BlightAudio, command: Command) -> bool 
     match audio.send_command(command) {
         Ok(()) => true,
         Err((CommandSubmissionError::Full, _command)) => {
-            log::warn!("audio command rejected: command queue is full");
+            log::debug!("audio command rejected: command queue is full");
             false
         }
         Err((CommandSubmissionError::Disconnected, _command)) => {
