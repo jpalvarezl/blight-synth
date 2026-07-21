@@ -95,6 +95,7 @@ Potential parallel conflicts: issue #175 touches callback logging and malformed-
 - 2026-07-21 — Retained the 64-item transitional budget with explicit roadmap ownership: #101/#134 retire the mixed queue in favor of traffic-specific coalescing/event mechanisms.
 - 2026-07-21 — Confirmed `OscCommand` already carries `rosc::OscPacket`; NRT OSC rejection logs intentionally remain available in release per the RT logging contract.
 - 2026-07-21 — Independent revision review approved with no warnings. Applied its useful suggestions: updated README API examples, changed acknowledgement wording to `Ok(())`, and gated tracker loop state on queue acceptance.
+- 2026-07-21 — Re-requested Copilot review at `d0a16e1`; it reviewed all 23 files with no published comments. Applied its sensible low-confidence suggestions by stopping tracker hydration/envelope/effect batches after the first rejection.
 
 ## Verification
 
