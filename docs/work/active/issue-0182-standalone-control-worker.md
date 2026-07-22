@@ -80,7 +80,7 @@ Potential parallel conflicts: #181 may establish a related tracker-side worker b
 - [x] Preserve strict FIFO and accepted-only protocol responses.
 - [x] Add hardware-free saturation, ordering, disconnection, and shutdown tests.
 - [x] Run the complete local validation matrix.
-- [ ] Run independent review and address findings.
+- [x] Request Copilot review and address all findings.
 
 ## Progress and decisions
 
@@ -92,6 +92,7 @@ Potential parallel conflicts: #181 may establish a related tracker-side worker b
 - 2026-07-22 — Song loads are parsed/prepared entirely on the worker into one ordered load/hydration batch. `/song/loaded` and parameter echoes are emitted only after every associated command reaches the RT ring.
 - 2026-07-22 — Shutdown uses an atomic cancellation flag plus channel close; pending commands are destroyed on the NRT worker, and stalled RT capacity cannot prevent join. An RAII running guard also surfaces panic/disconnection exits to the Tokio loop.
 - 2026-07-22 — The bounded ingress distinguishes Full from Disconnected and returns unaccepted requests; focused tests cover ingress saturation in addition to RT-ring saturation.
+- 2026-07-22 — PR #183 Copilot review covered all 11 changed files; both findings (worker-owned master-gain documentation and task-index freshness) were applied.
 
 ## Verification
 
@@ -108,7 +109,7 @@ Potential parallel conflicts: #181 may establish a related tracker-side worker b
 ## Handoff
 
 - Completed: dedicated worker ownership, bounded request/response bridge, deterministic song batches, saturation retry, worker health/shutdown, focused tests, and protocol/threading docs.
-- Remaining: independent review, hosted CI, Copilot review, and human PR review.
+- Remaining: final hosted CI after review fixes and human PR review.
 - Known failures/risks: requests rejected before bounded worker-queue acceptance remain caller-visible through missing success/error logging; high-rate values still await #101 coalescing. The 1 ms worker poll/backoff is transitional until #161 finalizes the synchronous control loop.
-- Next smallest action: inspect the complete diff and run independent review.
+- Next smallest action: push review fixes, resolve threads, and await final hosted CI.
 - Files a new agent should read next: this packet and the six Read first entries above.

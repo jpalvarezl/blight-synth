@@ -19,8 +19,8 @@ pub const OSC_SEND_ADDR: &str = "127.0.0.1:9001";
 /// `/param/set gain <0..1>` carries a *normalized* control value (linear
 /// amplitude, the VST/AU parameter convention). The core maps it to the dB
 /// the master `Gain` effect expects via [`normalized_gain_to_db`] and emits
-/// `MixerCmd::SetMasterEffectParameter`. The standalone binary is responsible
-/// for installing this effect during startup.
+/// `MixerCmd::SetMasterEffectParameter`. [`StandaloneControlWorker::spawn`]
+/// installs this effect while initializing `BlightAudio` on its worker thread.
 pub const MASTER_GAIN_EFFECT_ID: EffectId = 0;
 pub const MASTER_GAIN_PARAM_INDEX: u32 = 0;
 
