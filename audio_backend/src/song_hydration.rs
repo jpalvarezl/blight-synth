@@ -61,7 +61,7 @@ fn submit_command(audio: &mut BlightAudio, command: Command) -> Result<()> {
         Err(error) => match error.kind() {
             CommandSubmissionErrorKind::Full => bail!("audio command queue is full"),
             CommandSubmissionErrorKind::Disconnected => {
-                bail!("audio command queue is disconnected")
+                bail!("audio callback is disconnected")
             }
         },
     }

@@ -102,6 +102,7 @@ Potential parallel conflicts: issue #175 touches callback logging and malformed-
 - 2026-07-22 — Agreed overflow semantics: `try_send_command` is the explicit nonblocking accepted/full/disconnected API; reliable `send_command` owns the rejected command and applies NRT producer backpressure until accepted or disconnected. The exclusive blocking call preserves FIFO order without assigning retry policy to GUI consumers.
 - 2026-07-22 — Opened #181 (tracker NRT control worker) and #182 (standalone NRT control worker) after review confirmed both first-party callers currently run on unsuitable UI/current-thread executor contexts. PR #180 lands the queue API with those callers remaining on `try_send_command`; #173 stays open until both adopt reliable submission.
 - 2026-07-22 — Independent final review approved with no warnings; clarified the tracker `try_send_command` transition and sustained-saturation thread cost in API docs.
+- 2026-07-22 — Requested Copilot review of `48f7bd0`; applied its single wording-consistency finding for disconnected hydration errors. Hosted CI passed on the reviewed revision.
 
 ## Verification
 
@@ -119,7 +120,7 @@ Potential parallel conflicts: issue #175 touches callback logging and malformed-
 ## Handoff
 
 - Completed: core 64-item callback budget, accepted-only OSC acknowledgements, review points 1–3, blocking/nonblocking FIFO API semantics, focused ordering tests, and first-party consumer follow-ups #181/#182.
-- Remaining: push PR #180 groundwork, run hosted CI/Copilot review, and obtain final human approval; #173 remains open for #181/#182.
+- Remaining: final human approval for PR #180; #173 remains open for #181/#182.
 - Known failures/risks: the compatibility queue still combines traffic classes; sustained traffic has no priority recovery lane. Reliable submission can block indefinitely if a callback remains connected but stops consuming; NRT thread placement/cancellation is the crate consumer's responsibility. First-party consumers intentionally remain nonblocking until #181/#182. Atomic prepared-state installation remains with #174/#138.
-- Next smallest action: push the reviewed PR #180 groundwork revision and request Copilot review.
+- Next smallest action: obtain final human approval and merge PR #180.
 - Files a new agent should read next: this packet and the five Read first entries above.
