@@ -82,8 +82,22 @@ impl CommandSender {
     /// thread. A full queue applies producer backpressure: this call retains
     /// the command and cooperatively yields until RT frees a slot. It returns
     /// an error only when the callback-side consumer disconnects.
-    pub(crate) fn send(&mut self, mut command: Command) -> CommandSubmissionResult {
+    pub(crate) fn send(&mut self, command: Command) -> CommandSubmissionResult {
+        self.send_until(command, || false)
+    }
+
+    pub(crate) fn send_until(
+        &mut self,
+        mut command: Command,
+        cancelled: impl Fn() -> bool,
+    ) -> CommandSubmissionResult {
         loop {
+            if cancelled() {
+                return Err(CommandSubmissionError::new(
+                    CommandSubmissionErrorKind::Full,
+                    command,
+                ));
+            }
             match self.try_send_unboxed(command) {
                 Ok(()) => return Ok(()),
                 Err((CommandSubmissionErrorKind::Full, rejected)) => {

@@ -77,8 +77,11 @@ impl TrackerApp {
         // Also clear egui memory to reset any lingering widget state
         ctx.memory_mut(|mem| mem.data.clear());
 
-        // Rehydrate audio engine from the newly loaded song on its NRT worker.
-        self.audio_manager.reset_with_song(&self.song);
+        // Rehydrate only after audio has initialized; otherwise the startup
+        // request will use the current song when audio is first requested.
+        if self.audio_manager.is_initialized() {
+            self.audio_manager.reset_with_song(&self.song);
+        }
     }
 
     fn restore_theme_preferences(&mut self, storage: &dyn eframe::Storage, ctx: &egui::Context) {

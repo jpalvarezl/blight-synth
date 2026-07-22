@@ -138,6 +138,17 @@ impl BlightAudio {
         self.command_sender.send(command)
     }
 
+    /// Reliably submits one command while allowing an NRT owner to cancel a
+    /// saturation wait during shutdown. Cancellation returns `Full` with the
+    /// original command; repeated retries stay unboxed internally.
+    pub fn send_command_until(
+        &mut self,
+        command: Command,
+        cancelled: impl Fn() -> bool,
+    ) -> CommandSubmissionResult {
+        self.command_sender.send_until(command, cancelled)
+    }
+
     pub fn get_voice_factory(&self) -> &VoiceFactory {
         &self.voice_factory
     }

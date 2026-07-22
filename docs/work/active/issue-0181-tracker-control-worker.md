@@ -90,12 +90,13 @@ Potential parallel conflicts: #182 owns standalone files. Both branches touch ac
 - 2026-07-22 — Independent review approved the concurrency model and identified reset/disconnection recovery edges. Fatal callback disconnection clears worker/UI initialized state so a later Initialize rebuilds audio.
 - 2026-07-22 — Copilot reviewed all seven changed files. Applied all findings: failed reset now disables the stale engine until re-initialization, idle worker waits on blocking channel receive, and first request-channel send failure clears UI connection state and suppresses repeated sends.
 - 2026-07-22 — Rebased onto merged PR #183 (`b671da3`), reconciled the shared realtime contract, and removed completed #182 from active task packets.
+- 2026-07-22 — Post-rebase Copilot review produced five findings. Applied reset-failure fatal recovery, idle blocking receive, request-channel disconnect state clearing, Arc-backed song requests, lazy reset gating, and a cancellable unboxed `send_command_until` API; continuous-value coalescing remains explicitly deferred to #101.
 
 ## Verification
 
 - [x] `cargo fmt --all -- --check`
 - [x] `cargo clippy --workspace --all-targets -- -D warnings`
-- [x] `cargo test --workspace --all-targets` — 65 tests plus examples
+- [x] `cargo test --workspace --all-targets` — 69 tests plus examples
 - [x] `cargo clippy -p audio_backend --no-default-features --all-targets -- -D warnings`
 - [x] `cargo test -p audio_backend --no-default-features --all-targets` — 10 tests plus examples
 - [x] `python3 scripts/check_rt_logging.py`
@@ -106,7 +107,7 @@ Potential parallel conflicts: #182 owns standalone files. Both branches touch ac
 ## Handoff
 
 - Completed: worker ownership, semantic UI boundary, cancellable reliable submission, focused tests, and threading docs.
-- Remaining: final hosted CI after rebase and human PR review.
+- Remaining: final hosted CI after post-rebase review fixes and human PR review.
 - Known failures/risks: the UI request channel is intentionally unbounded until #101 provides class-specific coalescing; a disconnected audio callback terminates current request processing and is surfaced through logging/status events.
-- Next smallest action: force-push the rebased branch and await final hosted CI.
+- Next smallest action: push post-rebase review fixes, resolve threads, and await final hosted CI.
 - Files a new agent should read next: this packet and the six Read first entries above.

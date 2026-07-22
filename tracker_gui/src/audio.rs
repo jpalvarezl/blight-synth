@@ -3,6 +3,8 @@ use crate::instrument_manager::backend::{
 };
 use audio_backend::{BlightAudio, Command, CommandSubmissionErrorKind, SequencerCmd, TransportCmd};
 use sequencer::models::{AmpEnvelopeParams, InstrumentData, Song};
+#[cfg(test)]
+use std::time::Duration;
 use std::{
     sync::{
         Arc,
@@ -10,17 +12,17 @@ use std::{
         mpsc::{self, Receiver, Sender},
     },
     thread::{self, JoinHandle},
-    time::Duration,
 };
 
 // Tracker GUI reuses a single effect id until proper routing is needed.
 pub const TRACKER_EFFECT_ID: audio_backend::id::EffectId = 1;
+#[cfg(test)]
 const WORKER_POLL_INTERVAL: Duration = Duration::from_millis(1);
 
 enum AudioRequest {
-    Initialize(Song),
-    Reset(Song),
-    Play(Song),
+    Initialize(Arc<Song>),
+    Reset(Arc<Song>),
+    Play(Arc<Song>),
     Stop,
     SetLooping(bool),
     HydrateInstrument {
@@ -112,17 +114,17 @@ impl AudioManager {
 
     pub fn init_audio(&mut self, song: &Song) {
         if !self.initialized {
-            self.send_request(AudioRequest::Initialize(song.clone()));
+            self.send_request(AudioRequest::Initialize(Arc::new(song.clone())));
         }
     }
 
     pub fn reset_with_song(&mut self, song: &Song) {
-        self.send_request(AudioRequest::Reset(song.clone()));
+        self.send_request(AudioRequest::Reset(Arc::new(song.clone())));
     }
 
     pub fn play_song(&mut self, song: &Song) {
         self.init_audio(song);
-        self.send_request(AudioRequest::Play(song.clone()));
+        self.send_request(AudioRequest::Play(Arc::new(song.clone())));
     }
 
     pub fn stop_song(&mut self) {
@@ -158,6 +160,10 @@ impl AudioManager {
             instrument_id,
             envelope,
         });
+    }
+
+    pub fn is_initialized(&self) -> bool {
+        self.initialized
     }
 
     fn send_request(&mut self, request: AudioRequest) {
@@ -228,14 +234,7 @@ fn run_audio_worker(
             },
             AudioRequest::Play(song) => {
                 let accepted = audio.as_mut().is_some_and(|audio| {
-                    submit_command(
-                        audio,
-                        SequencerCmd::PlaySong {
-                            song: Arc::new(song),
-                        }
-                        .into(),
-                        &shutdown,
-                    )
+                    submit_command(audio, SequencerCmd::PlaySong { song }.into(), &shutdown)
                 });
                 if accepted {
                     let _ = event_tx.send(AudioEvent::Playing(true));
@@ -333,11 +332,11 @@ fn run_audio_worker(
 }
 
 fn create_audio(
-    song: &Song,
+    song: &Arc<Song>,
     shutdown: &AtomicBool,
     loop_enabled: bool,
 ) -> Result<BlightAudio, String> {
-    match BlightAudio::with_song(Arc::new(song.clone())) {
+    match BlightAudio::with_song(song.clone()) {
         Ok(mut audio) => {
             for instrument in &song.instrument_bank {
                 if !hydrate_instrument_on_worker(
@@ -375,26 +374,18 @@ fn create_audio(
 
 pub(crate) fn submit_command(
     audio: &mut BlightAudio,
-    mut command: Command,
+    command: Command,
     shutdown: &AtomicBool,
 ) -> bool {
-    loop {
-        if shutdown.load(Ordering::Acquire) {
-            return false;
-        }
-        match audio.try_send_command(command) {
-            Ok(()) => return true,
-            Err(error) => match error.kind() {
-                CommandSubmissionErrorKind::Full => {
-                    command = error.into_command();
-                    thread::park_timeout(WORKER_POLL_INTERVAL);
-                }
-                CommandSubmissionErrorKind::Disconnected => {
-                    log::error!("audio callback is disconnected");
-                    return false;
-                }
-            },
-        }
+    match audio.send_command_until(command, || shutdown.load(Ordering::Acquire)) {
+        Ok(()) => true,
+        Err(error) => match error.kind() {
+            CommandSubmissionErrorKind::Full => false,
+            CommandSubmissionErrorKind::Disconnected => {
+                log::error!("audio callback is disconnected");
+                false
+            }
+        },
     }
 }
 
