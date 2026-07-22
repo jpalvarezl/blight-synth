@@ -77,10 +77,8 @@ impl TrackerApp {
         // Also clear egui memory to reset any lingering widget state
         ctx.memory_mut(|mem| mem.data.clear());
 
-        // Rehydrate audio engine from the newly loaded song
-        if self.audio_manager.audio.is_some() {
-            self.audio_manager.reset_with_song(&self.song);
-        }
+        // Rehydrate audio engine from the newly loaded song on its NRT worker.
+        self.audio_manager.reset_with_song(&self.song);
     }
 
     fn restore_theme_preferences(&mut self, storage: &dyn eframe::Storage, ctx: &egui::Context) {
@@ -231,6 +229,7 @@ impl Default for TrackerApp {
 
 impl eframe::App for TrackerApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.audio_manager.poll();
         self.prune_theme_feedback();
         self.handle_shortcuts(ctx);
 
