@@ -129,11 +129,10 @@ impl BlightAudio {
     /// Reliably submits one command from a caller-owned non-real-time thread.
     ///
     /// A full queue applies producer backpressure: this method retains the
-    /// command and cooperatively yields until the callback frees a slot, so a
-    /// later command cannot overtake it. It returns an error only when the
-    /// callback-side consumer disconnects. Sustained saturation may consume
-    /// the caller's thread while it yields, so callers must not invoke this
-    /// method from a real-time, UI, or async-executor thread.
+    /// command and parks briefly until the callback frees a slot, so a later
+    /// command cannot overtake it. It returns an error only when the
+    /// callback-side consumer disconnects. Callers must not invoke this method
+    /// from a real-time, UI, or async-executor thread.
     pub fn send_command(&mut self, command: Command) -> CommandSubmissionResult {
         self.command_sender.send(command)
     }

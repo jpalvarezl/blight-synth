@@ -77,8 +77,9 @@ impl TrackerApp {
         // Also clear egui memory to reset any lingering widget state
         ctx.memory_mut(|mem| mem.data.clear());
 
-        // Rehydrate only after audio has initialized; otherwise the startup
-        // request will use the current song when audio is first requested.
+        // Rehydrate only after initialization is confirmed. If startup is
+        // still pending or failed, the next playback request re-initializes
+        // audio from the current song.
         if self.audio_manager.is_initialized() {
             self.audio_manager.reset_with_song(&self.song);
         }

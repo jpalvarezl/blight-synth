@@ -102,7 +102,7 @@ impl CommandSender {
                 Ok(()) => return Ok(()),
                 Err((CommandSubmissionErrorKind::Full, rejected)) => {
                     command = rejected;
-                    std::thread::yield_now();
+                    std::thread::park_timeout(std::time::Duration::from_millis(1));
                 }
                 Err((CommandSubmissionErrorKind::Disconnected, rejected)) => {
                     return Err(CommandSubmissionError::new(
@@ -208,6 +208,23 @@ mod tests {
             Command::Transport(TransportCmd::PlayLastSong)
         ));
         assert!(matches!(second, Command::Transport(TransportCmd::StopSong)));
+    }
+
+    #[test]
+    fn send_until_cancellation_returns_full_with_the_original_command() {
+        let rb = SharedRb::<Heap<Command>>::new(1);
+        let (command_tx, _command_rx) = rb.split();
+        let mut sender = CommandSender::new(command_tx);
+        assert!(sender.try_send(play_command()).is_ok());
+
+        let rejected = sender
+            .send_until(stop_command(), || true)
+            .expect_err("cancellation must reject the pending command");
+        assert_eq!(rejected.kind(), CommandSubmissionErrorKind::Full);
+        assert!(matches!(
+            rejected.into_command(),
+            Command::Transport(TransportCmd::StopSong)
+        ));
     }
 
     #[test]

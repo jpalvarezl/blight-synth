@@ -91,12 +91,13 @@ Potential parallel conflicts: #182 owns standalone files. Both branches touch ac
 - 2026-07-22 — Copilot reviewed all seven changed files. Applied all findings: failed reset now disables the stale engine until re-initialization, idle worker waits on blocking channel receive, and first request-channel send failure clears UI connection state and suppresses repeated sends.
 - 2026-07-22 — Rebased onto merged PR #183 (`b671da3`), reconciled the shared realtime contract, and removed completed #182 from active task packets.
 - 2026-07-22 — Post-rebase Copilot review produced five findings. Applied reset-failure fatal recovery, idle blocking receive, request-channel disconnect state clearing, Arc-backed song requests, lazy reset gating, and a cancellable unboxed `send_command_until` API; continuous-value coalescing remains explicitly deferred to #101.
+- 2026-07-22 — Independent follow-up review approved the fixes; added direct cancellation/command-return coverage and replaced saturation busy-yield with a 1 ms parked backoff.
 
 ## Verification
 
 - [x] `cargo fmt --all -- --check`
 - [x] `cargo clippy --workspace --all-targets -- -D warnings`
-- [x] `cargo test --workspace --all-targets` — 69 tests plus examples
+- [x] `cargo test --workspace --all-targets` — 70 tests plus examples
 - [x] `cargo clippy -p audio_backend --no-default-features --all-targets -- -D warnings`
 - [x] `cargo test -p audio_backend --no-default-features --all-targets` — 10 tests plus examples
 - [x] `python3 scripts/check_rt_logging.py`
