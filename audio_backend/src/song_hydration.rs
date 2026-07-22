@@ -14,7 +14,7 @@ use crate::{
     Command, EffectFactory, EnvelopeCmd, InstrumentCmd, InstrumentFactory, MonoEffect, SynthCmd,
 };
 #[cfg(feature = "standalone")]
-use crate::{BlightAudio, SequencerCmd};
+use crate::{BlightAudio, CommandSubmissionErrorKind, SequencerCmd};
 
 const DEFAULT_INSTRUMENT_EFFECT_ID: EffectId = 1;
 
@@ -28,12 +28,13 @@ pub fn load_song_file_into_audio(audio: &mut BlightAudio, path: &Path) -> Result
     let song = open_song_from_file(&path.to_path_buf(), &FileFormat::Json)
         .with_context(|| format!("failed to load song from {}", path.display()))?;
 
-    audio.send_command(
+    submit_command(
+        audio,
         SequencerCmd::LoadSong {
             song: Arc::new(song.clone()),
         }
         .into(),
-    );
+    )?;
     hydrate_song(audio, &song)?;
 
     Ok(song)
@@ -48,9 +49,22 @@ pub fn hydrate_song(audio: &mut BlightAudio, song: &Song) -> Result<()> {
         audio.get_effect_factory(),
     )?;
     for command in commands {
-        audio.send_command(command);
+        submit_command(audio, command)?;
     }
     Ok(())
+}
+
+#[cfg(feature = "standalone")]
+fn submit_command(audio: &mut BlightAudio, command: Command) -> Result<()> {
+    match audio.try_send_command(command) {
+        Ok(()) => Ok(()),
+        Err(error) => match error.kind() {
+            CommandSubmissionErrorKind::Full => bail!("audio command queue is full"),
+            CommandSubmissionErrorKind::Disconnected => {
+                bail!("audio callback is disconnected")
+            }
+        },
+    }
 }
 
 /// Build the same non-real-time hydration command sequence used by standalone playback.

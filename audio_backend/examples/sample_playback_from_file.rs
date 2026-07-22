@@ -17,7 +17,7 @@ fn main() -> Result<()> {
             let sample_data = resource_manager.get_sample_unsafe(sample_id);
 
             let instrument_id = 0;
-            audio.send_command(
+            let _ = audio.send_command(
                 audio_backend::InstrumentCmd::AddInstrument {
                     instrument: audio
                         .get_instrument_factory()
@@ -25,7 +25,7 @@ fn main() -> Result<()> {
                 }
                 .into(),
             );
-            audio.send_command(
+            let _ = audio.send_command(
                 audio_backend::InstrumentCmd::NoteOn {
                     instrument_id,
                     note: 60,
@@ -33,7 +33,7 @@ fn main() -> Result<()> {
                 }
                 .into(),
             );
-            audio.send_command(audio_backend::TransportCmd::PlayLastSong.into());
+            let _ = audio.send_command(audio_backend::TransportCmd::PlayLastSong.into());
 
             thread::sleep(std::time::Duration::from_millis(10000));
         }

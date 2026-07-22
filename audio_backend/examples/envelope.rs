@@ -6,7 +6,7 @@ fn main() {
     match &mut BlightAudio::new() {
         Ok(audio) => {
             let instrument_id = 0;
-            audio.send_command(
+            let _ = audio.send_command(
                 audio_backend::InstrumentCmd::AddInstrument {
                     instrument: audio
                         .get_instrument_factory()
@@ -14,7 +14,7 @@ fn main() {
                 }
                 .into(),
             );
-            audio.send_command(
+            let _ = audio.send_command(
                 InstrumentCmd::PassOnSynthCmd {
                     instrument_id,
                     synth_cmd: SynthCmd::EnvelopeCommand {
@@ -24,7 +24,7 @@ fn main() {
                 }
                 .into(),
             );
-            audio.send_command(
+            let _ = audio.send_command(
                 InstrumentCmd::PassOnSynthCmd {
                     instrument_id,
                     synth_cmd: SynthCmd::EnvelopeCommand {
@@ -34,7 +34,7 @@ fn main() {
                 }
                 .into(),
             );
-            audio.send_command(
+            let _ = audio.send_command(
                 InstrumentCmd::PassOnSynthCmd {
                     instrument_id,
                     synth_cmd: SynthCmd::EnvelopeCommand {
@@ -44,7 +44,7 @@ fn main() {
                 }
                 .into(),
             );
-            audio.send_command(
+            let _ = audio.send_command(
                 InstrumentCmd::PassOnSynthCmd {
                     instrument_id,
                     synth_cmd: SynthCmd::EnvelopeCommand {
@@ -54,9 +54,9 @@ fn main() {
                 }
                 .into(),
             );
-            audio.send_command(TransportCmd::PlayLastSong.into()); // There is no active song but this triggers the pumping of data into the audio thread
+            let _ = audio.send_command(TransportCmd::PlayLastSong.into()); // There is no active song but this triggers the pumping of data into the audio thread
 
-            audio.send_command(
+            let _ = audio.send_command(
                 InstrumentCmd::NoteOn {
                     instrument_id,
                     note: 60,
@@ -65,10 +65,10 @@ fn main() {
                 .into(),
             );
             thread::sleep(Duration::from_millis(600));
-            audio.send_command(InstrumentCmd::NoteOff { instrument_id }.into());
+            let _ = audio.send_command(InstrumentCmd::NoteOff { instrument_id }.into());
             thread::sleep(Duration::from_millis(1000));
 
-            audio.send_command(
+            let _ = audio.send_command(
                 InstrumentCmd::PassOnSynthCmd {
                     instrument_id,
                     synth_cmd: SynthCmd::EnvelopeCommand {
@@ -78,7 +78,7 @@ fn main() {
                 }
                 .into(),
             );
-            audio.send_command(
+            let _ = audio.send_command(
                 InstrumentCmd::PassOnSynthCmd {
                     instrument_id,
                     synth_cmd: SynthCmd::EnvelopeCommand {
@@ -88,7 +88,7 @@ fn main() {
                 }
                 .into(),
             );
-            audio.send_command(
+            let _ = audio.send_command(
                 InstrumentCmd::PassOnSynthCmd {
                     instrument_id,
                     synth_cmd: SynthCmd::EnvelopeCommand {
@@ -98,7 +98,7 @@ fn main() {
                 }
                 .into(),
             );
-            audio.send_command(
+            let _ = audio.send_command(
                 InstrumentCmd::PassOnSynthCmd {
                     instrument_id,
                     synth_cmd: SynthCmd::EnvelopeCommand {
@@ -108,7 +108,7 @@ fn main() {
                 }
                 .into(),
             );
-            audio.send_command(
+            let _ = audio.send_command(
                 InstrumentCmd::NoteOn {
                     instrument_id,
                     note: 60,
@@ -117,10 +117,10 @@ fn main() {
                 .into(),
             );
             thread::sleep(Duration::from_millis(2200));
-            audio.send_command(InstrumentCmd::NoteOff { instrument_id }.into());
+            let _ = audio.send_command(InstrumentCmd::NoteOff { instrument_id }.into());
             thread::sleep(Duration::from_millis(4000)); // wait for release to finish so the voice gets evicted from the voice manager
 
-            audio.send_command(
+            let _ = audio.send_command(
                 InstrumentCmd::PassOnSynthCmd {
                     instrument_id,
                     synth_cmd: SynthCmd::EnvelopeCommand {
@@ -130,7 +130,7 @@ fn main() {
                 }
                 .into(),
             );
-            audio.send_command(
+            let _ = audio.send_command(
                 InstrumentCmd::PassOnSynthCmd {
                     instrument_id,
                     synth_cmd: SynthCmd::EnvelopeCommand {
@@ -140,7 +140,7 @@ fn main() {
                 }
                 .into(),
             );
-            audio.send_command(
+            let _ = audio.send_command(
                 InstrumentCmd::PassOnSynthCmd {
                     instrument_id,
                     synth_cmd: SynthCmd::EnvelopeCommand {
@@ -150,7 +150,7 @@ fn main() {
                 }
                 .into(),
             );
-            audio.send_command(
+            let _ = audio.send_command(
                 InstrumentCmd::PassOnSynthCmd {
                     instrument_id,
                     synth_cmd: SynthCmd::EnvelopeCommand {
@@ -160,7 +160,7 @@ fn main() {
                 }
                 .into(),
             );
-            audio.send_command(
+            let _ = audio.send_command(
                 InstrumentCmd::NoteOn {
                     instrument_id,
                     note: 60,
@@ -169,7 +169,7 @@ fn main() {
                 .into(),
             );
             thread::sleep(Duration::from_millis(200));
-            audio.send_command(InstrumentCmd::NoteOff { instrument_id }.into());
+            let _ = audio.send_command(InstrumentCmd::NoteOff { instrument_id }.into());
             thread::sleep(Duration::from_millis(1000));
         }
         Err(e) => {

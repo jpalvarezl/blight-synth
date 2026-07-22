@@ -1,17 +1,21 @@
 mod blight_audio;
+mod command_sender;
 
-use crate::Command;
+pub use command_sender::{
+    CommandSubmissionError, CommandSubmissionErrorKind, CommandSubmissionResult,
+};
+
 use crate::MeterState;
-use ringbuf::HeapProd;
 use std::sync::Arc;
 
 use crate::EffectFactory;
 use crate::{InstrumentFactory, ResourceManager, VoiceFactory};
+use command_sender::CommandSender;
 
 /// The public-facing API for the audio backend. Lives in the NRT (not real-time) world.
 pub struct BlightAudio {
     /// The producer end of the command queue.
-    command_tx: HeapProd<Command>,
+    command_sender: CommandSender,
     /// Instrument factory for creating and managing instruments.
     instrument_factory: InstrumentFactory,
     /// Voice factory for creating and managing voices.

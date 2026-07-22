@@ -8,6 +8,10 @@ use sequencer::models::Song;
 use std::sync::Arc;
 
 const MAX_BUFFER_SIZE: usize = 4096;
+/// Maximum compatibility control commands applied before rendering one host
+/// callback block. A backlog remains FIFO-queued for later blocks so control
+/// bursts cannot postpone rendering indefinitely.
+pub(crate) const MAX_COMMANDS_PER_PROCESS_BLOCK: usize = 64;
 
 pub struct AudioProcessor {
     pub(crate) command_rx: HeapCons<Command>,
@@ -60,13 +64,13 @@ impl AudioProcessor {
 
     /// The main processing function called by the audio driver.
     pub fn process(&mut self, output_buffer: &mut [f32]) {
-        // 1. Drain the command queue to update state. This is non-blocking.
-        while let Some(command) = self.command_rx.try_pop() {
-            // For now route all to player; Engine/Mixer handled inside player.synthesizer
+        // Apply a bounded FIFO prefix, leaving any backlog for later callback
+        // blocks. Queue capacity alone is not a callback work budget.
+        for _ in 0..MAX_COMMANDS_PER_PROCESS_BLOCK {
+            let Some(command) = self.command_rx.try_pop() else {
+                break;
+            };
             self.player.handle_command(command);
-
-            // Here we need a way to select a self.synthesizer, from synth_infra/synthesizer.rs
-            // for when we want to operate as an instrument and handle voice allocs through commands
         }
 
         if self.channels == 0 {
@@ -124,12 +128,61 @@ impl AudioProcessor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ringbuf::{storage::Heap, traits::Split, SharedRb};
+    use crate::{
+        id::{EffectId, InstrumentId},
+        InstrumentCmd, InstrumentTrait, MonoEffect, SynthCmd, TransportCmd, VoiceEffects,
+    };
+    use ringbuf::{storage::Heap, traits::Split, HeapProd, SharedRb};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    struct RenderCounterInstrument {
+        renders: Arc<AtomicUsize>,
+    }
+
+    impl InstrumentTrait for RenderCounterInstrument {
+        fn id(&self) -> InstrumentId {
+            1
+        }
+
+        fn note_on(&mut self, _note: u8, _velocity: u8) {}
+
+        fn note_off(&mut self) {}
+
+        fn process(&mut self, left: &mut [f32], right: &mut [f32], _sample_rate: f32) {
+            self.renders.fetch_add(1, Ordering::Relaxed);
+            for (left, right) in left.iter_mut().zip(right) {
+                *left += 0.25;
+                *right += 0.25;
+            }
+        }
+
+        fn set_pan(&mut self, _pan: f32) {}
+
+        fn add_effect(&mut self, _effect: Box<dyn MonoEffect>) {}
+
+        fn add_voice_effects(&mut self, _effects: VoiceEffects) {}
+
+        fn set_effect_parameter(&mut self, _effect_id: EffectId, _param_index: u32, _value: f32) {}
+
+        fn try_handle_command(&mut self, _command: &SynthCmd) -> bool {
+            false
+        }
+    }
 
     fn processor(channels: usize) -> AudioProcessor {
-        let rb = SharedRb::<Heap<Command>>::new(8);
-        let (_command_tx, command_rx) = rb.split();
-        AudioProcessor::new(command_rx, 44_100.0, channels, Arc::new(MeterState::new()))
+        processor_with_capacity(channels, 8).1
+    }
+
+    fn processor_with_capacity(
+        channels: usize,
+        capacity: usize,
+    ) -> (HeapProd<Command>, AudioProcessor) {
+        let rb = SharedRb::<Heap<Command>>::new(capacity);
+        let (command_tx, command_rx) = rb.split();
+        (
+            command_tx,
+            AudioProcessor::new(command_rx, 44_100.0, channels, Arc::new(MeterState::new())),
+        )
     }
 
     #[test]
@@ -154,6 +207,93 @@ mod tests {
 
         processor.process(&mut output);
 
+        assert!(output.iter().all(|sample| *sample == 0.0));
+    }
+
+    #[test]
+    fn command_budget_is_per_host_callback_not_per_internal_render_chunk() {
+        let queued = MAX_COMMANDS_PER_PROCESS_BLOCK + 1;
+        let (mut command_tx, mut processor) = processor_with_capacity(2, queued);
+        for index in 0..queued {
+            assert!(command_tx
+                .try_push(
+                    TransportCmd::SetLooping {
+                        enabled: index % 2 == 0,
+                    }
+                    .into(),
+                )
+                .is_ok());
+        }
+        let frame_count = MAX_BUFFER_SIZE * 2 + 17;
+        let mut output = vec![0.0; frame_count * 2];
+
+        processor.process(&mut output);
+
+        assert_eq!(processor.command_rx.occupied_len(), 1);
+    }
+
+    #[test]
+    fn command_burst_is_fifo_bounded_and_rendering_progresses_between_slices() {
+        let burst_len = MAX_COMMANDS_PER_PROCESS_BLOCK * 3 + 1;
+        let (mut command_tx, mut processor) = processor_with_capacity(2, burst_len);
+        let renders = Arc::new(AtomicUsize::new(0));
+
+        assert!(
+            command_tx
+                .try_push(
+                    InstrumentCmd::AddInstrument {
+                        instrument: Box::new(RenderCounterInstrument {
+                            renders: renders.clone(),
+                        }),
+                    }
+                    .into(),
+                )
+                .is_ok(),
+            "setup command fits"
+        );
+        assert!(
+            command_tx
+                .try_push(TransportCmd::PlayLastSong.into())
+                .is_ok(),
+            "play command fits"
+        );
+        for index in 2..burst_len - 1 {
+            assert!(
+                command_tx
+                    .try_push(
+                        TransportCmd::SetLooping {
+                            enabled: index % 2 == 0,
+                        }
+                        .into(),
+                    )
+                    .is_ok(),
+                "control burst fits"
+            );
+        }
+        assert!(
+            command_tx.try_push(TransportCmd::StopSong.into()).is_ok(),
+            "recovery command fits"
+        );
+
+        let mut output = [0.0; 32];
+        for block in 1..=3 {
+            processor.process(&mut output);
+
+            assert_eq!(renders.load(Ordering::Relaxed), block);
+            assert!(output.iter().any(|sample| *sample != 0.0));
+            assert_eq!(
+                processor.command_rx.occupied_len(),
+                burst_len - block * MAX_COMMANDS_PER_PROCESS_BLOCK
+            );
+            output.fill(0.0);
+        }
+
+        // FIFO fairness leaves the final stop/recovery command queued until the
+        // next block; it is then applied before rendering that block.
+        assert_eq!(processor.command_rx.occupied_len(), 1);
+        processor.process(&mut output);
+        assert_eq!(processor.command_rx.occupied_len(), 0);
+        assert_eq!(renders.load(Ordering::Relaxed), 3);
         assert!(output.iter().all(|sample| *sample == 0.0));
     }
 }

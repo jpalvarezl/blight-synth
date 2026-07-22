@@ -8,7 +8,7 @@ fn main() {
     match &mut BlightAudio::new() {
         Ok(audio) => {
             let instrument_id = 0;
-            audio.send_command(
+            let _ = audio.send_command(
                 InstrumentCmd::AddInstrument {
                     instrument: audio
                         .get_instrument_factory()
@@ -16,8 +16,8 @@ fn main() {
                 }
                 .into(),
             );
-            audio.send_command(TransportCmd::PlayLastSong.into());
-            audio.send_command(
+            let _ = audio.send_command(TransportCmd::PlayLastSong.into());
+            let _ = audio.send_command(
                 InstrumentCmd::NoteOn {
                     instrument_id,
                     note: 60,
@@ -26,8 +26,8 @@ fn main() {
                 .into(),
             );
             thread::sleep(std::time::Duration::from_millis(1000));
-            audio.send_command(InstrumentCmd::NoteOff { instrument_id }.into());
-            audio.send_command(
+            let _ = audio.send_command(InstrumentCmd::NoteOff { instrument_id }.into());
+            let _ = audio.send_command(
                 InstrumentCmd::NoteOn {
                     instrument_id,
                     note: 63,
@@ -36,8 +36,8 @@ fn main() {
                 .into(),
             );
             thread::sleep(std::time::Duration::from_millis(1000));
-            audio.send_command(InstrumentCmd::NoteOff { instrument_id }.into());
-            audio.send_command(
+            let _ = audio.send_command(InstrumentCmd::NoteOff { instrument_id }.into());
+            let _ = audio.send_command(
                 InstrumentCmd::NoteOn {
                     instrument_id,
                     note: 63,
@@ -46,8 +46,8 @@ fn main() {
                 .into(),
             );
             thread::sleep(std::time::Duration::from_millis(1000));
-            audio.send_command(InstrumentCmd::NoteOff { instrument_id }.into());
-            audio.send_command(
+            let _ = audio.send_command(InstrumentCmd::NoteOff { instrument_id }.into());
+            let _ = audio.send_command(
                 InstrumentCmd::NoteOn {
                     instrument_id,
                     note: 66,
@@ -56,7 +56,7 @@ fn main() {
                 .into(),
             );
             thread::sleep(std::time::Duration::from_millis(1000));
-            audio.send_command(InstrumentCmd::NoteOff { instrument_id }.into());
+            let _ = audio.send_command(InstrumentCmd::NoteOff { instrument_id }.into());
             thread::sleep(std::time::Duration::from_millis(1000));
         }
         Err(e) => eprintln!("Failed to initialize BlightAudio: {}", e),

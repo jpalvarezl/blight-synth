@@ -13,7 +13,7 @@ pub fn main() {
     match &mut BlightAudio::with_song(Arc::new(load_song(lead_instrument_id))) {
         Ok(audio) => {
             let max_voices = 5;
-            audio.send_command(
+            let _ = audio.send_command(
                 audio_backend::InstrumentCmd::AddInstrument {
                     instrument: audio.get_instrument_factory().create_polyphonic_oscillator(
                         lead_instrument_id,
@@ -26,14 +26,14 @@ pub fn main() {
 
             let reverbs =
                 (0..max_voices).map(|_| audio.get_effect_factory().create_mono_reverb(reverb_id));
-            audio.send_command(
+            let _ = audio.send_command(
                 audio_backend::InstrumentCmd::AddVoiceEffects {
                     instrument_id: lead_instrument_id,
                     effects: reverbs.collect(),
                 }
                 .into(),
             );
-            audio.send_command(audio_backend::TransportCmd::PlayLastSong.into());
+            let _ = audio.send_command(audio_backend::TransportCmd::PlayLastSong.into());
             thread::sleep(Duration::from_millis(5000));
         }
         Err(e) => {

@@ -8,7 +8,7 @@ pub fn main() {
             println!("BlightAudio initialized successfully!");
             let instrument_id = 0;
             let effect_id = 0;
-            audio.send_command(
+            let _ = audio.send_command(
                 InstrumentCmd::AddInstrument {
                     instrument: audio
                         .get_instrument_factory()
@@ -16,15 +16,15 @@ pub fn main() {
                 }
                 .into(),
             );
-            audio.send_command(
+            let _ = audio.send_command(
                 InstrumentCmd::AddEffect {
                     instrument_id,
                     effect: audio.get_effect_factory().create_mono_gain(effect_id, 1.0),
                 }
                 .into(),
             );
-            audio.send_command(TransportCmd::PlayLastSong.into());
-            audio.send_command(
+            let _ = audio.send_command(TransportCmd::PlayLastSong.into());
+            let _ = audio.send_command(
                 InstrumentCmd::NoteOn {
                     instrument_id,
                     note: 60,
@@ -35,11 +35,11 @@ pub fn main() {
 
             // Play a very short note - 200ms
             thread::sleep(std::time::Duration::from_millis(200));
-            audio.send_command(InstrumentCmd::NoteOff { instrument_id }.into());
+            let _ = audio.send_command(InstrumentCmd::NoteOff { instrument_id }.into());
 
             // Wait to hear the release decay
             thread::sleep(std::time::Duration::from_millis(1000));
-            audio.send_command(
+            let _ = audio.send_command(
                 InstrumentCmd::PassOnSynthCmd {
                     instrument_id,
                     synth_cmd: SynthCmd::EffectCommand {
@@ -52,7 +52,7 @@ pub fn main() {
                 }
                 .into(),
             );
-            audio.send_command(
+            let _ = audio.send_command(
                 InstrumentCmd::NoteOn {
                     instrument_id,
                     note: 60,
@@ -62,7 +62,7 @@ pub fn main() {
             );
 
             thread::sleep(std::time::Duration::from_millis(500));
-            audio.send_command(
+            let _ = audio.send_command(
                 InstrumentCmd::PassOnSynthCmd {
                     instrument_id,
                     synth_cmd: SynthCmd::EffectCommand {
@@ -75,7 +75,7 @@ pub fn main() {
                 }
                 .into(),
             );
-            audio.send_command(
+            let _ = audio.send_command(
                 InstrumentCmd::NoteOn {
                     instrument_id,
                     note: 64,
@@ -85,7 +85,7 @@ pub fn main() {
             );
 
             thread::sleep(std::time::Duration::from_millis(500));
-            audio.send_command(
+            let _ = audio.send_command(
                 InstrumentCmd::PassOnSynthCmd {
                     instrument_id,
                     synth_cmd: SynthCmd::EffectCommand {
@@ -98,7 +98,7 @@ pub fn main() {
                 }
                 .into(),
             );
-            audio.send_command(
+            let _ = audio.send_command(
                 InstrumentCmd::NoteOn {
                     instrument_id,
                     note: 67,
@@ -109,7 +109,7 @@ pub fn main() {
             thread::sleep(std::time::Duration::from_millis(500));
 
             // Stop all notes
-            audio.send_command(InstrumentCmd::NoteOff { instrument_id }.into());
+            let _ = audio.send_command(InstrumentCmd::NoteOff { instrument_id }.into());
 
             // Listen to the release tail
             thread::sleep(std::time::Duration::from_millis(1000));

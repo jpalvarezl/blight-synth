@@ -1,4 +1,4 @@
-use super::BlightAudio;
+use super::{BlightAudio, CommandSender, CommandSubmissionResult};
 use crate::{
     AudioProcessor, Command, EffectFactory, InstrumentFactory, MeterState, ResourceManager,
     VoiceFactory,
@@ -26,6 +26,8 @@ impl BlightAudio {
         let rb = SharedRb::<Heap<Command>>::new(1024);
         let (command_tx, command_rx) = rb.split();
 
+        let command_sender = CommandSender::new(command_tx);
+
         // Create the real-time processor and move it into the audio thread.
         let meter = Arc::new(MeterState::new());
         let mut audio_processor =
@@ -49,7 +51,7 @@ impl BlightAudio {
         stream.play()?;
 
         Ok(BlightAudio {
-            command_tx,
+            command_sender,
             instrument_factory,
             voice_factory,
             resource_manager,
@@ -76,6 +78,8 @@ impl BlightAudio {
         // Create the SPSC ring buffer for commands using a heap-allocated buffer.
         let rb = SharedRb::<Heap<Command>>::new(1024);
         let (command_tx, command_rx) = rb.split();
+
+        let command_sender = CommandSender::new(command_tx);
 
         // Create the real-time processor seeded with a Song.
         let meter = Arc::new(MeterState::new());
@@ -104,7 +108,7 @@ impl BlightAudio {
         stream.play()?;
 
         Ok(BlightAudio {
-            command_tx,
+            command_sender,
             instrument_factory,
             voice_factory,
             resource_manager,
@@ -114,12 +118,24 @@ impl BlightAudio {
         })
     }
 
-    /// Public method to send a command to the audio thread.
-    pub fn send_command(&mut self, command: Command) {
-        if self.command_tx.try_push(command).is_err() {
-            // In a real app, handle this more gracefully (e.g., log, drop command).
-            eprintln!("Command queue is full. Command dropped.");
-        }
+    /// Attempts to submit one command without blocking.
+    ///
+    /// `Full` and `Disconnected` return the original command in the error.
+    /// Callers that acknowledge state changes must do so only after `Ok(())`.
+    pub fn try_send_command(&mut self, command: Command) -> CommandSubmissionResult {
+        self.command_sender.try_send(command)
+    }
+
+    /// Reliably submits one command from a caller-owned non-real-time thread.
+    ///
+    /// A full queue applies producer backpressure: this method retains the
+    /// command and cooperatively yields until the callback frees a slot, so a
+    /// later command cannot overtake it. It returns an error only when the
+    /// callback-side consumer disconnects. Sustained saturation may consume
+    /// the caller's thread while it yields, so callers must not invoke this
+    /// method from a real-time, UI, or async-executor thread.
+    pub fn send_command(&mut self, command: Command) -> CommandSubmissionResult {
+        self.command_sender.send(command)
     }
 
     pub fn get_voice_factory(&self) -> &VoiceFactory {

@@ -11,7 +11,7 @@ fn main() {
             // You can now use `audio` to send commands, etc.
 
             let instrument_id = 0;
-            audio.send_command(
+            let _ = audio.send_command(
                 audio_backend::InstrumentCmd::AddInstrument {
                     instrument: audio
                         .get_instrument_factory()
@@ -19,8 +19,8 @@ fn main() {
                 }
                 .into(),
             );
-            audio.send_command(TransportCmd::PlayLastSong.into()); // There is no active song but this triggers the pumping of data into the audio thread
-            audio.send_command(
+            let _ = audio.send_command(TransportCmd::PlayLastSong.into()); // There is no active song but this triggers the pumping of data into the audio thread
+            let _ = audio.send_command(
                 InstrumentCmd::NoteOn {
                     instrument_id,
                     note: 60,
@@ -29,7 +29,7 @@ fn main() {
                 .into(),
             );
             thread::sleep(std::time::Duration::from_millis(1000));
-            audio.send_command(
+            let _ = audio.send_command(
                 InstrumentCmd::PassOnSynthCmd {
                     instrument_id,
                     synth_cmd: SynthCmd::SetWaveform {
@@ -40,7 +40,7 @@ fn main() {
                 .into(),
             );
             thread::sleep(std::time::Duration::from_millis(1000));
-            audio.send_command(
+            let _ = audio.send_command(
                 InstrumentCmd::PassOnSynthCmd {
                     instrument_id,
                     synth_cmd: SynthCmd::SetWaveform {
@@ -51,7 +51,7 @@ fn main() {
                 .into(),
             );
             thread::sleep(std::time::Duration::from_millis(1000));
-            audio.send_command(
+            let _ = audio.send_command(
                 InstrumentCmd::PassOnSynthCmd {
                     instrument_id,
                     synth_cmd: SynthCmd::SetWaveform {
@@ -62,7 +62,7 @@ fn main() {
                 .into(),
             );
             thread::sleep(std::time::Duration::from_millis(1000));
-            audio.send_command(
+            let _ = audio.send_command(
                 InstrumentCmd::PassOnSynthCmd {
                     instrument_id,
                     synth_cmd: SynthCmd::SetWaveform {
