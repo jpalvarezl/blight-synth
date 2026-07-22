@@ -24,20 +24,37 @@ const DEFAULT_INSTRUMENT_EFFECT_ID: EffectId = 1;
 /// `SequencerCmd::LoadSong` first, then queues instrument hydration commands.
 #[cfg(feature = "standalone")]
 pub fn load_song_file_into_audio(audio: &mut BlightAudio, path: &Path) -> Result<Song> {
+    let (song, commands) = prepare_song_file_for_audio(audio, path)?;
+    for command in commands {
+        submit_command(audio, command)?;
+    }
+    Ok(song)
+}
+
+/// Parse a song and prepare its complete ordered load/hydration command batch
+/// without submitting any command to RT.
+#[cfg(feature = "standalone")]
+pub(crate) fn prepare_song_file_for_audio(
+    audio: &BlightAudio,
+    path: &Path,
+) -> Result<(Song, Vec<Command>)> {
     log::info!("loading song from {}", path.display());
     let song = open_song_from_file(&path.to_path_buf(), &FileFormat::Json)
         .with_context(|| format!("failed to load song from {}", path.display()))?;
-
-    submit_command(
-        audio,
+    let hydration = build_hydration_commands_with_factories(
+        &song,
+        audio.get_instrument_factory(),
+        audio.get_effect_factory(),
+    )?;
+    let mut commands = Vec::with_capacity(hydration.len() + 1);
+    commands.push(
         SequencerCmd::LoadSong {
             song: Arc::new(song.clone()),
         }
         .into(),
-    )?;
-    hydrate_song(audio, &song)?;
-
-    Ok(song)
+    );
+    commands.extend(hydration);
+    Ok((song, commands))
 }
 
 /// Queue commands that create backend instruments/effects from a serialized song.

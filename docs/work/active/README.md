@@ -13,5 +13,5 @@ A packet is a handoff cache, not a second specification. It links to the issue a
 
 ## Active
 
-- [Issue #173 — command budget and backpressure](issue-0173-command-budget.md)
 - [Issue #175 — RT debug logging and hot-path safety](issue-0175-rt-debug-and-hot-path.md)
+- [Issue #182 — standalone control worker](issue-0182-standalone-control-worker.md)

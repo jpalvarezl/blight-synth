@@ -2,7 +2,7 @@
 title: OSC Address Space
 summary: Implemented standalone OSC protocol snapshot and open protocol decisions.
 status: current
-updated: 2026-07-14
+updated: 2026-07-22
 issues: [104, 120, 122, 123]
 ---
 
@@ -70,11 +70,12 @@ plugin). Both the Rust and TypeScript sides should reference this file.
    project uses `/song/load` against the existing `Song` model. Save/load
    protocol is #122.
 4. **Parameter transport: Commands vs atomics (#101).** `/param/set` currently
-   routes through the bounded (1024) `Command` ring buffer, which *drops* on
-   overflow. Fine for low-rate control; for high-rate continuous params
-   (knob drags / automation in #111) a coalescing atomic ("latest value wins",
-   `AtomicU32` + `f32::to_bits`) is preferable — that pattern already exists in
-   `MeterState` (DSP → GUI). Revisit when #111 adds live knob control.
+   enters a bounded standalone control-worker queue and is then retained in FIFO
+   order until the RT command ring accepts it. A request rejected before worker
+   acceptance emits no `/param/echo`; accepted responses are emitted only after
+   ring enqueue. This is fine for low-rate control, but high-rate continuous
+   params (knob drags / automation in #111) still require the coalesced "latest
+   value wins" pipeline owned by #101 rather than structural queue growth.
 
 ## Not yet implemented
 

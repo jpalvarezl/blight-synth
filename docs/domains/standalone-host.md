@@ -2,8 +2,8 @@
 title: Standalone Host Domain
 summary: Focused context for CPAL, OSC, process lifecycle, and project/resource adapters.
 status: current
-updated: 2026-07-19
-issues: [104, 120, 122, 123, 139, 156, 161]
+updated: 2026-07-22
+issues: [104, 120, 122, 123, 139, 156, 161, 182]
 ---
 
 # Standalone Host Domain
@@ -41,7 +41,7 @@ issues: [104, 120, 122, 123, 139, 156, 161]
 
 ## Threading/runtime decision
 
-Tokio is temporarily allowed only behind `audio_backend`'s `standalone` feature. It now uses the current-thread runtime, so the intentional steady-state model is one main/control thread plus the CPAL audio callback thread (excluding platform-owned threads). M2 issue #161 removes Tokio once protocol/lifecycle behavior is stable; OSC remains encoded with `rosc` independently of that runtime choice.
+Tokio is temporarily allowed only behind `audio_backend`'s `standalone` feature. The current-thread runtime owns UDP, metering cadence, and shutdown polling but never blocks on RT queue capacity. A dedicated NRT control worker owns the non-`Send` CPAL stream, factories/resources, song preparation, and ordered retry into the RT ring; the CPAL callback remains the only RT owner. M2 issue #161 removes Tokio and may collapse the I/O/control topology once protocol/lifecycle behavior is stable; OSC remains encoded with `rosc` independently of that runtime choice.
 
 ## Feature boundary
 
