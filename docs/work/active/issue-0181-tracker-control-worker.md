@@ -16,7 +16,7 @@ branch: issue/181-tracker-control-worker
 - Owner: jpalvarezl
 - Status: in-progress
 - Branch: `issue/181-tracker-control-worker`
-- Base branch/SHA: `main` / `c521307`
+- Base branch/SHA: `main` / `b671da3`
 - Head SHA: see branch head
 - Last handoff: 2026-07-22
 
@@ -89,6 +89,7 @@ Potential parallel conflicts: #182 owns standalone files. Both branches touch ac
 - 2026-07-22 — UI playback/loop state updates only from worker events after RT-ring acceptance.
 - 2026-07-22 — Independent review approved the concurrency model and identified reset/disconnection recovery edges. Fatal callback disconnection clears worker/UI initialized state so a later Initialize rebuilds audio.
 - 2026-07-22 — Copilot reviewed all seven changed files. Applied all findings: failed reset now disables the stale engine until re-initialization, idle worker waits on blocking channel receive, and first request-channel send failure clears UI connection state and suppresses repeated sends.
+- 2026-07-22 — Rebased onto merged PR #183 (`b671da3`), reconciled the shared realtime contract, and removed completed #182 from active task packets.
 
 ## Verification
 
@@ -105,7 +106,7 @@ Potential parallel conflicts: #182 owns standalone files. Both branches touch ac
 ## Handoff
 
 - Completed: worker ownership, semantic UI boundary, cancellable reliable submission, focused tests, and threading docs.
-- Remaining: final hosted CI after review fixes and human PR review.
+- Remaining: final hosted CI after rebase and human PR review.
 - Known failures/risks: the UI request channel is intentionally unbounded until #101 provides class-specific coalescing; a disconnected audio callback terminates current request processing and is surfaced through logging/status events.
-- Next smallest action: push review fixes, resolve threads, and await final hosted CI.
+- Next smallest action: force-push the rebased branch and await final hosted CI.
 - Files a new agent should read next: this packet and the six Read first entries above.
