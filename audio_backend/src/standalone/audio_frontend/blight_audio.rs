@@ -129,13 +129,23 @@ impl BlightAudio {
     /// Reliably submits one command from a caller-owned non-real-time thread.
     ///
     /// A full queue applies producer backpressure: this method retains the
-    /// command and cooperatively yields until the callback frees a slot, so a
-    /// later command cannot overtake it. It returns an error only when the
-    /// callback-side consumer disconnects. Sustained saturation may consume
-    /// the caller's thread while it yields, so callers must not invoke this
-    /// method from a real-time, UI, or async-executor thread.
+    /// command and parks briefly until the callback frees a slot, so a later
+    /// command cannot overtake it. It returns an error only when the
+    /// callback-side consumer disconnects. Callers must not invoke this method
+    /// from a real-time, UI, or async-executor thread.
     pub fn send_command(&mut self, command: Command) -> CommandSubmissionResult {
         self.command_sender.send(command)
+    }
+
+    /// Reliably submits one command while allowing an NRT owner to cancel a
+    /// saturation wait during shutdown. Cancellation returns `Full` with the
+    /// original command; repeated retries stay unboxed internally.
+    pub fn send_command_until(
+        &mut self,
+        command: Command,
+        cancelled: impl Fn() -> bool,
+    ) -> CommandSubmissionResult {
+        self.command_sender.send_until(command, cancelled)
     }
 
     pub fn get_voice_factory(&self) -> &VoiceFactory {

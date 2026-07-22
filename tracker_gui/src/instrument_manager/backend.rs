@@ -6,31 +6,31 @@ use sequencer::models::{
     AmpEnvelopeParams, AudioEffect, HiHatParams, InstrumentData, KickDrumParams,
     SimpleOscillatorParams, SnareDrumParams,
 };
+use std::sync::atomic::AtomicBool;
 
 pub fn ensure_backend_instrument(audio_mgr: &mut AudioManager, id_u8: u8, data: &InstrumentData) {
-    if let Some(audio) = &mut audio_mgr.audio {
-        hydrate_instrument(audio, id_u8, data);
-    }
+    audio_mgr.hydrate_instrument(id_u8, data.clone());
 }
 
-pub fn hydrate_instrument(audio: &mut BlightAudio, id_u8: u8, data: &InstrumentData) {
+pub(crate) fn hydrate_instrument_on_worker(
+    audio: &mut BlightAudio,
+    id_u8: u8,
+    data: &InstrumentData,
+    shutdown: &AtomicBool,
+) -> bool {
     match data {
         InstrumentData::SimpleOscillator(params) => {
-            hydrate_osc_with_params(audio, id_u8, params);
+            hydrate_osc_with_params(audio, id_u8, params, shutdown)
         }
-        InstrumentData::HiHat(params) => {
-            hydrate_hihat_with_params(audio, id_u8, params);
-        }
+        InstrumentData::HiHat(params) => hydrate_hihat_with_params(audio, id_u8, params, shutdown),
         InstrumentData::KickDrum(params) => {
-            hydrate_kick_with_params(audio, id_u8, params);
+            hydrate_kick_with_params(audio, id_u8, params, shutdown)
         }
         InstrumentData::SnareDrum(params) => {
-            hydrate_snare_with_params(audio, id_u8, params);
+            hydrate_snare_with_params(audio, id_u8, params, shutdown)
         }
-        InstrumentData::DFAM(params) => {
-            hydrate_dfam_with_params(audio, id_u8, params);
-        }
-        _ => {}
+        InstrumentData::DFAM(params) => hydrate_dfam_with_params(audio, id_u8, params, shutdown),
+        _ => true,
     }
 }
 
@@ -39,12 +39,15 @@ pub fn send_amp_envelope_to_backend(
     instrument_id: u8,
     env: &AmpEnvelopeParams,
 ) {
-    if let Some(audio) = &mut audio_mgr.audio {
-        send_amp_envelope(audio, instrument_id, env);
-    }
+    audio_mgr.set_amp_envelope(instrument_id, env.clone());
 }
 
-fn send_amp_envelope(audio: &mut BlightAudio, instrument_id: u8, env: &AmpEnvelopeParams) {
+pub(crate) fn send_amp_envelope_on_worker(
+    audio: &mut BlightAudio,
+    instrument_id: u8,
+    env: &AmpEnvelopeParams,
+    shutdown: &AtomicBool,
+) -> bool {
     let id = audio_backend::id::InstrumentId::from(instrument_id as u32);
     for command in [
         EnvelopeCmd::SetAttack { attack: env.attack },
@@ -66,49 +69,78 @@ fn send_amp_envelope(audio: &mut BlightAudio, instrument_id: u8, env: &AmpEnvelo
                 },
             }
             .into(),
+            shutdown,
         ) {
-            break;
+            return false;
         }
     }
+    true
 }
 
-fn hydrate_osc_with_params(audio: &mut BlightAudio, id_u8: u8, params: &SimpleOscillatorParams) {
+fn hydrate_osc_with_params(
+    audio: &mut BlightAudio,
+    id_u8: u8,
+    params: &SimpleOscillatorParams,
+    shutdown: &AtomicBool,
+) -> bool {
     let backend_wave = map_waveform_to_backend(params.waveform);
     let id = audio_backend::id::InstrumentId::from(id_u8 as u32);
     let instrument = audio
         .get_instrument_factory()
         .create_oscillator_with_waveform(id, 0.0, backend_wave);
-    if !submit_command(audio, InstrumentCmd::AddInstrument { instrument }.into()) {
-        return;
+    if !submit_command(
+        audio,
+        InstrumentCmd::AddInstrument { instrument }.into(),
+        shutdown,
+    ) {
+        return false;
     }
-    if !apply_effects(audio, id, &params.audio_effects) {
-        return;
+    if !apply_effects(audio, id, &params.audio_effects, shutdown) {
+        return false;
     }
 
-    send_amp_envelope(audio, id_u8, &params.amp_envelope);
+    send_amp_envelope_on_worker(audio, id_u8, &params.amp_envelope, shutdown)
 }
 
-fn hydrate_hihat_with_params(audio: &mut BlightAudio, id_u8: u8, params: &HiHatParams) {
+fn hydrate_hihat_with_params(
+    audio: &mut BlightAudio,
+    id_u8: u8,
+    params: &HiHatParams,
+    shutdown: &AtomicBool,
+) -> bool {
     let id = audio_backend::id::InstrumentId::from(id_u8 as u32);
     let instrument = audio.get_instrument_factory().create_hihat(id, 0.0);
-    if !submit_command(audio, InstrumentCmd::AddInstrument { instrument }.into()) {
-        return;
+    if !submit_command(
+        audio,
+        InstrumentCmd::AddInstrument { instrument }.into(),
+        shutdown,
+    ) {
+        return false;
     }
-    if !apply_effects(audio, id, &params.audio_effects) {
-        return;
+    if !apply_effects(audio, id, &params.audio_effects, shutdown) {
+        return false;
     }
 
-    send_amp_envelope(audio, id_u8, &params.amp_envelope);
+    send_amp_envelope_on_worker(audio, id_u8, &params.amp_envelope, shutdown)
 }
 
-fn hydrate_kick_with_params(audio: &mut BlightAudio, id_u8: u8, params: &KickDrumParams) {
+fn hydrate_kick_with_params(
+    audio: &mut BlightAudio,
+    id_u8: u8,
+    params: &KickDrumParams,
+    shutdown: &AtomicBool,
+) -> bool {
     let id = audio_backend::id::InstrumentId::from(id_u8 as u32);
     let instrument = audio.get_instrument_factory().create_kick_drum(id, 0.0);
-    if !submit_command(audio, InstrumentCmd::AddInstrument { instrument }.into()) {
-        return;
+    if !submit_command(
+        audio,
+        InstrumentCmd::AddInstrument { instrument }.into(),
+        shutdown,
+    ) {
+        return false;
     }
-    if !apply_effects(audio, id, &params.audio_effects) {
-        return;
+    if !apply_effects(audio, id, &params.audio_effects, shutdown) {
+        return false;
     }
 
     if !submit_command(
@@ -123,35 +155,50 @@ fn hydrate_kick_with_params(audio: &mut BlightAudio, id_u8: u8, params: &KickDru
             },
         }
         .into(),
+        shutdown,
     ) {
-        return;
+        return false;
     }
 
-    send_amp_envelope(audio, id_u8, &params.amp_envelope);
+    send_amp_envelope_on_worker(audio, id_u8, &params.amp_envelope, shutdown)
 }
 
-fn hydrate_snare_with_params(audio: &mut BlightAudio, id_u8: u8, params: &SnareDrumParams) {
+fn hydrate_snare_with_params(
+    audio: &mut BlightAudio,
+    id_u8: u8,
+    params: &SnareDrumParams,
+    shutdown: &AtomicBool,
+) -> bool {
     let id = audio_backend::id::InstrumentId::from(id_u8 as u32);
     let instrument = audio.get_instrument_factory().create_snare_drum(id, 0.0);
-    if !submit_command(audio, InstrumentCmd::AddInstrument { instrument }.into()) {
-        return;
+    if !submit_command(
+        audio,
+        InstrumentCmd::AddInstrument { instrument }.into(),
+        shutdown,
+    ) {
+        return false;
     }
-    if !apply_effects(audio, id, &params.audio_effects) {
-        return;
+    if !apply_effects(audio, id, &params.audio_effects, shutdown) {
+        return false;
     }
 
-    send_amp_envelope(audio, id_u8, &params.amp_envelope);
+    send_amp_envelope_on_worker(audio, id_u8, &params.amp_envelope, shutdown)
 }
 
 fn hydrate_dfam_with_params(
     audio: &mut BlightAudio,
     id_u8: u8,
     params: &sequencer::models::DFAMParams,
-) {
+    shutdown: &AtomicBool,
+) -> bool {
     let id = audio_backend::id::InstrumentId::from(id_u8 as u32);
     let instrument = audio.get_instrument_factory().create_dfam(id, 0.0);
-    if !submit_command(audio, InstrumentCmd::AddInstrument { instrument }.into()) {
-        return;
+    if !submit_command(
+        audio,
+        InstrumentCmd::AddInstrument { instrument }.into(),
+        shutdown,
+    ) {
+        return false;
     }
 
     let ladder = audio
@@ -164,21 +211,23 @@ fn hydrate_dfam_with_params(
             effect: ladder,
         }
         .into(),
+        shutdown,
     ) {
-        return;
+        return false;
     }
 
-    if !apply_effects(audio, id, &params.audio_effects) {
-        return;
+    if !apply_effects(audio, id, &params.audio_effects, shutdown) {
+        return false;
     }
 
-    send_amp_envelope(audio, id_u8, &params.amp_envelope);
+    send_amp_envelope_on_worker(audio, id_u8, &params.amp_envelope, shutdown)
 }
 
 fn apply_effects(
     audio: &mut audio_backend::BlightAudio,
     instrument_id: audio_backend::id::InstrumentId,
     effects: &[AudioEffect],
+    shutdown: &AtomicBool,
 ) -> bool {
     for eff in effects {
         match eff {
@@ -221,6 +270,7 @@ fn apply_effects(
                         effect: r,
                     }
                     .into(),
+                    shutdown,
                 ) {
                     return false;
                 }
@@ -258,6 +308,7 @@ fn apply_effects(
                         effect: d,
                     }
                     .into(),
+                    shutdown,
                 ) {
                     return false;
                 }

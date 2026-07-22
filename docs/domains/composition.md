@@ -2,8 +2,8 @@
 title: Composition Domain
 summary: Focused context for tracker and future generative composition runtimes.
 status: current
-updated: 2026-07-14
-issues: [113, 134, 138, 145]
+updated: 2026-07-22
+issues: [113, 134, 138, 145, 181]
 ---
 
 # Composition Domain
@@ -38,6 +38,10 @@ issues: [113, 134, 138, 145]
 ## Open direction
 
 The final interaction model is intentionally undecided. The existing tracker remains one event source. Issue [#113](https://github.com/jpalvarezl/blight-synth/issues/113) requires small tracker, ORCA-like, and hybrid spikes before production UI selection.
+
+## Tracker host threading
+
+The egui thread owns authored `Song` and display state but not `BlightAudio`, CPAL, factories, or RT-queue retry. A dedicated NRT tracker audio-control worker receives semantic requests, performs preparation/hydration, and preserves command FIFO order under RT-ring saturation. High-rate continuous controls still move to #101 coalescing rather than growing this transitional request stream.
 
 ## Key invariant
 

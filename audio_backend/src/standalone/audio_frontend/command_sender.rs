@@ -80,15 +80,37 @@ impl CommandSender {
 
     /// Reliably submits one command in FIFO order from a caller-owned NRT
     /// thread. A full queue applies producer backpressure: this call retains
-    /// the command and cooperatively yields until RT frees a slot. It returns
-    /// an error only when the callback-side consumer disconnects.
-    pub(crate) fn send(&mut self, mut command: Command) -> CommandSubmissionResult {
+    /// the command and parks briefly until RT frees a slot. It returns an error
+    /// only when the callback-side consumer disconnects.
+    pub(crate) fn send(&mut self, command: Command) -> CommandSubmissionResult {
+        self.send_until(command, || false)
+    }
+
+    /// Reliably submits one command while allowing an NRT owner to cancel a
+    /// full-queue wait during worker shutdown.
+    ///
+    /// The command stays in this method until it reaches the RT ring, so later
+    /// commands cannot overtake it. Retries use the private unboxed path to
+    /// avoid allocating a `CommandSubmissionError` on every `Full` result.
+    /// Cancellation returns `Full` with the exact command, allowing its owner
+    /// to destroy or hand it off on NRT rather than leaking worker shutdown.
+    pub(crate) fn send_until(
+        &mut self,
+        mut command: Command,
+        cancelled: impl Fn() -> bool,
+    ) -> CommandSubmissionResult {
         loop {
+            if cancelled() {
+                return Err(CommandSubmissionError::new(
+                    CommandSubmissionErrorKind::Full,
+                    command,
+                ));
+            }
             match self.try_send_unboxed(command) {
                 Ok(()) => return Ok(()),
                 Err((CommandSubmissionErrorKind::Full, rejected)) => {
                     command = rejected;
-                    std::thread::yield_now();
+                    std::thread::park_timeout(std::time::Duration::from_millis(1));
                 }
                 Err((CommandSubmissionErrorKind::Disconnected, rejected)) => {
                     return Err(CommandSubmissionError::new(
@@ -194,6 +216,23 @@ mod tests {
             Command::Transport(TransportCmd::PlayLastSong)
         ));
         assert!(matches!(second, Command::Transport(TransportCmd::StopSong)));
+    }
+
+    #[test]
+    fn send_until_cancellation_returns_full_with_the_original_command() {
+        let rb = SharedRb::<Heap<Command>>::new(1);
+        let (command_tx, _command_rx) = rb.split();
+        let mut sender = CommandSender::new(command_tx);
+        assert!(sender.try_send(play_command()).is_ok());
+
+        let rejected = sender
+            .send_until(stop_command(), || true)
+            .expect_err("cancellation must reject the pending command");
+        assert_eq!(rejected.kind(), CommandSubmissionErrorKind::Full);
+        assert!(matches!(
+            rejected.into_command(),
+            Command::Transport(TransportCmd::StopSong)
+        ));
     }
 
     #[test]

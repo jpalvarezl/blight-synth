@@ -77,8 +77,10 @@ impl TrackerApp {
         // Also clear egui memory to reset any lingering widget state
         ctx.memory_mut(|mem| mem.data.clear());
 
-        // Rehydrate audio engine from the newly loaded song
-        if self.audio_manager.audio.is_some() {
+        // Rehydrate only after initialization is confirmed. If startup is
+        // still pending or failed, the next playback request re-initializes
+        // audio from the current song.
+        if self.audio_manager.is_initialized() {
             self.audio_manager.reset_with_song(&self.song);
         }
     }
@@ -231,6 +233,7 @@ impl Default for TrackerApp {
 
 impl eframe::App for TrackerApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.audio_manager.poll();
         self.prune_theme_feedback();
         self.handle_shortcuts(ctx);
 
