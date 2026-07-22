@@ -24,21 +24,21 @@ use super::osc::{song_load_error, song_loaded, MASTER_GAIN_EFFECT_ID};
 const CONTROL_REQUEST_CAPACITY: usize = 1024;
 const WORKER_POLL_INTERVAL: Duration = Duration::from_millis(1);
 
-pub(crate) struct ControlSubmission {
+/// An internal engine command translated from OSC plus the protocol response
+/// that may be emitted only after RT-ring acceptance.
+pub(crate) struct OscCommandRequest {
     pub(crate) command: Command,
     pub(crate) accepted_response: Option<OscPacket>,
 }
 
 enum ControlRequest {
-    Commands(Vec<ControlSubmission>),
+    Commands(Vec<OscCommandRequest>),
     LoadSong(PathBuf),
 }
 
-pub(crate) enum ControlEnqueueError<T> {
-    Full(T),
-    Disconnected(T),
-}
-
+/// Narrow worker backend seam used to test FIFO/retry/shutdown behavior without
+/// constructing a hardware CPAL stream. `BlightAudio` is the only production
+/// implementation.
 trait ControlTarget {
     fn try_submit(&mut self, command: Command) -> CommandSubmissionResult;
     fn prepare_song(&self, path: &Path) -> BackendResult<(Song, Vec<Command>)>;
@@ -137,48 +137,20 @@ impl StandaloneControlWorker {
         ))
     }
 
-    #[cfg(test)]
-    fn spawn_with_target<T>(target: T) -> Self
-    where
-        T: ControlTarget + Send + 'static,
-    {
-        let (request_tx, request_rx) = mpsc::sync_channel(CONTROL_REQUEST_CAPACITY);
-        let (response_tx, response_rx) = mpsc::channel();
-        let shutdown = Arc::new(AtomicBool::new(false));
-        let worker_shutdown = shutdown.clone();
-        let running = Arc::new(AtomicBool::new(true));
-        let worker_running = running.clone();
-        let thread = thread::Builder::new()
-            .name("blight-standalone-control".to_string())
-            .spawn(move || {
-                let _running_guard = RunningGuard(worker_running);
-                run_worker(target, request_rx, response_tx, worker_shutdown);
-            })
-            .expect("failed to spawn standalone control worker");
-
-        Self {
-            request_tx: Some(request_tx),
-            response_rx,
-            shutdown,
-            running,
-            thread: Some(thread),
-        }
-    }
-
     pub(crate) fn try_submit_commands(
         &self,
-        submissions: Vec<ControlSubmission>,
-    ) -> std::result::Result<(), ControlEnqueueError<Vec<ControlSubmission>>> {
+        submissions: Vec<OscCommandRequest>,
+    ) -> std::result::Result<(), TrySendError<Vec<OscCommandRequest>>> {
         let Some(request_tx) = &self.request_tx else {
-            return Err(ControlEnqueueError::Disconnected(submissions));
+            return Err(TrySendError::Disconnected(submissions));
         };
         match request_tx.try_send(ControlRequest::Commands(submissions)) {
             Ok(()) => Ok(()),
             Err(TrySendError::Full(ControlRequest::Commands(submissions))) => {
-                Err(ControlEnqueueError::Full(submissions))
+                Err(TrySendError::Full(submissions))
             }
             Err(TrySendError::Disconnected(ControlRequest::Commands(submissions))) => {
-                Err(ControlEnqueueError::Disconnected(submissions))
+                Err(TrySendError::Disconnected(submissions))
             }
             Err(TrySendError::Full(ControlRequest::LoadSong(_)))
             | Err(TrySendError::Disconnected(ControlRequest::LoadSong(_))) => {
@@ -190,17 +162,17 @@ impl StandaloneControlWorker {
     pub(crate) fn try_load_song(
         &self,
         path: PathBuf,
-    ) -> std::result::Result<(), ControlEnqueueError<PathBuf>> {
+    ) -> std::result::Result<(), TrySendError<PathBuf>> {
         let Some(request_tx) = &self.request_tx else {
-            return Err(ControlEnqueueError::Disconnected(path));
+            return Err(TrySendError::Disconnected(path));
         };
         match request_tx.try_send(ControlRequest::LoadSong(path)) {
             Ok(()) => Ok(()),
             Err(TrySendError::Full(ControlRequest::LoadSong(path))) => {
-                Err(ControlEnqueueError::Full(path))
+                Err(TrySendError::Full(path))
             }
             Err(TrySendError::Disconnected(ControlRequest::LoadSong(path))) => {
-                Err(ControlEnqueueError::Disconnected(path))
+                Err(TrySendError::Disconnected(path))
             }
             Err(TrySendError::Full(ControlRequest::Commands(_)))
             | Err(TrySendError::Disconnected(ControlRequest::Commands(_))) => {
@@ -261,7 +233,7 @@ fn run_worker<T>(
                 Ok(ControlRequest::Commands(submissions)) => pending.extend(submissions),
                 Ok(ControlRequest::LoadSong(path)) => match target.prepare_song(&path) {
                     Ok((song, commands)) => {
-                        pending.extend(commands.into_iter().map(|command| ControlSubmission {
+                        pending.extend(commands.into_iter().map(|command| OscCommandRequest {
                             command,
                             accepted_response: None,
                         }));
@@ -291,7 +263,7 @@ fn run_worker<T>(
             }
             Err(error) => match error.kind() {
                 CommandSubmissionErrorKind::Full => {
-                    pending.push_front(ControlSubmission {
+                    pending.push_front(OscCommandRequest {
                         command: error.into_command(),
                         accepted_response: submission.accepted_response,
                     });
@@ -316,6 +288,33 @@ mod tests {
     use super::*;
     use crate::{CommandSubmissionError, TransportCmd};
     use rosc::{OscMessage, OscType};
+
+    fn spawn_test_worker<T>(target: T) -> StandaloneControlWorker
+    where
+        T: ControlTarget + Send + 'static,
+    {
+        let (request_tx, request_rx) = mpsc::sync_channel(CONTROL_REQUEST_CAPACITY);
+        let (response_tx, response_rx) = mpsc::channel();
+        let shutdown = Arc::new(AtomicBool::new(false));
+        let worker_shutdown = shutdown.clone();
+        let running = Arc::new(AtomicBool::new(true));
+        let worker_running = running.clone();
+        let thread = thread::Builder::new()
+            .name("blight-standalone-control-test".to_string())
+            .spawn(move || {
+                let _running_guard = RunningGuard(worker_running);
+                run_worker(target, request_rx, response_tx, worker_shutdown);
+            })
+            .expect("failed to spawn standalone control test worker");
+
+        StandaloneControlWorker {
+            request_tx: Some(request_tx),
+            response_rx,
+            shutdown,
+            running,
+            thread: Some(thread),
+        }
+    }
 
     struct FakeTarget {
         accepting: Arc<AtomicBool>,
@@ -373,18 +372,18 @@ mod tests {
         let accepting = Arc::new(AtomicBool::new(false));
         let attempts = Arc::new(AtomicUsize::new(0));
         let accepted = Arc::new(Mutex::new(Vec::new()));
-        let mut worker = StandaloneControlWorker::spawn_with_target(FakeTarget {
+        let mut worker = spawn_test_worker(FakeTarget {
             accepting: accepting.clone(),
             attempts,
             accepted: accepted.clone(),
         });
         assert!(worker
             .try_submit_commands(vec![
-                ControlSubmission {
+                OscCommandRequest {
                     command: TransportCmd::PlayLastSong.into(),
                     accepted_response: Some(response("play")),
                 },
-                ControlSubmission {
+                OscCommandRequest {
                     command: TransportCmd::StopSong.into(),
                     accepted_response: Some(response("stop")),
                 },
@@ -410,13 +409,13 @@ mod tests {
         let accepting = Arc::new(AtomicBool::new(false));
         let attempts = Arc::new(AtomicUsize::new(0));
         let accepted = Arc::new(Mutex::new(Vec::new()));
-        let worker = StandaloneControlWorker::spawn_with_target(FakeTarget {
+        let worker = spawn_test_worker(FakeTarget {
             accepting,
             attempts: attempts.clone(),
             accepted,
         });
         assert!(worker
-            .try_submit_commands(vec![ControlSubmission {
+            .try_submit_commands(vec![OscCommandRequest {
                 command: TransportCmd::PlayLastSong.into(),
                 accepted_response: None,
             }])
@@ -429,18 +428,18 @@ mod tests {
 
         for _ in 0..CONTROL_REQUEST_CAPACITY {
             assert!(worker
-                .try_submit_commands(vec![ControlSubmission {
+                .try_submit_commands(vec![OscCommandRequest {
                     command: TransportCmd::StopSong.into(),
                     accepted_response: None,
                 }])
                 .is_ok());
         }
         assert!(matches!(
-            worker.try_submit_commands(vec![ControlSubmission {
+            worker.try_submit_commands(vec![OscCommandRequest {
                 command: TransportCmd::StopSong.into(),
                 accepted_response: None,
             }]),
-            Err(ControlEnqueueError::Full(_))
+            Err(TrySendError::Full(_))
         ));
     }
 
@@ -449,13 +448,13 @@ mod tests {
         let accepting = Arc::new(AtomicBool::new(false));
         let attempts = Arc::new(AtomicUsize::new(0));
         let accepted = Arc::new(Mutex::new(Vec::new()));
-        let worker = StandaloneControlWorker::spawn_with_target(FakeTarget {
+        let worker = spawn_test_worker(FakeTarget {
             accepting,
             attempts,
             accepted,
         });
         assert!(worker
-            .try_submit_commands(vec![ControlSubmission {
+            .try_submit_commands(vec![OscCommandRequest {
                 command: TransportCmd::PlayLastSong.into(),
                 accepted_response: None,
             }])
@@ -473,13 +472,13 @@ mod tests {
         let accepting = Arc::new(AtomicBool::new(false));
         let attempts = Arc::new(AtomicUsize::new(0));
         let accepted = Arc::new(Mutex::new(Vec::new()));
-        let worker = StandaloneControlWorker::spawn_with_target(FakeTarget {
+        let worker = spawn_test_worker(FakeTarget {
             accepting,
             attempts: attempts.clone(),
             accepted,
         });
         assert!(worker
-            .try_submit_commands(vec![ControlSubmission {
+            .try_submit_commands(vec![OscCommandRequest {
                 command: TransportCmd::PlayLastSong.into(),
                 accepted_response: None,
             }])
@@ -495,9 +494,9 @@ mod tests {
 
     #[test]
     fn disconnection_stops_worker_and_rejects_later_requests() {
-        let worker = StandaloneControlWorker::spawn_with_target(DisconnectedTarget);
+        let worker = spawn_test_worker(DisconnectedTarget);
         assert!(worker
-            .try_submit_commands(vec![ControlSubmission {
+            .try_submit_commands(vec![OscCommandRequest {
                 command: TransportCmd::PlayLastSong.into(),
                 accepted_response: None,
             }])
@@ -510,7 +509,7 @@ mod tests {
         assert!(!worker.is_running());
         assert!(matches!(
             worker.try_submit_commands(Vec::new()),
-            Err(ControlEnqueueError::Disconnected(_))
+            Err(TrySendError::Disconnected(_))
         ));
     }
 }

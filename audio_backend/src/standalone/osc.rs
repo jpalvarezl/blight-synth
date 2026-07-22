@@ -2,14 +2,13 @@ use anyhow::{Context, Result};
 use rosc::{decoder, encoder, OscMessage, OscPacket, OscType};
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::path::PathBuf;
+use std::sync::mpsc::TrySendError;
 use std::time::Duration;
 use tokio::net::UdpSocket;
 
-#[cfg(test)]
-use crate::Command;
 use crate::{id::EffectId, AudioBackendError, MeterLevels, MeterState, MixerCmd, TransportCmd};
 
-use super::control_worker::{ControlEnqueueError, ControlSubmission, StandaloneControlWorker};
+use super::control_worker::{OscCommandRequest, StandaloneControlWorker};
 
 pub const OSC_LISTEN_ADDR: &str = "127.0.0.1:9000";
 pub const OSC_SEND_ADDR: &str = "127.0.0.1:9001";
@@ -42,7 +41,7 @@ pub struct OscServer {
 
 #[derive(Default)]
 struct OscDispatch {
-    commands: Vec<ControlSubmission>,
+    commands: Vec<OscCommandRequest>,
     song_loads: Vec<PathBuf>,
     responses: Vec<OscPacket>,
 }
@@ -110,7 +109,9 @@ impl OscServer {
                         }
                     };
 
-                    self.apply_dispatch(control, dispatch_packet(packet)).await?;
+                    for response in self.enqueue_dispatch(control, dispatch_packet(packet)) {
+                        self.send_packet(&response).await?;
+                    }
                 }
                 _ = meter_timer.tick() => {
                     let levels = meter.take_levels();
@@ -130,26 +131,26 @@ impl OscServer {
         }
     }
 
-    /// Hands decoded work to the NRT control worker and sends responses that do
-    /// not depend on audio-command acceptance.
-    async fn apply_dispatch(
+    /// Hands decoded work to the NRT control worker and returns responses that
+    /// do not depend on audio-command acceptance.
+    fn enqueue_dispatch(
         &self,
         control: &StandaloneControlWorker,
         dispatch: OscDispatch,
-    ) -> Result<()> {
+    ) -> Vec<OscPacket> {
         let mut responses = dispatch.responses;
 
         for path in dispatch.song_loads {
             match control.try_load_song(path) {
                 Ok(()) => {}
-                Err(ControlEnqueueError::Full(path)) => {
+                Err(TrySendError::Full(path)) => {
                     log::warn!("standalone control worker request queue is full");
                     responses.push(song_load_error(
                         &path,
                         "standalone control worker request queue is full",
                     ));
                 }
-                Err(ControlEnqueueError::Disconnected(path)) => {
+                Err(TrySendError::Disconnected(path)) => {
                     log::error!("standalone control worker is disconnected");
                     responses.push(song_load_error(
                         &path,
@@ -162,12 +163,12 @@ impl OscServer {
         if !dispatch.commands.is_empty() {
             match control.try_submit_commands(dispatch.commands) {
                 Ok(()) => {}
-                Err(ControlEnqueueError::Full(_submissions)) => {
+                Err(TrySendError::Full(_submissions)) => {
                     log::warn!(
                         "dropping unaccepted OSC command batch: control worker queue is full"
                     );
                 }
-                Err(ControlEnqueueError::Disconnected(_submissions)) => {
+                Err(TrySendError::Disconnected(_submissions)) => {
                     log::error!(
                         "dropping unaccepted OSC command batch: control worker is disconnected"
                     );
@@ -175,11 +176,7 @@ impl OscServer {
             }
         }
 
-        for response in responses {
-            self.send_packet(&response).await?;
-        }
-
-        Ok(())
+        responses
     }
 
     async fn send_packet(&self, packet: &OscPacket) -> Result<()> {
@@ -213,7 +210,7 @@ fn handle_message(message: OscMessage) -> OscDispatch {
         "/transport/play" => {
             log::info!("OSC /transport/play -> TransportCmd::PlayLastSong");
             OscDispatch {
-                commands: vec![ControlSubmission {
+                commands: vec![OscCommandRequest {
                     command: TransportCmd::PlayLastSong.into(),
                     accepted_response: None,
                 }],
@@ -224,7 +221,7 @@ fn handle_message(message: OscMessage) -> OscDispatch {
         "/transport/stop" => {
             log::info!("OSC /transport/stop -> TransportCmd::StopSong");
             OscDispatch {
-                commands: vec![ControlSubmission {
+                commands: vec![OscCommandRequest {
                     command: TransportCmd::StopSong.into(),
                     accepted_response: None,
                 }],
@@ -278,7 +275,7 @@ fn handle_param_set(message: OscMessage) -> OscDispatch {
                 "OSC /param/set gain {normalized} (norm) -> {db} dB -> MixerCmd::SetMasterEffectParameter"
             );
             OscDispatch {
-                commands: vec![ControlSubmission {
+                commands: vec![OscCommandRequest {
                     command: MixerCmd::SetMasterEffectParameter {
                         effect_id: MASTER_GAIN_EFFECT_ID,
                         param_index: MASTER_GAIN_PARAM_INDEX,
@@ -362,6 +359,7 @@ fn meter_level(levels: &MeterLevels) -> OscPacket {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Command;
 
     fn message(addr: &str, args: Vec<OscType>) -> OscPacket {
         OscPacket::Message(OscMessage {
@@ -383,7 +381,7 @@ mod tests {
         (param_id, *value)
     }
 
-    fn accepted_response(command: ControlSubmission) -> OscPacket {
+    fn accepted_response(command: OscCommandRequest) -> OscPacket {
         command
             .accepted_response
             .expect("expected an acceptance response")

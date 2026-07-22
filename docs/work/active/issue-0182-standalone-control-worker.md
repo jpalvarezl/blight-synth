@@ -93,6 +93,8 @@ Potential parallel conflicts: #181 may establish a related tracker-side worker b
 - 2026-07-22 — Shutdown uses an atomic cancellation flag plus channel close; pending commands are destroyed on the NRT worker, and stalled RT capacity cannot prevent join. An RAII running guard also surfaces panic/disconnection exits to the Tokio loop.
 - 2026-07-22 — The bounded ingress distinguishes Full from Disconnected and returns unaccepted requests; focused tests cover ingress saturation in addition to RT-ring saturation.
 - 2026-07-22 — PR #183 Copilot review covered all 11 changed files; both findings (worker-owned master-gain documentation and task-index freshness) were applied.
+- 2026-07-22 — Human review clarified the intended architecture: OSC is a foreign-language transport adapter over the same typed command path used directly by Rust clients. Opened #185 to plan the later device-host/OSC-process feature split without expanding this PR.
+- 2026-07-22 — Simplified review concerns: use std `TrySendError` at the worker ingress instead of a duplicate error type; rename the command/ack pair to `OscCommandRequest`; make dispatch enqueue synchronous; move test imports/helpers into the test module; document `ControlTarget` as the hardware-free test seam with one production implementation.
 
 ## Verification
 
@@ -109,7 +111,7 @@ Potential parallel conflicts: #181 may establish a related tracker-side worker b
 ## Handoff
 
 - Completed: dedicated worker ownership, bounded request/response bridge, deterministic song batches, saturation retry, worker health/shutdown, focused tests, and protocol/threading docs.
-- Remaining: final hosted CI after review fixes and human PR review.
+- Remaining: final hosted CI after human review fixes and human PR approval.
 - Known failures/risks: requests rejected before bounded worker-queue acceptance remain caller-visible through missing success/error logging; high-rate values still await #101 coalescing. The 1 ms worker poll/backoff is transitional until #161 finalizes the synchronous control loop.
-- Next smallest action: push review fixes, resolve threads, and await final hosted CI.
+- Next smallest action: push human-review fixes, resolve threads, and await final hosted CI.
 - Files a new agent should read next: this packet and the six Read first entries above.
