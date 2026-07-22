@@ -75,8 +75,9 @@ impl AudioProcessor {
     pub fn process(&mut self, output_buffer: &mut [f32]) {
         self.flush_retired();
 
-        // A retained owner must reach NRT before more structural work can
-        // displace ownership. This preserves a fixed pending bound.
+        // If a previous block retained retirement ownership, pause this block's
+        // command consumption until it reaches NRT. The current bounded command
+        // loop may add at most 64 pending owners before this gate takes effect.
         if self.pending_retired.is_empty() {
             for _ in 0..MAX_COMMANDS_PER_PROCESS_BLOCK {
                 let Some(command) = self.command_rx.try_pop() else {

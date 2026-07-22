@@ -9,13 +9,13 @@ fn main() {
     let instrument_id = 1;
     let factory = InstrumentFactory::new(SAMPLE_RATE);
     let mut engine = Engine::new();
-    engine.handle_command(
+    let _ = engine.handle_command(
         InstrumentCmd::AddInstrument {
             instrument: factory.create_simple_oscillator(instrument_id, 0.0),
         }
         .into(),
     );
-    engine.handle_command(
+    let _ = engine.handle_command(
         InstrumentCmd::NoteOn {
             instrument_id,
             note: 60,
@@ -36,7 +36,7 @@ fn main() {
         }
     }
 
-    engine.handle_command(InstrumentCmd::NoteOff { instrument_id }.into());
+    let _ = engine.handle_command(InstrumentCmd::NoteOff { instrument_id }.into());
     println!(
         "rendered {} stereo frames without a host; peak={peak:.6}, checksum={checksum:.6}",
         BLOCK_SIZE * BLOCK_COUNT

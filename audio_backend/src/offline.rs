@@ -206,11 +206,11 @@ pub fn render_song(song: &Song, config: OfflineRenderConfig) -> Result<OfflineRe
     let hydration_commands = build_song_hydration_commands(song, config.sample_rate as f32)?;
     let song = Arc::new(song.clone());
     let mut player = Player::new(song.clone(), config.sample_rate as f64);
-    player.handle_command(SequencerCmd::LoadSong { song }.into());
+    let _ = player.handle_command(SequencerCmd::LoadSong { song }.into());
     for command in hydration_commands {
-        player.handle_command(command);
+        let _ = player.handle_command(command);
     }
-    player.handle_command(TransportCmd::PlayLastSong.into());
+    let _ = player.handle_command(TransportCmd::PlayLastSong.into());
 
     let initial_capacity = config.max_frames.min(config.sample_rate as usize * 60);
     let mut rendered = OfflineRender {

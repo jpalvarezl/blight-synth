@@ -339,7 +339,7 @@ mod tests {
         let note_offs = Arc::new(AtomicUsize::new(0));
         let effect_value = Arc::new(AtomicU32::new(0));
         let mut engine = Engine::new();
-        engine.handle_command(
+        let _ = engine.handle_command(
             InstrumentCmd::AddInstrument {
                 instrument: Box::new(TestInstrument {
                     id: 3,
@@ -350,14 +350,14 @@ mod tests {
             }
             .into(),
         );
-        engine.handle_command(
+        let _ = engine.handle_command(
             MixerCmd::AddMasterEffect {
                 effect: Box::new(ScaleEffect { id: 9, scale: 2.0 }),
             }
             .into(),
         );
 
-        engine.handle_command(
+        let _ = engine.handle_command(
             InstrumentCmd::NoteOn {
                 instrument_id: 3,
                 note: 60,
@@ -365,7 +365,7 @@ mod tests {
             }
             .into(),
         );
-        engine.handle_command(
+        let _ = engine.handle_command(
             InstrumentCmd::SetEffectParameter {
                 instrument_id: 3,
                 effect_id: 4,
@@ -377,7 +377,7 @@ mod tests {
         let mut left = [0.0; 4];
         let mut right = [0.0; 4];
         engine.process(&mut left, &mut right, 48_000.0);
-        engine.handle_command(InstrumentCmd::NoteOff { instrument_id: 3 }.into());
+        let _ = engine.handle_command(InstrumentCmd::NoteOff { instrument_id: 3 }.into());
 
         assert_eq!(left, [0.5; 4]);
         assert_eq!(right, [1.0; 4]);
@@ -398,7 +398,7 @@ mod tests {
         let mut engine = Engine::new();
         for id in [3, 1, 2, 2] {
             let (note_ons, note_offs, effect_value) = counters();
-            engine.add_instrument(Box::new(TestInstrument {
+            let _ = engine.add_instrument(Box::new(TestInstrument {
                 id,
                 note_ons,
                 note_offs,
@@ -447,7 +447,7 @@ mod tests {
     #[test]
     fn renders_only_complete_frames_when_channel_lengths_differ() {
         let mut engine = Engine::new();
-        engine.add_instrument(Box::new(TestInstrument {
+        let _ = engine.add_instrument(Box::new(TestInstrument {
             id: 3,
             note_ons: Arc::new(AtomicUsize::new(0)),
             note_offs: Arc::new(AtomicUsize::new(0)),

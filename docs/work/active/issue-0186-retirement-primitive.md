@@ -77,7 +77,7 @@ Shared contract: `Engine::handle_command`/`add_instrument` surface displaced own
 - [x] Add focused ownership/drop tests.
 - [x] Complete local validation.
 - [x] Run independent review and address findings.
-- [ ] Request Copilot review and address findings.
+- [x] Request Copilot review and address all findings.
 
 ## Progress and decisions
 
@@ -86,6 +86,7 @@ Shared contract: `Engine::handle_command`/`add_instrument` surface displaced own
 - 2026-07-23 — Callback work stops consuming commands while fixed pending retirement ownership cannot reach NRT, preserving a bounded fallback.
 - 2026-07-23 — Retirement ring capacity is 128 owner units; at most 64 commands execute per block and this slice retires at most one owner per command.
 - 2026-07-23 — Independent review approved the ownership/bound invariants but required transport coverage. Added live-consumer replacement delivery plus forced ring-full pending/pause/resume tests.
+- 2026-07-23 — Copilot reviewed all 11 changed files. Made intentional NRT retirement discards explicit at offline/test call sites and clarified that the pending-retirement gate applies on subsequent callback blocks.
 
 ## Verification
 
@@ -102,6 +103,6 @@ Shared contract: `Engine::handle_command`/`add_instrument` surface displaced own
 ## Handoff
 
 - Completed: retirement ownership primitive, replacement slice, reverse ring, NRT drain, focused drop test.
-- Remaining: Copilot review, hosted CI, and human review.
+- Remaining: final hosted CI after review fixes and human review.
 - Known risks: shutdown handling of RT-side pending ownership and all non-instrument retirement variants intentionally remain #188/#187.
 - Next action: push the reviewed branch, open the PR, and request Copilot review.
