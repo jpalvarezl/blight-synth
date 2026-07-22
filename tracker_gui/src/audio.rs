@@ -7,7 +7,7 @@ use std::{
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
-        mpsc::{self, Receiver, RecvTimeoutError, Sender},
+        mpsc::{self, Receiver, Sender},
     },
     thread::{self, JoinHandle},
     time::Duration,
@@ -50,7 +50,6 @@ enum AudioEvent {
     Playing(bool),
     Looping(bool),
     Error(String),
-    Warning(String),
 }
 
 /// UI-side handle for the dedicated tracker NRT audio-control worker.
@@ -107,7 +106,6 @@ impl AudioManager {
                     self.is_playing = false;
                     log::error!("{error}");
                 }
-                AudioEvent::Warning(warning) => log::warn!("{warning}"),
             }
         }
     }
@@ -162,12 +160,15 @@ impl AudioManager {
         });
     }
 
-    fn send_request(&self, request: AudioRequest) {
-        let Some(request_tx) = &self.request_tx else {
-            log::error!("tracker audio-control worker is disconnected");
-            return;
-        };
-        if request_tx.send(request).is_err() {
+    fn send_request(&mut self, request: AudioRequest) {
+        let send_failed = self
+            .request_tx
+            .as_ref()
+            .is_none_or(|request_tx| request_tx.send(request).is_err());
+        if send_failed {
+            self.request_tx.take();
+            self.initialized = false;
+            self.is_playing = false;
             log::error!("tracker audio-control worker is disconnected");
         }
     }
@@ -194,10 +195,9 @@ fn run_audio_worker(
     let mut loop_enabled = false;
 
     while !shutdown.load(Ordering::Acquire) {
-        let request = match request_rx.recv_timeout(WORKER_POLL_INTERVAL) {
+        let request = match request_rx.recv() {
             Ok(request) => request,
-            Err(RecvTimeoutError::Timeout) => continue,
-            Err(RecvTimeoutError::Disconnected) => break,
+            Err(_) => break,
         };
 
         match request {
@@ -220,8 +220,9 @@ fn run_audio_worker(
                     let _ = event_tx.send(AudioEvent::Reset);
                 }
                 Err(error) => {
-                    let _ = event_tx.send(AudioEvent::Warning(format!(
-                        "Audio reset failed; keeping the previous engine: {error}"
+                    audio = None;
+                    let _ = event_tx.send(AudioEvent::Error(format!(
+                        "Audio reset failed; playback disabled until re-initialization: {error}"
                     )));
                 }
             },
@@ -403,7 +404,7 @@ mod tests {
 
     #[test]
     fn worker_processes_requests_in_fifo_order() {
-        let manager = AudioManager::default();
+        let mut manager = AudioManager::default();
         let (observed_tx, observed_rx) = mpsc::channel();
         for label in ["first", "second", "third"] {
             manager.send_request(AudioRequest::Probe {
@@ -424,7 +425,7 @@ mod tests {
 
     #[test]
     fn later_requests_cannot_overtake_blocked_work_and_shutdown_is_cancellable() {
-        let manager = AudioManager::default();
+        let mut manager = AudioManager::default();
         let release = Arc::new(AtomicBool::new(false));
         let (started_tx, started_rx) = mpsc::channel();
         manager.send_request(AudioRequest::Block {
@@ -453,7 +454,7 @@ mod tests {
 
     #[test]
     fn shutdown_interrupts_blocked_work() {
-        let manager = AudioManager::default();
+        let mut manager = AudioManager::default();
         let release = Arc::new(AtomicBool::new(false));
         let (started_tx, started_rx) = mpsc::channel();
         manager.send_request(AudioRequest::Block {

@@ -79,7 +79,7 @@ Potential parallel conflicts: #182 owns standalone files. Both branches touch ac
 - [x] Add hardware-free worker ordering and shutdown tests.
 - [x] Run complete local validation.
 - [x] Run independent review and address findings.
-- [ ] Request Copilot review and address findings.
+- [x] Request Copilot review and address all findings.
 
 ## Progress and decisions
 
@@ -87,7 +87,8 @@ Potential parallel conflicts: #182 owns standalone files. Both branches touch ac
 - 2026-07-22 — UI requests are semantic (`Initialize`, `Reset`, transport, hydration, envelope, command) and ordered through one std channel. Factory work and command ownership never return to egui.
 - 2026-07-22 — The worker retries the exact FIFO-front command with parked 1 ms backoff and observes shutdown between attempts.
 - 2026-07-22 — UI playback/loop state updates only from worker events after RT-ring acceptance.
-- 2026-07-22 — Independent review approved the concurrency model and identified reset/disconnection recovery edges. Failed resets now preserve the previous engine, while fatal callback disconnection clears worker/UI initialized state so a later Initialize rebuilds audio.
+- 2026-07-22 — Independent review approved the concurrency model and identified reset/disconnection recovery edges. Fatal callback disconnection clears worker/UI initialized state so a later Initialize rebuilds audio.
+- 2026-07-22 — Copilot reviewed all seven changed files. Applied all findings: failed reset now disables the stale engine until re-initialization, idle worker waits on blocking channel receive, and first request-channel send failure clears UI connection state and suppresses repeated sends.
 
 ## Verification
 
@@ -104,7 +105,7 @@ Potential parallel conflicts: #182 owns standalone files. Both branches touch ac
 ## Handoff
 
 - Completed: worker ownership, semantic UI boundary, cancellable reliable submission, focused tests, and threading docs.
-- Remaining: hosted CI, Copilot review, and human PR review.
+- Remaining: final hosted CI after review fixes and human PR review.
 - Known failures/risks: the UI request channel is intentionally unbounded until #101 provides class-specific coalescing; a disconnected audio callback terminates current request processing and is surfaced through logging/status events.
-- Next smallest action: push the reviewed branch and open the issue PR.
+- Next smallest action: push review fixes, resolve threads, and await final hosted CI.
 - Files a new agent should read next: this packet and the six Read first entries above.
