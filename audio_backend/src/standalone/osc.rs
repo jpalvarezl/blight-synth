@@ -2,14 +2,13 @@ use anyhow::{Context, Result};
 use rosc::{decoder, encoder, OscMessage, OscPacket, OscType};
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::path::PathBuf;
+use std::sync::mpsc::TrySendError;
 use std::time::Duration;
 use tokio::net::UdpSocket;
 
-use crate::{
-    id::EffectId, load_song_file_into_audio, BlightAudio, Command, CommandSubmissionError,
-    CommandSubmissionErrorKind, CommandSubmissionResult, MeterLevels, MeterState, MixerCmd,
-    TransportCmd,
-};
+use crate::{id::EffectId, AudioBackendError, MeterLevels, MeterState, MixerCmd, TransportCmd};
+
+use super::control_worker::{OscCommandRequest, StandaloneControlWorker};
 
 pub const OSC_LISTEN_ADDR: &str = "127.0.0.1:9000";
 pub const OSC_SEND_ADDR: &str = "127.0.0.1:9001";
@@ -19,8 +18,8 @@ pub const OSC_SEND_ADDR: &str = "127.0.0.1:9001";
 /// `/param/set gain <0..1>` carries a *normalized* control value (linear
 /// amplitude, the VST/AU parameter convention). The core maps it to the dB
 /// the master `Gain` effect expects via [`normalized_gain_to_db`] and emits
-/// `MixerCmd::SetMasterEffectParameter`. The standalone binary is responsible
-/// for installing this effect during startup.
+/// `MixerCmd::SetMasterEffectParameter`. [`StandaloneControlWorker::spawn`]
+/// installs this effect while initializing `BlightAudio` on its worker thread.
 pub const MASTER_GAIN_EFFECT_ID: EffectId = 0;
 pub const MASTER_GAIN_PARAM_INDEX: u32 = 0;
 
@@ -32,29 +31,17 @@ const METER_INTERVAL: Duration = Duration::from_micros(1_000_000 / METER_RATE_HZ
 const METER_FLOOR_DB: f32 = -120.0;
 /// dB floor for the normalized master gain mapping (effectively mute).
 const GAIN_FLOOR_DB: f32 = -120.0;
+/// Poll cadence for protocol responses completed by the NRT control worker.
+const CONTROL_RESPONSE_INTERVAL: Duration = Duration::from_millis(1);
 
 pub struct OscServer {
     socket: UdpSocket,
     send_addr: SocketAddr,
 }
 
-struct OscCommand {
-    command: Command,
-    accepted_response: Option<OscPacket>,
-}
-
-impl OscCommand {
-    fn submit(
-        self,
-        submit: impl FnOnce(Command) -> CommandSubmissionResult,
-    ) -> Result<Option<OscPacket>, CommandSubmissionError> {
-        submit(self.command).map(|()| self.accepted_response)
-    }
-}
-
 #[derive(Default)]
 struct OscDispatch {
-    commands: Vec<OscCommand>,
+    commands: Vec<OscCommandRequest>,
     song_loads: Vec<PathBuf>,
     responses: Vec<OscPacket>,
 }
@@ -94,18 +81,19 @@ impl OscServer {
         Ok(Self { socket, send_addr })
     }
 
-    pub async fn run(&self, audio: &mut BlightAudio) -> Result<()> {
-        let meter = audio.meter_state();
-        self.run_with_meter(audio, &meter).await
-    }
-
     /// Runs the OSC receive loop alongside `/meter/level` streaming at
-    /// [`METER_RATE_HZ`]. Incoming packets are translated into engine commands
-    /// while the meter timer reads the shared [`MeterState`] and emits levels.
-    pub async fn run_with_meter(&self, audio: &mut BlightAudio, meter: &MeterState) -> Result<()> {
+    /// [`METER_RATE_HZ`]. Incoming packets are handed to the dedicated NRT
+    /// control worker; this Tokio task never blocks on RT queue saturation.
+    pub async fn run_with_meter(
+        &self,
+        control: &mut StandaloneControlWorker,
+        meter: &MeterState,
+    ) -> Result<()> {
         let mut buf = [0_u8; decoder::MTU];
         let mut meter_timer = tokio::time::interval(METER_INTERVAL);
         meter_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        let mut response_timer = tokio::time::interval(CONTROL_RESPONSE_INTERVAL);
+        response_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
         loop {
             tokio::select! {
@@ -121,55 +109,74 @@ impl OscServer {
                         }
                     };
 
-                    self.apply_dispatch(audio, dispatch_packet(packet)).await?;
+                    for response in self.enqueue_dispatch(control, dispatch_packet(packet)) {
+                        self.send_packet(&response).await?;
+                    }
                 }
                 _ = meter_timer.tick() => {
                     let levels = meter.take_levels();
                     self.send_packet(&meter_level(&levels)).await?;
                 }
+                _ = response_timer.tick() => {
+                    if !control.is_running() {
+                        return Err(AudioBackendError(
+                            "standalone control worker stopped".to_string(),
+                        ).into());
+                    }
+                    for response in control.drain_responses() {
+                        self.send_packet(&response).await?;
+                    }
+                }
             }
         }
     }
 
-    /// Applies a decoded dispatch: runs song loads, forwards commands to the
-    /// audio thread, and sends any OSC responses.
-    async fn apply_dispatch(&self, audio: &mut BlightAudio, dispatch: OscDispatch) -> Result<()> {
+    /// Hands decoded work to the NRT control worker and returns responses that
+    /// do not depend on audio-command acceptance.
+    fn enqueue_dispatch(
+        &self,
+        control: &StandaloneControlWorker,
+        dispatch: OscDispatch,
+    ) -> Vec<OscPacket> {
         let mut responses = dispatch.responses;
 
         for path in dispatch.song_loads {
-            match load_song_file_into_audio(audio, &path) {
-                Ok(song) => {
-                    log::info!("loaded song '{}' from {}", song.name, path.display());
-                    responses.push(song_loaded(&path, &song.name));
+            match control.try_load_song(path) {
+                Ok(()) => {}
+                Err(TrySendError::Full(path)) => {
+                    log::warn!("standalone control worker request queue is full");
+                    responses.push(song_load_error(
+                        &path,
+                        "standalone control worker request queue is full",
+                    ));
                 }
-                Err(err) => {
-                    log::error!("failed to load song from {}: {err:?}", path.display());
-                    responses.push(song_load_error(&path, &err.to_string()));
+                Err(TrySendError::Disconnected(path)) => {
+                    log::error!("standalone control worker is disconnected");
+                    responses.push(song_load_error(
+                        &path,
+                        "standalone control worker is disconnected",
+                    ));
                 }
             }
         }
 
-        for submission in dispatch.commands {
-            log::debug!("dispatching OSC-derived command");
-            match submission.submit(|command| audio.try_send_command(command)) {
-                Ok(Some(response)) => responses.push(response),
-                Ok(None) => {}
-                Err(error) => match error.kind() {
-                    CommandSubmissionErrorKind::Full => {
-                        log::warn!("OSC command rejected: audio command queue is full");
-                    }
-                    CommandSubmissionErrorKind::Disconnected => {
-                        log::error!("OSC command rejected: audio callback is disconnected");
-                    }
-                },
+        if !dispatch.commands.is_empty() {
+            match control.try_submit_commands(dispatch.commands) {
+                Ok(()) => {}
+                Err(TrySendError::Full(_submissions)) => {
+                    log::warn!(
+                        "dropping unaccepted OSC command batch: control worker queue is full"
+                    );
+                }
+                Err(TrySendError::Disconnected(_submissions)) => {
+                    log::error!(
+                        "dropping unaccepted OSC command batch: control worker is disconnected"
+                    );
+                }
             }
         }
 
-        for response in responses {
-            self.send_packet(&response).await?;
-        }
-
-        Ok(())
+        responses
     }
 
     async fn send_packet(&self, packet: &OscPacket) -> Result<()> {
@@ -203,7 +210,7 @@ fn handle_message(message: OscMessage) -> OscDispatch {
         "/transport/play" => {
             log::info!("OSC /transport/play -> TransportCmd::PlayLastSong");
             OscDispatch {
-                commands: vec![OscCommand {
+                commands: vec![OscCommandRequest {
                     command: TransportCmd::PlayLastSong.into(),
                     accepted_response: None,
                 }],
@@ -214,7 +221,7 @@ fn handle_message(message: OscMessage) -> OscDispatch {
         "/transport/stop" => {
             log::info!("OSC /transport/stop -> TransportCmd::StopSong");
             OscDispatch {
-                commands: vec![OscCommand {
+                commands: vec![OscCommandRequest {
                     command: TransportCmd::StopSong.into(),
                     accepted_response: None,
                 }],
@@ -268,7 +275,7 @@ fn handle_param_set(message: OscMessage) -> OscDispatch {
                 "OSC /param/set gain {normalized} (norm) -> {db} dB -> MixerCmd::SetMasterEffectParameter"
             );
             OscDispatch {
-                commands: vec![OscCommand {
+                commands: vec![OscCommandRequest {
                     command: MixerCmd::SetMasterEffectParameter {
                         effect_id: MASTER_GAIN_EFFECT_ID,
                         param_index: MASTER_GAIN_PARAM_INDEX,
@@ -307,7 +314,7 @@ fn param_echo(param_id: &str, value: f32) -> OscPacket {
     })
 }
 
-fn song_loaded(path: &std::path::Path, song_name: &str) -> OscPacket {
+pub(super) fn song_loaded(path: &std::path::Path, song_name: &str) -> OscPacket {
     OscPacket::Message(OscMessage {
         addr: "/song/loaded".to_string(),
         args: vec![
@@ -317,7 +324,7 @@ fn song_loaded(path: &std::path::Path, song_name: &str) -> OscPacket {
     })
 }
 
-fn song_load_error(path: &std::path::Path, error: &str) -> OscPacket {
+pub(super) fn song_load_error(path: &std::path::Path, error: &str) -> OscPacket {
     OscPacket::Message(OscMessage {
         addr: "/song/error".to_string(),
         args: vec![
@@ -352,6 +359,7 @@ fn meter_level(levels: &MeterLevels) -> OscPacket {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Command;
 
     fn message(addr: &str, args: Vec<OscType>) -> OscPacket {
         OscPacket::Message(OscMessage {
@@ -373,12 +381,10 @@ mod tests {
         (param_id, *value)
     }
 
-    fn accepted_response(command: OscCommand) -> OscPacket {
-        match command.submit(|_| Ok(())) {
-            Ok(Some(response)) => response,
-            Ok(None) => panic!("expected an acceptance response"),
-            Err(_) => panic!("expected command acceptance"),
-        }
+    fn accepted_response(command: OscCommandRequest) -> OscPacket {
+        command
+            .accepted_response
+            .expect("expected an acceptance response")
     }
 
     #[test]
@@ -429,30 +435,6 @@ mod tests {
         let (id, echoed) = param_echo_args(&response);
         assert_eq!(id, "gain");
         assert!((echoed - 0.5).abs() < 1e-6);
-    }
-
-    #[test]
-    fn rejected_param_submission_does_not_release_success_echo() {
-        for kind in [
-            CommandSubmissionErrorKind::Full,
-            CommandSubmissionErrorKind::Disconnected,
-        ] {
-            let dispatch = dispatch_packet(message(
-                "/param/set",
-                vec![OscType::String("gain".to_string()), OscType::Float(0.5)],
-            ));
-            let result = dispatch
-                .commands
-                .into_iter()
-                .next()
-                .unwrap()
-                .submit(|command| Err(CommandSubmissionError::new(kind, command)));
-
-            match result {
-                Err(error) => assert_eq!(error.kind(), kind),
-                Ok(_) => panic!("a rejected command must not release its response"),
-            }
-        }
     }
 
     #[test]
