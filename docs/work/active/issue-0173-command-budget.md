@@ -99,12 +99,15 @@ Potential parallel conflicts: issue #175 touches callback logging and malformed-
 - 2026-07-21 — Re-requested Copilot review again at `4667776`; applied both findings by lowering burst-prone GUI `Full` logging to debug and adding actionable README submission failure messages.
 - 2026-07-21 — Final revision `b95b3af` had no unresolved review threads; both hosted CI jobs passed.
 - 2026-07-22 — Follow-up review points 1–3 isolated from the retry-policy discussion: new binary mapping uses `AudioBackendError`, command ownership remains required by `ringbuf::try_push`, and `CommandSubmissionError` now uses a boxed private kind/command payload with `kind`/`into_command` accessors.
+- 2026-07-22 — Agreed overflow semantics: `try_send_command` is the explicit nonblocking accepted/full/disconnected API; reliable `send_command` owns the rejected command and applies NRT producer backpressure until accepted or disconnected. The exclusive blocking call preserves FIFO order without assigning retry policy to GUI consumers.
+- 2026-07-22 — Opened #181 (tracker NRT control worker) and #182 (standalone NRT control worker) after review confirmed both first-party callers currently run on unsuitable UI/current-thread executor contexts. PR #180 lands the queue API with those callers remaining on `try_send_command`; #173 stays open until both adopt reliable submission.
+- 2026-07-22 — Independent final review approved with no warnings; clarified the tracker `try_send_command` transition and sustained-saturation thread cost in API docs.
 
 ## Verification
 
 - [x] `cargo fmt --all -- --check`
 - [x] `cargo clippy --workspace --all-targets -- -D warnings`
-- [x] `cargo test --workspace --all-targets` — 61 tests plus examples
+- [x] `cargo test --workspace --all-targets` — 62 tests plus examples
 - [x] `cargo clippy -p audio_backend --no-default-features --all-targets -- -D warnings`
 - [x] `cargo test -p audio_backend --no-default-features --all-targets` — 10 tests plus examples
 - [x] `python3 scripts/check_rt_logging.py`
@@ -115,8 +118,8 @@ Potential parallel conflicts: issue #175 touches callback logging and malformed-
 
 ## Handoff
 
-- Completed: core 64-item callback budget, accepted-only OSC acknowledgements, and isolated follow-up review points 1–3.
-- Remaining: validate/review points 1–3, then agree on crate-owned deterministic overflow/retry semantics before changing tracker behavior.
-- Known failures/risks: the compatibility queue still combines traffic classes; sustained traffic has no priority recovery lane. Multi-command hydration can be partially enqueued before a later rejection, although OSC reports an error rather than false success; atomic prepared-state installation remains with #174/#138.
-- Next smallest action: finish and review points 1–3 without changing the open overflow/retry policy.
+- Completed: core 64-item callback budget, accepted-only OSC acknowledgements, review points 1–3, blocking/nonblocking FIFO API semantics, focused ordering tests, and first-party consumer follow-ups #181/#182.
+- Remaining: push PR #180 groundwork, run hosted CI/Copilot review, and obtain final human approval; #173 remains open for #181/#182.
+- Known failures/risks: the compatibility queue still combines traffic classes; sustained traffic has no priority recovery lane. Reliable submission can block indefinitely if a callback remains connected but stops consuming; NRT thread placement/cancellation is the crate consumer's responsibility. First-party consumers intentionally remain nonblocking until #181/#182. Atomic prepared-state installation remains with #174/#138.
+- Next smallest action: push the reviewed PR #180 groundwork revision and request Copilot review.
 - Files a new agent should read next: this packet and the five Read first entries above.

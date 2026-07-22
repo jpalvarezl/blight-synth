@@ -96,8 +96,11 @@ The transitional standalone compatibility queue consumes at most **64 command it
 
 ## Backpressure and overload
 
-- `BlightAudio::send_command` returns `CommandSubmissionResult`, an alias for `Result<(), CommandSubmissionError>`, without blocking. `Ok(())` means accepted; `CommandSubmissionError::kind` reports `Full` or `Disconnected`, and `into_command` returns the original owned command so NRT can retry, defer, or deliberately discard prepared state. The error boxes its private kind/command payload only on the rejecting NRT path, keeping the result representation small without adding callback-side allocation.
-- State-changing protocol acknowledgements are emitted only after `Ok(())`, never after a `Full` or `Disconnected` rejection.
+- `BlightAudio::try_send_command` is nonblocking and returns `CommandSubmissionResult`, an alias for `Result<(), CommandSubmissionError>`. `Ok(())` means accepted; `CommandSubmissionError::kind` reports `Full` or `Disconnected`, and `into_command` returns the original owned command.
+- `BlightAudio::send_command` is the reliable NRT API. On `Full` it retains the same command and cooperatively yields until RT frees a slot; because the exclusive call does not return, no later command can overtake it. It returns an error only on `Disconnected`. The caller owns NRT thread placement and must not call it from RT or a latency-sensitive UI/async executor thread.
+- Submission errors box their private kind/command payload only when returned to NRT, keeping results small. The blocking retry path keeps full-queue retries unboxed so repeated saturation does not allocate.
+- Until #181/#182 provide dedicated first-party NRT control ownership, tracker GUI and current-thread Tokio paths use `try_send_command` and surface `Full`/`Disconnected` without false acknowledgement. #173 remains open until those consumers adopt reliable submission.
+- State-changing protocol acknowledgements are emitted only after `Ok(())`, never after a nonblocking `Full` or any `Disconnected` rejection.
 - Continuous values coalesce by contract rather than filling the structural queue.
 - Structural updates are not silently dropped.
 - Event overflow behavior is explicit and deterministic; all-notes-off/recovery remains possible.
@@ -147,7 +150,7 @@ A future FFI wrapper catches panics outside the RT entry and must never permit u
 - Engine instrument render order uses a sorted preallocated slot vector.
 - Voice effect batches use fixed-capacity `ArrayVec` containers.
 - Meter handoff uses nonblocking atomics and performs network/formatting work outside RT.
-- The transitional standalone command queue applies a 64-command FIFO prefix per callback; submissions return an idiomatic result plus rejected commands to NRT, and require acceptance for OSC success responses.
+- The transitional standalone command queue applies a 64-command FIFO prefix per callback; reliable NRT submission preserves FIFO order across saturation, nonblocking submission exposes explicit backpressure, and OSC success responses require acceptance.
 - Factories and project/sample decoding already live on NRT paths by architecture.
 - Offline golden renders provide end-to-end behavioral regression evidence, though they do not prove allocation safety.
 

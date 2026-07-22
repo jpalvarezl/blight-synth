@@ -120,9 +120,20 @@ impl BlightAudio {
 
     /// Attempts to submit one command without blocking.
     ///
-    /// A rejected command is returned with its failure reason so this
-    /// non-real-time caller can retry or defer it. Callers that acknowledge
-    /// state changes must do so only after `Ok(())`.
+    /// `Full` and `Disconnected` return the original command in the error.
+    /// Callers that acknowledge state changes must do so only after `Ok(())`.
+    pub fn try_send_command(&mut self, command: Command) -> CommandSubmissionResult {
+        self.command_sender.try_send(command)
+    }
+
+    /// Reliably submits one command from a caller-owned non-real-time thread.
+    ///
+    /// A full queue applies producer backpressure: this method retains the
+    /// command and cooperatively yields until the callback frees a slot, so a
+    /// later command cannot overtake it. It returns an error only when the
+    /// callback-side consumer disconnects. Sustained saturation may consume
+    /// the caller's thread while it yields, so callers must not invoke this
+    /// method from a real-time, UI, or async-executor thread.
     pub fn send_command(&mut self, command: Command) -> CommandSubmissionResult {
         self.command_sender.send(command)
     }

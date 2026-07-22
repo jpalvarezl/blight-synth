@@ -151,7 +151,7 @@ impl OscServer {
 
         for submission in dispatch.commands {
             log::debug!("dispatching OSC-derived command");
-            match submission.submit(|command| audio.send_command(command)) {
+            match submission.submit(|command| audio.try_send_command(command)) {
                 Ok(Some(response)) => responses.push(response),
                 Ok(None) => {}
                 Err(error) => match error.kind() {

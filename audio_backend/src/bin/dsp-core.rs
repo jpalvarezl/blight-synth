@@ -14,7 +14,7 @@ async fn main() -> Result<()> {
 
     // Install the existing master gain effect that OSC `/param/set gain <db>` controls.
     audio
-        .send_command(
+        .try_send_command(
             MixerCmd::AddMasterEffect {
                 effect: audio
                     .get_effect_factory()

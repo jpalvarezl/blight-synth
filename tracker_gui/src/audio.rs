@@ -113,9 +113,9 @@ impl AudioManager {
         self.set_looping(enabled);
     }
 
-    /// Sends a command to the audio thread via `BlightAudio::send_command`.
-    /// UI systems should call this instead of touching the backend directly so
-    /// every update flows through the same queue.
+    /// Attempts a nonblocking command submission via
+    /// `BlightAudio::try_send_command`. UI systems use this transitional path
+    /// until #181 moves reliable submission to a dedicated NRT worker.
     pub fn dispatch(&mut self, cmd: impl Into<audio_backend::Command>) {
         if let Some(audio) = &mut self.audio {
             submit_command(audio, cmd.into());
@@ -133,7 +133,7 @@ impl AudioManager {
 }
 
 pub(crate) fn submit_command(audio: &mut BlightAudio, command: Command) -> bool {
-    match audio.send_command(command) {
+    match audio.try_send_command(command) {
         Ok(()) => true,
         Err(error) => match error.kind() {
             CommandSubmissionErrorKind::Full => {

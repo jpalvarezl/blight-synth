@@ -56,7 +56,7 @@ pub fn hydrate_song(audio: &mut BlightAudio, song: &Song) -> Result<()> {
 
 #[cfg(feature = "standalone")]
 fn submit_command(audio: &mut BlightAudio, command: Command) -> Result<()> {
-    match audio.send_command(command) {
+    match audio.try_send_command(command) {
         Ok(()) => Ok(()),
         Err(error) => match error.kind() {
             CommandSubmissionErrorKind::Full => bail!("audio command queue is full"),
