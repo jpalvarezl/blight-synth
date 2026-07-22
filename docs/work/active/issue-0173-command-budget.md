@@ -91,13 +91,14 @@ Potential parallel conflicts: issue #175 touches callback logging and malformed-
 - 2026-07-20 — Independent diff review approved the change with no blocking findings; partial hydration and ignored GUI statuses remain documented follow-up risks.
 - 2026-07-20 — PR review correctly noted that status-only rejection consumed non-Clone commands. `CommandSubmission::Full/Disconnected` now return the original command so NRT callers can retry or defer it.
 - 2026-07-20 — Review fix pushed as `a15bf0c`, review thread resolved, and both hosted CI jobs passed.
-- 2026-07-21 — Human review rejected the duplicated status/outcome API. Replaced it with the idiomatic `CommandSubmissionResult` alias (`Result<(), (CommandSubmissionError, Box<Command>)>`), moved testable queue ownership into `CommandSender`, and made production callers handle rejection while examples explicitly discard it. Rejection-only NRT boxing avoids a large `Result` representation without touching RT.
+- 2026-07-21 — Human review rejected the duplicated status/outcome API. Replaced it with the idiomatic `CommandSubmissionResult`, moved testable queue ownership into `CommandSender`, and made production callers handle rejection while examples explicitly discard it.
 - 2026-07-21 — Retained the 64-item transitional budget with explicit roadmap ownership: #101/#134 retire the mixed queue in favor of traffic-specific coalescing/event mechanisms.
 - 2026-07-21 — Confirmed `OscCommand` already carries `rosc::OscPacket`; NRT OSC rejection logs intentionally remain available in release per the RT logging contract.
 - 2026-07-21 — Independent revision review approved with no warnings. Applied its useful suggestions: updated README API examples, changed acknowledgement wording to `Ok(())`, and gated tracker loop state on queue acceptance.
 - 2026-07-21 — Re-requested Copilot review at `d0a16e1`; it reviewed all 23 files with no published comments. Applied its sensible low-confidence suggestions by stopping tracker hydration/envelope/effect batches after the first rejection.
 - 2026-07-21 — Re-requested Copilot review again at `4667776`; applied both findings by lowering burst-prone GUI `Full` logging to debug and adding actionable README submission failure messages.
-- 2026-07-21 — Final revision `b95b3af` has no unresolved review threads; both hosted CI jobs passed.
+- 2026-07-21 — Final revision `b95b3af` had no unresolved review threads; both hosted CI jobs passed.
+- 2026-07-22 — Follow-up review points 1–3 isolated from the retry-policy discussion: new binary mapping uses `AudioBackendError`, command ownership remains required by `ringbuf::try_push`, and `CommandSubmissionError` now uses a boxed private kind/command payload with `kind`/`into_command` accessors.
 
 ## Verification
 
@@ -114,8 +115,8 @@ Potential parallel conflicts: issue #175 touches callback logging and malformed-
 
 ## Handoff
 
-- Completed: 64-item callback budget, idiomatic observable/retryable queue rejection, accepted-only OSC acknowledgements, hydration rejection propagation, focused stress/recovery tests, complete local/hosted validation, resolved human feedback, and two requested Copilot review passes with applicable findings addressed.
-- Remaining: final human review and merge.
+- Completed: core 64-item callback budget, accepted-only OSC acknowledgements, and isolated follow-up review points 1–3.
+- Remaining: validate/review points 1–3, then agree on crate-owned deterministic overflow/retry semantics before changing tracker behavior.
 - Known failures/risks: the compatibility queue still combines traffic classes; sustained traffic has no priority recovery lane. Multi-command hydration can be partially enqueued before a later rejection, although OSC reports an error rather than false success; atomic prepared-state installation remains with #174/#138.
-- Next smallest action: merge PR #180 after final human approval.
+- Next smallest action: finish and review points 1–3 without changing the open overflow/retry policy.
 - Files a new agent should read next: this packet and the five Read first entries above.

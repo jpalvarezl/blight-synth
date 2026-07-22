@@ -96,7 +96,7 @@ The transitional standalone compatibility queue consumes at most **64 command it
 
 ## Backpressure and overload
 
-- `BlightAudio::send_command` returns `CommandSubmissionResult`, an alias for `Result<(), (CommandSubmissionError, Box<Command>)>`, without blocking. `Ok(())` means accepted; `CommandSubmissionError::{Full, Disconnected}` reports rejection and returns the original owned command so NRT can retry, defer, or deliberately discard prepared state. Boxing occurs only on the rejecting NRT path and keeps the result representation small without adding callback-side allocation.
+- `BlightAudio::send_command` returns `CommandSubmissionResult`, an alias for `Result<(), CommandSubmissionError>`, without blocking. `Ok(())` means accepted; `CommandSubmissionError::kind` reports `Full` or `Disconnected`, and `into_command` returns the original owned command so NRT can retry, defer, or deliberately discard prepared state. The error boxes its private kind/command payload only on the rejecting NRT path, keeping the result representation small without adding callback-side allocation.
 - State-changing protocol acknowledgements are emitted only after `Ok(())`, never after a `Full` or `Disconnected` rejection.
 - Continuous values coalesce by contract rather than filling the structural queue.
 - Structural updates are not silently dropped.

@@ -1,5 +1,5 @@
 use crate::instrument_manager::backend::hydrate_instrument;
-use audio_backend::{BlightAudio, Command, CommandSubmissionError, SequencerCmd, TransportCmd};
+use audio_backend::{BlightAudio, Command, CommandSubmissionErrorKind, SequencerCmd, TransportCmd};
 use sequencer::models::Song;
 use std::sync::Arc;
 
@@ -135,13 +135,15 @@ impl AudioManager {
 pub(crate) fn submit_command(audio: &mut BlightAudio, command: Command) -> bool {
     match audio.send_command(command) {
         Ok(()) => true,
-        Err((CommandSubmissionError::Full, _command)) => {
-            log::debug!("audio command rejected: command queue is full");
-            false
-        }
-        Err((CommandSubmissionError::Disconnected, _command)) => {
-            log::error!("audio command rejected: audio callback is disconnected");
-            false
-        }
+        Err(error) => match error.kind() {
+            CommandSubmissionErrorKind::Full => {
+                log::debug!("audio command rejected: command queue is full");
+                false
+            }
+            CommandSubmissionErrorKind::Disconnected => {
+                log::error!("audio command rejected: audio callback is disconnected");
+                false
+            }
+        },
     }
 }

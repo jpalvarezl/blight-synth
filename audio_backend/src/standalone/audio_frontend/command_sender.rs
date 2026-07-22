@@ -1,20 +1,65 @@
 use crate::Command;
 use ringbuf::{traits::*, HeapProd};
+use std::fmt;
 
 /// Reason an audio command could not be submitted to the callback queue.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum CommandSubmissionError {
+pub enum CommandSubmissionErrorKind {
     /// The callback is connected, but the bounded queue has no free slot.
     Full,
     /// The callback-side queue consumer no longer exists.
     Disconnected,
 }
 
+/// A rejected command and the reason it was not accepted.
+pub struct CommandSubmissionError(Box<CommandSubmissionErrorInner>);
+
+struct CommandSubmissionErrorInner {
+    kind: CommandSubmissionErrorKind,
+    command: Command,
+}
+
+impl CommandSubmissionError {
+    pub(crate) fn new(kind: CommandSubmissionErrorKind, command: Command) -> Self {
+        Self(Box::new(CommandSubmissionErrorInner { kind, command }))
+    }
+
+    pub fn kind(&self) -> CommandSubmissionErrorKind {
+        self.0.kind
+    }
+
+    pub fn into_command(self) -> Command {
+        self.0.command
+    }
+}
+
+impl fmt::Debug for CommandSubmissionError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("CommandSubmissionError")
+            .field("kind", &self.kind())
+            .finish_non_exhaustive()
+    }
+}
+
+impl fmt::Display for CommandSubmissionError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.kind() {
+            CommandSubmissionErrorKind::Full => formatter.write_str("command queue is full"),
+            CommandSubmissionErrorKind::Disconnected => {
+                formatter.write_str("audio callback is disconnected")
+            }
+        }
+    }
+}
+
+impl std::error::Error for CommandSubmissionError {}
+
 /// Result of submitting one owned command to the callback queue.
 ///
-/// Rejections box and return the original command on the non-real-time thread.
-/// The box keeps the `Result` small without adding callback-side allocation.
-pub type CommandSubmissionResult = Result<(), (CommandSubmissionError, Box<Command>)>;
+/// Rejections box the error and original command together on the non-real-time
+/// thread. This keeps the `Result` small without adding callback-side work.
+pub type CommandSubmissionResult = Result<(), CommandSubmissionError>;
 
 /// Owns the producer side of the bounded callback command queue.
 pub(crate) struct CommandSender {
@@ -28,15 +73,22 @@ impl CommandSender {
 
     pub(crate) fn send(&mut self, command: Command) -> CommandSubmissionResult {
         if !self.producer.read_is_held() {
-            return Err((CommandSubmissionError::Disconnected, Box::new(command)));
+            return Err(CommandSubmissionError::new(
+                CommandSubmissionErrorKind::Disconnected,
+                command,
+            ));
         }
 
         match self.producer.try_push(command) {
             Ok(()) => Ok(()),
-            Err(command) if !self.producer.read_is_held() => {
-                Err((CommandSubmissionError::Disconnected, Box::new(command)))
-            }
-            Err(command) => Err((CommandSubmissionError::Full, Box::new(command))),
+            Err(command) if !self.producer.read_is_held() => Err(CommandSubmissionError::new(
+                CommandSubmissionErrorKind::Disconnected,
+                command,
+            )),
+            Err(command) => Err(CommandSubmissionError::new(
+                CommandSubmissionErrorKind::Full,
+                command,
+            )),
         }
     }
 }
@@ -60,8 +112,11 @@ mod tests {
         assert!(sender.send(command()).is_ok());
         assert!(sender.send(command()).is_ok());
         let rejected_command = match sender.send(command()) {
-            Err((CommandSubmissionError::Full, command)) => *command,
-            _ => panic!("expected a full queue rejection"),
+            Err(error) => {
+                assert_eq!(error.kind(), CommandSubmissionErrorKind::Full);
+                error.into_command()
+            }
+            Ok(()) => panic!("expected a full queue rejection"),
         };
         assert!(matches!(
             &rejected_command,
@@ -80,8 +135,11 @@ mod tests {
         drop(command_rx);
 
         let rejected_command = match sender.send(command()) {
-            Err((CommandSubmissionError::Disconnected, command)) => *command,
-            _ => panic!("expected a disconnected queue rejection"),
+            Err(error) => {
+                assert_eq!(error.kind(), CommandSubmissionErrorKind::Disconnected);
+                error.into_command()
+            }
+            Ok(()) => panic!("expected a disconnected queue rejection"),
         };
         assert!(matches!(
             rejected_command,

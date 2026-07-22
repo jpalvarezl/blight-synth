@@ -1,7 +1,7 @@
 use std::io::{self, Write};
 
-use anyhow::{anyhow, Result};
-use audio_backend::{BlightAudio, MixerCmd, OscServer, MASTER_GAIN_EFFECT_ID};
+use anyhow::Result;
+use audio_backend::{AudioBackendError, BlightAudio, MixerCmd, OscServer, MASTER_GAIN_EFFECT_ID};
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
@@ -22,8 +22,10 @@ async fn main() -> Result<()> {
             }
             .into(),
         )
-        .map_err(|(reason, _command)| {
-            anyhow!("failed to queue the standalone master gain effect: {reason:?}")
+        .map_err(|error| {
+            AudioBackendError(format!(
+                "failed to queue the standalone master gain effect: {error}"
+            ))
         })?;
 
     let osc_server = OscServer::bind().await?;

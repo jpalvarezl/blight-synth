@@ -14,7 +14,7 @@ use crate::{
     Command, EffectFactory, EnvelopeCmd, InstrumentCmd, InstrumentFactory, MonoEffect, SynthCmd,
 };
 #[cfg(feature = "standalone")]
-use crate::{BlightAudio, CommandSubmissionError, SequencerCmd};
+use crate::{BlightAudio, CommandSubmissionErrorKind, SequencerCmd};
 
 const DEFAULT_INSTRUMENT_EFFECT_ID: EffectId = 1;
 
@@ -58,10 +58,12 @@ pub fn hydrate_song(audio: &mut BlightAudio, song: &Song) -> Result<()> {
 fn submit_command(audio: &mut BlightAudio, command: Command) -> Result<()> {
     match audio.send_command(command) {
         Ok(()) => Ok(()),
-        Err((CommandSubmissionError::Full, _command)) => bail!("audio command queue is full"),
-        Err((CommandSubmissionError::Disconnected, _command)) => {
-            bail!("audio command queue is disconnected")
-        }
+        Err(error) => match error.kind() {
+            CommandSubmissionErrorKind::Full => bail!("audio command queue is full"),
+            CommandSubmissionErrorKind::Disconnected => {
+                bail!("audio command queue is disconnected")
+            }
+        },
     }
 }
 

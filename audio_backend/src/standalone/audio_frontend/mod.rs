@@ -1,7 +1,9 @@
 mod blight_audio;
 mod command_sender;
 
-pub use command_sender::{CommandSubmissionError, CommandSubmissionResult};
+pub use command_sender::{
+    CommandSubmissionError, CommandSubmissionErrorKind, CommandSubmissionResult,
+};
 
 use crate::MeterState;
 use std::sync::Arc;

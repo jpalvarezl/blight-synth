@@ -7,7 +7,8 @@ use tokio::net::UdpSocket;
 
 use crate::{
     id::EffectId, load_song_file_into_audio, BlightAudio, Command, CommandSubmissionError,
-    CommandSubmissionResult, MeterLevels, MeterState, MixerCmd, TransportCmd,
+    CommandSubmissionErrorKind, CommandSubmissionResult, MeterLevels, MeterState, MixerCmd,
+    TransportCmd,
 };
 
 pub const OSC_LISTEN_ADDR: &str = "127.0.0.1:9000";
@@ -46,7 +47,7 @@ impl OscCommand {
     fn submit(
         self,
         submit: impl FnOnce(Command) -> CommandSubmissionResult,
-    ) -> Result<Option<OscPacket>, (CommandSubmissionError, Box<Command>)> {
+    ) -> Result<Option<OscPacket>, CommandSubmissionError> {
         submit(self.command).map(|()| self.accepted_response)
     }
 }
@@ -153,12 +154,14 @@ impl OscServer {
             match submission.submit(|command| audio.send_command(command)) {
                 Ok(Some(response)) => responses.push(response),
                 Ok(None) => {}
-                Err((CommandSubmissionError::Full, _command)) => {
-                    log::warn!("OSC command rejected: audio command queue is full");
-                }
-                Err((CommandSubmissionError::Disconnected, _command)) => {
-                    log::error!("OSC command rejected: audio callback is disconnected");
-                }
+                Err(error) => match error.kind() {
+                    CommandSubmissionErrorKind::Full => {
+                        log::warn!("OSC command rejected: audio command queue is full");
+                    }
+                    CommandSubmissionErrorKind::Disconnected => {
+                        log::error!("OSC command rejected: audio callback is disconnected");
+                    }
+                },
             }
         }
 
@@ -430,9 +433,9 @@ mod tests {
 
     #[test]
     fn rejected_param_submission_does_not_release_success_echo() {
-        for reason in [
-            CommandSubmissionError::Full,
-            CommandSubmissionError::Disconnected,
+        for kind in [
+            CommandSubmissionErrorKind::Full,
+            CommandSubmissionErrorKind::Disconnected,
         ] {
             let dispatch = dispatch_packet(message(
                 "/param/set",
@@ -443,10 +446,10 @@ mod tests {
                 .into_iter()
                 .next()
                 .unwrap()
-                .submit(|command| Err((reason, Box::new(command))));
+                .submit(|command| Err(CommandSubmissionError::new(kind, command)));
 
             match result {
-                Err((reported_reason, _command)) => assert_eq!(reported_reason, reason),
+                Err(error) => assert_eq!(error.kind(), kind),
                 Ok(_) => panic!("a rejected command must not release its response"),
             }
         }
