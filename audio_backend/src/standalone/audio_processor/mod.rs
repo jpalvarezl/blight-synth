@@ -1,5 +1,6 @@
+use engine::RetiredState;
 use ringbuf::traits::*;
-use ringbuf::HeapCons;
+use ringbuf::{HeapCons, HeapProd};
 
 use crate::Command;
 use crate::MeterState;
@@ -15,6 +16,8 @@ pub(crate) const MAX_COMMANDS_PER_PROCESS_BLOCK: usize = 64;
 
 pub struct AudioProcessor {
     pub(crate) command_rx: HeapCons<Command>,
+    retirement_tx: HeapProd<RetiredState>,
+    pending_retired: Vec<RetiredState>,
     pub(crate) player: Player,
     pub(crate) sample_rate: f32,
     pub(crate) channels: usize,
@@ -29,12 +32,15 @@ impl AudioProcessor {
     pub fn new_with_song(
         song: Arc<Song>,
         command_rx: HeapCons<Command>,
+        retirement_tx: HeapProd<RetiredState>,
         sample_rate: f32,
         channels: usize,
         meter: Arc<MeterState>,
     ) -> Self {
         Self {
             command_rx,
+            retirement_tx,
+            pending_retired: Vec::with_capacity(MAX_COMMANDS_PER_PROCESS_BLOCK),
             sample_rate,
             channels,
             left_buf: vec![0.0; MAX_BUFFER_SIZE],
@@ -46,6 +52,7 @@ impl AudioProcessor {
 
     pub fn new(
         command_rx: HeapCons<Command>,
+        retirement_tx: HeapProd<RetiredState>,
         sample_rate: f32,
         channels: usize,
         meter: Arc<MeterState>,
@@ -53,6 +60,8 @@ impl AudioProcessor {
         let default_song = Arc::new(sequencer::models::Song::new("Untitled"));
         Self {
             command_rx,
+            retirement_tx,
+            pending_retired: Vec::with_capacity(MAX_COMMANDS_PER_PROCESS_BLOCK),
             sample_rate,
             channels,
             left_buf: vec![0.0; MAX_BUFFER_SIZE],
@@ -64,13 +73,19 @@ impl AudioProcessor {
 
     /// The main processing function called by the audio driver.
     pub fn process(&mut self, output_buffer: &mut [f32]) {
-        // Apply a bounded FIFO prefix, leaving any backlog for later callback
-        // blocks. Queue capacity alone is not a callback work budget.
-        for _ in 0..MAX_COMMANDS_PER_PROCESS_BLOCK {
-            let Some(command) = self.command_rx.try_pop() else {
-                break;
-            };
-            self.player.handle_command(command);
+        self.flush_retired();
+
+        // A retained owner must reach NRT before more structural work can
+        // displace ownership. This preserves a fixed pending bound.
+        if self.pending_retired.is_empty() {
+            for _ in 0..MAX_COMMANDS_PER_PROCESS_BLOCK {
+                let Some(command) = self.command_rx.try_pop() else {
+                    break;
+                };
+                if let Some(retired) = self.player.handle_command(command) {
+                    self.retire(retired);
+                }
+            }
         }
 
         if self.channels == 0 {
@@ -94,6 +109,29 @@ impl AudioProcessor {
         // Host buffers should contain complete frames. Silence any malformed
         // trailing samples rather than leaving stale output behind.
         trailing_samples.fill(0.0);
+    }
+
+    fn retire(&mut self, retired: RetiredState) {
+        if !self.retirement_tx.read_is_held() {
+            self.pending_retired.push(retired);
+            return;
+        }
+        if let Err(retired) = self.retirement_tx.try_push(retired) {
+            self.pending_retired.push(retired);
+        }
+    }
+
+    fn flush_retired(&mut self) {
+        while let Some(retired) = self.pending_retired.pop() {
+            if !self.retirement_tx.read_is_held() {
+                self.pending_retired.push(retired);
+                break;
+            }
+            if let Err(retired) = self.retirement_tx.try_push(retired) {
+                self.pending_retired.push(retired);
+                break;
+            }
+        }
     }
 
     fn process_chunk(&mut self, output_buffer: &mut [f32]) {
@@ -132,11 +170,38 @@ mod tests {
         id::{EffectId, InstrumentId},
         InstrumentCmd, InstrumentTrait, MonoEffect, SynthCmd, TransportCmd, VoiceEffects,
     };
-    use ringbuf::{storage::Heap, traits::Split, HeapProd, SharedRb};
+    use ringbuf::{storage::Heap, traits::Split, HeapCons, HeapProd, SharedRb};
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     struct RenderCounterInstrument {
         renders: Arc<AtomicUsize>,
+    }
+
+    struct DropProbeInstrument {
+        id: InstrumentId,
+        drops: Arc<AtomicUsize>,
+    }
+
+    impl Drop for DropProbeInstrument {
+        fn drop(&mut self) {
+            self.drops.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+
+    impl InstrumentTrait for DropProbeInstrument {
+        fn id(&self) -> InstrumentId {
+            self.id
+        }
+        fn note_on(&mut self, _note: u8, _velocity: u8) {}
+        fn note_off(&mut self) {}
+        fn process(&mut self, _left: &mut [f32], _right: &mut [f32], _sample_rate: f32) {}
+        fn set_pan(&mut self, _pan: f32) {}
+        fn add_effect(&mut self, _effect: Box<dyn MonoEffect>) {}
+        fn add_voice_effects(&mut self, _effects: VoiceEffects) {}
+        fn set_effect_parameter(&mut self, _effect_id: EffectId, _param_index: u32, _value: f32) {}
+        fn try_handle_command(&mut self, _command: &SynthCmd) -> bool {
+            false
+        }
     }
 
     impl InstrumentTrait for RenderCounterInstrument {
@@ -177,11 +242,30 @@ mod tests {
         channels: usize,
         capacity: usize,
     ) -> (HeapProd<Command>, AudioProcessor) {
-        let rb = SharedRb::<Heap<Command>>::new(capacity);
+        let (command_tx, _retirement_rx, processor) =
+            processor_with_retirement(channels, capacity, capacity.max(1));
+        (command_tx, processor)
+    }
+
+    fn processor_with_retirement(
+        channels: usize,
+        command_capacity: usize,
+        retirement_capacity: usize,
+    ) -> (HeapProd<Command>, HeapCons<RetiredState>, AudioProcessor) {
+        let rb = SharedRb::<Heap<Command>>::new(command_capacity);
         let (command_tx, command_rx) = rb.split();
+        let retirement_rb = SharedRb::<Heap<RetiredState>>::new(retirement_capacity);
+        let (retirement_tx, retirement_rx) = retirement_rb.split();
         (
             command_tx,
-            AudioProcessor::new(command_rx, 44_100.0, channels, Arc::new(MeterState::new())),
+            retirement_rx,
+            AudioProcessor::new(
+                command_rx,
+                retirement_tx,
+                44_100.0,
+                channels,
+                Arc::new(MeterState::new()),
+            ),
         )
     }
 
@@ -230,6 +314,96 @@ mod tests {
         processor.process(&mut output);
 
         assert_eq!(processor.command_rx.occupied_len(), 1);
+    }
+
+    #[test]
+    fn replaced_instrument_crosses_retirement_ring_before_nrt_drop() {
+        let (mut command_tx, mut retirement_rx, mut processor) = processor_with_retirement(2, 8, 8);
+        let drops = Arc::new(AtomicUsize::new(0));
+        assert!(command_tx
+            .try_push(
+                InstrumentCmd::AddInstrument {
+                    instrument: Box::new(DropProbeInstrument {
+                        id: 7,
+                        drops: drops.clone(),
+                    }),
+                }
+                .into(),
+            )
+            .is_ok());
+        let mut output = [0.0; 16];
+        processor.process(&mut output);
+
+        assert!(command_tx
+            .try_push(
+                InstrumentCmd::AddInstrument {
+                    instrument: Box::new(DropProbeInstrument {
+                        id: 7,
+                        drops: Arc::new(AtomicUsize::new(0)),
+                    }),
+                }
+                .into(),
+            )
+            .is_ok());
+        processor.process(&mut output);
+
+        assert_eq!(drops.load(Ordering::Relaxed), 0);
+        let retired = retirement_rx.try_pop().expect("retired owner reaches NRT");
+        drop(retired);
+        assert_eq!(drops.load(Ordering::Relaxed), 1);
+    }
+
+    #[test]
+    fn full_retirement_ring_pauses_later_commands_until_nrt_drains() {
+        let (mut command_tx, mut retirement_rx, mut processor) =
+            processor_with_retirement(2, 16, 1);
+        let first_drops = Arc::new(AtomicUsize::new(0));
+        let second_drops = Arc::new(AtomicUsize::new(0));
+        for (id, drops) in [(1, first_drops.clone()), (2, second_drops.clone())] {
+            assert!(command_tx
+                .try_push(
+                    InstrumentCmd::AddInstrument {
+                        instrument: Box::new(DropProbeInstrument { id, drops }),
+                    }
+                    .into(),
+                )
+                .is_ok());
+        }
+        let mut output = [0.0; 16];
+        processor.process(&mut output);
+
+        for id in [1, 2] {
+            assert!(command_tx
+                .try_push(
+                    InstrumentCmd::AddInstrument {
+                        instrument: Box::new(DropProbeInstrument {
+                            id,
+                            drops: Arc::new(AtomicUsize::new(0)),
+                        }),
+                    }
+                    .into(),
+                )
+                .is_ok());
+        }
+        processor.process(&mut output);
+        assert_eq!(processor.pending_retired.len(), 1);
+
+        assert!(command_tx
+            .try_push(TransportCmd::PlayLastSong.into())
+            .is_ok());
+        processor.process(&mut output);
+        assert!(!processor.player.is_playing());
+        assert_eq!(processor.command_rx.occupied_len(), 1);
+
+        drop(retirement_rx.try_pop().expect("first owner reaches NRT"));
+        processor.process(&mut output);
+        assert!(processor.player.is_playing());
+        assert!(processor.pending_retired.is_empty());
+        drop(retirement_rx.try_pop().expect("pending owner reaches NRT"));
+        assert_eq!(
+            first_drops.load(Ordering::Relaxed) + second_drops.load(Ordering::Relaxed),
+            2
+        );
     }
 
     #[test]

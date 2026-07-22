@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use engine::{Engine, EngineCommand};
+use engine::{Engine, EngineCommand, RetiredState};
 use sequencer::models::{MAX_TRACKS, NO_INSTRUMENT};
 
 use crate::id::InstrumentId;
@@ -44,8 +44,8 @@ impl TrackerEngineAdapter {
         self.engine.stop_all_notes();
     }
 
-    pub fn handle_engine_command(&mut self, command: EngineCommand) {
-        self.engine.handle_command(command);
+    pub fn handle_engine_command(&mut self, command: EngineCommand) -> Option<RetiredState> {
+        self.engine.handle_command(command)
     }
 
     /// Determine if there is an instrument_id cached for the track if not specified in the event.

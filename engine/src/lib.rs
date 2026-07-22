@@ -14,6 +14,12 @@ struct InstrumentSlot {
     instrument: Box<dyn InstrumentTrait>,
 }
 
+/// Heap-owning engine state displaced on RT and requiring NRT destruction.
+#[non_exhaustive]
+pub enum RetiredState {
+    Instrument(Box<dyn InstrumentTrait>),
+}
+
 /// Host-independent runtime for instrument dispatch, mixing, and master effects.
 ///
 /// `Engine` owns live sound-producing state but no audio device, composition
@@ -41,16 +47,19 @@ impl Engine {
         }
     }
 
-    pub fn handle_command(&mut self, command: EngineCommand) {
+    pub fn handle_command(&mut self, command: EngineCommand) -> Option<RetiredState> {
         match command {
             EngineCommand::Instrument(command) => self.handle_instrument_command(command),
-            EngineCommand::Mixer(command) => self.handle_mixer_command(command),
+            EngineCommand::Mixer(command) => {
+                self.handle_mixer_command(command);
+                None
+            }
         }
     }
 
-    fn handle_instrument_command(&mut self, command: InstrumentCmd) {
+    fn handle_instrument_command(&mut self, command: InstrumentCmd) -> Option<RetiredState> {
         match command {
-            InstrumentCmd::AddInstrument { instrument } => self.add_instrument(instrument),
+            InstrumentCmd::AddInstrument { instrument } => return self.add_instrument(instrument),
             InstrumentCmd::AddEffect {
                 instrument_id,
                 effect,
@@ -78,6 +87,7 @@ impl Engine {
                 value,
             } => self.set_instrument_effect_parameter(instrument_id, effect_id, param_index, value),
         }
+        None
     }
 
     fn handle_mixer_command(&mut self, command: MixerCmd) {
@@ -123,13 +133,19 @@ impl Engine {
         self.master_effects.process(left, right, sample_rate);
     }
 
-    pub fn add_instrument(&mut self, instrument: Box<dyn InstrumentTrait>) {
+    pub fn add_instrument(&mut self, instrument: Box<dyn InstrumentTrait>) -> Option<RetiredState> {
         let id = instrument.id();
         match self.instruments.binary_search_by_key(&id, |slot| slot.id) {
-            Ok(index) => self.instruments[index].instrument = instrument,
-            Err(index) => self
-                .instruments
-                .insert(index, InstrumentSlot { id, instrument }),
+            Ok(index) => {
+                let retired =
+                    std::mem::replace(&mut self.instruments[index].instrument, instrument);
+                Some(RetiredState::Instrument(retired))
+            }
+            Err(index) => {
+                self.instruments
+                    .insert(index, InstrumentSlot { id, instrument });
+                None
+            }
         }
     }
 
@@ -221,7 +237,7 @@ impl Engine {
 mod tests {
     use std::sync::{
         atomic::{AtomicU32, AtomicUsize, Ordering},
-        Arc,
+        Arc, Mutex,
     };
 
     use super::*;
@@ -263,6 +279,33 @@ mod tests {
             self.effect_value.store(value.to_bits(), Ordering::Relaxed);
         }
 
+        fn try_handle_command(&mut self, _command: &SynthCmd) -> bool {
+            false
+        }
+    }
+
+    struct DropProbeInstrument {
+        id: InstrumentId,
+        drop_thread: Arc<Mutex<Option<std::thread::ThreadId>>>,
+    }
+
+    impl Drop for DropProbeInstrument {
+        fn drop(&mut self) {
+            *self.drop_thread.lock().unwrap() = Some(std::thread::current().id());
+        }
+    }
+
+    impl InstrumentTrait for DropProbeInstrument {
+        fn id(&self) -> InstrumentId {
+            self.id
+        }
+        fn note_on(&mut self, _note: u8, _velocity: u8) {}
+        fn note_off(&mut self) {}
+        fn process(&mut self, _left: &mut [f32], _right: &mut [f32], _sample_rate: f32) {}
+        fn set_pan(&mut self, _pan: f32) {}
+        fn add_effect(&mut self, _effect: Box<dyn MonoEffect>) {}
+        fn add_voice_effects(&mut self, _effects: VoiceEffects) {}
+        fn set_effect_parameter(&mut self, _effect_id: EffectId, _param_index: u32, _value: f32) {}
         fn try_handle_command(&mut self, _command: &SynthCmd) -> bool {
             false
         }
@@ -371,6 +414,34 @@ mod tests {
                 .collect::<Vec<_>>(),
             [1, 2, 3]
         );
+    }
+
+    #[test]
+    fn duplicate_instrument_replacement_returns_ownership_for_nrt_drop() {
+        let drop_thread = Arc::new(Mutex::new(None));
+        let mut engine = Engine::new();
+        assert!(engine
+            .add_instrument(Box::new(DropProbeInstrument {
+                id: 7,
+                drop_thread: drop_thread.clone(),
+            }))
+            .is_none());
+
+        let retired = match engine.add_instrument(Box::new(TestInstrument {
+            id: 7,
+            note_ons: Arc::new(AtomicUsize::new(0)),
+            note_offs: Arc::new(AtomicUsize::new(0)),
+            effect_value: Arc::new(AtomicU32::new(0)),
+        })) {
+            Some(retired) => retired,
+            None => panic!("duplicate id must return retired ownership"),
+        };
+        assert!(drop_thread.lock().unwrap().is_none());
+
+        let nrt_thread = std::thread::spawn(move || drop(retired));
+        let expected_thread = nrt_thread.thread().id();
+        nrt_thread.join().unwrap();
+        assert_eq!(*drop_thread.lock().unwrap(), Some(expected_thread));
     }
 
     #[test]

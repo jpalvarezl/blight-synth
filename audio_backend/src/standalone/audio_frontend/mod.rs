@@ -6,6 +6,8 @@ pub use command_sender::{
 };
 
 use crate::MeterState;
+use engine::RetiredState;
+use ringbuf::HeapCons;
 use std::sync::Arc;
 
 use crate::EffectFactory;
@@ -26,6 +28,9 @@ pub struct BlightAudio {
     effect_factory: EffectFactory,
     /// Lock-free metering state written by the audio callback.
     meter: Arc<MeterState>,
-    /// The audio stream for real-time audio processing.
+    /// The audio stream for real-time audio processing. Declared before the
+    /// retirement consumer so callback ownership stops before final NRT drain.
     _stream: cpal::Stream,
+    /// NRT consumer for heap owners displaced by the callback.
+    retirement_rx: HeapCons<RetiredState>,
 }
