@@ -1,7 +1,7 @@
 use super::{BlightAudio, CommandSender, CommandSubmissionResult};
 use crate::{
     AudioProcessor, Command, EffectFactory, InstrumentFactory, MeterState, ResourceManager,
-    VoiceFactory,
+    RetiredState, VoiceFactory,
 };
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use log::info;
@@ -10,6 +10,8 @@ use ringbuf::traits::*;
 use ringbuf::SharedRb;
 use sequencer::models::Song;
 use std::sync::Arc;
+
+const RETIREMENT_QUEUE_CAPACITY: usize = 128;
 
 impl BlightAudio {
     pub fn new() -> Result<Self, anyhow::Error> {
@@ -25,13 +27,20 @@ impl BlightAudio {
         // let rb = HeapRb::<Command>::new(1024); // Capacity for 1024 commands
         let rb = SharedRb::<Heap<Command>>::new(1024);
         let (command_tx, command_rx) = rb.split();
+        let retirement_rb = SharedRb::<Heap<RetiredState>>::new(RETIREMENT_QUEUE_CAPACITY);
+        let (retirement_tx, retirement_rx) = retirement_rb.split();
 
         let command_sender = CommandSender::new(command_tx);
 
         // Create the real-time processor and move it into the audio thread.
         let meter = Arc::new(MeterState::new());
-        let mut audio_processor =
-            AudioProcessor::new(command_rx, sample_rate as f32, channels, meter.clone());
+        let mut audio_processor = AudioProcessor::new(
+            command_rx,
+            retirement_tx,
+            sample_rate as f32,
+            channels,
+            meter.clone(),
+        );
 
         let stream = device.build_output_stream(
             &config,
@@ -58,6 +67,7 @@ impl BlightAudio {
             effect_factory,
             meter,
             _stream: stream,
+            retirement_rx,
         })
     }
 
@@ -78,6 +88,8 @@ impl BlightAudio {
         // Create the SPSC ring buffer for commands using a heap-allocated buffer.
         let rb = SharedRb::<Heap<Command>>::new(1024);
         let (command_tx, command_rx) = rb.split();
+        let retirement_rb = SharedRb::<Heap<RetiredState>>::new(RETIREMENT_QUEUE_CAPACITY);
+        let (retirement_tx, retirement_rx) = retirement_rb.split();
 
         let command_sender = CommandSender::new(command_tx);
 
@@ -86,6 +98,7 @@ impl BlightAudio {
         let mut audio_processor = AudioProcessor::new_with_song(
             song,
             command_rx,
+            retirement_tx,
             sample_rate as f32,
             channels,
             meter.clone(),
@@ -115,6 +128,7 @@ impl BlightAudio {
             effect_factory,
             meter,
             _stream: stream,
+            retirement_rx,
         })
     }
 
@@ -123,6 +137,7 @@ impl BlightAudio {
     /// `Full` and `Disconnected` return the original command in the error.
     /// Callers that acknowledge state changes must do so only after `Ok(())`.
     pub fn try_send_command(&mut self, command: Command) -> CommandSubmissionResult {
+        self.reclaim_retired();
         self.command_sender.try_send(command)
     }
 
@@ -134,6 +149,7 @@ impl BlightAudio {
     /// callback-side consumer disconnects. Callers must not invoke this method
     /// from a real-time, UI, or async-executor thread.
     pub fn send_command(&mut self, command: Command) -> CommandSubmissionResult {
+        self.reclaim_retired();
         self.command_sender.send(command)
     }
 
@@ -145,7 +161,18 @@ impl BlightAudio {
         command: Command,
         cancelled: impl Fn() -> bool,
     ) -> CommandSubmissionResult {
+        self.reclaim_retired();
         self.command_sender.send_until(command, cancelled)
+    }
+
+    /// Drops all currently retired owners on this NRT caller.
+    pub fn reclaim_retired(&mut self) -> usize {
+        let mut reclaimed = 0;
+        while let Some(retired) = self.retirement_rx.try_pop() {
+            drop(retired);
+            reclaimed += 1;
+        }
+        reclaimed
     }
 
     pub fn get_voice_factory(&self) -> &VoiceFactory {

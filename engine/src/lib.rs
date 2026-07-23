@@ -14,6 +14,29 @@ struct InstrumentSlot {
     instrument: Box<dyn InstrumentTrait>,
 }
 
+/// Heap-owning engine state displaced on RT and requiring NRT destruction.
+#[non_exhaustive]
+pub enum RetiredState {
+    Instrument(Box<dyn InstrumentTrait>),
+}
+
+/// Receives heap-owning state displaced by engine operations.
+///
+/// RT hosts provide a bounded handoff sink; offline/NRT callers may use
+/// [`DropRetireSink`] to destroy ownership immediately on their current thread.
+pub trait RetireSink {
+    fn retire(&mut self, state: RetiredState);
+}
+
+/// Immediate destruction policy for callers known to run outside RT.
+pub struct DropRetireSink;
+
+impl RetireSink for DropRetireSink {
+    fn retire(&mut self, state: RetiredState) {
+        drop(state);
+    }
+}
+
 /// Host-independent runtime for instrument dispatch, mixing, and master effects.
 ///
 /// `Engine` owns live sound-producing state but no audio device, composition
@@ -41,16 +64,30 @@ impl Engine {
         }
     }
 
+    /// Handles a command on a caller known to be outside RT, immediately
+    /// destroying any displaced ownership on that caller.
     pub fn handle_command(&mut self, command: EngineCommand) {
+        self.handle_command_with_retirement(command, &mut DropRetireSink);
+    }
+
+    /// Handles a command while routing displaced ownership to the supplied
+    /// retirement policy. RT hosts must use this method.
+    pub fn handle_command_with_retirement(
+        &mut self,
+        command: EngineCommand,
+        retired: &mut impl RetireSink,
+    ) {
         match command {
-            EngineCommand::Instrument(command) => self.handle_instrument_command(command),
+            EngineCommand::Instrument(command) => self.handle_instrument_command(command, retired),
             EngineCommand::Mixer(command) => self.handle_mixer_command(command),
         }
     }
 
-    fn handle_instrument_command(&mut self, command: InstrumentCmd) {
+    fn handle_instrument_command(&mut self, command: InstrumentCmd, retired: &mut impl RetireSink) {
         match command {
-            InstrumentCmd::AddInstrument { instrument } => self.add_instrument(instrument),
+            InstrumentCmd::AddInstrument { instrument } => {
+                self.add_instrument_with_retirement(instrument, retired)
+            }
             InstrumentCmd::AddEffect {
                 instrument_id,
                 effect,
@@ -123,10 +160,24 @@ impl Engine {
         self.master_effects.process(left, right, sample_rate);
     }
 
+    /// Adds an instrument on a caller known to be outside RT.
     pub fn add_instrument(&mut self, instrument: Box<dyn InstrumentTrait>) {
+        self.add_instrument_with_retirement(instrument, &mut DropRetireSink);
+    }
+
+    /// Adds or replaces an instrument using the supplied retirement policy.
+    pub fn add_instrument_with_retirement(
+        &mut self,
+        instrument: Box<dyn InstrumentTrait>,
+        retired: &mut impl RetireSink,
+    ) {
         let id = instrument.id();
         match self.instruments.binary_search_by_key(&id, |slot| slot.id) {
-            Ok(index) => self.instruments[index].instrument = instrument,
+            Ok(index) => {
+                let displaced =
+                    std::mem::replace(&mut self.instruments[index].instrument, instrument);
+                retired.retire(RetiredState::Instrument(displaced));
+            }
             Err(index) => self
                 .instruments
                 .insert(index, InstrumentSlot { id, instrument }),
@@ -221,7 +272,7 @@ impl Engine {
 mod tests {
     use std::sync::{
         atomic::{AtomicU32, AtomicUsize, Ordering},
-        Arc,
+        Arc, Mutex,
     };
 
     use super::*;
@@ -263,6 +314,33 @@ mod tests {
             self.effect_value.store(value.to_bits(), Ordering::Relaxed);
         }
 
+        fn try_handle_command(&mut self, _command: &SynthCmd) -> bool {
+            false
+        }
+    }
+
+    struct DropProbeInstrument {
+        id: InstrumentId,
+        drop_thread: Arc<Mutex<Option<std::thread::ThreadId>>>,
+    }
+
+    impl Drop for DropProbeInstrument {
+        fn drop(&mut self) {
+            *self.drop_thread.lock().unwrap() = Some(std::thread::current().id());
+        }
+    }
+
+    impl InstrumentTrait for DropProbeInstrument {
+        fn id(&self) -> InstrumentId {
+            self.id
+        }
+        fn note_on(&mut self, _note: u8, _velocity: u8) {}
+        fn note_off(&mut self) {}
+        fn process(&mut self, _left: &mut [f32], _right: &mut [f32], _sample_rate: f32) {}
+        fn set_pan(&mut self, _pan: f32) {}
+        fn add_effect(&mut self, _effect: Box<dyn MonoEffect>) {}
+        fn add_voice_effects(&mut self, _effects: VoiceEffects) {}
+        fn set_effect_parameter(&mut self, _effect_id: EffectId, _param_index: u32, _value: f32) {}
         fn try_handle_command(&mut self, _command: &SynthCmd) -> bool {
             false
         }
@@ -371,6 +449,45 @@ mod tests {
                 .collect::<Vec<_>>(),
             [1, 2, 3]
         );
+    }
+
+    #[test]
+    fn duplicate_instrument_replacement_routes_ownership_for_nrt_drop() {
+        struct CollectRetired(Vec<RetiredState>);
+        impl RetireSink for CollectRetired {
+            fn retire(&mut self, state: RetiredState) {
+                self.0.push(state);
+            }
+        }
+
+        let drop_thread = Arc::new(Mutex::new(None));
+        let mut engine = Engine::new();
+        let mut retired = CollectRetired(Vec::new());
+        engine.add_instrument_with_retirement(
+            Box::new(DropProbeInstrument {
+                id: 7,
+                drop_thread: drop_thread.clone(),
+            }),
+            &mut retired,
+        );
+        assert!(retired.0.is_empty());
+
+        engine.add_instrument_with_retirement(
+            Box::new(TestInstrument {
+                id: 7,
+                note_ons: Arc::new(AtomicUsize::new(0)),
+                note_offs: Arc::new(AtomicUsize::new(0)),
+                effect_value: Arc::new(AtomicU32::new(0)),
+            }),
+            &mut retired,
+        );
+        let retired = retired.0.pop().expect("duplicate id must retire ownership");
+        assert!(drop_thread.lock().unwrap().is_none());
+
+        let nrt_thread = std::thread::spawn(move || drop(retired));
+        let expected_thread = nrt_thread.thread().id();
+        nrt_thread.join().unwrap();
+        assert_eq!(*drop_thread.lock().unwrap(), Some(expected_thread));
     }
 
     #[test]

@@ -2,8 +2,8 @@
 title: Audio Engine Domain
 summary: Focused context for DSP, instruments, effects, rendering, and RT contracts.
 status: current
-updated: 2026-07-19
-issues: [132, 133, 134, 135, 136, 137]
+updated: 2026-07-23
+issues: [132, 133, 134, 135, 136, 137, 174, 186, 187, 188]
 ---
 
 # Audio Engine Domain
