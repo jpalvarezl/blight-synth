@@ -7,9 +7,9 @@ use std::{
 use dsp::{
     id::{EffectId, InstrumentId},
     instruments::Waveform,
-    InstrumentFactory, InstrumentTrait, MonoEffect, SynthCmd,
+    EffectFactory, InstrumentFactory, InstrumentTrait, MonoEffect, SynthCmd,
 };
-use engine::{Engine, InstrumentCmd};
+use engine::{Engine, InstrumentCmd, MixerCmd, RetireSink, RetiredState};
 
 struct TrackingAllocator;
 
@@ -205,13 +205,86 @@ impl InstrumentTrait for IntentionallyAllocatingInstrument {
 
     fn set_pan(&mut self, _pan: f32) {}
 
-    fn add_effect(&mut self, _effect: Box<dyn MonoEffect>) {}
+    fn add_effect(&mut self, effect: Box<dyn MonoEffect>) -> Result<(), Box<dyn MonoEffect>> {
+        Err(effect)
+    }
 
     fn set_effect_parameter(&mut self, _effect_id: EffectId, _param_index: u32, _value: f32) {}
 
     fn try_handle_command(&mut self, _command: &SynthCmd) -> bool {
         false
     }
+}
+
+struct CollectRetired(Vec<RetiredState>);
+
+impl RetireSink for CollectRetired {
+    fn retire(&mut self, state: RetiredState) {
+        self.0.push(state);
+    }
+}
+
+#[test]
+fn structural_clear_and_effect_rejection_move_owners_without_rt_heap_activity() {
+    const SAMPLE_RATE: f32 = 48_000.0;
+    let instrument_factory = InstrumentFactory::new(SAMPLE_RATE);
+    let effect_factory = EffectFactory::new(SAMPLE_RATE);
+    let mut engine = Engine::new();
+    let mut retired = CollectRetired(Vec::with_capacity(64));
+    for id in 1..=4 {
+        engine.add_instrument_with_retirement(
+            instrument_factory.create_simple_oscillator(id, 0.0),
+            &mut retired,
+        );
+    }
+    let rejected_effect = effect_factory.create_mono_gain(9, 1.0);
+
+    let counts = measure_allocations(|| {
+        engine.handle_command_with_retirement(
+            InstrumentCmd::AddEffect {
+                instrument_id: 99,
+                effect: rejected_effect,
+            }
+            .into(),
+            &mut retired,
+        );
+        engine.clear_instruments(&mut retired);
+    });
+
+    assert_eq!(counts.allocations, 0, "unexpected RT allocations");
+    assert_eq!(counts.deallocations, 0, "unexpected RT deallocations");
+    assert_eq!(counts.reallocations, 0, "unexpected RT reallocations");
+    assert_eq!(retired.0.len(), 5);
+}
+
+#[test]
+fn master_effect_overflow_moves_rejected_owner_without_rt_heap_activity() {
+    const SAMPLE_RATE: f32 = 48_000.0;
+    let effect_factory = EffectFactory::new(SAMPLE_RATE);
+    let mut engine = Engine::new();
+    let mut retired = CollectRetired(Vec::with_capacity(8));
+    for id in 0..8 {
+        engine.handle_command_with_retirement(
+            MixerCmd::AddMasterEffect {
+                effect: effect_factory.create_stereo_gain(id, 1.0),
+            }
+            .into(),
+            &mut retired,
+        );
+    }
+    let overflow = effect_factory.create_stereo_gain(99, 1.0);
+
+    let counts = measure_allocations(|| {
+        engine.handle_command_with_retirement(
+            MixerCmd::AddMasterEffect { effect: overflow }.into(),
+            &mut retired,
+        );
+    });
+
+    assert_eq!(counts.allocations, 0, "unexpected RT allocations");
+    assert_eq!(counts.deallocations, 0, "unexpected RT deallocations");
+    assert_eq!(counts.reallocations, 0, "unexpected RT reallocations");
+    assert_eq!(retired.0.len(), 1);
 }
 
 #[test]

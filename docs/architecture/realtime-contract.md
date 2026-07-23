@@ -131,10 +131,9 @@ A future FFI wrapper catches panics outside the RT entry and must never permit u
 
 | Current path/behavior | Contract gap | Owner |
 |---|---|---|
-| `Engine::clear_instruments` and insertion past prepared capacity | Clear drops boxed instruments and capacity overflow may allocate on RT | #187; hard capacity #137 |
+| Instrument insertion past prepared capacity | Capacity overflow may allocate on RT | #137 |
 | Instrument/effect commands carry `Box`/`ArrayVec<Box<_>>` | Consuming/rejecting/replacing can destroy heap owners on RT | #174 |
 | `Player::load_song` replaces `Arc<Song>` and clears instruments | Last-owner song/graph destruction can occur on RT | #174/#138 |
-| Stereo/mono effect-chain add when full | `eprintln!` and dropped effect on RT; no status | #174/#175/#136 |
 | Effect-chain/master remove/reorder commands | Current no-op semantics provide no observable result | #136/#173 |
 | Player/tracker adapter note/row/end logging | Formatting/logger calls reachable from callback | #175 |
 | Polyphonic instrument note allocation logs and warning paths | Logging reachable from callback | #175/#137 |
@@ -152,7 +151,7 @@ A future FFI wrapper catches panics outside the RT entry and must never permit u
 - Voice effect batches use fixed-capacity `ArrayVec` containers.
 - Meter handoff uses nonblocking atomics and performs network/formatting work outside RT.
 - The transitional standalone command queue applies a 64-command FIFO prefix per callback; reliable NRT submission preserves FIFO order across saturation, nonblocking submission exposes explicit backpressure, and OSC success responses require acceptance.
-- Duplicate-ID instrument replacement surfaces `engine::RetiredState` and crosses a bounded reverse RT-to-NRT ring; the callback retains overflow in fixed preallocated storage and pauses further command consumption until NRT headroom returns (#186).
+- Instrument replacement/clear plus mono, voice, and master effect rejection surface `engine::RetiredState` through `RetireSink` and cross a bounded reverse RT-to-NRT ring. The callback preallocates 4096 pending owner slots (64 commands × 64 owners/command), retains ring overflow there, and pauses subsequent-block command consumption until NRT headroom returns (#186/#187).
 - Factories and project/sample decoding already live on NRT paths by architecture.
 - Offline golden renders provide end-to-end behavioral regression evidence, though they do not prove allocation safety.
 

@@ -34,7 +34,7 @@ pub trait VoiceTrait: Send + Sync {
     fn try_handle_command(&mut self, command: &SynthCmd) -> bool;
 
     /// Add a mono effect to this voice's effect chain.
-    fn add_effect(&mut self, effect: Box<dyn MonoEffect>);
+    fn add_effect(&mut self, effect: Box<dyn MonoEffect>) -> Result<(), Box<dyn MonoEffect>>;
 
     /// Set effect parameter
     fn set_effect_parameter(&mut self, effect_id: EffectId, param_index: u32, value: f32);
@@ -196,8 +196,8 @@ impl<S: SynthNode> VoiceTrait for Voice<S> {
         was_handled || self.node.try_handle_command(command)
     }
 
-    fn add_effect(&mut self, effect: Box<dyn MonoEffect>) {
-        self.effect_chain.add_effect(effect);
+    fn add_effect(&mut self, effect: Box<dyn MonoEffect>) -> Result<(), Box<dyn MonoEffect>> {
+        self.effect_chain.add_effect(effect)
     }
 
     fn set_effect_parameter(&mut self, effect_id: EffectId, param_index: u32, value: f32) {

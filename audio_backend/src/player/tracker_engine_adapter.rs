@@ -35,8 +35,8 @@ impl TrackerEngineAdapter {
         self.engine.process(left, right, sample_rate);
     }
 
-    pub fn clear_instruments(&mut self) {
-        self.engine.clear_instruments();
+    pub fn clear_instruments(&mut self, retired: &mut impl RetireSink) {
+        self.engine.clear_instruments(retired);
         self.track_last_instrument.clear();
     }
 

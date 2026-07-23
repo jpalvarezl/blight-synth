@@ -102,16 +102,16 @@ impl Player {
         self.song = song;
     }
 
-    fn load_song(&mut self, song: Arc<Song>) {
+    fn load_song(&mut self, song: Arc<Song>, retired: &mut impl RetireSink) {
         dsp::rt_debug_log!("Loading song: {}", song.name);
         self.stop();
-        self.engine_adapter.clear_instruments();
+        self.engine_adapter.clear_instruments(retired);
         self.set_song(song);
     }
 
     pub fn handle_command(&mut self, command: Command, retired: &mut impl RetireSink) {
         match command {
-            Command::Sequencer(SequencerCmd::LoadSong { song }) => self.load_song(song),
+            Command::Sequencer(SequencerCmd::LoadSong { song }) => self.load_song(song, retired),
             Command::Sequencer(SequencerCmd::PlaySong { song }) => {
                 dsp::rt_debug_log!("Playing song: {}", song.name);
                 self.set_song(song);

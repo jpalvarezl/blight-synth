@@ -56,8 +56,8 @@ impl<S: SynthNode> InstrumentTrait for MonophonicInstrument<S> {
         self.voice.inner.set_pan(pan);
     }
 
-    fn add_effect(&mut self, effect: Box<dyn MonoEffect>) {
-        self.voice.inner.add_effect(effect);
+    fn add_effect(&mut self, effect: Box<dyn MonoEffect>) -> Result<(), Box<dyn MonoEffect>> {
+        self.voice.inner.add_effect(effect)
     }
 
     fn set_effect_parameter(&mut self, effect_id: EffectId, param_index: u32, value: f32) {
@@ -144,18 +144,28 @@ impl<S: SynthNode> InstrumentTrait for PolyphonicInstrument<S> {
         }
     }
 
-    fn add_effect(&mut self, _effect: Box<dyn MonoEffect>) {
+    fn add_effect(&mut self, effect: Box<dyn MonoEffect>) -> Result<(), Box<dyn MonoEffect>> {
         // Polyphonic instruments require one effect instance per voice.
         // Use add_voice_effects with pre-constructed per-voice effects instead.
         crate::rt_warn_log!(
             "PolyphonicInstrument: add_effect is a no-op; use add_voice_effects instead"
         );
+        Err(effect)
     }
 
-    fn add_voice_effects(&mut self, effects: VoiceEffects) {
-        for (slot, effect) in self.voices.iter_mut().zip(effects) {
-            slot.inner.add_effect(effect);
+    fn add_voice_effects(&mut self, effects: VoiceEffects) -> VoiceEffects {
+        let mut rejected = VoiceEffects::new();
+        let mut voices = self.voices.iter_mut();
+        for effect in effects {
+            if let Some(slot) = voices.next() {
+                if let Err(effect) = slot.inner.add_effect(effect) {
+                    rejected.push(effect);
+                }
+            } else {
+                rejected.push(effect);
+            }
         }
+        rejected
     }
 
     fn set_effect_parameter(&mut self, effect_id: EffectId, param_index: u32, value: f32) {

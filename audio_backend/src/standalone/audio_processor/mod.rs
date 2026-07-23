@@ -13,6 +13,13 @@ const MAX_BUFFER_SIZE: usize = 4096;
 /// callback block. A backlog remains FIFO-queued for later blocks so control
 /// bursts cannot postpone rendering indefinitely.
 pub(crate) const MAX_COMMANDS_PER_PROCESS_BLOCK: usize = 64;
+/// Worst-case owner count emitted by one current structural command: clearing
+/// all prepared instruments or rejecting one full VoiceEffects batch. This is
+/// coupled to Engine's current soft 64-instrument capacity; #137 must update
+/// this bound when it makes instrument capacity hard/configurable.
+const MAX_RETIRED_OWNERS_PER_COMMAND: usize = 64;
+const MAX_PENDING_RETIRED_OWNERS: usize =
+    MAX_COMMANDS_PER_PROCESS_BLOCK * MAX_RETIRED_OWNERS_PER_COMMAND;
 
 struct CallbackRetireSink<'a> {
     retirement_tx: &'a mut HeapProd<RetiredState>,
@@ -57,7 +64,7 @@ impl AudioProcessor {
         Self {
             command_rx,
             retirement_tx,
-            pending_retired: Vec::with_capacity(MAX_COMMANDS_PER_PROCESS_BLOCK),
+            pending_retired: Vec::with_capacity(MAX_PENDING_RETIRED_OWNERS),
             sample_rate,
             channels,
             left_buf: vec![0.0; MAX_BUFFER_SIZE],
@@ -78,7 +85,7 @@ impl AudioProcessor {
         Self {
             command_rx,
             retirement_tx,
-            pending_retired: Vec::with_capacity(MAX_COMMANDS_PER_PROCESS_BLOCK),
+            pending_retired: Vec::with_capacity(MAX_PENDING_RETIRED_OWNERS),
             sample_rate,
             channels,
             left_buf: vec![0.0; MAX_BUFFER_SIZE],
@@ -94,7 +101,7 @@ impl AudioProcessor {
 
         // If a previous block retained retirement ownership, pause this block's
         // command consumption until it reaches NRT. The current bounded command
-        // loop may add at most 64 pending owners before this gate takes effect.
+        // loop can emit at most MAX_PENDING_RETIRED_OWNERS before this gate.
         if self.pending_retired.is_empty() {
             for _ in 0..MAX_COMMANDS_PER_PROCESS_BLOCK {
                 let Some(command) = self.command_rx.try_pop() else {
@@ -132,6 +139,8 @@ impl AudioProcessor {
     }
 
     fn flush_retired(&mut self) {
+        // Destruction order is intentionally irrelevant; LIFO permits bounded
+        // Vec pop/push without shifting pending ownership on RT.
         while let Some(retired) = self.pending_retired.pop() {
             if !self.retirement_tx.read_is_held() {
                 self.pending_retired.push(retired);
@@ -183,6 +192,18 @@ mod tests {
     use ringbuf::{storage::Heap, traits::Split, HeapCons, HeapProd, SharedRb};
     use std::sync::atomic::{AtomicUsize, Ordering};
 
+    struct NoopMonoEffect {
+        id: EffectId,
+    }
+
+    impl MonoEffect for NoopMonoEffect {
+        fn id(&self) -> EffectId {
+            self.id
+        }
+        fn process(&mut self, _buf: &mut [f32], _sample_rate: f32) {}
+        fn set_parameter(&mut self, _index: u32, _value: f32) {}
+    }
+
     struct RenderCounterInstrument {
         renders: Arc<AtomicUsize>,
     }
@@ -206,8 +227,12 @@ mod tests {
         fn note_off(&mut self) {}
         fn process(&mut self, _left: &mut [f32], _right: &mut [f32], _sample_rate: f32) {}
         fn set_pan(&mut self, _pan: f32) {}
-        fn add_effect(&mut self, _effect: Box<dyn MonoEffect>) {}
-        fn add_voice_effects(&mut self, _effects: VoiceEffects) {}
+        fn add_effect(&mut self, effect: Box<dyn MonoEffect>) -> Result<(), Box<dyn MonoEffect>> {
+            Err(effect)
+        }
+        fn add_voice_effects(&mut self, effects: VoiceEffects) -> VoiceEffects {
+            effects
+        }
         fn set_effect_parameter(&mut self, _effect_id: EffectId, _param_index: u32, _value: f32) {}
         fn try_handle_command(&mut self, _command: &SynthCmd) -> bool {
             false
@@ -233,9 +258,13 @@ mod tests {
 
         fn set_pan(&mut self, _pan: f32) {}
 
-        fn add_effect(&mut self, _effect: Box<dyn MonoEffect>) {}
+        fn add_effect(&mut self, effect: Box<dyn MonoEffect>) -> Result<(), Box<dyn MonoEffect>> {
+            Err(effect)
+        }
 
-        fn add_voice_effects(&mut self, _effects: VoiceEffects) {}
+        fn add_voice_effects(&mut self, effects: VoiceEffects) -> VoiceEffects {
+            effects
+        }
 
         fn set_effect_parameter(&mut self, _effect_id: EffectId, _param_index: u32, _value: f32) {}
 
@@ -413,6 +442,39 @@ mod tests {
         assert_eq!(
             first_drops.load(Ordering::Relaxed) + second_drops.load(Ordering::Relaxed),
             2
+        );
+    }
+
+    #[test]
+    fn worst_case_multi_owner_commands_fit_preallocated_pending_retirement() {
+        let (mut command_tx, _retirement_rx, mut processor) =
+            processor_with_retirement(2, MAX_COMMANDS_PER_PROCESS_BLOCK, 1);
+        for command_index in 0..MAX_COMMANDS_PER_PROCESS_BLOCK {
+            let mut effects = VoiceEffects::new();
+            for effect_index in 0..MAX_RETIRED_OWNERS_PER_COMMAND {
+                effects.push(Box::new(NoopMonoEffect {
+                    id: (command_index * MAX_RETIRED_OWNERS_PER_COMMAND + effect_index) as EffectId,
+                }));
+            }
+            assert!(command_tx
+                .try_push(
+                    InstrumentCmd::AddVoiceEffects {
+                        instrument_id: 999,
+                        effects,
+                    }
+                    .into(),
+                )
+                .is_ok());
+        }
+
+        let original_capacity = processor.pending_retired.capacity();
+        processor.process(&mut [0.0; 16]);
+
+        assert_eq!(original_capacity, MAX_PENDING_RETIRED_OWNERS);
+        assert_eq!(processor.pending_retired.capacity(), original_capacity);
+        assert_eq!(
+            processor.pending_retired.len(),
+            MAX_PENDING_RETIRED_OWNERS - 1
         );
     }
 
