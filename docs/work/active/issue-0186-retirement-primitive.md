@@ -66,7 +66,7 @@ Prove the bounded RT-to-NRT ownership-return topology for duplicate-ID instrumen
 - `docs/domains/audio-engine.md`
 - `docs/work/active/`
 
-Shared contract: `Engine::handle_command`/`add_instrument` surface displaced ownership; coordinated follow-ups must extend rather than replace this contract.
+Shared contract: `Engine::handle_command_with_retirement`/`add_instrument_with_retirement` route displaced ownership through `RetireSink`; coordinated follow-ups extend the sink with additional `RetiredState` variants.
 
 ## Plan
 
@@ -86,7 +86,8 @@ Shared contract: `Engine::handle_command`/`add_instrument` surface displaced own
 - 2026-07-23 — Callback work stops consuming commands while fixed pending retirement ownership cannot reach NRT, preserving a bounded fallback.
 - 2026-07-23 — Retirement ring capacity is 128 owner units; at most 64 commands execute per block and this slice retires at most one owner per command.
 - 2026-07-23 — Independent review approved the ownership/bound invariants but required transport coverage. Added live-consumer replacement delivery plus forced ring-full pending/pause/resume tests.
-- 2026-07-23 — Copilot reviewed all 11 changed files. Made intentional NRT retirement discards explicit at offline/test call sites and clarified that the pending-retirement gate applies on subsequent callback blocks.
+- 2026-07-23 — Copilot reviewed all 11 changed files. Clarified that the pending-retirement gate applies on subsequent callback blocks.
+- 2026-07-23 — Human review identified sparse `Option<RetiredState>` propagation as the wrong scaling contract. Replaced it with `RetireSink`; Engine/Player command handling is unit-returning, offline uses `DropRetireSink`, and RT uses the bounded callback sink. Kept standard reclamation/flush terminology after discussion.
 
 ## Verification
 

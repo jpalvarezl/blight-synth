@@ -146,7 +146,7 @@ fn prepared_engine_note_parameter_and_render_path_has_no_heap_activity() {
     let instrument_id = 1;
     let factory = InstrumentFactory::new(SAMPLE_RATE);
     let mut engine = Engine::new();
-    let _ = engine.add_instrument(factory.create_simple_oscillator(instrument_id, 0.0));
+    engine.add_instrument(factory.create_simple_oscillator(instrument_id, 0.0));
     let mut left = [0.0; 256];
     let mut right = [0.0; 256];
 
@@ -158,7 +158,7 @@ fn prepared_engine_note_parameter_and_render_path_has_no_heap_activity() {
     right.fill(0.0);
 
     let counts = measure_allocations(|| {
-        let _ = engine.handle_command(
+        engine.handle_command(
             InstrumentCmd::NoteOn {
                 instrument_id,
                 note: 64,
@@ -166,7 +166,7 @@ fn prepared_engine_note_parameter_and_render_path_has_no_heap_activity() {
             }
             .into(),
         );
-        let _ = engine.handle_command(
+        engine.handle_command(
             InstrumentCmd::PassOnSynthCmd {
                 instrument_id,
                 synth_cmd: SynthCmd::SetWaveform {
@@ -177,7 +177,7 @@ fn prepared_engine_note_parameter_and_render_path_has_no_heap_activity() {
             .into(),
         );
         engine.process(&mut left, &mut right, SAMPLE_RATE);
-        let _ = engine.handle_command(InstrumentCmd::NoteOff { instrument_id }.into());
+        engine.handle_command(InstrumentCmd::NoteOff { instrument_id }.into());
     });
 
     assert_eq!(counts.allocations, 0, "unexpected RT allocations");
@@ -217,7 +217,7 @@ impl InstrumentTrait for IntentionallyAllocatingInstrument {
 #[test]
 fn audit_harness_detects_an_intentional_allocation_and_drop() {
     let mut engine = Engine::new();
-    let _ = engine.add_instrument(Box::new(IntentionallyAllocatingInstrument { id: 1 }));
+    engine.add_instrument(Box::new(IntentionallyAllocatingInstrument { id: 1 }));
     let mut left = [0.0; 16];
     let mut right = [0.0; 16];
 

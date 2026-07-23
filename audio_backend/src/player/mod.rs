@@ -2,7 +2,7 @@ mod tracker_engine_adapter;
 
 use std::sync::Arc;
 
-use engine::RetiredState;
+use engine::RetireSink;
 use sequencer::{
     models::{NoteSentinelValues, Song, DEFAULT_CHAIN_LENGTH, DEFAULT_PHRASE_LENGTH, MAX_TRACKS},
     timing::TimingState,
@@ -109,34 +109,25 @@ impl Player {
         self.set_song(song);
     }
 
-    pub fn handle_command(&mut self, command: Command) -> Option<RetiredState> {
+    pub fn handle_command(&mut self, command: Command, retired: &mut impl RetireSink) {
         match command {
-            Command::Sequencer(SequencerCmd::LoadSong { song }) => {
-                self.load_song(song);
-                None
-            }
+            Command::Sequencer(SequencerCmd::LoadSong { song }) => self.load_song(song),
             Command::Sequencer(SequencerCmd::PlaySong { song }) => {
                 dsp::rt_debug_log!("Playing song: {}", song.name);
                 self.set_song(song);
                 self.play();
-                None
             }
-            Command::Transport(TransportCmd::StopSong) => {
-                self.stop();
-                None
-            }
+            Command::Transport(TransportCmd::StopSong) => self.stop(),
             Command::Transport(TransportCmd::SetLooping { enabled }) => {
                 self.loop_enabled = enabled;
-                None
             }
-            Command::Transport(TransportCmd::PlayLastSong) => {
-                self.play();
-                None
-            }
-            Command::Instrument(command) => {
-                self.engine_adapter.handle_engine_command(command.into())
-            }
-            Command::Mixer(command) => self.engine_adapter.handle_engine_command(command.into()),
+            Command::Transport(TransportCmd::PlayLastSong) => self.play(),
+            Command::Instrument(command) => self
+                .engine_adapter
+                .handle_engine_command(command.into(), retired),
+            Command::Mixer(command) => self
+                .engine_adapter
+                .handle_engine_command(command.into(), retired),
         }
     }
 

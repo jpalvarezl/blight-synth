@@ -1,4 +1,4 @@
-use engine::RetiredState;
+use engine::{RetireSink, RetiredState};
 use ringbuf::traits::*;
 use ringbuf::{HeapCons, HeapProd};
 
@@ -13,6 +13,23 @@ const MAX_BUFFER_SIZE: usize = 4096;
 /// callback block. A backlog remains FIFO-queued for later blocks so control
 /// bursts cannot postpone rendering indefinitely.
 pub(crate) const MAX_COMMANDS_PER_PROCESS_BLOCK: usize = 64;
+
+struct CallbackRetireSink<'a> {
+    retirement_tx: &'a mut HeapProd<RetiredState>,
+    pending_retired: &'a mut Vec<RetiredState>,
+}
+
+impl RetireSink for CallbackRetireSink<'_> {
+    fn retire(&mut self, retired: RetiredState) {
+        if !self.retirement_tx.read_is_held() {
+            self.pending_retired.push(retired);
+            return;
+        }
+        if let Err(retired) = self.retirement_tx.try_push(retired) {
+            self.pending_retired.push(retired);
+        }
+    }
+}
 
 pub struct AudioProcessor {
     pub(crate) command_rx: HeapCons<Command>,
@@ -83,9 +100,11 @@ impl AudioProcessor {
                 let Some(command) = self.command_rx.try_pop() else {
                     break;
                 };
-                if let Some(retired) = self.player.handle_command(command) {
-                    self.retire(retired);
-                }
+                let mut retired = CallbackRetireSink {
+                    retirement_tx: &mut self.retirement_tx,
+                    pending_retired: &mut self.pending_retired,
+                };
+                self.player.handle_command(command, &mut retired);
             }
         }
 
@@ -110,16 +129,6 @@ impl AudioProcessor {
         // Host buffers should contain complete frames. Silence any malformed
         // trailing samples rather than leaving stale output behind.
         trailing_samples.fill(0.0);
-    }
-
-    fn retire(&mut self, retired: RetiredState) {
-        if !self.retirement_tx.read_is_held() {
-            self.pending_retired.push(retired);
-            return;
-        }
-        if let Err(retired) = self.retirement_tx.try_push(retired) {
-            self.pending_retired.push(retired);
-        }
     }
 
     fn flush_retired(&mut self) {

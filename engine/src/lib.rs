@@ -20,6 +20,23 @@ pub enum RetiredState {
     Instrument(Box<dyn InstrumentTrait>),
 }
 
+/// Receives heap-owning state displaced by engine operations.
+///
+/// RT hosts provide a bounded handoff sink; offline/NRT callers may use
+/// [`DropRetireSink`] to destroy ownership immediately on their current thread.
+pub trait RetireSink {
+    fn retire(&mut self, state: RetiredState);
+}
+
+/// Immediate destruction policy for callers known to run outside RT.
+pub struct DropRetireSink;
+
+impl RetireSink for DropRetireSink {
+    fn retire(&mut self, state: RetiredState) {
+        drop(state);
+    }
+}
+
 /// Host-independent runtime for instrument dispatch, mixing, and master effects.
 ///
 /// `Engine` owns live sound-producing state but no audio device, composition
@@ -47,19 +64,30 @@ impl Engine {
         }
     }
 
-    pub fn handle_command(&mut self, command: EngineCommand) -> Option<RetiredState> {
+    /// Handles a command on a caller known to be outside RT, immediately
+    /// destroying any displaced ownership on that caller.
+    pub fn handle_command(&mut self, command: EngineCommand) {
+        self.handle_command_with_retirement(command, &mut DropRetireSink);
+    }
+
+    /// Handles a command while routing displaced ownership to the supplied
+    /// retirement policy. RT hosts must use this method.
+    pub fn handle_command_with_retirement(
+        &mut self,
+        command: EngineCommand,
+        retired: &mut impl RetireSink,
+    ) {
         match command {
-            EngineCommand::Instrument(command) => self.handle_instrument_command(command),
-            EngineCommand::Mixer(command) => {
-                self.handle_mixer_command(command);
-                None
-            }
+            EngineCommand::Instrument(command) => self.handle_instrument_command(command, retired),
+            EngineCommand::Mixer(command) => self.handle_mixer_command(command),
         }
     }
 
-    fn handle_instrument_command(&mut self, command: InstrumentCmd) -> Option<RetiredState> {
+    fn handle_instrument_command(&mut self, command: InstrumentCmd, retired: &mut impl RetireSink) {
         match command {
-            InstrumentCmd::AddInstrument { instrument } => return self.add_instrument(instrument),
+            InstrumentCmd::AddInstrument { instrument } => {
+                self.add_instrument_with_retirement(instrument, retired)
+            }
             InstrumentCmd::AddEffect {
                 instrument_id,
                 effect,
@@ -87,7 +115,6 @@ impl Engine {
                 value,
             } => self.set_instrument_effect_parameter(instrument_id, effect_id, param_index, value),
         }
-        None
     }
 
     fn handle_mixer_command(&mut self, command: MixerCmd) {
@@ -133,19 +160,27 @@ impl Engine {
         self.master_effects.process(left, right, sample_rate);
     }
 
-    pub fn add_instrument(&mut self, instrument: Box<dyn InstrumentTrait>) -> Option<RetiredState> {
+    /// Adds an instrument on a caller known to be outside RT.
+    pub fn add_instrument(&mut self, instrument: Box<dyn InstrumentTrait>) {
+        self.add_instrument_with_retirement(instrument, &mut DropRetireSink);
+    }
+
+    /// Adds or replaces an instrument using the supplied retirement policy.
+    pub fn add_instrument_with_retirement(
+        &mut self,
+        instrument: Box<dyn InstrumentTrait>,
+        retired: &mut impl RetireSink,
+    ) {
         let id = instrument.id();
         match self.instruments.binary_search_by_key(&id, |slot| slot.id) {
             Ok(index) => {
-                let retired =
+                let displaced =
                     std::mem::replace(&mut self.instruments[index].instrument, instrument);
-                Some(RetiredState::Instrument(retired))
+                retired.retire(RetiredState::Instrument(displaced));
             }
-            Err(index) => {
-                self.instruments
-                    .insert(index, InstrumentSlot { id, instrument });
-                None
-            }
+            Err(index) => self
+                .instruments
+                .insert(index, InstrumentSlot { id, instrument }),
         }
     }
 
@@ -339,7 +374,7 @@ mod tests {
         let note_offs = Arc::new(AtomicUsize::new(0));
         let effect_value = Arc::new(AtomicU32::new(0));
         let mut engine = Engine::new();
-        let _ = engine.handle_command(
+        engine.handle_command(
             InstrumentCmd::AddInstrument {
                 instrument: Box::new(TestInstrument {
                     id: 3,
@@ -350,14 +385,14 @@ mod tests {
             }
             .into(),
         );
-        let _ = engine.handle_command(
+        engine.handle_command(
             MixerCmd::AddMasterEffect {
                 effect: Box::new(ScaleEffect { id: 9, scale: 2.0 }),
             }
             .into(),
         );
 
-        let _ = engine.handle_command(
+        engine.handle_command(
             InstrumentCmd::NoteOn {
                 instrument_id: 3,
                 note: 60,
@@ -365,7 +400,7 @@ mod tests {
             }
             .into(),
         );
-        let _ = engine.handle_command(
+        engine.handle_command(
             InstrumentCmd::SetEffectParameter {
                 instrument_id: 3,
                 effect_id: 4,
@@ -377,7 +412,7 @@ mod tests {
         let mut left = [0.0; 4];
         let mut right = [0.0; 4];
         engine.process(&mut left, &mut right, 48_000.0);
-        let _ = engine.handle_command(InstrumentCmd::NoteOff { instrument_id: 3 }.into());
+        engine.handle_command(InstrumentCmd::NoteOff { instrument_id: 3 }.into());
 
         assert_eq!(left, [0.5; 4]);
         assert_eq!(right, [1.0; 4]);
@@ -398,7 +433,7 @@ mod tests {
         let mut engine = Engine::new();
         for id in [3, 1, 2, 2] {
             let (note_ons, note_offs, effect_value) = counters();
-            let _ = engine.add_instrument(Box::new(TestInstrument {
+            engine.add_instrument(Box::new(TestInstrument {
                 id,
                 note_ons,
                 note_offs,
@@ -417,25 +452,36 @@ mod tests {
     }
 
     #[test]
-    fn duplicate_instrument_replacement_returns_ownership_for_nrt_drop() {
+    fn duplicate_instrument_replacement_routes_ownership_for_nrt_drop() {
+        struct CollectRetired(Vec<RetiredState>);
+        impl RetireSink for CollectRetired {
+            fn retire(&mut self, state: RetiredState) {
+                self.0.push(state);
+            }
+        }
+
         let drop_thread = Arc::new(Mutex::new(None));
         let mut engine = Engine::new();
-        assert!(engine
-            .add_instrument(Box::new(DropProbeInstrument {
+        let mut retired = CollectRetired(Vec::new());
+        engine.add_instrument_with_retirement(
+            Box::new(DropProbeInstrument {
                 id: 7,
                 drop_thread: drop_thread.clone(),
-            }))
-            .is_none());
+            }),
+            &mut retired,
+        );
+        assert!(retired.0.is_empty());
 
-        let retired = match engine.add_instrument(Box::new(TestInstrument {
-            id: 7,
-            note_ons: Arc::new(AtomicUsize::new(0)),
-            note_offs: Arc::new(AtomicUsize::new(0)),
-            effect_value: Arc::new(AtomicU32::new(0)),
-        })) {
-            Some(retired) => retired,
-            None => panic!("duplicate id must return retired ownership"),
-        };
+        engine.add_instrument_with_retirement(
+            Box::new(TestInstrument {
+                id: 7,
+                note_ons: Arc::new(AtomicUsize::new(0)),
+                note_offs: Arc::new(AtomicUsize::new(0)),
+                effect_value: Arc::new(AtomicU32::new(0)),
+            }),
+            &mut retired,
+        );
+        let retired = retired.0.pop().expect("duplicate id must retire ownership");
         assert!(drop_thread.lock().unwrap().is_none());
 
         let nrt_thread = std::thread::spawn(move || drop(retired));
@@ -447,7 +493,7 @@ mod tests {
     #[test]
     fn renders_only_complete_frames_when_channel_lengths_differ() {
         let mut engine = Engine::new();
-        let _ = engine.add_instrument(Box::new(TestInstrument {
+        engine.add_instrument(Box::new(TestInstrument {
             id: 3,
             note_ons: Arc::new(AtomicUsize::new(0)),
             note_offs: Arc::new(AtomicUsize::new(0)),

@@ -1,6 +1,7 @@
 use std::{collections::BTreeMap, path::Path, sync::Arc};
 
 use anyhow::{bail, Context, Result};
+use engine::DropRetireSink;
 use sequencer::{cli::FileFormat, models::Song, project::open_song_from_file};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -206,11 +207,12 @@ pub fn render_song(song: &Song, config: OfflineRenderConfig) -> Result<OfflineRe
     let hydration_commands = build_song_hydration_commands(song, config.sample_rate as f32)?;
     let song = Arc::new(song.clone());
     let mut player = Player::new(song.clone(), config.sample_rate as f64);
-    let _ = player.handle_command(SequencerCmd::LoadSong { song }.into());
+    let mut retired = DropRetireSink;
+    player.handle_command(SequencerCmd::LoadSong { song }.into(), &mut retired);
     for command in hydration_commands {
-        let _ = player.handle_command(command);
+        player.handle_command(command, &mut retired);
     }
-    let _ = player.handle_command(TransportCmd::PlayLastSong.into());
+    player.handle_command(TransportCmd::PlayLastSong.into(), &mut retired);
 
     let initial_capacity = config.max_frames.min(config.sample_rate as usize * 60);
     let mut rendered = OfflineRender {
