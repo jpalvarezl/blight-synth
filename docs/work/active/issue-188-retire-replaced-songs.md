@@ -15,7 +15,7 @@ updated: 2026-07-24
 - Branch: `issue/188-retire-replaced-songs`
 - Worktree: `../blight-188-retire-songs`
 - Base branch/SHA: origin/main @ ac9627d
-- Head SHA: 79ec3fea5ab38087a198cd30e583a4b669129d6e
+- Head SHA: 1068314aca01d97537eb3b90d5cdd941d9656454
 - Last handoff: 2026-07-24
 
 ## Goal
