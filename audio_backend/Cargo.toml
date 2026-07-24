@@ -5,66 +5,74 @@ edition = "2021"
 
 [features]
 default = ["standalone"]
-standalone = [
-    "dep:cpal",
+# Shared in-process device host: CPAL device/stream, RT callback adapter,
+# command/retirement rings, metering, and factories. No OSC/Tokio/logging.
+device-host = ["dep:cpal", "dep:ringbuf"]
+# OSC standalone-process transport adapter: depends on the device host and adds
+# rosc + tokio + env_logger, the OscServer/control worker, the dsp-core binary,
+# and the OSC/device-network examples.
+standalone-process = [
+    "device-host",
     "dep:env_logger",
-    "dep:ringbuf",
     "dep:rosc",
     "dep:tokio",
 ]
+# Compatibility alias so `default = ["standalone"]` and existing invocations keep
+# resolving to the full standalone-process layer unchanged.
+standalone = ["standalone-process"]
 
 [[bin]]
 name = "dsp-core"
 path = "src/bin/dsp-core.rs"
-required-features = ["standalone"]
+required-features = ["standalone-process"]
 
 [[example]]
 name = "cycle_waveforms"
-required-features = ["standalone"]
+required-features = ["device-host"]
 
 [[example]]
 name = "envelope"
-required-features = ["standalone"]
+required-features = ["device-host"]
 
 [[example]]
 name = "master_gain"
-required-features = ["standalone"]
+required-features = ["device-host"]
 
 [[example]]
 name = "meter_listen"
-required-features = ["standalone"]
+required-features = ["standalone-process"]
 
 [[example]]
 name = "osc_control"
-required-features = ["standalone"]
+required-features = ["standalone-process"]
 
 [[example]]
 name = "play_song_file"
-required-features = ["standalone"]
+required-features = ["standalone-process"]
 
 [[example]]
 name = "polyphonic_song"
-required-features = ["standalone"]
+required-features = ["standalone-process"]
 
 [[example]]
 name = "sample_playback_from_file"
-required-features = ["standalone"]
+required-features = ["device-host"]
 
 [[example]]
 name = "sample_playback_from_gl_instruments"
-required-features = ["standalone"]
+required-features = ["device-host"]
 
 [[example]]
 name = "simple_setup"
-required-features = ["standalone"]
+required-features = ["device-host"]
 
 [[example]]
 name = "simple_song"
-required-features = ["standalone"]
+required-features = ["device-host"]
 
 [[example]]
 name = "voice_effects"
-required-features = ["standalone"]
+required-features = ["device-host"]
 
 [dependencies]
 dsp = { workspace = true }

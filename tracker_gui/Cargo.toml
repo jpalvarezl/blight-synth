@@ -11,7 +11,7 @@ log = { workspace = true }
 rfd = { workspace = true }
 sequencer = { workspace = true }
 dsp = { workspace = true }
-audio_backend = { workspace = true }
+audio_backend = { workspace = true, default-features = false, features = ["device-host"] }
 arrayvec = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

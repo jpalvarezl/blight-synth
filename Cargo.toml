@@ -28,5 +28,5 @@ dsp = { path = "dsp" }
 engine = { path = "engine" }
 sequencer = { path = "sequencer" }
 utils = { path = "utils" }
-audio_backend = { path = "audio_backend" }
+audio_backend = { path = "audio_backend", default-features = false }
 os_dls = { path = "os_dls" }

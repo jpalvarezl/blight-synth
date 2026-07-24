@@ -1,10 +1,10 @@
-#[cfg(feature = "standalone")]
+#[cfg(feature = "device-host")]
 use anyhow::Context;
 use anyhow::{bail, Result};
 use sequencer::models::{AmpEnvelopeParams, AudioEffect, InstrumentData, Song, Waveform};
-#[cfg(feature = "standalone")]
+#[cfg(feature = "device-host")]
 use sequencer::{cli::FileFormat, project::open_song_from_file};
-#[cfg(feature = "standalone")]
+#[cfg(feature = "device-host")]
 use std::{path::Path, sync::Arc};
 
 use crate::{
@@ -13,7 +13,7 @@ use crate::{
     instruments::Waveform as BackendWaveform,
     Command, EffectFactory, EnvelopeCmd, InstrumentCmd, InstrumentFactory, MonoEffect, SynthCmd,
 };
-#[cfg(feature = "standalone")]
+#[cfg(feature = "device-host")]
 use crate::{BlightAudio, CommandSubmissionErrorKind, SequencerCmd};
 
 const DEFAULT_INSTRUMENT_EFFECT_ID: EffectId = 1;
@@ -22,7 +22,7 @@ const DEFAULT_INSTRUMENT_EFFECT_ID: EffectId = 1;
 ///
 /// This is the shared path for standalone OSC `/song/load` and examples. It queues a
 /// `SequencerCmd::LoadSong` first, then queues instrument hydration commands.
-#[cfg(feature = "standalone")]
+#[cfg(feature = "device-host")]
 pub fn load_song_file_into_audio(audio: &mut BlightAudio, path: &Path) -> Result<Song> {
     let (song, commands) = prepare_song_file_for_audio(audio, path)?;
     for command in commands {
@@ -33,7 +33,7 @@ pub fn load_song_file_into_audio(audio: &mut BlightAudio, path: &Path) -> Result
 
 /// Parse a song and prepare its complete ordered load/hydration command batch
 /// without submitting any command to RT.
-#[cfg(feature = "standalone")]
+#[cfg(feature = "device-host")]
 pub(crate) fn prepare_song_file_for_audio(
     audio: &BlightAudio,
     path: &Path,
@@ -58,7 +58,7 @@ pub(crate) fn prepare_song_file_for_audio(
 }
 
 /// Queue commands that create backend instruments/effects from a serialized song.
-#[cfg(feature = "standalone")]
+#[cfg(feature = "device-host")]
 pub fn hydrate_song(audio: &mut BlightAudio, song: &Song) -> Result<()> {
     let commands = build_hydration_commands_with_factories(
         song,
@@ -71,7 +71,7 @@ pub fn hydrate_song(audio: &mut BlightAudio, song: &Song) -> Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "standalone")]
+#[cfg(feature = "device-host")]
 fn submit_command(audio: &mut BlightAudio, command: Command) -> Result<()> {
     match audio.try_send_command(command) {
         Ok(()) => Ok(()),
