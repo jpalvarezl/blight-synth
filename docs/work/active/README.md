@@ -2,7 +2,7 @@
 title: Active Task Packets
 summary: Index of temporary focused packets for work currently in progress.
 status: current
-updated: 2026-07-23
+updated: 2026-07-24
 ---
 
 # Active Task Packets
@@ -13,5 +13,4 @@ A packet is a handoff cache, not a second specification. It links to the issue a
 
 ## Active
 
-- [Issue #175 — RT debug logging and hot-path safety](issue-0175-rt-debug-and-hot-path.md)
-- [Issue #187 — structural retirement](issue-0187-structural-retirement.md)
+_No active packets. Create one when an issue moves to `status:in-progress`._

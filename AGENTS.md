@@ -4,6 +4,15 @@ This file is intentionally short. It routes humans and coding agents to the smal
 
 ## Start every task this way
 
+When selecting rather than receiving an issue, query live GitHub state first:
+
+```bash
+python3 scripts/docs/reconcile_work.py --check
+gh issue list --repo jpalvarezl/blight-synth --state open --label status:ready
+```
+
+Never select work solely from the offline burndown snapshot.
+
 1. Read the assigned GitHub issue: `gh issue view <number> --repo jpalvarezl/blight-synth`.
 2. Read [`docs/README.md`](docs/README.md).
 3. Read exactly one relevant page from [`docs/domains/`](docs/domains/README.md).
@@ -38,7 +47,8 @@ When sources disagree: tests/code describe current behavior; accepted ADRs descr
 ## Parallel work rules
 
 - One issue per branch/worktree; branch name `issue/<number>-<slug>`.
-- Claim work with the `status:in-progress` label, an assignee, and an active task packet.
+- Claim leaf work with the `status:in-progress` label, an assignee, and an active task packet.
+- `size:epic` issues are tracked through child packets; do not mark an epic in progress unless it has its own branch/packet.
 - Record expected touched paths in the packet before editing.
 - Two tasks may not concurrently change the same public contract, schema, migration, Cargo workspace boundary, or protocol surface without an explicit coordination note.
 - Implementation tasks depend on accepted contract issues; do not invent a local competing abstraction.
@@ -53,4 +63,5 @@ When sources disagree: tests/code describe current behavior; accepted ADRs descr
 - Record durable decisions as ADRs; do not rewrite accepted history without a superseding ADR.
 - GitHub owns live task status. Never manually edit generated burndown content.
 - Run `python3 scripts/docs/check_docs.py` after documentation changes.
-- Run `python3 scripts/docs/sync_roadmap.py` after GitHub roadmap metadata changes.
+- Run `python3 scripts/docs/reconcile_work.py --fix-docs` after GitHub roadmap metadata changes or issue completion.
+- Before handoff, run `python3 scripts/docs/reconcile_work.py --check` and `python3 scripts/docs/check_docs.py`.
