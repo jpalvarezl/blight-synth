@@ -70,10 +70,12 @@ synthesis server / control core and its clients: there is one shared
 synthesis/control core, an in-process typed client (the tracker), and a
 network/OSC client that is a *transport adapter* to the same control boundary —
 not a second, privileged owner of device-host behavior.
-[System boundaries](../architecture/system-boundaries.md) and the
-[real-time audio contract](../architecture/realtime-contract.md) ("Threading/runtime
-decision", "Feature boundary", "Backpressure and overload") already point this
-direction; this ADR makes the split explicit and names it.
+[System boundaries](../architecture/system-boundaries.md) ("Dependency direction",
+"Parallelization boundary"), the [standalone host domain](../domains/standalone-host.md)
+("Threading/runtime decision", "Feature boundary"), and the
+[real-time audio contract](../architecture/realtime-contract.md) ("Thread roles",
+"Backpressure and overload") already point this direction; this ADR makes the split
+explicit and names it.
 
 ## Decision
 
@@ -165,10 +167,25 @@ and deterministic offline rendering remain host-free.
   check on the tracker path must prove `rosc` and `tokio` are absent.
 - **Examples**: examples that use only `BlightAudio`/factories/meter
   (`simple_setup`, `simple_song`, `cycle_waveforms`, `envelope`, `master_gain`,
-  `polyphonic_song`, `play_song_file`, `voice_effects`,
-  `sample_playback_from_file`, `sample_playback_from_gl_instruments`) move to
-  `required-features = ["device-host"]`. OSC/device-network examples
+  `voice_effects`, `sample_playback_from_file`,
+  `sample_playback_from_gl_instruments`) move to
+  `required-features = ["device-host"]`. Two device-host examples
+  (`polyphonic_song`, `play_song_file`) additionally call `env_logger::init()`;
+  because `env_logger` is owned exclusively by `standalone-process` (§4), they
+  cannot compile under `device-host` alone. To keep §4 coherent, these two move
+  to `required-features = ["standalone-process"]` (they want logging, so they are
+  gated with the layer that owns `env_logger`). If a future change wants them on
+  `device-host`, they must first drop or relocate their `env_logger::init()` call
+  (e.g. behind a `standalone-process`-gated helper). OSC/device-network examples
   (`osc_control`, `meter_listen`) require `standalone-process`.
+- **Example feature validation (for #190)**: after re-gating, each example must
+  build under its declared feature set, e.g.
+  `cargo build -p audio_backend --example simple_setup --features device-host`,
+  `cargo build -p audio_backend --example polyphonic_song --features standalone-process`,
+  `cargo build -p audio_backend --example play_song_file --features standalone-process`,
+  and `cargo build -p audio_backend --example osc_control --features standalone-process`.
+  A `device-host`-only build of `polyphonic_song`/`play_song_file` is expected to
+  fail until `env_logger` is removed from them.
 - **`dsp-core` binary**: requires `standalone-process` (unchanged behavior;
   `required-features` updates from `standalone` to `standalone-process`, which
   the `standalone` alias also satisfies).

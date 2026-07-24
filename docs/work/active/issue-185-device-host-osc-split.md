@@ -28,8 +28,8 @@ changing engine/DSP semantics or renaming/splitting modules yet**. See issue
 
 ## Read first
 
-1. [Standalone host domain](../../domains/standalone-host.md)
-2. [System boundaries](../../architecture/system-boundaries.md), [Real-time audio contract](../../architecture/realtime-contract.md) ("Threading/runtime decision", "Feature boundary")
+1. [Standalone host domain](../../domains/standalone-host.md) ("Threading/runtime decision", "Feature boundary")
+2. [System boundaries](../../architecture/system-boundaries.md) ("Dependency direction", "Parallelization boundary"), [Real-time audio contract](../../architecture/realtime-contract.md) ("Thread roles", "Backpressure and overload")
 3. [ADR template](../../templates/adr.md) and existing [ADR 0001](../../decisions/0001-product-and-host-priorities.md)
 4. Code entry points (read-only, for boundary evidence):
    - `audio_backend/src/standalone/audio_frontend/blight_audio.rs`

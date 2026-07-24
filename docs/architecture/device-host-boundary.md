@@ -25,9 +25,9 @@ follow-up implementation lands.
 
 ```mermaid
 flowchart LR
-    TRACKER[Tracker NRT worker\nin-process typed client] -->|Command| DH
-    OSCADAPTER[OSC standalone process\ntransport adapter] -->|Command| DH
-    DH[device_host\nBlightAudio + callback + rings + meter + factories] --> CPAL[CPAL device]
+    TRACKER[Tracker NRT worker<br/>in-process typed client] -->|Command| DH
+    OSCADAPTER[OSC standalone process<br/>transport adapter] -->|Command| DH
+    DH[device_host<br/>BlightAudio + callback + rings + meter + factories] --> CPAL[CPAL device]
     DH -->|delegates rendering| ENGINE[engine]
     OSCADAPTER --> UDP[OSC/UDP + Tokio + readiness/shutdown]
 ```
