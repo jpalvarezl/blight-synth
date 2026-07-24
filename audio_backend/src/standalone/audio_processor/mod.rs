@@ -187,7 +187,8 @@ mod tests {
     use super::*;
     use crate::{
         id::{EffectId, InstrumentId},
-        InstrumentCmd, InstrumentTrait, MonoEffect, SynthCmd, TransportCmd, VoiceEffects,
+        EffectInstallError, EffectInstallErrorKind, InstrumentCmd, InstrumentTrait, MonoEffect,
+        SynthCmd, TransportCmd, VoiceEffects,
     };
     use ringbuf::{storage::Heap, traits::Split, HeapCons, HeapProd, SharedRb};
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -227,8 +228,11 @@ mod tests {
         fn note_off(&mut self) {}
         fn process(&mut self, _left: &mut [f32], _right: &mut [f32], _sample_rate: f32) {}
         fn set_pan(&mut self, _pan: f32) {}
-        fn add_effect(&mut self, effect: Box<dyn MonoEffect>) -> Result<(), Box<dyn MonoEffect>> {
-            Err(effect)
+        fn add_effect(&mut self, effect: Box<dyn MonoEffect>) -> Result<(), EffectInstallError> {
+            Err(EffectInstallError::new(
+                EffectInstallErrorKind::UnsupportedForPolyphonicInstrument,
+                effect,
+            ))
         }
         fn add_voice_effects(&mut self, effects: VoiceEffects) -> VoiceEffects {
             effects
@@ -258,8 +262,11 @@ mod tests {
 
         fn set_pan(&mut self, _pan: f32) {}
 
-        fn add_effect(&mut self, effect: Box<dyn MonoEffect>) -> Result<(), Box<dyn MonoEffect>> {
-            Err(effect)
+        fn add_effect(&mut self, effect: Box<dyn MonoEffect>) -> Result<(), EffectInstallError> {
+            Err(EffectInstallError::new(
+                EffectInstallErrorKind::UnsupportedForPolyphonicInstrument,
+                effect,
+            ))
         }
 
         fn add_voice_effects(&mut self, effects: VoiceEffects) -> VoiceEffects {

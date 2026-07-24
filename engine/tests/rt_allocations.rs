@@ -7,7 +7,8 @@ use std::{
 use dsp::{
     id::{EffectId, InstrumentId},
     instruments::Waveform,
-    EffectFactory, InstrumentFactory, InstrumentTrait, MonoEffect, SynthCmd,
+    EffectFactory, EffectInstallError, EffectInstallErrorKind, InstrumentFactory, InstrumentTrait,
+    MonoEffect, SynthCmd,
 };
 use engine::{Engine, InstrumentCmd, MixerCmd, RetireSink, RetiredState};
 
@@ -205,8 +206,11 @@ impl InstrumentTrait for IntentionallyAllocatingInstrument {
 
     fn set_pan(&mut self, _pan: f32) {}
 
-    fn add_effect(&mut self, effect: Box<dyn MonoEffect>) -> Result<(), Box<dyn MonoEffect>> {
-        Err(effect)
+    fn add_effect(&mut self, effect: Box<dyn MonoEffect>) -> Result<(), EffectInstallError> {
+        Err(EffectInstallError::new(
+            EffectInstallErrorKind::UnsupportedForPolyphonicInstrument,
+            effect,
+        ))
     }
 
     fn set_effect_parameter(&mut self, _effect_id: EffectId, _param_index: u32, _value: f32) {}

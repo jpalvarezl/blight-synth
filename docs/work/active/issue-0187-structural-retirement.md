@@ -94,13 +94,13 @@ Shared contract: extend `RetiredState`/`RetireSink`; do not replace the #186 han
 - 2026-07-23 — Production factories/types pass zero-allocation/deallocation tests for clear, missing-effect rejection, and master-chain overflow.
 - 2026-07-23 — Independent review caught the #186 one-retired-object-per-command pending bound becoming stale. Increased fixed callback pending capacity to 4096 (64 commands × 64 objects) and added a worst-case ring-full test proving no reallocation.
 - 2026-07-23 — Final review approved. Documented/asserted the temporary coupling to Engine's soft 64-instrument capacity (#137), confirmed monophonic batches now follow their documented first-effect behavior, and documented intentionally unordered LIFO retirement flushing.
-- 2026-07-24 — Human review clarified terminology and failure semantics. Renamed callback sizing from “owners” to “retired objects.” Kept non-panicking polyphonic rejection: the returned Box prevents RT deallocation; a separate NRT command-result path must communicate UnsupportedOperation to applications (#136 coordination).
+- 2026-07-24 — Human review clarified terminology and failure semantics. Renamed callback sizing from “owners” to “retired objects.” Added typed `EffectInstallErrorKind::{UnsupportedForPolyphonicInstrument, ChainFull}` while preserving the rejected Box for retirement; #136 coordinates the eventual NRT application response.
 
 ## Verification
 
 - [x] `cargo fmt --all -- --check`
 - [x] `cargo clippy --workspace --all-targets -- -D warnings`
-- [x] `cargo test --workspace --all-targets` — 76 tests plus examples
+- [x] `cargo test --workspace --all-targets` — 77 tests plus examples
 - [x] `cargo test -p audio_backend --no-default-features --all-targets`
 - [x] `cargo clippy -p audio_backend --no-default-features --all-targets -- -D warnings`
 - [x] `python3 scripts/check_rt_logging.py`

@@ -3,6 +3,35 @@ use crate::{
     MonoEffect, VoiceEffects,
 };
 
+/// Why a prepared mono effect could not be installed on an instrument.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum EffectInstallErrorKind {
+    /// A polyphonic instrument requires one independently prepared effect per voice.
+    UnsupportedForPolyphonicInstrument,
+    /// The target effect chain has no remaining prepared capacity.
+    ChainFull,
+}
+
+/// Typed effect-install rejection that preserves ownership for NRT retirement.
+pub struct EffectInstallError {
+    kind: EffectInstallErrorKind,
+    effect: Box<dyn MonoEffect>,
+}
+
+impl EffectInstallError {
+    pub fn new(kind: EffectInstallErrorKind, effect: Box<dyn MonoEffect>) -> Self {
+        Self { kind, effect }
+    }
+
+    pub fn kind(&self) -> EffectInstallErrorKind {
+        self.kind
+    }
+
+    pub fn into_effect(self) -> Box<dyn MonoEffect> {
+        self.effect
+    }
+}
+
 /// A trait for a complete instrument, which is responsible for managing
 /// its own voices and polyphony according to its specific behavior.
 pub trait InstrumentTrait: Send + Sync {
@@ -33,7 +62,7 @@ pub trait InstrumentTrait: Send + Sync {
     /// it to NRT retirement instead of dropping/deallocating it in the callback.
     /// Polyphonic instruments reject this single-effect form because each voice
     /// requires its own prepared effect instance.
-    fn add_effect(&mut self, effect: Box<dyn MonoEffect>) -> Result<(), Box<dyn MonoEffect>>;
+    fn add_effect(&mut self, effect: Box<dyn MonoEffect>) -> Result<(), EffectInstallError>;
 
     /// Add a batch of pre-constructed per-voice effects. Default implementation uses the first
     /// element for mono instruments and returns every effect it could not install.
@@ -41,8 +70,8 @@ pub trait InstrumentTrait: Send + Sync {
         let mut rejected = VoiceEffects::new();
         if !effects.is_empty() {
             let first = effects.remove(0);
-            if let Err(effect) = self.add_effect(first) {
-                rejected.push(effect);
+            if let Err(error) = self.add_effect(first) {
+                rejected.push(error.into_effect());
             }
         }
         rejected.extend(effects);

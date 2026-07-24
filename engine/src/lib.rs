@@ -203,12 +203,11 @@ impl Engine {
         effect: Box<dyn MonoEffect>,
         retired: &mut impl RetireSink,
     ) {
-        let result = if let Some(instrument) = self.instrument_mut(instrument_id) {
-            instrument.add_effect(effect)
+        if let Some(instrument) = self.instrument_mut(instrument_id) {
+            if let Err(error) = instrument.add_effect(effect) {
+                retired.retire(RetiredState::MonoEffect(error.into_effect()));
+            }
         } else {
-            Err(effect)
-        };
-        if let Err(effect) = result {
             retired.retire(RetiredState::MonoEffect(effect));
         }
     }
@@ -296,6 +295,7 @@ impl Engine {
 
 #[cfg(test)]
 mod tests {
+    use dsp::{EffectFactory, EffectInstallError, EffectInstallErrorKind, InstrumentFactory};
     use std::sync::{
         atomic::{AtomicU32, AtomicUsize, Ordering},
         Arc, Mutex,
@@ -332,8 +332,11 @@ mod tests {
 
         fn set_pan(&mut self, _pan: f32) {}
 
-        fn add_effect(&mut self, effect: Box<dyn MonoEffect>) -> Result<(), Box<dyn MonoEffect>> {
-            Err(effect)
+        fn add_effect(&mut self, effect: Box<dyn MonoEffect>) -> Result<(), EffectInstallError> {
+            Err(EffectInstallError::new(
+                EffectInstallErrorKind::UnsupportedForPolyphonicInstrument,
+                effect,
+            ))
         }
 
         fn add_voice_effects(&mut self, effects: VoiceEffects) -> VoiceEffects {
@@ -376,8 +379,11 @@ mod tests {
         fn note_off(&mut self) {}
         fn process(&mut self, _left: &mut [f32], _right: &mut [f32], _sample_rate: f32) {}
         fn set_pan(&mut self, _pan: f32) {}
-        fn add_effect(&mut self, effect: Box<dyn MonoEffect>) -> Result<(), Box<dyn MonoEffect>> {
-            Err(effect)
+        fn add_effect(&mut self, effect: Box<dyn MonoEffect>) -> Result<(), EffectInstallError> {
+            Err(EffectInstallError::new(
+                EffectInstallErrorKind::UnsupportedForPolyphonicInstrument,
+                effect,
+            ))
         }
         fn add_voice_effects(&mut self, effects: VoiceEffects) -> VoiceEffects {
             effects
@@ -618,6 +624,23 @@ mod tests {
         assert_eq!(mono_drops.load(Ordering::Relaxed), 3);
         assert_eq!(stereo_drops.load(Ordering::Relaxed), 1);
         assert!(instrument_drops.lock().unwrap().is_some());
+    }
+
+    #[test]
+    fn polyphonic_single_effect_rejection_reports_typed_reason_and_returns_effect() {
+        let mut instrument =
+            InstrumentFactory::new(48_000.0).create_polyphonic_oscillator(4, 0.0, 2);
+        let effect = EffectFactory::new(48_000.0).create_mono_gain(9, 1.0);
+
+        let error = instrument
+            .add_effect(effect)
+            .expect_err("polyphonic instruments require per-voice effects");
+
+        assert_eq!(
+            error.kind(),
+            EffectInstallErrorKind::UnsupportedForPolyphonicInstrument
+        );
+        drop(error.into_effect());
     }
 
     #[test]
