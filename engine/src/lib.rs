@@ -22,10 +22,17 @@ pub enum RetiredState {
     MonoEffect(Box<dyn MonoEffect>),
     StereoEffect(Box<dyn StereoEffect>),
     /// Opaque prepared-state owner (such as a host's composition/song snapshot)
-    /// displaced on RT. The engine never inspects it; it only carries the owner
-    /// to NRT for destruction. Building this from a concrete `Arc<T>` is an
-    /// allocation-free unsizing coercion, so hosts may retire it on the callback
-    /// without heap work.
+    /// displaced on RT.
+    ///
+    /// `dyn Any` is type erasure: the `engine` crate must not depend on host
+    /// document types like `Song`, so it carries the owner without naming its
+    /// concrete type and never inspects it — it only holds the owner and drops
+    /// it on NRT. In practice the erased type is an `Arc<Song>`. The `Send +
+    /// Sync` bounds let the owner cross the RT->NRT boundary. Building this from
+    /// a concrete `Arc<T>` is an allocation-free unsizing coercion, so hosts may
+    /// retire it on the callback without heap work. (`Any` rather than a bare
+    /// `dyn Send + Sync` keeps optional `downcast` available for diagnostics; it
+    /// is not required for the drop-only path.)
     Prepared(Arc<dyn Any + Send + Sync>),
 }
 
