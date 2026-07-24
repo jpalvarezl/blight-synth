@@ -2,7 +2,7 @@
 title: Generated Roadmap Burndown
 summary: Offline Obsidian snapshot generated from GitHub roadmap issue metadata.
 status: generated
-source-updated: 2026-07-24T19:17:57Z
+source-updated: 2026-07-24T20:59:29Z
 generator: scripts/docs/sync_roadmap.py
 ---
 
@@ -11,15 +11,15 @@ generator: scripts/docs/sync_roadmap.py
 > [!warning] Generated file
 > GitHub Issues are canonical. Do not edit this page manually. Run `python3 scripts/docs/sync_roadmap.py`.
 
-Data snapshot through `2026-07-24T19:17:57Z`.
+Data snapshot through `2026-07-24T20:59:29Z`.
 
 ## Summary
 
 | Milestone | Open | Done | Ready | In progress | Blocked | Backlog | Sized points done/total | Unsized |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | M0: Architecture & Repository Baseline | 0 | 14 | 0 | 0 | 0 | 0 | 27/27 | 3 |
-| M1: Host-Independent Engine & RT Contracts | 13 | 8 | 1 | 0 | 3 | 9 | 20/31 | 10 |
-| M2: Standalone Host & Control Protocol | 8 | 0 | 1 | 0 | 2 | 5 | 0/7 | 5 |
+| M1: Host-Independent Engine & RT Contracts | 12 | 9 | 0 | 0 | 3 | 9 | 23/31 | 10 |
+| M2: Standalone Host & Control Protocol | 7 | 1 | 0 | 0 | 2 | 5 | 1/7 | 5 |
 | M3: JS/TS Composition UI & Standalone App | 9 | 0 | 0 | 0 | 0 | 9 | 0/0 | 9 |
 | M4 (Optional): Desktop Plugins (VST3/AU) | 7 | 0 | 0 | 0 | 0 | 7 | 0/0 | 7 |
 | M5 (Optional): AUv3 & Distribution | 3 | 0 | 0 | 0 | 0 | 3 | 0/0 | 3 |
@@ -40,7 +40,6 @@ Data snapshot through `2026-07-24T19:17:57Z`.
 - [ ] [#145](https://github.com/jpalvarezl/blight-synth/issues/145) Decouple composition runtimes from the audio engine through an event-source contract — `backlog`, `unsized`, unassigned
 - [ ] [#174](https://github.com/jpalvarezl/blight-synth/issues/174) Defer reclamation for structural engine and song updates — `blocked`, `L`, unassigned
 - [ ] [#179](https://github.com/jpalvarezl/blight-synth/issues/179) Expand RT allocation audit across existing instrument and effect paths — `backlog`, `M`, unassigned
-- [ ] [#188](https://github.com/jpalvarezl/blight-synth/issues/188) Retire replaced songs and finalize reclamation shutdown stress coverage — `ready`, `M`, unassigned
 
 ## All roadmap tasks
 
@@ -83,7 +82,7 @@ Data snapshot through `2026-07-24T19:17:57Z`.
 - [x] [#182](https://github.com/jpalvarezl/blight-synth/issues/182) Move standalone DSP command submission off the current-thread Tokio executor — `done`, `M`, unassigned
 - [x] [#186](https://github.com/jpalvarezl/blight-synth/issues/186) Add the RT-to-NRT retirement primitive and instrument replacement slice — `done`, `M`, unassigned
 - [x] [#187](https://github.com/jpalvarezl/blight-synth/issues/187) Route engine and effect structural rejections through deferred retirement — `done`, `M`, unassigned
-- [ ] [#188](https://github.com/jpalvarezl/blight-synth/issues/188) Retire replaced songs and finalize reclamation shutdown stress coverage — `ready`, `M`, unassigned
+- [x] [#188](https://github.com/jpalvarezl/blight-synth/issues/188) Retire replaced songs and finalize reclamation shutdown stress coverage — `done`, `M`, @jpalvarezl
 
 ### M2: Standalone Host & Control Protocol
 
@@ -93,7 +92,7 @@ Data snapshot through `2026-07-24T19:17:57Z`.
 - [ ] [#123](https://github.com/jpalvarezl/blight-synth/issues/123) Implement standalone process lifecycle, discovery, and recovery — `backlog`, `unsized`, unassigned
 - [ ] [#139](https://github.com/jpalvarezl/blight-synth/issues/139) Migrate the standalone CPAL/OSC host onto the shared engine — `backlog`, `unsized`, unassigned
 - [ ] [#161](https://github.com/jpalvarezl/blight-synth/issues/161) Remove Tokio from the standalone host control loop — `blocked`, `M`, unassigned
-- [ ] [#185](https://github.com/jpalvarezl/blight-synth/issues/185) Separate the shared device host from OSC standalone transport adapters — `ready`, `S`, unassigned
+- [x] [#185](https://github.com/jpalvarezl/blight-synth/issues/185) Separate the shared device host from OSC standalone transport adapters — `done`, `S`, @jpalvarezl
 - [ ] [#190](https://github.com/jpalvarezl/blight-synth/issues/190) Split audio_backend device-host infrastructure from the OSC standalone process adapter — `blocked`, `M`, unassigned
 
 ### M3: JS/TS Composition UI & Standalone App
