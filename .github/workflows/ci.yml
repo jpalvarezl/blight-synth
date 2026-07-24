@@ -68,6 +68,9 @@ jobs:
       - name: Check documentation
         run: python3 scripts/docs/check_docs.py
 
+      - name: Test work-state reconciliation
+        run: python3 -m unittest scripts.docs.test_reconcile_work
+
       - name: Exercise roadmap generator
         run: python3 scripts/docs/sync_roadmap.py --stdout > /dev/null
 

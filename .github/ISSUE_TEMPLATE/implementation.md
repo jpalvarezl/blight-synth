@@ -16,8 +16,10 @@ labels: roadmap-task
 
 ## Dependencies
 
-- Depends on:
-- Blocks:
+<!-- Keep dependency issue numbers on this single machine-readable line. -->
+Depends on:
+
+Blocks:
 
 ## Scope
 

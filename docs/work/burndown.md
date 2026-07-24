@@ -2,7 +2,7 @@
 title: Generated Roadmap Burndown
 summary: Offline Obsidian snapshot generated from GitHub roadmap issue metadata.
 status: generated
-source-updated: 2026-07-19T20:40:41Z
+source-updated: 2026-07-24T19:17:57Z
 generator: scripts/docs/sync_roadmap.py
 ---
 
@@ -11,15 +11,15 @@ generator: scripts/docs/sync_roadmap.py
 > [!warning] Generated file
 > GitHub Issues are canonical. Do not edit this page manually. Run `python3 scripts/docs/sync_roadmap.py`.
 
-Data snapshot through `2026-07-19T20:40:41Z`.
+Data snapshot through `2026-07-24T19:17:57Z`.
 
 ## Summary
 
 | Milestone | Open | Done | Ready | In progress | Blocked | Backlog | Sized points done/total | Unsized |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | M0: Architecture & Repository Baseline | 0 | 14 | 0 | 0 | 0 | 0 | 27/27 | 3 |
-| M1: Host-Independent Engine & RT Contracts | 13 | 2 | 1 | 2 | 2 | 8 | 4/13 | 10 |
-| M2: Standalone Host & Control Protocol | 6 | 0 | 0 | 0 | 1 | 5 | 0/3 | 5 |
+| M1: Host-Independent Engine & RT Contracts | 13 | 8 | 1 | 0 | 3 | 9 | 20/31 | 10 |
+| M2: Standalone Host & Control Protocol | 8 | 0 | 1 | 0 | 2 | 5 | 0/7 | 5 |
 | M3: JS/TS Composition UI & Standalone App | 9 | 0 | 0 | 0 | 0 | 9 | 0/0 | 9 |
 | M4 (Optional): Desktop Plugins (VST3/AU) | 7 | 0 | 0 | 0 | 0 | 7 | 0/0 | 7 |
 | M5 (Optional): AUv3 & Distribution | 3 | 0 | 0 | 0 | 0 | 3 | 0/0 | 3 |
@@ -31,16 +31,16 @@ Data snapshot through `2026-07-19T20:40:41Z`.
 - [ ] [#101](https://github.com/jpalvarezl/blight-synth/issues/101) Implement the coalesced real-time parameter pipeline — `backlog`, `unsized`, unassigned
 - [ ] [#121](https://github.com/jpalvarezl/blight-synth/issues/121) Design the canonical parameter manifest and host bindings — `backlog`, `unsized`, unassigned
 - [ ] [#132](https://github.com/jpalvarezl/blight-synth/issues/132) Define the host-independent `Engine` lifecycle and offline render harness — `blocked`, `epic`, unassigned
-- [ ] [#133](https://github.com/jpalvarezl/blight-synth/issues/133) Enforce and test the real-time safety contract — `in-progress`, `epic`, @jpalvarezl
+- [ ] [#133](https://github.com/jpalvarezl/blight-synth/issues/133) Enforce and test the real-time safety contract — `blocked`, `epic`, unassigned
 - [ ] [#134](https://github.com/jpalvarezl/blight-synth/issues/134) Implement sample-accurate event scheduling across block sizes — `backlog`, `unsized`, unassigned
 - [ ] [#135](https://github.com/jpalvarezl/blight-synth/issues/135) Introduce typed instance IDs and versioned instrument/effect definitions — `backlog`, `unsized`, unassigned
 - [ ] [#136](https://github.com/jpalvarezl/blight-synth/issues/136) Define and implement the scalable audio routing graph — `backlog`, `unsized`, unassigned
 - [ ] [#137](https://github.com/jpalvarezl/blight-synth/issues/137) Complete polyphony, note identity, and voice-allocation semantics — `backlog`, `unsized`, unassigned
 - [ ] [#138](https://github.com/jpalvarezl/blight-synth/issues/138) Define versioned engine state snapshots and migrations — `backlog`, `unsized`, unassigned
 - [ ] [#145](https://github.com/jpalvarezl/blight-synth/issues/145) Decouple composition runtimes from the audio engine through an event-source contract — `backlog`, `unsized`, unassigned
-- [ ] [#173](https://github.com/jpalvarezl/blight-synth/issues/173) Bound callback control work and make queue backpressure observable — `ready`, `M`, unassigned
 - [ ] [#174](https://github.com/jpalvarezl/blight-synth/issues/174) Defer reclamation for structural engine and song updates — `blocked`, `L`, unassigned
-- [ ] [#175](https://github.com/jpalvarezl/blight-synth/issues/175) Remove callback logging and panic paths, then stress the RT hot path — `in-progress`, `S`, @jpalvarezl
+- [ ] [#179](https://github.com/jpalvarezl/blight-synth/issues/179) Expand RT allocation audit across existing instrument and effect paths — `backlog`, `M`, unassigned
+- [ ] [#188](https://github.com/jpalvarezl/blight-synth/issues/188) Retire replaced songs and finalize reclamation shutdown stress coverage — `ready`, `M`, unassigned
 
 ## All roadmap tasks
 
@@ -66,7 +66,7 @@ Data snapshot through `2026-07-19T20:40:41Z`.
 - [ ] [#101](https://github.com/jpalvarezl/blight-synth/issues/101) Implement the coalesced real-time parameter pipeline — `backlog`, `unsized`, unassigned
 - [ ] [#121](https://github.com/jpalvarezl/blight-synth/issues/121) Design the canonical parameter manifest and host bindings — `backlog`, `unsized`, unassigned
 - [ ] [#132](https://github.com/jpalvarezl/blight-synth/issues/132) Define the host-independent `Engine` lifecycle and offline render harness — `blocked`, `epic`, unassigned
-- [ ] [#133](https://github.com/jpalvarezl/blight-synth/issues/133) Enforce and test the real-time safety contract — `in-progress`, `epic`, @jpalvarezl
+- [ ] [#133](https://github.com/jpalvarezl/blight-synth/issues/133) Enforce and test the real-time safety contract — `blocked`, `epic`, unassigned
 - [ ] [#134](https://github.com/jpalvarezl/blight-synth/issues/134) Implement sample-accurate event scheduling across block sizes — `backlog`, `unsized`, unassigned
 - [ ] [#135](https://github.com/jpalvarezl/blight-synth/issues/135) Introduce typed instance IDs and versioned instrument/effect definitions — `backlog`, `unsized`, unassigned
 - [ ] [#136](https://github.com/jpalvarezl/blight-synth/issues/136) Define and implement the scalable audio routing graph — `backlog`, `unsized`, unassigned
@@ -75,9 +75,15 @@ Data snapshot through `2026-07-19T20:40:41Z`.
 - [ ] [#145](https://github.com/jpalvarezl/blight-synth/issues/145) Decouple composition runtimes from the audio engine through an event-source contract — `backlog`, `unsized`, unassigned
 - [x] [#171](https://github.com/jpalvarezl/blight-synth/issues/171) Specify the real-time contract and inventory current violations — `done`, `S`, @jpalvarezl
 - [x] [#172](https://github.com/jpalvarezl/blight-synth/issues/172) Add an allocation/deallocation audit harness for engine processing — `done`, `M`, @jpalvarezl
-- [ ] [#173](https://github.com/jpalvarezl/blight-synth/issues/173) Bound callback control work and make queue backpressure observable — `ready`, `M`, unassigned
+- [x] [#173](https://github.com/jpalvarezl/blight-synth/issues/173) Bound callback control work and make queue backpressure observable — `done`, `M`, unassigned
 - [ ] [#174](https://github.com/jpalvarezl/blight-synth/issues/174) Defer reclamation for structural engine and song updates — `blocked`, `L`, unassigned
-- [ ] [#175](https://github.com/jpalvarezl/blight-synth/issues/175) Remove callback logging and panic paths, then stress the RT hot path — `in-progress`, `S`, @jpalvarezl
+- [x] [#175](https://github.com/jpalvarezl/blight-synth/issues/175) Remove callback logging and panic paths, then stress the RT hot path — `done`, `S`, @jpalvarezl
+- [ ] [#179](https://github.com/jpalvarezl/blight-synth/issues/179) Expand RT allocation audit across existing instrument and effect paths — `backlog`, `M`, unassigned
+- [x] [#181](https://github.com/jpalvarezl/blight-synth/issues/181) Move tracker audio control off the egui UI thread — `done`, `M`, unassigned
+- [x] [#182](https://github.com/jpalvarezl/blight-synth/issues/182) Move standalone DSP command submission off the current-thread Tokio executor — `done`, `M`, unassigned
+- [x] [#186](https://github.com/jpalvarezl/blight-synth/issues/186) Add the RT-to-NRT retirement primitive and instrument replacement slice — `done`, `M`, unassigned
+- [x] [#187](https://github.com/jpalvarezl/blight-synth/issues/187) Route engine and effect structural rejections through deferred retirement — `done`, `M`, unassigned
+- [ ] [#188](https://github.com/jpalvarezl/blight-synth/issues/188) Retire replaced songs and finalize reclamation shutdown stress coverage — `ready`, `M`, unassigned
 
 ### M2: Standalone Host & Control Protocol
 
@@ -87,6 +93,8 @@ Data snapshot through `2026-07-19T20:40:41Z`.
 - [ ] [#123](https://github.com/jpalvarezl/blight-synth/issues/123) Implement standalone process lifecycle, discovery, and recovery — `backlog`, `unsized`, unassigned
 - [ ] [#139](https://github.com/jpalvarezl/blight-synth/issues/139) Migrate the standalone CPAL/OSC host onto the shared engine — `backlog`, `unsized`, unassigned
 - [ ] [#161](https://github.com/jpalvarezl/blight-synth/issues/161) Remove Tokio from the standalone host control loop — `blocked`, `M`, unassigned
+- [ ] [#185](https://github.com/jpalvarezl/blight-synth/issues/185) Separate the shared device host from OSC standalone transport adapters — `ready`, `S`, unassigned
+- [ ] [#190](https://github.com/jpalvarezl/blight-synth/issues/190) Split audio_backend device-host infrastructure from the OSC standalone process adapter — `blocked`, `M`, unassigned
 
 ### M3: JS/TS Composition UI & Standalone App
 

@@ -25,7 +25,7 @@ Use at most one:
 - no status label — backlog/not triaged;
 - `status:ready` — dependencies satisfied and safe to claim;
 - `status:in-progress` — actively owned; requires assignee and task packet;
-- `status:blocked` — cannot progress; issue or packet must identify blocker;
+- `status:blocked` — cannot progress; issue must list every machine-actionable blocker on its single `Depends on:` line. Do not use automatic GitHub reconciliation when a non-issue blocker is intentionally holding the task;
 - closed issue — done or explicitly cancelled, with closing rationale.
 
 ### Estimate
@@ -35,11 +35,18 @@ Use exactly one before implementation:
 - `size:S` — 1 planning point; focused change.
 - `size:M` — 3 points; normal reviewable task.
 - `size:L` — 5 points; should be split if it crosses contracts/domains.
-- `size:epic` — not estimable; must be split before implementation.
+- `size:epic` — not estimable; must be split before implementation. Epics are tracked through child issue packets and do not use `status:in-progress` unless work occurs directly on an epic branch.
 
 Points are planning signals, not time estimates or performance targets.
 
 ## Claiming work
+
+When choosing work, query live GitHub state rather than the offline burndown:
+
+```bash
+python3 scripts/docs/reconcile_work.py --check
+gh issue list --repo jpalvarezl/blight-synth --state open --label status:ready
+```
 
 1. Confirm dependencies and `status:ready`.
 2. Assign the issue and replace status with `status:in-progress`.
@@ -77,14 +84,25 @@ Before closing:
 
 - tests and format/lint policy pass;
 - durable contract/decision docs are updated;
-- task packet is marked complete or removed after its durable information is moved;
+- task packet is marked complete and its durable information is moved;
 - PR links/closes the issue;
-- GitHub status remains canonical;
-- regenerate `burndown.md`.
+- GitHub status remains canonical.
+
+Immediately after closure/merge, reconcile work state before selecting another issue:
+
+```bash
+python3 scripts/docs/reconcile_work.py --fix-github --fix-docs
+python3 scripts/docs/reconcile_work.py --check
+python3 scripts/docs/check_docs.py
+```
+
+This removes closed packets, regenerates the active index and burndown, cleans closed workflow labels, and transitions blocked issues to ready only when their standardized `Depends on:` line contains no unresolved issue. Open packets with contradictory labels are reported but never deleted automatically; ordinary burndown snapshot drift is a warning until the next task boundary.
 
 ## Commands
 
 ```bash
+python3 scripts/docs/reconcile_work.py --check
+python3 scripts/docs/reconcile_work.py --fix-docs
 python3 scripts/docs/sync_roadmap.py
 python3 scripts/docs/check_docs.py
 ```
