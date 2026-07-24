@@ -1,14 +1,16 @@
 ---
 title: Real-Time Audio Contract
-summary: Proposed callback safety, bounded-work, ownership, overload, and verification rules for M1.
-status: draft
-updated: 2026-07-20
-issues: [101, 132, 133, 134, 138, 171, 172, 173, 174, 175]
+summary: Enforced callback safety, bounded-work, ownership, overload, and verification rules for M1.
+status: accepted
+updated: 2026-07-24
+issues: [101, 132, 133, 134, 136, 137, 138, 145, 171, 172, 173, 174, 175]
 ---
 
 # Real-Time Audio Contract
 
-This document defines the contract M1 will enforce. It is intentionally stricter than the current implementation; the violation inventory below is work to remove, not permission to retain it.
+This document is the enforced M1 real-time safety contract. Its hard callback rules landed and are tested through [#172](https://github.com/jpalvarezl/blight-synth/issues/172) (allocation audit harness), [#173](https://github.com/jpalvarezl/blight-synth/issues/173) (bounded callback work and observable backpressure), [#175](https://github.com/jpalvarezl/blight-synth/issues/175) (callback logging/panic removal and hot-path stress), and [#174](https://github.com/jpalvarezl/blight-synth/issues/174) (deferred reclamation of structural/song ownership); parent [#133](https://github.com/jpalvarezl/blight-synth/issues/133) closes on their acceptance.
+
+The contract is intentionally stricter than a single milestone can complete at once. The hard callback rules and deferred reclamation are enforced now; the remaining rows in the violation inventory below are not permission to retain unsafe behavior — each is explicitly owned by its own open issue and remains work to remove. See [Contract completion](#contract-completion) for exactly what is enforced versus deferred.
 
 ## Thread roles
 
@@ -102,9 +104,9 @@ The transitional standalone compatibility queue consumes at most **64 command it
 - Submission errors box their private kind/command payload only when returned to NRT, keeping results small. Reliable retry paths keep repeated full-queue attempts unboxed.
 - #181/#182 give both first-party hosts dedicated NRT control ownership. The tracker enqueues semantic requests without owning `BlightAudio`; the standalone Tokio loop enqueues bounded OSC requests. Each worker retains its FIFO front command across RT-ring `Full` responses, performs preparation off latency-sensitive threads, and preserves accepted-only state/protocol updates.
 - State-changing protocol acknowledgements are emitted only after `Ok(())`, never after a nonblocking `Full` or any `Disconnected` rejection.
-- Continuous values coalesce by contract rather than filling the structural queue.
-- Structural updates are not silently dropped.
-- Event overflow behavior is explicit and deterministic; all-notes-off/recovery remains possible.
+- Continuous values coalesce by contract rather than filling the structural queue. *(Contract target; the coalesced continuous-parameter path is deferred to open [#101](https://github.com/jpalvarezl/blight-synth/issues/101) — today `/param/set` still enqueues a structural command.)*
+- Structural updates are not silently dropped: replaced/rejected owners are retired to NRT rather than discarded on RT. *(Observable NRT result reporting for effect remove/reorder is deferred to open [#136](https://github.com/jpalvarezl/blight-synth/issues/136); those commands currently succeed as no-ops.)*
+- Event overflow behavior is explicit and deterministic; all-notes-off/recovery remains possible. *(Contract target for the bounded timestamped-event queue, deferred to open [#134](https://github.com/jpalvarezl/blight-synth/issues/134).)*
 - Capacity exhaustion increments a bounded counter/status in strict RT builds. Developer diagnostic builds may additionally emit a compile-time-gated callback log.
 
 ## Deferred reclamation
@@ -129,19 +131,21 @@ A future FFI wrapper catches panics outside the RT entry and must never permit u
 
 ## Current violation inventory
 
-| Current path/behavior | Contract gap | Owner |
-|---|---|---|
-| Instrument insertion past prepared capacity | Capacity overflow may allocate on RT | #137 |
-| Instrument/effect commands carry `Box`/`ArrayVec<Box<_>>` | Consuming/rejecting/replacing can destroy heap owners on RT | #174 |
-| `Player::load_song` replaces `Arc<Song>` and clears instruments | Last-owner song/graph destruction can occur on RT | #174/#138 |
-| Effect-chain/master remove/reorder commands | Current no-op semantics provide no observable result | #136/#173 |
-| Player/tracker adapter note/row/end logging | Formatting/logger calls reachable from callback | #175 |
-| Polyphonic instrument note allocation logs and warning paths | Logging reachable from callback | #175/#137 |
-| Delay/reverb/drum parameter error logging | Logging reachable from command handling on callback | #175/#101 |
-| Tracker active-instrument `HashMap::insert` | Capacity is assumed rather than structurally fixed | #175/#145 |
-| Voice scratch buffers are fixed at 4096 frames | Direct oversized Engine use can panic below a negotiating host adapter | #132/#175 |
-| Engine/effect capacities are preallocated but not hard-rejected consistently | Allocation/overflow behavior is incomplete | #137/#136/#175 |
-| Structural command work mixes notes, parameters, and graph updates | Overload semantics are conflated | #101/#134/#173/#174 |
+The hard callback rules ([#172](https://github.com/jpalvarezl/blight-synth/issues/172)/[#173](https://github.com/jpalvarezl/blight-synth/issues/173)/[#175](https://github.com/jpalvarezl/blight-synth/issues/175)) and deferred reclamation ([#174](https://github.com/jpalvarezl/blight-synth/issues/174)) are enforced, so every row that could destroy heap owners, log, or format on the callback is resolved. Rows marked *Deferred*/*Partial* are structural/capacity/traffic-class concerns owned by their own still-open issues. With one bounded, disclosed exception — instrument insertion past the soft 64-slot capacity can still reallocate on the callback (first row, owned by #137) — no deferred row reintroduces a callback drop, lock, or log, and no *replacement* of prepared state allocates.
+
+| Current path/behavior | Contract gap | Owner | Status |
+|---|---|---|---|
+| Instrument insertion past prepared capacity | Capacity overflow may allocate on RT | #137 | Deferred to open #137. Engine keeps a preallocated soft 64-slot vector, so installing a distinct 65th instrument can still reallocate on the callback (documented in `audio_processor/mod.rs` NOTE(#137)); a hard/configurable capacity with stealing is #137. A `debug_assert!` in `clear_instruments` guards the retirement-sizing coupling. |
+| Instrument/effect commands carry `Box`/`ArrayVec<Box<_>>` | Consuming/rejecting/replacing can destroy heap owners on RT | #174 | Resolved (#174). `Engine::handle_command_with_retirement` routes every displaced/rejected owner to a `RetireSink` instead of dropping it; `rt_allocations.rs` proves zero callback dealloc. |
+| `Player::load_song` replaces `Arc<Song>` and clears instruments | Last-owner song/graph destruction can occur on RT | #174/#138 | Resolved for RT-safety (#174). `Player::set_song` retires the displaced `Arc<Song>` as `RetiredState::Prepared` and `clear_instruments` retires each instrument; broader versioned snapshots remain #138. |
+| Effect-chain/master remove/reorder commands | Current no-op semantics provide no observable result | #136/#173 | Partial. Rejected/overflow effects now retire safely (#173/#174); surfacing `error.kind()` as an observable NRT command result is deferred to open #136. |
+| Player/tracker adapter note/row/end logging | Formatting/logger calls reachable from callback | #175 | Resolved (#175). Migrated to the compile-out `dsp::rt_*_log!` wrappers; a release compile-out test and `scripts/check_rt_logging.py` enforce it in CI. |
+| Polyphonic instrument note allocation logs and warning paths | Logging reachable from callback | #175/#137 | Logging resolved (#175); voice-allocation/capacity semantics deferred to open #137. |
+| Delay/reverb/drum parameter error logging | Logging reachable from command handling on callback | #175/#101 | Logging resolved (#175); the coalesced parameter pipeline is deferred to open #101. |
+| Tracker active-instrument `HashMap::insert` | Capacity is assumed rather than structurally fixed | #175/#145 | Logging resolved (#175); structurally fixed active-instrument capacity via the event-source contract is deferred to open #145. |
+| Voice scratch buffers are fixed at 4096 frames | Direct oversized Engine use can panic below a negotiating host adapter | #132/#175 | Mitigated. `AudioProcessor::process` chunks oversized host buffers into 4096-frame renders (tested); the negotiated `Engine` lifecycle is deferred to open #132. |
+| Engine/effect capacities are preallocated but not hard-rejected consistently | Allocation/overflow behavior is incomplete | #137/#136/#175 | Partial. Master-effect overflow now rejects and retires without RT heap work (tested); hard instrument capacity (#137) and routing-graph semantics (#136) remain open. |
+| Structural command work mixes notes, parameters, and graph updates | Overload semantics are conflated | #101/#134/#173/#174 | Bounded per-block budget and deferred reclamation landed (#173/#174); traffic-class separation into coalesced continuous values (#101) and bounded timestamped events (#134) is deferred to those open issues. |
 
 ## Existing safe foundations
 
@@ -169,4 +173,11 @@ A future FFI wrapper catches panics outside the RT entry and must never permit u
 
 ## Contract completion
 
-This draft becomes the enforced M1 contract only when #172–#175 pass and parent #133 closes. Any exception requires an explicit documented rationale, bounded behavior, tests, and review; “unlikely in practice” is not an exception.
+This is the enforced M1 contract. The hard callback rules and deferred reclamation landed and are verified (with one bounded, #137-owned allocation exception on instrument insertion, disclosed in the inventory and below):
+
+- **[#172](https://github.com/jpalvarezl/blight-synth/issues/172) (closed)** — [`engine/tests/rt_allocations.rs`](../../engine/tests/rt_allocations.rs) instruments allocation/deallocation/reallocation around the representative prepared note/parameter/render path and structural instrument/effect replacement, and includes a known-allocating self-test. It proves the no-heap rule for those representative paths; eliminating the remaining soft-capacity allocation on instrument *insertion* is #137 (first inventory row).
+- **[#173](https://github.com/jpalvarezl/blight-synth/issues/173) (closed)** — the standalone callback applies a bounded 64-command-per-block budget with FIFO fairness and exposes nonblocking/reliable submission with observable `Full`/`Disconnected` backpressure.
+- **[#175](https://github.com/jpalvarezl/blight-synth/issues/175) (closed)** — callback logging moved to the compile-out `dsp::rt_*_log!` wrappers, enforced by a release compile-out test and the `scripts/check_rt_logging.py` static checker in CI, plus malformed-input/oversized-block hot-path stress tests.
+- **[#174](https://github.com/jpalvarezl/blight-synth/issues/174) (closing)** — structural instrument/effect/song replacement routes displaced owners through `engine::RetireSink`/`RetiredState` across a bounded RT-to-NRT retirement ring; overflow is retained in a preallocated pending buffer (never dropped on RT), and shutdown drains every owner exactly once. Stress tests cover swap/retire/shutdown ownership.
+
+Parent [#133](https://github.com/jpalvarezl/blight-synth/issues/133) closes on this basis. The remaining violation-inventory rows are deferred to their own open issues — capacity/polyphony ([#137](https://github.com/jpalvarezl/blight-synth/issues/137)), routing/observable results ([#136](https://github.com/jpalvarezl/blight-synth/issues/136)), coalesced continuous parameters ([#101](https://github.com/jpalvarezl/blight-synth/issues/101)), timestamped events ([#134](https://github.com/jpalvarezl/blight-synth/issues/134)), engine lifecycle ([#132](https://github.com/jpalvarezl/blight-synth/issues/132)), versioned snapshots ([#138](https://github.com/jpalvarezl/blight-synth/issues/138)), and the event-source contract ([#145](https://github.com/jpalvarezl/blight-synth/issues/145)). One bounded exception to Hard Rule 1 remains and is tracked explicitly: installing more than the soft 64-instrument capacity can still reallocate on the callback (`Engine` uses a preallocated but not hard-capped `Vec`), owned by [#137](https://github.com/jpalvarezl/blight-synth/issues/137). No deferred row reintroduces a callback drop, lock, or log, and no *replacement* of prepared state allocates. “Enforced” here means this document is the authoritative M1 rulebook with an explicit, owned inventory of the residual gaps — not that every code path already complies. Any new exception to the hard rules requires an explicit documented rationale, bounded behavior, tests, and review; “unlikely in practice” is not an exception.
