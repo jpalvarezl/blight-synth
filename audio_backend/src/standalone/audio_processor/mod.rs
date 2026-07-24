@@ -22,6 +22,13 @@ pub(crate) const MAX_COMMANDS_PER_PROCESS_BLOCK: usize = 64;
 /// instrument capacity hard/configurable.
 const MAX_INSTRUMENTS_PER_CLEAR: usize = 64;
 const MAX_RETIRED_OBJECTS_PER_COMMAND: usize = MAX_INSTRUMENTS_PER_CLEAR + 1;
+// NOTE(#137): This bound assumes Engine's *soft* 64-instrument capacity
+// (`DEFAULT_INSTRUMENT_CAPACITY`). It is not enforced today: installing 65+
+// distinct instrument IDs would let a single clear retire more than
+// `MAX_INSTRUMENTS_PER_CLEAR` owners and, in release builds (no debug_assert),
+// grow `pending_retired` past its preallocation — an RT reallocation. Making
+// instrument capacity hard/configurable is #137's work; when it lands,
+// `MAX_INSTRUMENTS_PER_CLEAR` and this constant must be updated together with it.
 const MAX_PENDING_RETIRED_OBJECTS: usize =
     MAX_COMMANDS_PER_PROCESS_BLOCK * MAX_RETIRED_OBJECTS_PER_COMMAND;
 
@@ -144,7 +151,7 @@ impl AudioProcessor {
 
     fn flush_retired(&mut self) {
         // Destruction order is intentionally irrelevant; LIFO permits bounded
-        // Vec pop/push without shifting pending retired objectship on RT.
+        // Vec pop/push without shifting pending retired ownership on RT.
         while let Some(retired) = self.pending_retired.pop() {
             if !self.retirement_tx.read_is_held() {
                 self.pending_retired.push(retired);
@@ -500,6 +507,66 @@ mod tests {
         // One object reaches the single retirement slot; the rest are retained
         // in the preallocated pending buffer.
         assert_eq!(processor.pending_retired.len(), pushed - 1);
+    }
+
+    #[test]
+    fn load_song_clear_peak_fits_preallocated_pending_retirement() {
+        // `SequencerCmd::LoadSong` is the multi-object command that motivated the
+        // `+ 1` in `MAX_RETIRED_OBJECTS_PER_COMMAND`: it clears every installed
+        // instrument (up to `MAX_INSTRUMENTS_PER_CLEAR`) and then retires the
+        // replaced song, so a single command can emit 65 owners. Drive that exact
+        // peak and assert the preallocated pending buffer absorbs it without an
+        // RT reallocation.
+        let (mut command_tx, _retirement_rx, mut processor) =
+            processor_with_retirement(2, MAX_COMMANDS_PER_PROCESS_BLOCK, 1);
+
+        // Block 1: install a full instrument bank. Distinct ids only insert, so
+        // nothing is retired and `pending_retired` stays empty for block 2.
+        for id in 0..MAX_INSTRUMENTS_PER_CLEAR {
+            assert!(command_tx
+                .try_push(
+                    InstrumentCmd::AddInstrument {
+                        instrument: Box::new(DropProbeInstrument {
+                            id: (id + 1) as InstrumentId,
+                            drops: Arc::new(AtomicUsize::new(0)),
+                        }),
+                    }
+                    .into(),
+                )
+                .is_ok());
+        }
+        let original_capacity = processor.pending_retired.capacity();
+        processor.process(&mut [0.0; 16]);
+        assert!(processor.pending_retired.is_empty());
+
+        // Block 2: one LoadSong clears the 64-instrument bank and retires the
+        // replaced song = 65 owners in a single command.
+        assert!(command_tx
+            .try_push(
+                SequencerCmd::LoadSong {
+                    song: Arc::new(Song::new("loaded")),
+                }
+                .into(),
+            )
+            .is_ok());
+        processor.process(&mut [0.0; 16]);
+
+        let peak = MAX_INSTRUMENTS_PER_CLEAR + 1;
+        assert_eq!(peak, MAX_RETIRED_OBJECTS_PER_COMMAND);
+        assert_eq!(original_capacity, MAX_PENDING_RETIRED_OBJECTS);
+        assert_eq!(processor.pending_retired.capacity(), original_capacity);
+        // One owner reaches the single retirement slot; the remaining 64 sit in
+        // the preallocated pending buffer with no reallocation.
+        assert_eq!(processor.pending_retired.len(), peak - 1);
+
+        // The aggregate `MAX_PENDING_RETIRED_OBJECTS` (64 * 65 = 4160) is
+        // intentionally conservative: reaching it would require all 64 budgeted
+        // commands in one block to each clear a full 64-instrument bank, which in
+        // turn needs 64 instruments reinstalled *between* each clear. Those
+        // reinstalls are themselves commands competing for the same
+        // 64-command/block budget, so the full 4160 is unreachable in a single
+        // block. The per-command peak exercised above is the real driver.
+        assert!(MAX_PENDING_RETIRED_OBJECTS >= peak);
     }
 
     #[test]

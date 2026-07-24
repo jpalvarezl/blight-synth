@@ -29,7 +29,9 @@ pub struct BlightAudio {
     /// Lock-free metering state written by the audio callback.
     meter: Arc<MeterState>,
     /// The audio stream for real-time audio processing. Declared before the
-    /// retirement consumer so callback ownership stops before final NRT drain.
+    /// retirement consumer for clarity, but the shutdown ordering is enforced
+    /// explicitly by `BlightAudio`'s `Drop` impl (stream pause + ring drain)
+    /// rather than relying on this field order, so a future reorder stays safe.
     _stream: cpal::Stream,
     /// NRT consumer for heap owners displaced by the callback.
     retirement_rx: HeapCons<RetiredState>,

@@ -4,7 +4,7 @@ use crate::{
     RetiredState, VoiceFactory,
 };
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use log::info;
+use log::{info, warn};
 use ringbuf::storage::Heap;
 use ringbuf::traits::*;
 use ringbuf::SharedRb;
@@ -165,6 +165,28 @@ impl BlightAudio {
         self.command_sender.send_until(command, cancelled)
     }
 
+    /// Stops the real-time callback and reclaims every retired owner still in
+    /// flight, on this NRT caller.
+    ///
+    /// This is the shutdown sequencing that makes the exactly-once reclamation
+    /// guarantee independent of struct field declaration order: pausing the
+    /// stream first ensures the callback can no longer push to (or hold
+    /// ownership feeding) the retirement ring, so the subsequent drain — and
+    /// the later field-order drop of the callback-owned `AudioProcessor` and
+    /// `retirement_rx` — each destroy their owners exactly once, off the RT
+    /// path. See the [`Drop`] impl below.
+    fn stop_and_reclaim(&mut self) -> usize {
+        // Pausing may be unsupported on some hosts; the exactly-once guarantee
+        // still holds because each owner lives in exactly one place (in-ring,
+        // in `pending_retired`, or live in the player) and is dropped once when
+        // that place drops on this NRT thread. Pausing only tightens RT-safety
+        // by preventing a concurrent callback from racing the drain.
+        if let Err(err) = self._stream.pause() {
+            warn!("failed to pause audio stream during shutdown: {err}");
+        }
+        self.reclaim_retired()
+    }
+
     /// Drops all currently retired owners on this NRT caller.
     pub fn reclaim_retired(&mut self) -> usize {
         let mut reclaimed = 0;
@@ -195,5 +217,19 @@ impl BlightAudio {
     /// `Arc` bump); callers read levels via [`MeterState::take_levels`].
     pub fn meter_state(&self) -> Arc<MeterState> {
         self.meter.clone()
+    }
+}
+
+impl Drop for BlightAudio {
+    fn drop(&mut self) {
+        // Explicit shutdown sequencing so the exactly-once reclamation guarantee
+        // no longer depends on struct field declaration order: stop the RT
+        // callback, then drain the retirement ring on this NRT thread. After
+        // this returns, the remaining fields drop in declaration order — the
+        // callback-owned `AudioProcessor` (with its `pending_retired` buffer and
+        // live player song/instruments) and then `retirement_rx` — each
+        // destroying their owners exactly once. A future field reorder cannot
+        // reintroduce an RT-thread drop or a double-drop.
+        self.stop_and_reclaim();
     }
 }

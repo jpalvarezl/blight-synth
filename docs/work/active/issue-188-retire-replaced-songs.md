@@ -76,20 +76,31 @@ path. See issue [#188](https://github.com/jpalvarezl/blight-synth/issues/188) an
     64 instruments and retires 1 song (65 objects/command), so the preallocated
     pending buffer is now `64 * 65 = 4160` slots. Updated the realtime contract
     doc accordingly.
-  - Shutdown exactly-once guarantee: `BlightAudio` drop order (field order
-    `_stream` before `retirement_rx`) stops the callback first, then the
+  - Shutdown exactly-once guarantee: `BlightAudio` now has an explicit `Drop`
+    impl that pauses the CPAL stream and then drains `retirement_rx` on the NRT
+    caller before its fields drop. This sequences "stop the callback, then
+    drain" without depending on struct field declaration order, so a future
+    field reorder cannot reintroduce an RT-thread drop or a double-drop. The
     callback-owned `AudioProcessor` (its `pending_retired` + live player song +
-    instruments) drops on NRT, then `retirement_rx` drains the ring on NRT. Each
-    owner lives in exactly one place, so it is reclaimed exactly once on NRT.
+    instruments) then drops on NRT. Each owner lives in exactly one place, so it
+    is reclaimed exactly once on NRT.
   - Tests added (all hardware-free):
     - `engine`: `prepared_owner_reclamation_runs_on_the_receiving_nrt_thread`.
     - `audio_backend` player: `load_song_retires_previous_song_for_nrt_drop`,
       `play_song_retires_previous_song_for_nrt_drop`.
     - `audio_backend` audio_processor:
       `swapped_song_crosses_retirement_ring_before_nrt_drop`,
+      `load_song_clear_peak_fits_preallocated_pending_retirement`,
       `repeated_song_and_graph_swaps_then_shutdown_reclaim_each_owner_exactly_once`.
 - Remaining: none for #188 scope. Parent #174 can integrate.
 - Known failures/risks: The 4160-slot bound is coupled to Engine's soft
-  64-instrument capacity (#137). If #137 makes instrument capacity
-  hard/configurable, `MAX_INSTRUMENTS_PER_CLEAR` and the doc bound must follow.
+  64-instrument capacity (#137) and is *not enforced*. Installing 65+ distinct
+  instrument IDs would let one clear retire more than `MAX_INSTRUMENTS_PER_CLEAR`
+  owners and, in release builds (no `debug_assert`), grow `pending_retired` past
+  its preallocation — an RT reallocation. Fixing this is out of scope here; it is
+  #137's hard/configurable instrument-capacity work. When #137 lands,
+  `MAX_INSTRUMENTS_PER_CLEAR`, `MAX_PENDING_RETIRED_OBJECTS`, and the realtime
+  contract doc bound must be updated together with it. The full 4160 aggregate is
+  itself intentionally conservative/unreachable in one block (see the
+  `load_song_clear_peak_fits_preallocated_pending_retirement` comment).
 - Next smallest action: close out #174 verification once #188 merges.
