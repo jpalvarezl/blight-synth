@@ -151,7 +151,7 @@ A future FFI wrapper catches panics outside the RT entry and must never permit u
 - Voice effect batches use fixed-capacity `ArrayVec` containers.
 - Meter handoff uses nonblocking atomics and performs network/formatting work outside RT.
 - The transitional standalone command queue applies a 64-command FIFO prefix per callback; reliable NRT submission preserves FIFO order across saturation, nonblocking submission exposes explicit backpressure, and OSC success responses require acceptance.
-- Instrument replacement/clear plus mono, voice, and master effect rejection surface `engine::RetiredState` through `RetireSink` and cross a bounded reverse RT-to-NRT ring. The callback preallocates 4096 pending owner slots (64 commands × 64 owners/command), retains ring overflow there, and pauses subsequent-block command consumption until NRT headroom returns (#186/#187).
+- Instrument replacement/clear plus mono, voice, and master effect rejection surface `engine::RetiredState` through `RetireSink` and cross a bounded reverse RT-to-NRT ring. The callback preallocates 4096 pending retired-object slots (64 commands × 64 objects/command), retains ring overflow there, and pauses subsequent-block command consumption until NRT headroom returns (#186/#187).
 - Factories and project/sample decoding already live on NRT paths by architecture.
 - Offline golden renders provide end-to-end behavioral regression evidence, though they do not prove allocation safety.
 

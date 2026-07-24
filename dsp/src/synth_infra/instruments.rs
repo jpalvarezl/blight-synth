@@ -27,11 +27,16 @@ pub trait InstrumentTrait: Send + Sync {
     // fn handle_command(&mut self, command: &PlayerCommand);
 
     // TODO: reconsider if the we should only handle planar data
-    /// Add a mono effect to this voice's effect chain. Instruments process planar audio
+    /// Add a mono effect to this instrument's effect chain.
+    ///
+    /// On rejection, returns the exact boxed effect so the RT caller can transfer
+    /// it to NRT retirement instead of dropping/deallocating it in the callback.
+    /// Polyphonic instruments reject this single-effect form because each voice
+    /// requires its own prepared effect instance.
     fn add_effect(&mut self, effect: Box<dyn MonoEffect>) -> Result<(), Box<dyn MonoEffect>>;
 
     /// Add a batch of pre-constructed per-voice effects. Default implementation uses the first
-    /// element for mono instruments.
+    /// element for mono instruments and returns every effect it could not install.
     fn add_voice_effects(&mut self, mut effects: VoiceEffects) -> VoiceEffects {
         let mut rejected = VoiceEffects::new();
         if !effects.is_empty() {

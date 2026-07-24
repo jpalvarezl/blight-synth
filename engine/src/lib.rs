@@ -564,7 +564,7 @@ mod tests {
     }
 
     #[test]
-    fn clear_and_effect_rejections_route_every_owner_to_retirement() {
+    fn clear_and_effect_rejections_route_every_object_to_retirement() {
         let instrument_drops = Arc::new(Mutex::new(None));
         let mono_drops = Arc::new(AtomicUsize::new(0));
         let stereo_drops = Arc::new(AtomicUsize::new(0));

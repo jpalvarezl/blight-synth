@@ -13,13 +13,13 @@ const MAX_BUFFER_SIZE: usize = 4096;
 /// callback block. A backlog remains FIFO-queued for later blocks so control
 /// bursts cannot postpone rendering indefinitely.
 pub(crate) const MAX_COMMANDS_PER_PROCESS_BLOCK: usize = 64;
-/// Worst-case owner count emitted by one current structural command: clearing
+/// Worst-case retired-object count emitted by one current structural command: clearing
 /// all prepared instruments or rejecting one full VoiceEffects batch. This is
 /// coupled to Engine's current soft 64-instrument capacity; #137 must update
 /// this bound when it makes instrument capacity hard/configurable.
-const MAX_RETIRED_OWNERS_PER_COMMAND: usize = 64;
-const MAX_PENDING_RETIRED_OWNERS: usize =
-    MAX_COMMANDS_PER_PROCESS_BLOCK * MAX_RETIRED_OWNERS_PER_COMMAND;
+const MAX_RETIRED_OBJECTS_PER_COMMAND: usize = 64;
+const MAX_PENDING_RETIRED_OBJECTS: usize =
+    MAX_COMMANDS_PER_PROCESS_BLOCK * MAX_RETIRED_OBJECTS_PER_COMMAND;
 
 struct CallbackRetireSink<'a> {
     retirement_tx: &'a mut HeapProd<RetiredState>,
@@ -64,7 +64,7 @@ impl AudioProcessor {
         Self {
             command_rx,
             retirement_tx,
-            pending_retired: Vec::with_capacity(MAX_PENDING_RETIRED_OWNERS),
+            pending_retired: Vec::with_capacity(MAX_PENDING_RETIRED_OBJECTS),
             sample_rate,
             channels,
             left_buf: vec![0.0; MAX_BUFFER_SIZE],
@@ -85,7 +85,7 @@ impl AudioProcessor {
         Self {
             command_rx,
             retirement_tx,
-            pending_retired: Vec::with_capacity(MAX_PENDING_RETIRED_OWNERS),
+            pending_retired: Vec::with_capacity(MAX_PENDING_RETIRED_OBJECTS),
             sample_rate,
             channels,
             left_buf: vec![0.0; MAX_BUFFER_SIZE],
@@ -101,7 +101,7 @@ impl AudioProcessor {
 
         // If a previous block retained retirement ownership, pause this block's
         // command consumption until it reaches NRT. The current bounded command
-        // loop can emit at most MAX_PENDING_RETIRED_OWNERS before this gate.
+        // loop can emit at most MAX_PENDING_RETIRED_OBJECTS before this gate.
         if self.pending_retired.is_empty() {
             for _ in 0..MAX_COMMANDS_PER_PROCESS_BLOCK {
                 let Some(command) = self.command_rx.try_pop() else {
@@ -140,7 +140,7 @@ impl AudioProcessor {
 
     fn flush_retired(&mut self) {
         // Destruction order is intentionally irrelevant; LIFO permits bounded
-        // Vec pop/push without shifting pending ownership on RT.
+        // Vec pop/push without shifting pending retired objectship on RT.
         while let Some(retired) = self.pending_retired.pop() {
             if !self.retirement_tx.read_is_held() {
                 self.pending_retired.push(retired);
@@ -387,7 +387,7 @@ mod tests {
         processor.process(&mut output);
 
         assert_eq!(drops.load(Ordering::Relaxed), 0);
-        let retired = retirement_rx.try_pop().expect("retired owner reaches NRT");
+        let retired = retirement_rx.try_pop().expect("retired object reaches NRT");
         drop(retired);
         assert_eq!(drops.load(Ordering::Relaxed), 1);
     }
@@ -434,11 +434,19 @@ mod tests {
         assert!(!processor.player.is_playing());
         assert_eq!(processor.command_rx.occupied_len(), 1);
 
-        drop(retirement_rx.try_pop().expect("first owner reaches NRT"));
+        drop(
+            retirement_rx
+                .try_pop()
+                .expect("first retired object reaches NRT"),
+        );
         processor.process(&mut output);
         assert!(processor.player.is_playing());
         assert!(processor.pending_retired.is_empty());
-        drop(retirement_rx.try_pop().expect("pending owner reaches NRT"));
+        drop(
+            retirement_rx
+                .try_pop()
+                .expect("pending retired object reaches NRT"),
+        );
         assert_eq!(
             first_drops.load(Ordering::Relaxed) + second_drops.load(Ordering::Relaxed),
             2
@@ -446,14 +454,15 @@ mod tests {
     }
 
     #[test]
-    fn worst_case_multi_owner_commands_fit_preallocated_pending_retirement() {
+    fn worst_case_multi_object_commands_fit_preallocated_pending_retirement() {
         let (mut command_tx, _retirement_rx, mut processor) =
             processor_with_retirement(2, MAX_COMMANDS_PER_PROCESS_BLOCK, 1);
         for command_index in 0..MAX_COMMANDS_PER_PROCESS_BLOCK {
             let mut effects = VoiceEffects::new();
-            for effect_index in 0..MAX_RETIRED_OWNERS_PER_COMMAND {
+            for effect_index in 0..MAX_RETIRED_OBJECTS_PER_COMMAND {
                 effects.push(Box::new(NoopMonoEffect {
-                    id: (command_index * MAX_RETIRED_OWNERS_PER_COMMAND + effect_index) as EffectId,
+                    id: (command_index * MAX_RETIRED_OBJECTS_PER_COMMAND + effect_index)
+                        as EffectId,
                 }));
             }
             assert!(command_tx
@@ -470,11 +479,11 @@ mod tests {
         let original_capacity = processor.pending_retired.capacity();
         processor.process(&mut [0.0; 16]);
 
-        assert_eq!(original_capacity, MAX_PENDING_RETIRED_OWNERS);
+        assert_eq!(original_capacity, MAX_PENDING_RETIRED_OBJECTS);
         assert_eq!(processor.pending_retired.capacity(), original_capacity);
         assert_eq!(
             processor.pending_retired.len(),
-            MAX_PENDING_RETIRED_OWNERS - 1
+            MAX_PENDING_RETIRED_OBJECTS - 1
         );
     }
 
