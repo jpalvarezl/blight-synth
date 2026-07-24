@@ -13,11 +13,22 @@ const MAX_BUFFER_SIZE: usize = 4096;
 /// callback block. A backlog remains FIFO-queued for later blocks so control
 /// bursts cannot postpone rendering indefinitely.
 pub(crate) const MAX_COMMANDS_PER_PROCESS_BLOCK: usize = 64;
-/// Worst-case retired-object count emitted by one current structural command: clearing
-/// all prepared instruments or rejecting one full VoiceEffects batch. This is
-/// coupled to Engine's current soft 64-instrument capacity; #137 must update
-/// this bound when it makes instrument capacity hard/configurable.
-const MAX_RETIRED_OBJECTS_PER_COMMAND: usize = 64;
+/// Worst-case retired-object count emitted by one current structural command.
+/// The largest producer is `SequencerCmd::LoadSong`, which clears every prepared
+/// instrument (Engine's current soft 64-instrument capacity) and then retires
+/// the replaced `Arc<Song>`. Rejecting one full `VoiceEffects` batch retires at
+/// most 64 owners, which is smaller. This is coupled to Engine's current soft
+/// 64-instrument capacity; #137 must update the instrument portion when it makes
+/// instrument capacity hard/configurable.
+const MAX_INSTRUMENTS_PER_CLEAR: usize = 64;
+const MAX_RETIRED_OBJECTS_PER_COMMAND: usize = MAX_INSTRUMENTS_PER_CLEAR + 1;
+// NOTE(#137): This bound assumes Engine's *soft* 64-instrument capacity
+// (`DEFAULT_INSTRUMENT_CAPACITY`). It is not enforced today: installing 65+
+// distinct instrument IDs would let a single clear retire more than
+// `MAX_INSTRUMENTS_PER_CLEAR` owners and, in release builds (no debug_assert),
+// grow `pending_retired` past its preallocation — an RT reallocation. Making
+// instrument capacity hard/configurable is #137's work; when it lands,
+// `MAX_INSTRUMENTS_PER_CLEAR` and this constant must be updated together with it.
 const MAX_PENDING_RETIRED_OBJECTS: usize =
     MAX_COMMANDS_PER_PROCESS_BLOCK * MAX_RETIRED_OBJECTS_PER_COMMAND;
 
@@ -140,7 +151,7 @@ impl AudioProcessor {
 
     fn flush_retired(&mut self) {
         // Destruction order is intentionally irrelevant; LIFO permits bounded
-        // Vec pop/push without shifting pending retired objectship on RT.
+        // Vec pop/push without shifting pending retired ownership on RT.
         while let Some(retired) = self.pending_retired.pop() {
             if !self.retirement_tx.read_is_held() {
                 self.pending_retired.push(retired);
@@ -188,7 +199,7 @@ mod tests {
     use crate::{
         id::{EffectId, InstrumentId},
         EffectInstallError, EffectInstallErrorKind, InstrumentCmd, InstrumentTrait, MonoEffect,
-        SynthCmd, TransportCmd, VoiceEffects,
+        SequencerCmd, SynthCmd, TransportCmd, VoiceEffects,
     };
     use ringbuf::{storage::Heap, traits::Split, HeapCons, HeapProd, SharedRb};
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -464,12 +475,15 @@ mod tests {
     fn worst_case_multi_object_commands_fit_preallocated_pending_retirement() {
         let (mut command_tx, _retirement_rx, mut processor) =
             processor_with_retirement(2, MAX_COMMANDS_PER_PROCESS_BLOCK, 1);
+        // A full VoiceEffects rejection retires 64 owners; every command below
+        // emits that many so the preallocated pending buffer must absorb them
+        // without reallocating on RT.
+        let effects_per_command = MAX_INSTRUMENTS_PER_CLEAR;
         for command_index in 0..MAX_COMMANDS_PER_PROCESS_BLOCK {
             let mut effects = VoiceEffects::new();
-            for effect_index in 0..MAX_RETIRED_OBJECTS_PER_COMMAND {
+            for effect_index in 0..effects_per_command {
                 effects.push(Box::new(NoopMonoEffect {
-                    id: (command_index * MAX_RETIRED_OBJECTS_PER_COMMAND + effect_index)
-                        as EffectId,
+                    id: (command_index * effects_per_command + effect_index) as EffectId,
                 }));
             }
             assert!(command_tx
@@ -483,15 +497,176 @@ mod tests {
                 .is_ok());
         }
 
+        let pushed = MAX_COMMANDS_PER_PROCESS_BLOCK * effects_per_command;
         let original_capacity = processor.pending_retired.capacity();
         processor.process(&mut [0.0; 16]);
 
         assert_eq!(original_capacity, MAX_PENDING_RETIRED_OBJECTS);
+        assert!(original_capacity >= pushed);
         assert_eq!(processor.pending_retired.capacity(), original_capacity);
-        assert_eq!(
-            processor.pending_retired.len(),
-            MAX_PENDING_RETIRED_OBJECTS - 1
+        // One object reaches the single retirement slot; the rest are retained
+        // in the preallocated pending buffer.
+        assert_eq!(processor.pending_retired.len(), pushed - 1);
+    }
+
+    #[test]
+    fn load_song_clear_peak_fits_preallocated_pending_retirement() {
+        // `SequencerCmd::LoadSong` is the multi-object command that motivated the
+        // `+ 1` in `MAX_RETIRED_OBJECTS_PER_COMMAND`: it clears every installed
+        // instrument (up to `MAX_INSTRUMENTS_PER_CLEAR`) and then retires the
+        // replaced song, so a single command can emit 65 owners. Drive that exact
+        // peak and assert the preallocated pending buffer absorbs it without an
+        // RT reallocation.
+        let (mut command_tx, _retirement_rx, mut processor) =
+            processor_with_retirement(2, MAX_COMMANDS_PER_PROCESS_BLOCK, 1);
+
+        // Block 1: install a full instrument bank. Distinct ids only insert, so
+        // nothing is retired and `pending_retired` stays empty for block 2.
+        for id in 0..MAX_INSTRUMENTS_PER_CLEAR {
+            assert!(command_tx
+                .try_push(
+                    InstrumentCmd::AddInstrument {
+                        instrument: Box::new(DropProbeInstrument {
+                            id: (id + 1) as InstrumentId,
+                            drops: Arc::new(AtomicUsize::new(0)),
+                        }),
+                    }
+                    .into(),
+                )
+                .is_ok());
+        }
+        let original_capacity = processor.pending_retired.capacity();
+        processor.process(&mut [0.0; 16]);
+        assert!(processor.pending_retired.is_empty());
+
+        // Block 2: one LoadSong clears the 64-instrument bank and retires the
+        // replaced song = 65 owners in a single command.
+        assert!(command_tx
+            .try_push(
+                SequencerCmd::LoadSong {
+                    song: Arc::new(Song::new("loaded")),
+                }
+                .into(),
+            )
+            .is_ok());
+        processor.process(&mut [0.0; 16]);
+
+        let peak = MAX_INSTRUMENTS_PER_CLEAR + 1;
+        assert_eq!(peak, MAX_RETIRED_OBJECTS_PER_COMMAND);
+        assert_eq!(original_capacity, MAX_PENDING_RETIRED_OBJECTS);
+        assert_eq!(processor.pending_retired.capacity(), original_capacity);
+        // One owner reaches the single retirement slot; the remaining 64 sit in
+        // the preallocated pending buffer with no reallocation.
+        assert_eq!(processor.pending_retired.len(), peak - 1);
+
+        // The aggregate `MAX_PENDING_RETIRED_OBJECTS` (64 * 65 = 4160) is
+        // intentionally conservative: reaching it would require all 64 budgeted
+        // commands in one block to each clear a full 64-instrument bank, which in
+        // turn needs 64 instruments reinstalled *between* each clear. Those
+        // reinstalls are themselves commands competing for the same
+        // 64-command/block budget, so the full 4160 is unreachable in a single
+        // block. The per-command peak exercised above is the real driver.
+        assert!(MAX_PENDING_RETIRED_OBJECTS >= peak);
+    }
+
+    #[test]
+    fn swapped_song_crosses_retirement_ring_before_nrt_drop() {
+        let (mut command_tx, mut retirement_rx, mut processor) = processor_with_retirement(2, 8, 8);
+        let tracked = Arc::new(Song::new("tracked"));
+        let weak_tracked = Arc::downgrade(&tracked);
+
+        // Install the tracked song as the live song. This retires the default
+        // song the processor started with; drain it so the ring is free.
+        assert!(command_tx
+            .try_push(SequencerCmd::PlaySong { song: tracked }.into())
+            .is_ok());
+        let mut output = [0.0; 16];
+        processor.process(&mut output);
+        while retirement_rx.try_pop().is_some() {}
+
+        // Swap the tracked song out; its last owner must reach NRT rather than
+        // being dropped on the callback path.
+        assert!(command_tx
+            .try_push(
+                SequencerCmd::PlaySong {
+                    song: Arc::new(Song::new("replacement")),
+                }
+                .into(),
+            )
+            .is_ok());
+        processor.process(&mut output);
+
+        assert!(
+            weak_tracked.upgrade().is_some(),
+            "the swapped song must survive the callback"
         );
+        let retired = retirement_rx.try_pop().expect("retired song reaches NRT");
+        drop(retired);
+        assert!(
+            weak_tracked.upgrade().is_none(),
+            "NRT reclamation destroys the swapped song exactly once"
+        );
+    }
+
+    #[test]
+    fn repeated_song_and_graph_swaps_then_shutdown_reclaim_each_owner_exactly_once() {
+        // Retirement ring is sized to hold every displaced owner produced by the
+        // swap loop without reclaiming mid-loop, so the process() calls stand in
+        // for the RT callback and must never destroy an owner themselves.
+        let swaps = 24;
+        let (mut command_tx, mut retirement_rx, mut processor) =
+            processor_with_retirement(2, 8, 4 * swaps);
+        let instrument_drops = Arc::new(AtomicUsize::new(0));
+        let mut song_weaks = Vec::new();
+        let mut output = [0.0; 16];
+
+        for _ in 0..swaps {
+            let song = Arc::new(Song::new("swap"));
+            song_weaks.push(Arc::downgrade(&song));
+            assert!(command_tx
+                .try_push(SequencerCmd::PlaySong { song }.into())
+                .is_ok());
+            // Reinstalling instrument id 1 retires the previously installed one.
+            assert!(command_tx
+                .try_push(
+                    InstrumentCmd::AddInstrument {
+                        instrument: Box::new(DropProbeInstrument {
+                            id: 1,
+                            drops: instrument_drops.clone(),
+                        }),
+                    }
+                    .into(),
+                )
+                .is_ok());
+            processor.process(&mut output);
+
+            // The callback path retires but never destroys: songs stay alive and
+            // no instrument has been dropped while owners sit in the ring.
+            assert_eq!(instrument_drops.load(Ordering::Relaxed), 0);
+            assert!(song_weaks.iter().all(|weak| weak.upgrade().is_some()));
+        }
+
+        // Shutdown order: the callback has stopped, so hand the ring drain and the
+        // callback-owned processor to a dedicated NRT thread for final
+        // reclamation. Every owner is destroyed exactly once, off the RT path.
+        let nrt = std::thread::spawn(move || {
+            let mut reclaimed = 0;
+            while retirement_rx.try_pop().is_some() {
+                reclaimed += 1;
+            }
+            // Dropping the processor destroys the still-live song and instrument.
+            drop(processor);
+            reclaimed
+        });
+        let reclaimed = nrt.join().unwrap();
+
+        // Default song + song_0..song_22 reached the ring (24 songs); instrument
+        // id 1 was replaced 23 times (first install retires nothing).
+        assert_eq!(reclaimed, swaps + (swaps - 1));
+        assert!(song_weaks.iter().all(|weak| weak.upgrade().is_none()));
+        // 23 replaced instruments drained from the ring, plus the final live one
+        // dropped with the processor.
+        assert_eq!(instrument_drops.load(Ordering::Relaxed), swaps);
     }
 
     #[test]
