@@ -67,11 +67,16 @@ impl StereoEffectChain {
     /// Adds a new effect to the chain. This is called on the audio thread
     /// in response to a command from the NRT world.
     /// As long as capacity is not exceeded, this will not allocate.
-    pub fn add_effect(&mut self, effect: Box<dyn StereoEffect>) {
+    pub fn add_effect(
+        &mut self,
+        effect: Box<dyn StereoEffect>,
+    ) -> Result<(), Box<dyn StereoEffect>> {
         if self.effects.len() < self.effects.capacity() {
             self.effects.push(effect);
+            Ok(())
         } else {
             crate::rt_warn_log!("Effect chain is full, cannot add new effect");
+            Err(effect)
         }
     }
 
@@ -160,11 +165,13 @@ impl MonoEffectChain {
     /// Adds a new mono effect to the chain. This is called on the audio thread
     /// in response to a command from the NRT world.
     /// As long as capacity is not exceeded, this will not allocate.
-    pub fn add_effect(&mut self, effect: Box<dyn MonoEffect>) {
+    pub fn add_effect(&mut self, effect: Box<dyn MonoEffect>) -> Result<(), Box<dyn MonoEffect>> {
         if self.effects.len() < self.effects.capacity() {
             self.effects.push(effect);
+            Ok(())
         } else {
             crate::rt_warn_log!("Mono effect chain is full, cannot add new effect");
+            Err(effect)
         }
     }
 

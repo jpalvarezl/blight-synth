@@ -14,4 +14,4 @@ A packet is a handoff cache, not a second specification. It links to the issue a
 ## Active
 
 - [Issue #175 — RT debug logging and hot-path safety](issue-0175-rt-debug-and-hot-path.md)
-- [Issue #186 — retirement primitive](issue-0186-retirement-primitive.md)
+- [Issue #187 — structural retirement](issue-0187-structural-retirement.md)

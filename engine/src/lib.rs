@@ -18,6 +18,8 @@ struct InstrumentSlot {
 #[non_exhaustive]
 pub enum RetiredState {
     Instrument(Box<dyn InstrumentTrait>),
+    MonoEffect(Box<dyn MonoEffect>),
+    StereoEffect(Box<dyn StereoEffect>),
 }
 
 /// Receives heap-owning state displaced by engine operations.
@@ -79,7 +81,7 @@ impl Engine {
     ) {
         match command {
             EngineCommand::Instrument(command) => self.handle_instrument_command(command, retired),
-            EngineCommand::Mixer(command) => self.handle_mixer_command(command),
+            EngineCommand::Mixer(command) => self.handle_mixer_command(command, retired),
         }
     }
 
@@ -91,11 +93,11 @@ impl Engine {
             InstrumentCmd::AddEffect {
                 instrument_id,
                 effect,
-            } => self.add_effect_to_instrument(instrument_id, effect),
+            } => self.add_effect_to_instrument(instrument_id, effect, retired),
             InstrumentCmd::AddVoiceEffects {
                 instrument_id,
                 effects,
-            } => self.add_voice_effects_to_instrument(instrument_id, effects),
+            } => self.add_voice_effects_to_instrument(instrument_id, effects, retired),
             InstrumentCmd::NoteOn {
                 instrument_id,
                 note,
@@ -117,9 +119,9 @@ impl Engine {
         }
     }
 
-    fn handle_mixer_command(&mut self, command: MixerCmd) {
+    fn handle_mixer_command(&mut self, command: MixerCmd, retired: &mut impl RetireSink) {
         match command {
-            MixerCmd::AddMasterEffect { effect } => self.add_master_effect(effect),
+            MixerCmd::AddMasterEffect { effect } => self.add_master_effect(effect, retired),
             MixerCmd::SetMasterEffectParameter {
                 effect_id,
                 param_index,
@@ -184,18 +186,31 @@ impl Engine {
         }
     }
 
-    pub fn clear_instruments(&mut self) {
+    pub fn clear_instruments(&mut self, retired: &mut impl RetireSink) {
+        debug_assert!(
+            self.instruments.len() <= DEFAULT_INSTRUMENT_CAPACITY,
+            "#137 must enforce/update the hard instrument bound before retirement sizing changes"
+        );
         self.stop_all_notes();
-        self.instruments.clear();
+        for slot in self.instruments.drain(..) {
+            retired.retire(RetiredState::Instrument(slot.instrument));
+        }
     }
 
     pub fn add_effect_to_instrument(
         &mut self,
         instrument_id: InstrumentId,
         effect: Box<dyn MonoEffect>,
+        retired: &mut impl RetireSink,
     ) {
         if let Some(instrument) = self.instrument_mut(instrument_id) {
-            instrument.add_effect(effect);
+            if let Err(error) = instrument.add_effect(effect) {
+                // #136 will surface error.kind() through an NRT command result;
+                // this slice owns only safe retirement of the rejected effect.
+                retired.retire(RetiredState::MonoEffect(error.into_effect()));
+            }
+        } else {
+            retired.retire(RetiredState::MonoEffect(effect));
         }
     }
 
@@ -203,9 +218,15 @@ impl Engine {
         &mut self,
         instrument_id: InstrumentId,
         effects: VoiceEffects,
+        retired: &mut impl RetireSink,
     ) {
-        if let Some(instrument) = self.instrument_mut(instrument_id) {
-            instrument.add_voice_effects(effects);
+        let rejected = if let Some(instrument) = self.instrument_mut(instrument_id) {
+            instrument.add_voice_effects(effects)
+        } else {
+            effects
+        };
+        for effect in rejected {
+            retired.retire(RetiredState::MonoEffect(effect));
         }
     }
 
@@ -253,8 +274,14 @@ impl Engine {
         Some(self.instruments[index].instrument.as_mut())
     }
 
-    pub fn add_master_effect(&mut self, effect: Box<dyn StereoEffect>) {
-        self.master_effects.add_effect(effect);
+    pub fn add_master_effect(
+        &mut self,
+        effect: Box<dyn StereoEffect>,
+        retired: &mut impl RetireSink,
+    ) {
+        if let Err(effect) = self.master_effects.add_effect(effect) {
+            retired.retire(RetiredState::StereoEffect(effect));
+        }
     }
 
     pub fn set_master_effect_parameter(
@@ -270,6 +297,7 @@ impl Engine {
 
 #[cfg(test)]
 mod tests {
+    use dsp::{EffectFactory, EffectInstallError, EffectInstallErrorKind, InstrumentFactory};
     use std::sync::{
         atomic::{AtomicU32, AtomicUsize, Ordering},
         Arc, Mutex,
@@ -306,9 +334,16 @@ mod tests {
 
         fn set_pan(&mut self, _pan: f32) {}
 
-        fn add_effect(&mut self, _effect: Box<dyn MonoEffect>) {}
+        fn add_effect(&mut self, effect: Box<dyn MonoEffect>) -> Result<(), EffectInstallError> {
+            Err(EffectInstallError::new(
+                EffectInstallErrorKind::UnsupportedForPolyphonicInstrument,
+                effect,
+            ))
+        }
 
-        fn add_voice_effects(&mut self, _effects: VoiceEffects) {}
+        fn add_voice_effects(&mut self, effects: VoiceEffects) -> VoiceEffects {
+            effects
+        }
 
         fn set_effect_parameter(&mut self, _effect_id: EffectId, _param_index: u32, value: f32) {
             self.effect_value.store(value.to_bits(), Ordering::Relaxed);
@@ -316,6 +351,14 @@ mod tests {
 
         fn try_handle_command(&mut self, _command: &SynthCmd) -> bool {
             false
+        }
+    }
+
+    struct CollectRetired(Vec<RetiredState>);
+
+    impl RetireSink for CollectRetired {
+        fn retire(&mut self, state: RetiredState) {
+            self.0.push(state);
         }
     }
 
@@ -338,12 +381,57 @@ mod tests {
         fn note_off(&mut self) {}
         fn process(&mut self, _left: &mut [f32], _right: &mut [f32], _sample_rate: f32) {}
         fn set_pan(&mut self, _pan: f32) {}
-        fn add_effect(&mut self, _effect: Box<dyn MonoEffect>) {}
-        fn add_voice_effects(&mut self, _effects: VoiceEffects) {}
+        fn add_effect(&mut self, effect: Box<dyn MonoEffect>) -> Result<(), EffectInstallError> {
+            Err(EffectInstallError::new(
+                EffectInstallErrorKind::UnsupportedForPolyphonicInstrument,
+                effect,
+            ))
+        }
+        fn add_voice_effects(&mut self, effects: VoiceEffects) -> VoiceEffects {
+            effects
+        }
         fn set_effect_parameter(&mut self, _effect_id: EffectId, _param_index: u32, _value: f32) {}
         fn try_handle_command(&mut self, _command: &SynthCmd) -> bool {
             false
         }
+    }
+
+    struct DropMonoEffect {
+        id: EffectId,
+        drops: Arc<AtomicUsize>,
+    }
+
+    impl Drop for DropMonoEffect {
+        fn drop(&mut self) {
+            self.drops.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+
+    impl MonoEffect for DropMonoEffect {
+        fn id(&self) -> EffectId {
+            self.id
+        }
+        fn process(&mut self, _buf: &mut [f32], _sample_rate: f32) {}
+        fn set_parameter(&mut self, _index: u32, _value: f32) {}
+    }
+
+    struct DropStereoEffect {
+        id: EffectId,
+        drops: Arc<AtomicUsize>,
+    }
+
+    impl Drop for DropStereoEffect {
+        fn drop(&mut self) {
+            self.drops.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+
+    impl StereoEffect for DropStereoEffect {
+        fn id(&self) -> EffectId {
+            self.id
+        }
+        fn process(&mut self, _left: &mut [f32], _right: &mut [f32], _sample_rate: f32) {}
+        fn set_parameter(&mut self, _index: u32, _value: f32) {}
     }
 
     struct ScaleEffect {
@@ -453,13 +541,6 @@ mod tests {
 
     #[test]
     fn duplicate_instrument_replacement_routes_ownership_for_nrt_drop() {
-        struct CollectRetired(Vec<RetiredState>);
-        impl RetireSink for CollectRetired {
-            fn retire(&mut self, state: RetiredState) {
-                self.0.push(state);
-            }
-        }
-
         let drop_thread = Arc::new(Mutex::new(None));
         let mut engine = Engine::new();
         let mut retired = CollectRetired(Vec::new());
@@ -488,6 +569,80 @@ mod tests {
         let expected_thread = nrt_thread.thread().id();
         nrt_thread.join().unwrap();
         assert_eq!(*drop_thread.lock().unwrap(), Some(expected_thread));
+    }
+
+    #[test]
+    fn clear_and_effect_rejections_route_every_object_to_retirement() {
+        let instrument_drops = Arc::new(Mutex::new(None));
+        let mono_drops = Arc::new(AtomicUsize::new(0));
+        let stereo_drops = Arc::new(AtomicUsize::new(0));
+        let mut engine = Engine::new();
+        let mut retired = CollectRetired(Vec::with_capacity(16));
+
+        for id in [1, 2, 3] {
+            engine.add_instrument_with_retirement(
+                Box::new(DropProbeInstrument {
+                    id,
+                    drop_thread: instrument_drops.clone(),
+                }),
+                &mut retired,
+            );
+        }
+        engine.clear_instruments(&mut retired);
+        assert_eq!(retired.0.len(), 3);
+
+        engine.add_effect_to_instrument(
+            99,
+            Box::new(DropMonoEffect {
+                id: 1,
+                drops: mono_drops.clone(),
+            }),
+            &mut retired,
+        );
+        let mut voice_effects = VoiceEffects::new();
+        voice_effects.push(Box::new(DropMonoEffect {
+            id: 2,
+            drops: mono_drops.clone(),
+        }));
+        voice_effects.push(Box::new(DropMonoEffect {
+            id: 3,
+            drops: mono_drops.clone(),
+        }));
+        engine.add_voice_effects_to_instrument(99, voice_effects, &mut retired);
+
+        for id in 0..=DEFAULT_MASTER_EFFECT_CAPACITY as EffectId {
+            engine.add_master_effect(
+                Box::new(DropStereoEffect {
+                    id,
+                    drops: stereo_drops.clone(),
+                }),
+                &mut retired,
+            );
+        }
+        assert_eq!(mono_drops.load(Ordering::Relaxed), 0);
+        assert_eq!(stereo_drops.load(Ordering::Relaxed), 0);
+
+        drop(retired);
+        assert_eq!(mono_drops.load(Ordering::Relaxed), 3);
+        assert_eq!(stereo_drops.load(Ordering::Relaxed), 1);
+        assert!(instrument_drops.lock().unwrap().is_some());
+    }
+
+    #[test]
+    fn polyphonic_single_effect_rejection_reports_typed_reason_and_returns_effect() {
+        let mut instrument =
+            InstrumentFactory::new(48_000.0).create_polyphonic_oscillator(4, 0.0, 2);
+        let effect = EffectFactory::new(48_000.0).create_mono_gain(9, 1.0);
+
+        let error = instrument
+            .add_effect(effect)
+            .expect_err("polyphonic instruments require per-voice effects");
+
+        assert_eq!(
+            error.kind(),
+            EffectInstallErrorKind::UnsupportedForPolyphonicInstrument
+        );
+        drop(error.into_effect());
     }
 
     #[test]

@@ -3,6 +3,35 @@ use crate::{
     MonoEffect, VoiceEffects,
 };
 
+/// Why a prepared mono effect could not be installed on an instrument.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum EffectInstallErrorKind {
+    /// A polyphonic instrument requires one independently prepared effect per voice.
+    UnsupportedForPolyphonicInstrument,
+    /// The target effect chain has no remaining prepared capacity.
+    ChainFull,
+}
+
+/// Typed effect-install rejection that preserves ownership for NRT retirement.
+pub struct EffectInstallError {
+    kind: EffectInstallErrorKind,
+    effect: Box<dyn MonoEffect>,
+}
+
+impl EffectInstallError {
+    pub fn new(kind: EffectInstallErrorKind, effect: Box<dyn MonoEffect>) -> Self {
+        Self { kind, effect }
+    }
+
+    pub fn kind(&self) -> EffectInstallErrorKind {
+        self.kind
+    }
+
+    pub fn into_effect(self) -> Box<dyn MonoEffect> {
+        self.effect
+    }
+}
+
 /// A trait for a complete instrument, which is responsible for managing
 /// its own voices and polyphony according to its specific behavior.
 pub trait InstrumentTrait: Send + Sync {
@@ -27,17 +56,26 @@ pub trait InstrumentTrait: Send + Sync {
     // fn handle_command(&mut self, command: &PlayerCommand);
 
     // TODO: reconsider if the we should only handle planar data
-    /// Add a mono effect to this voice's effect chain. Instruments process planar audio
-    fn add_effect(&mut self, effect: Box<dyn MonoEffect>);
+    /// Add a mono effect to this instrument's effect chain.
+    ///
+    /// On rejection, returns the exact boxed effect so the RT caller can transfer
+    /// it to NRT retirement instead of dropping/deallocating it in the callback.
+    /// Polyphonic instruments reject this single-effect form because each voice
+    /// requires its own prepared effect instance.
+    fn add_effect(&mut self, effect: Box<dyn MonoEffect>) -> Result<(), EffectInstallError>;
 
     /// Add a batch of pre-constructed per-voice effects. Default implementation uses the first
-    /// element for mono instruments.
-    fn add_voice_effects(&mut self, mut effects: VoiceEffects) {
-        if let Some(first) = effects.pop() {
-            self.add_effect(first);
+    /// element for mono instruments and returns every effect it could not install.
+    fn add_voice_effects(&mut self, mut effects: VoiceEffects) -> VoiceEffects {
+        let mut rejected = VoiceEffects::new();
+        if !effects.is_empty() {
+            let first = effects.remove(0);
+            if let Err(error) = self.add_effect(first) {
+                rejected.push(error.into_effect());
+            }
         }
-        // Remaining elements (if any) will be dropped here. Because VoiceEffects is an
-        // ArrayVec with fixed capacity, dropping it does not deallocate heap memory.
+        rejected.extend(effects);
+        rejected
     }
 
     /// Set a parameter on one of the instrument's effects.
