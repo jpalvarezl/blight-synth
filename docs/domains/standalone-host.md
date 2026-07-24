@@ -11,8 +11,9 @@ issues: [104, 120, 122, 123, 139, 156, 161, 182]
 ## Read first
 
 1. [Target system boundaries](../architecture/system-boundaries.md)
-2. [OSC protocol snapshot](../osc-spec.md) when changing transport
-3. Assigned M2 issue
+2. [Device host boundary contract (draft)](../architecture/device-host-boundary.md) and [ADR 0002 — device host vs OSC split](../decisions/0002-device-host-osc-split.md)
+3. [OSC protocol snapshot](../osc-spec.md) when changing transport
+4. Assigned M2 issue
 
 ## Owns
 

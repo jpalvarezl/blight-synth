@@ -14,6 +14,7 @@ updated: 2026-07-19
 - [M0 crate dependency graph](crate-dependency-graph.md) — current enforced crate/feature dependencies and compatibility shims.
 - [Offline render contract](offline-render-contract.md) — canonical PCM, golden regression policy, and reference updates.
 - [Real-time audio contract](realtime-contract.md) — proposed callback rules, ownership, overload, reclamation, and current violations.
+- [Device host boundary (draft)](device-host-boundary.md) — reusable in-process device host vs OSC standalone transport adapter (ADR 0002).
 - [RT allocation audit](rt-allocation-audit.md) — test-only heap allocation/deallocation instrumentation for prepared Engine processing.
 - [Current product specification](../spec/current-product.md) — what architecture is serving.
 - [ADR index](../decisions/README.md) — accepted decisions.
@@ -30,5 +31,6 @@ updated: 2026-07-19
 | Parameter manifest | [#121](https://github.com/jpalvarezl/blight-synth/issues/121) | Draft |
 | Routing graph | [#136](https://github.com/jpalvarezl/blight-synth/issues/136) | Draft |
 | Versioned state | [#138](https://github.com/jpalvarezl/blight-synth/issues/138) | Draft |
+| Device host vs OSC standalone split | [#185](https://github.com/jpalvarezl/blight-synth/issues/185) | Proposed (ADR 0002) |
 
 Do not treat draft diagrams as implemented fact. Domain pages list current code entry points separately.

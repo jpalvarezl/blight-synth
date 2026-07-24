@@ -13,4 +13,4 @@ A packet is a handoff cache, not a second specification. It links to the issue a
 
 ## Active
 
-_No active packets. Create one when an issue moves to `status:in-progress`._
+- [Issue #185 — Separate the shared device host from OSC standalone transport adapters](issue-185-device-host-osc-split.md)

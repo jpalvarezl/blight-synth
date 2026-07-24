@@ -22,3 +22,4 @@ ADRs record decisions that affect multiple domains or constrain future work. The
 | ADR | Status | Decision |
 |---|---|---|
 | [0001](0001-product-and-host-priorities.md) | Accepted | Standalone experimental composition is primary; composition UX remains open; plugins are optional complete-engine hosts. |
+| [0002](0002-device-host-osc-split.md) | Proposed | Split a reusable in-process `device_host` from the OSC standalone process adapter; OSC is a transport over the shared `BlightAudio` control boundary, not an owner of device-host semantics. |
