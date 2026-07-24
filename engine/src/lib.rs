@@ -5,6 +5,7 @@ use dsp::{
     id::{EffectId, InstrumentId},
     InstrumentTrait, MonoEffect, StereoEffect, StereoEffectChain, SynthCmd, VoiceEffects,
 };
+use std::{any::Any, sync::Arc};
 
 const DEFAULT_INSTRUMENT_CAPACITY: usize = 64;
 const DEFAULT_MASTER_EFFECT_CAPACITY: usize = 8;
@@ -20,6 +21,12 @@ pub enum RetiredState {
     Instrument(Box<dyn InstrumentTrait>),
     MonoEffect(Box<dyn MonoEffect>),
     StereoEffect(Box<dyn StereoEffect>),
+    /// Opaque prepared-state owner (such as a host's composition/song snapshot)
+    /// displaced on RT. The engine never inspects it; it only carries the owner
+    /// to NRT for destruction. Building this from a concrete `Arc<T>` is an
+    /// allocation-free unsizing coercion, so hosts may retire it on the callback
+    /// without heap work.
+    Prepared(Arc<dyn Any + Send + Sync>),
 }
 
 /// Receives heap-owning state displaced by engine operations.
@@ -537,6 +544,31 @@ mod tests {
                 .collect::<Vec<_>>(),
             [1, 2, 3]
         );
+    }
+
+    struct DropProbeOwner {
+        drop_thread: Arc<Mutex<Option<std::thread::ThreadId>>>,
+    }
+
+    impl Drop for DropProbeOwner {
+        fn drop(&mut self) {
+            *self.drop_thread.lock().unwrap() = Some(std::thread::current().id());
+        }
+    }
+
+    #[test]
+    fn prepared_owner_reclamation_runs_on_the_receiving_nrt_thread() {
+        let drop_thread = Arc::new(Mutex::new(None));
+        let owner: Arc<dyn std::any::Any + Send + Sync> = Arc::new(DropProbeOwner {
+            drop_thread: drop_thread.clone(),
+        });
+        let retired = RetiredState::Prepared(owner);
+        assert!(drop_thread.lock().unwrap().is_none());
+
+        let nrt_thread = std::thread::spawn(move || drop(retired));
+        let expected_thread = nrt_thread.thread().id();
+        nrt_thread.join().unwrap();
+        assert_eq!(*drop_thread.lock().unwrap(), Some(expected_thread));
     }
 
     #[test]

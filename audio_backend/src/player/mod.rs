@@ -2,7 +2,7 @@ mod tracker_engine_adapter;
 
 use std::sync::Arc;
 
-use engine::RetireSink;
+use engine::{RetireSink, RetiredState};
 use sequencer::{
     models::{NoteSentinelValues, Song, DEFAULT_CHAIN_LENGTH, DEFAULT_PHRASE_LENGTH, MAX_TRACKS},
     timing::TimingState,
@@ -94,19 +94,22 @@ impl Player {
         self.engine_adapter.stop_all_notes(); // Stop all notes when stopping playback
     }
 
-    fn set_song(&mut self, song: Arc<Song>) {
+    fn set_song(&mut self, song: Arc<Song>, retired: &mut impl RetireSink) {
         self.timing.set_bpm(song.initial_bpm as f64);
         self.timing.set_tpl(song.initial_speed as u32);
         self.timing.reset();
         self.position.reset();
-        self.song = song;
+        // Replacing the live song can drop its last owner; hand the displaced
+        // `Arc<Song>` to NRT for destruction instead of freeing it on RT.
+        let displaced = std::mem::replace(&mut self.song, song);
+        retired.retire(RetiredState::Prepared(displaced));
     }
 
     fn load_song(&mut self, song: Arc<Song>, retired: &mut impl RetireSink) {
         dsp::rt_debug_log!("Loading song: {}", song.name);
         self.stop();
         self.engine_adapter.clear_instruments(retired);
-        self.set_song(song);
+        self.set_song(song, retired);
     }
 
     pub fn handle_command(&mut self, command: Command, retired: &mut impl RetireSink) {
@@ -114,7 +117,7 @@ impl Player {
             Command::Sequencer(SequencerCmd::LoadSong { song }) => self.load_song(song, retired),
             Command::Sequencer(SequencerCmd::PlaySong { song }) => {
                 dsp::rt_debug_log!("Playing song: {}", song.name);
-                self.set_song(song);
+                self.set_song(song, retired);
                 self.play();
             }
             Command::Transport(TransportCmd::StopSong) => self.stop(),
@@ -281,6 +284,61 @@ impl Player {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::SequencerCmd;
+
+    struct CollectRetired(Vec<RetiredState>);
+
+    impl RetireSink for CollectRetired {
+        fn retire(&mut self, state: RetiredState) {
+            self.0.push(state);
+        }
+    }
+
+    #[test]
+    fn load_song_retires_previous_song_for_nrt_drop() {
+        let previous = Arc::new(Song::new("previous"));
+        let weak_previous = Arc::downgrade(&previous);
+        let mut player = Player::new(previous, 48_000.0);
+        let mut retired = CollectRetired(Vec::new());
+
+        player.handle_command(
+            SequencerCmd::LoadSong {
+                song: Arc::new(Song::new("next")),
+            }
+            .into(),
+            &mut retired,
+        );
+
+        // The displaced song is captured for retirement, not dropped in-line.
+        assert_eq!(retired.0.len(), 1);
+        assert!(weak_previous.upgrade().is_some());
+
+        drop(retired);
+        assert!(weak_previous.upgrade().is_none());
+    }
+
+    #[test]
+    fn play_song_retires_previous_song_for_nrt_drop() {
+        let previous = Arc::new(Song::new("previous"));
+        let weak_previous = Arc::downgrade(&previous);
+        let mut player = Player::new(previous, 48_000.0);
+        let mut retired = CollectRetired(Vec::new());
+
+        player.handle_command(
+            SequencerCmd::PlaySong {
+                song: Arc::new(Song::new("next")),
+            }
+            .into(),
+            &mut retired,
+        );
+
+        assert!(player.is_playing());
+        assert_eq!(retired.0.len(), 1);
+        assert!(weak_previous.upgrade().is_some());
+
+        drop(retired);
+        assert!(weak_previous.upgrade().is_none());
+    }
 
     #[test]
     fn stops_processing_remaining_ticks_after_reaching_song_end() {
