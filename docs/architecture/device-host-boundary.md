@@ -56,5 +56,10 @@ flowchart LR
 
 ## Status
 
-Target boundary is recorded; no modules, features, or examples are moved yet.
-Implementation is recommended for **M2** ([#190](https://github.com/jpalvarezl/blight-synth/issues/190)) per issue #185.
+Implemented under [#190](https://github.com/jpalvarezl/blight-synth/issues/190):
+the shared host lives in `audio_backend/src/device_host/` behind feature
+`device-host`, and the OSC transport adapter lives in
+`audio_backend/src/standalone_process/` behind feature `standalone-process`
+(which depends on `device-host`). `standalone` is retained as a compatibility
+alias of `standalone-process`. The tracker depends on `device-host` only, and
+`--no-default-features` compiles neither layer.
