@@ -205,6 +205,8 @@ impl Engine {
     ) {
         if let Some(instrument) = self.instrument_mut(instrument_id) {
             if let Err(error) = instrument.add_effect(effect) {
+                // #136 will surface error.kind() through an NRT command result;
+                // this slice owns only safe retirement of the rejected effect.
                 retired.retire(RetiredState::MonoEffect(error.into_effect()));
             }
         } else {
