@@ -2,12 +2,17 @@ mod commands;
 
 pub use commands::*;
 use dsp::{
-    id::{EffectId, InstrumentId},
+    id::{EffectId, InstrumentId, NoteId},
     InstrumentTrait, MonoEffect, StereoEffect, StereoEffectChain, SynthCmd, VoiceEffects,
 };
 use std::{any::Any, sync::Arc};
 
-const DEFAULT_INSTRUMENT_CAPACITY: usize = 64;
+/// Hard, fixed instrument-slot capacity. The backing vector is preallocated to
+/// exactly this size and never grows: installing a distinct instrument past the
+/// cap is rejected and its owner retired, so instrument insertion performs no
+/// heap (re)allocation on the audio callback (closes the residual #137 row in
+/// the real-time contract's violation inventory).
+pub const DEFAULT_INSTRUMENT_CAPACITY: usize = 64;
 const DEFAULT_MASTER_EFFECT_CAPACITY: usize = 8;
 
 struct InstrumentSlot {
@@ -60,9 +65,12 @@ impl RetireSink for DropRetireSink {
 /// buffers and composition adapters decide which methods to call and when.
 pub struct Engine {
     // Sorted, contiguous slots provide deterministic mix order and avoid
-    // per-block hashing/tree traversal. A fixed hard capacity/stealing policy
-    // remains part of #137; this vector is preallocated to the current limit.
+    // per-block hashing/tree traversal (#164). The vector is preallocated to a
+    // hard `instrument_capacity` and never grows: inserts past the cap are
+    // rejected (see `add_instrument_with_retirement`), so no callback
+    // reallocation is possible.
     instruments: Vec<InstrumentSlot>,
+    instrument_capacity: usize,
     master_effects: StereoEffectChain,
 }
 
@@ -74,10 +82,22 @@ impl Default for Engine {
 
 impl Engine {
     pub fn new() -> Self {
+        Self::with_instrument_capacity(DEFAULT_INSTRUMENT_CAPACITY)
+    }
+
+    /// Creates an engine with an explicit hard instrument capacity. The slot
+    /// vector is preallocated to `capacity` and never grows.
+    pub fn with_instrument_capacity(capacity: usize) -> Self {
         Self {
-            instruments: Vec::with_capacity(DEFAULT_INSTRUMENT_CAPACITY),
+            instruments: Vec::with_capacity(capacity),
+            instrument_capacity: capacity,
             master_effects: StereoEffectChain::new(DEFAULT_MASTER_EFFECT_CAPACITY),
         }
+    }
+
+    /// The hard maximum number of distinct instruments this engine will hold.
+    pub fn instrument_capacity(&self) -> usize {
+        self.instrument_capacity
     }
 
     /// Handles a command on a caller known to be outside RT, immediately
@@ -117,7 +137,7 @@ impl Engine {
                 note,
                 velocity,
             } => self.note_on(instrument_id, note, velocity),
-            InstrumentCmd::NoteOff { instrument_id } => self.note_off(instrument_id),
+            InstrumentCmd::NoteOff { instrument_id } => self.all_notes_off(instrument_id),
             InstrumentCmd::PassOnSynthCmd {
                 instrument_id,
                 synth_cmd,
@@ -146,15 +166,49 @@ impl Engine {
         }
     }
 
+    /// Triggers a note using a pitch-derived stable identity ([`NoteId`]).
+    ///
+    /// This is the host-agnostic entry used by callers (like the tracker) that
+    /// address at most one sounding note per pitch and have no richer event
+    /// identity yet (#145). For overlapping notes at the same pitch, use
+    /// [`Engine::note_on_with_id`] with distinct identities.
     pub fn note_on(&mut self, instrument_id: InstrumentId, note: u8, velocity: u8) {
+        self.note_on_with_id(instrument_id, NoteId::from_pitch(note), note, velocity);
+    }
+
+    /// Triggers a note with an explicit stable identity, allowing a polyphonic
+    /// instrument to keep overlapping same-pitch notes on independent voices and
+    /// to target them individually at note-off.
+    pub fn note_on_with_id(
+        &mut self,
+        instrument_id: InstrumentId,
+        note_id: NoteId,
+        note: u8,
+        velocity: u8,
+    ) {
         if let Some(instrument) = self.instrument_mut(instrument_id) {
-            instrument.note_on(note, velocity);
+            instrument.note_on(note_id, note, velocity);
         }
     }
 
-    pub fn note_off(&mut self, instrument_id: InstrumentId) {
+    /// Releases only the voice owning `note_id` on the target instrument, leaving
+    /// every other sounding voice untouched.
+    pub fn note_off_id(&mut self, instrument_id: InstrumentId, note_id: NoteId) {
         if let Some(instrument) = self.instrument_mut(instrument_id) {
-            instrument.note_off();
+            instrument.note_off(note_id);
+        }
+    }
+
+    /// Releases the pitch-derived note identity (the counterpart of
+    /// [`Engine::note_on`]).
+    pub fn note_off(&mut self, instrument_id: InstrumentId, note: u8) {
+        self.note_off_id(instrument_id, NoteId::from_pitch(note));
+    }
+
+    /// Releases every sounding voice on the target instrument.
+    pub fn all_notes_off(&mut self, instrument_id: InstrumentId) {
+        if let Some(instrument) = self.instrument_mut(instrument_id) {
+            instrument.all_notes_off();
         }
     }
 
@@ -182,6 +236,11 @@ impl Engine {
     }
 
     /// Adds or replaces an instrument using the supplied retirement policy.
+    ///
+    /// Replacing an existing id retires the displaced instrument. Inserting a
+    /// distinct id succeeds only while under the hard `instrument_capacity`;
+    /// past the cap the new instrument is rejected and retired without touching
+    /// the audio thread's allocator (the preallocated slot vector never grows).
     pub fn add_instrument_with_retirement(
         &mut self,
         instrument: Box<dyn InstrumentTrait>,
@@ -194,19 +253,28 @@ impl Engine {
                     std::mem::replace(&mut self.instruments[index].instrument, instrument);
                 retired.retire(RetiredState::Instrument(displaced));
             }
-            Err(index) => self
-                .instruments
-                .insert(index, InstrumentSlot { id, instrument }),
+            Err(index) => {
+                if self.instruments.len() < self.instrument_capacity {
+                    self.instruments
+                        .insert(index, InstrumentSlot { id, instrument });
+                } else {
+                    // Hard capacity reached: reject the new instrument and hand
+                    // its owner to NRT retirement rather than reallocating the
+                    // slot vector on the callback.
+                    retired.retire(RetiredState::Instrument(instrument));
+                }
+            }
         }
     }
 
     pub fn clear_instruments(&mut self, retired: &mut impl RetireSink) {
         debug_assert!(
-            self.instruments.len() <= DEFAULT_INSTRUMENT_CAPACITY,
-            "#137 must enforce/update the hard instrument bound before retirement sizing changes"
+            self.instruments.len() <= self.instrument_capacity,
+            "instrument count must never exceed the hard capacity that sizes retirement bounds"
         );
-        self.stop_all_notes();
         for slot in self.instruments.drain(..) {
+            // The instrument is being retired for NRT destruction, so gating its
+            // voices off here would be wasted work; hand the owner off directly.
             retired.retire(RetiredState::Instrument(slot.instrument));
         }
     }
@@ -246,7 +314,7 @@ impl Engine {
 
     pub fn stop_all_notes(&mut self) {
         for slot in &mut self.instruments {
-            slot.instrument.note_off();
+            slot.instrument.all_notes_off();
         }
     }
 
@@ -331,11 +399,15 @@ mod tests {
             self.id
         }
 
-        fn note_on(&mut self, _note: u8, _velocity: u8) {
+        fn note_on(&mut self, _note_id: dsp::id::NoteId, _note: u8, _velocity: u8) {
             self.note_ons.fetch_add(1, Ordering::Relaxed);
         }
 
-        fn note_off(&mut self) {
+        fn note_off(&mut self, _note_id: dsp::id::NoteId) {
+            self.note_offs.fetch_add(1, Ordering::Relaxed);
+        }
+
+        fn all_notes_off(&mut self) {
             self.note_offs.fetch_add(1, Ordering::Relaxed);
         }
 
@@ -391,8 +463,9 @@ mod tests {
         fn id(&self) -> InstrumentId {
             self.id
         }
-        fn note_on(&mut self, _note: u8, _velocity: u8) {}
-        fn note_off(&mut self) {}
+        fn note_on(&mut self, _note_id: dsp::id::NoteId, _note: u8, _velocity: u8) {}
+        fn note_off(&mut self, _note_id: dsp::id::NoteId) {}
+        fn all_notes_off(&mut self) {}
         fn process(&mut self, _left: &mut [f32], _right: &mut [f32], _sample_rate: f32) {}
         fn set_pan(&mut self, _pan: f32) {}
         fn add_effect(&mut self, effect: Box<dyn MonoEffect>) -> Result<(), EffectInstallError> {
@@ -706,7 +779,7 @@ mod tests {
     fn missing_instrument_ids_are_no_ops() {
         let mut engine = Engine::new();
         engine.note_on(99, 60, 127);
-        engine.note_off(99);
+        engine.note_off(99, 60);
         engine.set_instrument_pan(99, 0.5);
         engine.set_instrument_effect_parameter(99, 1, 0, 0.5);
 
@@ -716,5 +789,50 @@ mod tests {
 
         assert_eq!(left, [0.0; 2]);
         assert_eq!(right, [0.0; 2]);
+    }
+
+    #[test]
+    fn instrument_capacity_rejects_distinct_instruments_past_the_hard_cap() {
+        let mut engine = Engine::with_instrument_capacity(2);
+        assert_eq!(engine.instrument_capacity(), 2);
+        let mut retired = CollectRetired(Vec::with_capacity(4));
+
+        let make = |id: InstrumentId| {
+            Box::new(TestInstrument {
+                id,
+                note_ons: Arc::new(AtomicUsize::new(0)),
+                note_offs: Arc::new(AtomicUsize::new(0)),
+                effect_value: Arc::new(AtomicU32::new(0)),
+            })
+        };
+
+        // Fill both hard slots with distinct ids.
+        for id in [1, 2] {
+            engine.add_instrument_with_retirement(make(id), &mut retired);
+        }
+        assert!(retired.0.is_empty(), "in-capacity inserts must not retire");
+        assert_eq!(engine.instruments.len(), 2);
+
+        // A distinct third id exceeds the hard cap: it is rejected and its owner
+        // is retired rather than growing the preallocated slot vector.
+        let capacity_before = engine.instruments.capacity();
+        engine.add_instrument_with_retirement(make(3), &mut retired);
+        assert_eq!(retired.0.len(), 1, "over-cap instrument must be retired");
+        assert_eq!(engine.instruments.len(), 2, "over-cap instrument must not install");
+        assert_eq!(
+            engine.instruments.capacity(),
+            capacity_before,
+            "rejection must not reallocate the slot vector"
+        );
+        assert_eq!(
+            engine.instruments.iter().map(|slot| slot.id).collect::<Vec<_>>(),
+            [1, 2]
+        );
+
+        // Replacing an existing id still succeeds at capacity and retires the
+        // displaced owner (does not count against the cap).
+        engine.add_instrument_with_retirement(make(1), &mut retired);
+        assert_eq!(retired.0.len(), 2);
+        assert_eq!(engine.instruments.len(), 2);
     }
 }

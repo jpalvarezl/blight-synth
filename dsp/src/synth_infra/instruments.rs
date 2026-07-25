@@ -1,5 +1,5 @@
 use crate::{
-    id::{EffectId, InstrumentId},
+    id::{EffectId, InstrumentId, NoteId},
     MonoEffect, VoiceEffects,
 };
 
@@ -39,11 +39,20 @@ pub trait InstrumentTrait: Send + Sync {
     fn id(&self) -> InstrumentId;
 
     /// Handles a note-on event for this instrument.
-    /// It will decide whether to create a new voice, re-trigger an existing one, etc.
-    fn note_on(&mut self, note: u8, velocity: u8);
+    ///
+    /// `note_id` is the stable identity of the sounding note (see [`NoteId`]),
+    /// distinct from the MIDI `note` pitch. The instrument decides whether to
+    /// allocate a free voice, retrigger the voice already holding `note_id`, or
+    /// steal an active voice when the fixed polyphony pool is exhausted.
+    fn note_on(&mut self, note_id: NoteId, note: u8, velocity: u8);
 
-    /// Handles a note-off event for a specific voice ID.
-    fn note_off(&mut self);
+    /// Releases only the voice that currently owns `note_id`, leaving every
+    /// other sounding voice untouched. Unknown identities are a no-op.
+    fn note_off(&mut self, note_id: NoteId);
+
+    /// Releases every currently sounding voice (used for host-level
+    /// all-notes-off, panic, and structural teardown).
+    fn all_notes_off(&mut self);
 
     /// Processes all active voices for this instrument, adding their
     /// output to the main stereo buffers.

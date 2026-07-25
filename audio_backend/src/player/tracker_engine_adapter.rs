@@ -28,7 +28,7 @@ impl TrackerEngineAdapter {
     }
 
     pub fn note_off(&mut self, instrument_id: InstrumentId) {
-        self.engine.note_off(instrument_id);
+        self.engine.all_notes_off(instrument_id);
     }
 
     pub fn process(&mut self, left: &mut [f32], right: &mut [f32], sample_rate: f32) {
@@ -81,7 +81,7 @@ impl TrackerEngineAdapter {
                     previous_id,
                     instrument_id
                 );
-                self.engine.note_off(previous_id);
+                self.engine.all_notes_off(previous_id);
             }
             None => dsp::rt_debug_log!(
                 "Track {}: Set last instrument to {}",
