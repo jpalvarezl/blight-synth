@@ -204,6 +204,60 @@ fn linear_mapping_round_trips() {
 }
 
 #[test]
+fn exponential_mapping_round_trips_and_is_perceptually_geometric() {
+    // 20 Hz .. 20 kHz over a 0..1 knob: the exponential curve is geometric, so
+    // the midpoint of the knob lands on the geometric mean (sqrt(20 * 20000) =
+    // ~632 Hz), not the arithmetic mean (~10 kHz).
+    let mapping = Mapping::Exponential {
+        min: 20.0,
+        max: 20_000.0,
+    };
+    assert!((mapping.to_engine(0.0) - 20.0).abs() < 1e-3);
+    assert!((mapping.to_engine(1.0) - 20_000.0).abs() < 1.0);
+    let mid = mapping.to_engine(0.5);
+    assert!((mid - 632.4555).abs() < 0.5, "midpoint should be geometric mean, got {mid}");
+    // Round-trip several points through the inverse.
+    for &t in &[0.0_f32, 0.1, 0.37, 0.5, 0.9, 1.0] {
+        let engine = mapping.to_engine(t);
+        let back = mapping.to_normalized(engine);
+        assert!((back - t).abs() < 1e-4, "round-trip failed at t={t}: back={back}");
+    }
+}
+
+#[test]
+fn to_normalized_clamps_engine_values_outside_the_range() {
+    // Values below the range map to 0.0, above the range to 1.0, for every curve.
+    let linear = Mapping::Linear { min: 0.0, max: 10.0 };
+    assert_eq!(linear.to_normalized(-5.0), 0.0);
+    assert_eq!(linear.to_normalized(50.0), 1.0);
+
+    let exp = Mapping::Exponential {
+        min: 20.0,
+        max: 20_000.0,
+    };
+    assert_eq!(exp.to_normalized(1.0), 0.0); // below min
+    assert_eq!(exp.to_normalized(1_000_000.0), 1.0); // above max
+    // Non-positive engine input on a positive-endpoint exponential must not
+    // produce NaN/inf; it clamps to 0.0.
+    assert_eq!(exp.to_normalized(0.0), 0.0);
+    assert_eq!(exp.to_normalized(-3.0), 0.0);
+
+    let db = Mapping::AmplitudeDecibel { floor_db: -120.0 };
+    assert_eq!(db.to_normalized(-200.0), 0.0); // at/below floor
+    assert_eq!(db.to_normalized(6.0), 1.0); // above 0 dB clamps to 1.0
+}
+
+#[test]
+fn exponential_with_non_positive_endpoints_falls_back_to_linear() {
+    // Guarded configuration: a non-positive endpoint can't use the geometric
+    // formula, so both directions degrade to linear interpolation rather than
+    // returning NaN.
+    let mapping = Mapping::Exponential { min: 0.0, max: 100.0 };
+    assert!((mapping.to_engine(0.5) - 50.0).abs() < 1e-3);
+    assert!((mapping.to_normalized(50.0) - 0.5).abs() < 1e-3);
+}
+
+#[test]
 fn lookup_resolves_by_stable_id_and_indexes_by_key() {
     let manifest = builtin_manifest();
     let lookup = ParameterLookup::from_manifest(&manifest).expect("valid manifest");
