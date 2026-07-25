@@ -1,0 +1,11 @@
+[package]
+name = "param_manifest"
+version = "0.1.0"
+edition = "2021"
+description = "Canonical parameter manifest/schema and runtime lookup shared across Rust DSP, project state, OSC, JUCE/APVTS, and the Svelte UI."
+
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
