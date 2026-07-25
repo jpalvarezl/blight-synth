@@ -75,7 +75,7 @@ impl AudioProcessor {
         channels: usize,
         meter: Arc<MeterState>,
     ) -> Self {
-        Self {
+        let processor = Self {
             command_rx,
             retirement_tx,
             pending_retired: Vec::with_capacity(MAX_PENDING_RETIRED_OBJECTS),
@@ -85,7 +85,9 @@ impl AudioProcessor {
             right_buf: vec![0.0; MAX_BUFFER_SIZE],
             meter,
             player: Player::new(song, sample_rate as f64),
-        }
+        };
+        processor.assert_retirement_bound_invariant();
+        processor
     }
 
     pub fn new(
@@ -96,7 +98,7 @@ impl AudioProcessor {
         meter: Arc<MeterState>,
     ) -> Self {
         let default_song = Arc::new(sequencer::models::Song::new("Untitled"));
-        Self {
+        let processor = Self {
             command_rx,
             retirement_tx,
             pending_retired: Vec::with_capacity(MAX_PENDING_RETIRED_OBJECTS),
@@ -106,7 +108,32 @@ impl AudioProcessor {
             right_buf: vec![0.0; MAX_BUFFER_SIZE],
             meter,
             player: Player::new(default_song, sample_rate as f64),
-        }
+        };
+        processor.assert_retirement_bound_invariant();
+        processor
+    }
+
+    /// Guards the retirement-ring sizing invariant: `pending_retired` is
+    /// preallocated assuming a single clear retires at most
+    /// `MAX_INSTRUMENTS_PER_CLEAR` instrument owners, which holds only while the
+    /// engine's hard instrument capacity is `<= MAX_INSTRUMENTS_PER_CLEAR`.
+    ///
+    /// The processor currently only ever constructs a default-capacity engine
+    /// (`Engine::new()`, capacity 64 == `MAX_INSTRUMENTS_PER_CLEAR`). If a future
+    /// change wires in a larger-capacity engine via
+    /// `Engine::with_instrument_capacity(n)` with `n > MAX_INSTRUMENTS_PER_CLEAR`,
+    /// a single clear could retire more owners than `pending_retired` holds,
+    /// forcing a reallocation on the RT callback. This assertion makes that
+    /// regression fail loudly in debug builds instead of silently reintroducing
+    /// an RT allocation.
+    fn assert_retirement_bound_invariant(&self) {
+        debug_assert!(
+            self.player.instrument_capacity() <= MAX_INSTRUMENTS_PER_CLEAR,
+            "engine instrument capacity ({}) exceeds MAX_INSTRUMENTS_PER_CLEAR ({}); \
+             pending_retired preallocation would be undersized and reallocate on the RT callback",
+            self.player.instrument_capacity(),
+            MAX_INSTRUMENTS_PER_CLEAR,
+        );
     }
 
     /// The main processing function called by the audio driver.

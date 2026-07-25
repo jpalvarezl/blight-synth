@@ -22,6 +22,12 @@ impl TrackerEngineAdapter {
         }
     }
 
+    /// Hard instrument-slot capacity of the wrapped engine. Non-RT accessor used
+    /// to validate retirement-ring sizing invariants at construction time.
+    pub fn instrument_capacity(&self) -> usize {
+        self.engine.instrument_capacity()
+    }
+
     pub fn note_on(&mut self, instrument_id: InstrumentId, note: u8, velocity: u8) {
         dsp::rt_debug_log!("Playing note: {} on instrument: {}", note, instrument_id);
         self.engine.note_on(instrument_id, note, velocity);
