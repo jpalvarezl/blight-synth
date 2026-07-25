@@ -21,7 +21,7 @@
 //!   compact numeric [`RuntimeParamKey`]. The RT tier holds only `Copy` numeric
 //!   data, so it never allocates, hashes, or touches a `String` on the callback.
 //!
-//! See ADR 0003 (`docs/decisions/0003-parameter-manifest.md`) for the design
+//! See ADR 0004 (`docs/decisions/0004-parameter-manifest.md`) for the design
 //! rationale and compatibility rules.
 
 mod compatibility;

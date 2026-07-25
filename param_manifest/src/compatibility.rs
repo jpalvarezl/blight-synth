@@ -1,6 +1,6 @@
 //! Compatibility comparison between two manifest versions.
 //!
-//! The stability rules from ADR 0003 are enforced here so a CI or review step can
+//! The stability rules from ADR 0004 are enforced here so a CI or review step can
 //! diff a proposed manifest against the accepted one:
 //!
 //! * A stable ID must not disappear silently — removing a live descriptor without

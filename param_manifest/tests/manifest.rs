@@ -123,6 +123,22 @@ fn reversed_range_is_rejected_before_reaching_rt() {
 }
 
 #[test]
+fn building_lookup_from_reversed_range_returns_error_not_panic() {
+    use param_manifest::ValueRange;
+    let mut bad = master_gain_descriptor();
+    // A reversed range slipping into the lookup would let a later
+    // `normalized_to_engine` reach `f32::clamp(min, max)` with min > max.
+    // Construction must validate and reject it instead.
+    bad.range = ValueRange {
+        min: 0.0,
+        max: -120.0,
+        default: 0.0,
+    };
+    let manifest = ParameterManifest::new(vec![bad]);
+    assert!(ParameterLookup::from_manifest(&manifest).is_err());
+}
+
+#[test]
 fn non_finite_default_is_rejected() {
     use param_manifest::ValueRange;
     let mut bad = master_gain_descriptor();
@@ -138,7 +154,7 @@ fn non_finite_default_is_rejected() {
 #[test]
 fn runtime_table_is_the_string_free_rt_handle() {
     let manifest = builtin_manifest();
-    let lookup = ParameterLookup::from_manifest(&manifest);
+    let lookup = ParameterLookup::from_manifest(&manifest).expect("valid manifest");
     let key = lookup
         .key_for(&ParameterId::from(MASTER_GAIN_ID))
         .expect("resolves");
@@ -190,7 +206,7 @@ fn linear_mapping_round_trips() {
 #[test]
 fn lookup_resolves_by_stable_id_and_indexes_by_key() {
     let manifest = builtin_manifest();
-    let lookup = ParameterLookup::from_manifest(&manifest);
+    let lookup = ParameterLookup::from_manifest(&manifest).expect("valid manifest");
 
     assert_eq!(lookup.len(), 1);
 
@@ -262,7 +278,7 @@ fn discrete_kind_collapses_to_step_count_on_rt() {
 
     let manifest = ParameterManifest::new(vec![descriptor]);
     manifest.validate().expect("valid");
-    let lookup = ParameterLookup::from_manifest(&manifest);
+    let lookup = ParameterLookup::from_manifest(&manifest).expect("valid manifest");
     let key = lookup
         .key_for(&ParameterId::from("delay.mode"))
         .expect("resolves");

@@ -17,7 +17,7 @@
 use std::collections::HashMap;
 
 use crate::descriptor::{AutomationRate, ParameterId, ParameterKind, SmoothingPolicy};
-use crate::manifest::ParameterManifest;
+use crate::manifest::{ManifestError, ParameterManifest};
 use crate::mapping::Mapping;
 
 /// Compact numeric handle for a parameter on the real-time path.
@@ -60,11 +60,19 @@ pub struct RuntimeParameter {
 
 impl RuntimeParameter {
     /// Convert a normalized `0..1` value to a clamped engine value.
+    ///
+    /// A validated manifest guarantees `min_engine <= max_engine`, but this type
+    /// is `Copy` and could be constructed directly, so we normalize the clamp
+    /// bounds defensively. `f32::clamp` panics when `min > max`; ordering the
+    /// bounds here keeps this RT-facing conversion panic-free without allocating.
     #[must_use]
     pub fn normalized_to_engine(&self, normalized: f32) -> f32 {
-        self.mapping
-            .to_engine(normalized)
-            .clamp(self.min_engine, self.max_engine)
+        let (lo, hi) = if self.min_engine <= self.max_engine {
+            (self.min_engine, self.max_engine)
+        } else {
+            (self.max_engine, self.min_engine)
+        };
+        self.mapping.to_engine(normalized).clamp(lo, hi)
     }
 }
 
@@ -118,10 +126,18 @@ impl ParameterLookup {
     /// Prepare a lookup from a manifest (NRT). Descriptors keep their authored
     /// order, so keys are `0..parameters.len()`.
     ///
-    /// The manifest is expected to be validated by the caller; duplicate IDs
-    /// would collide in the resolver map and the later occurrence wins.
-    #[must_use]
-    pub fn from_manifest(manifest: &ParameterManifest) -> Self {
+    /// The manifest is validated first via [`ParameterManifest::validate`], so
+    /// duplicate IDs and inconsistent numeric fields (e.g. a reversed
+    /// `min > max` range that would later panic `f32::clamp` on the RT path)
+    /// are rejected here rather than silently reaching the audio thread.
+    ///
+    /// # Errors
+    ///
+    /// Returns the [`ManifestError`] produced by validation if the manifest is
+    /// structurally invalid.
+    pub fn from_manifest(manifest: &ParameterManifest) -> Result<Self, ManifestError> {
+        manifest.validate()?;
+
         let mut entries = Vec::with_capacity(manifest.parameters.len());
         let mut index = HashMap::with_capacity(manifest.parameters.len());
 
@@ -147,12 +163,12 @@ impl ParameterLookup {
             index.insert(descriptor.id.clone(), key);
         }
 
-        Self {
+        Ok(Self {
             table: RuntimeParameterTable {
                 entries: entries.into_boxed_slice(),
             },
             index,
-        }
+        })
     }
 
     /// Resolve a stable ID to its runtime key (NRT).

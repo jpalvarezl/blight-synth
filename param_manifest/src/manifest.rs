@@ -8,7 +8,7 @@ use crate::descriptor::{ParameterDescriptor, ParameterId, ParameterKind, Smoothi
 /// Current manifest schema version.
 ///
 /// Bump this only for a change to the *descriptor shape/semantics*, never for
-/// adding or removing individual parameters. See ADR 0003 for the compatibility
+/// adding or removing individual parameters. See ADR 0004 for the compatibility
 /// rules that govern reads across versions.
 pub const MANIFEST_SCHEMA_VERSION: u32 = 1;
 
