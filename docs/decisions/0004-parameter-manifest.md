@@ -1,5 +1,5 @@
 ---
-title: ADR 0003 — Canonical parameter manifest and host bindings
+title: ADR 0004 — Canonical parameter manifest and host bindings
 summary: One serializable parameter manifest is the single source of truth for parameter metadata across the Rust DSP/engine, project state, OSC, JUCE/APVTS, and the Svelte UI; a bounded string-free runtime lookup serves the audio thread.
 status: proposed
 updated: 2026-07-24
@@ -7,7 +7,7 @@ issues: [121, 101, 145, 137]
 supersedes: []
 ---
 
-# ADR 0003 — Canonical parameter manifest and host bindings
+# ADR 0004 — Canonical parameter manifest and host bindings
 
 ## Status
 

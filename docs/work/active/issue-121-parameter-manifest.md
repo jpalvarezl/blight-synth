@@ -49,7 +49,7 @@ Coordination: parallel #145 (event contract) and #137 (polyphony). Prefer NEW fi
 Status: implemented; verification green. ADR is `proposed` (awaiting acceptance).
 
 ### Delivered
-- **ADR 0003** — [`docs/decisions/0003-parameter-manifest.md`](../../decisions/0003-parameter-manifest.md),
+- **ADR 0004** — [`docs/decisions/0004-parameter-manifest.md`](../../decisions/0004-parameter-manifest.md),
   registered in [`docs/decisions/README.md`](../../decisions/README.md). Records
   descriptor fields, normalized↔engine mapping ownership, automation-rate classes,
   smoothing policy, host-visibility flags, schema version + compatibility rules,
