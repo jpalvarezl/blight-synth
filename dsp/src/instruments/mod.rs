@@ -203,6 +203,9 @@ impl<S: SynthNode> InstrumentTrait for PolyphonicInstrument<S> {
         // Reject without dropping: polyphonic instruments require one prepared
         // effect instance per voice. The caller retires this returned allocation
         // and can surface the unsupported operation from NRT.
+        crate::rt_warn_log!(
+            "PolyphonicInstrument: rejecting add_effect; use add_voice_effects instead"
+        );
         Err(EffectInstallError::new(
             EffectInstallErrorKind::UnsupportedForPolyphonicInstrument,
             effect,
