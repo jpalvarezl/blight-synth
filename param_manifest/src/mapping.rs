@@ -20,6 +20,26 @@ pub enum Mapping {
     /// `engine = min * (max / min)^t`. Useful for frequency and time controls.
     Exponential { min: f32, max: f32 },
 
+    /// Power (skew) mapping over the normalized value with linear endpoints and
+    /// a tunable steepness that is independent of the `min`/`max` ratio.
+    ///
+    /// `to_engine`: `engine = min + (max - min) * t.powf(skew)`, where `t` is the
+    /// clamped normalized value. `to_normalized` (inverse):
+    /// `t = ((engine - min) / (max - min)).powf(1.0 / skew)`, clamped to `0..1`.
+    ///
+    /// The `skew` exponent biases the knob toward one endpoint:
+    /// - `skew == 1.0` is linear (identical to [`Mapping::Linear`]).
+    /// - `skew < 1.0` biases toward `max` (fast rise near the low end).
+    /// - `skew > 1.0` biases toward `min` (slow rise near the low end).
+    ///
+    /// Unlike [`Mapping::Exponential`] — whose steepness is locked to the
+    /// `max / min` ratio and requires positive endpoints — `Skewed` allows
+    /// arbitrary linear endpoints (including zero/negative) with a steepness
+    /// chosen freely via `skew`. A non-finite or non-positive `skew` falls back
+    /// to linear interpolation (mirroring the [`Mapping::Exponential`] guard) and
+    /// is rejected by manifest validation.
+    Skewed { min: f32, max: f32, skew: f32 },
+
     /// The normalized value is a linear amplitude (`0..1`) and the engine value
     /// is decibels: `engine = clamp_floor(20 * log10(t))`. This is the master
     /// gain convention shared with the OSC `/param/set gain` mapping.
@@ -42,6 +62,15 @@ impl Mapping {
                 // configuration by falling back to linear interpolation.
                 if min > 0.0 && max > 0.0 {
                     min * (max / min).powf(t)
+                } else {
+                    min + t * (max - min)
+                }
+            }
+            Mapping::Skewed { min, max, skew } => {
+                // A non-finite or non-positive skew is degenerate; fall back to
+                // linear interpolation just like the Exponential guard above.
+                if skew.is_finite() && skew > 0.0 {
+                    min + (max - min) * t.powf(skew)
                 } else {
                     min + t * (max - min)
                 }
@@ -81,6 +110,18 @@ impl Mapping {
                     0.0
                 }
             }
+            Mapping::Skewed { min, max, skew } => {
+                if (max - min).abs() <= f32::EPSILON {
+                    0.0
+                } else {
+                    let linear = ((engine - min) / (max - min)).clamp(0.0, 1.0);
+                    if skew.is_finite() && skew > 0.0 {
+                        linear.powf(1.0 / skew)
+                    } else {
+                        linear
+                    }
+                }
+            }
             Mapping::AmplitudeDecibel { floor_db } => {
                 if engine <= floor_db {
                     0.0
@@ -97,8 +138,27 @@ impl Mapping {
     #[must_use]
     pub fn endpoint_values(self) -> [f32; 2] {
         match self {
-            Mapping::Linear { min, max } | Mapping::Exponential { min, max } => [min, max],
+            Mapping::Linear { min, max }
+            | Mapping::Exponential { min, max }
+            | Mapping::Skewed { min, max, .. } => [min, max],
             Mapping::AmplitudeDecibel { floor_db } => [floor_db, floor_db],
+        }
+    }
+
+    /// The skew/shape factor of this mapping, if it has one.
+    ///
+    /// `skew` is a shape factor rather than an endpoint, so it is validated
+    /// separately from [`endpoint_values`]: manifest validation rejects a
+    /// non-finite or non-positive skew.
+    ///
+    /// [`endpoint_values`]: Mapping::endpoint_values
+    #[must_use]
+    pub fn skew_factor(self) -> Option<f32> {
+        match self {
+            Mapping::Skewed { skew, .. } => Some(skew),
+            Mapping::Linear { .. }
+            | Mapping::Exponential { .. }
+            | Mapping::AmplitudeDecibel { .. } => None,
         }
     }
 }

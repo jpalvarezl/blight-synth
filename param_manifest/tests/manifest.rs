@@ -258,6 +258,116 @@ fn exponential_with_non_positive_endpoints_falls_back_to_linear() {
 }
 
 #[test]
+fn skewed_mapping_with_skew_one_matches_linear() {
+    let skewed = Mapping::Skewed {
+        min: 0.0,
+        max: 10.0,
+        skew: 1.0,
+    };
+    let linear = Mapping::Linear { min: 0.0, max: 10.0 };
+    for &t in &[0.0_f32, 0.1, 0.37, 0.5, 0.9, 1.0] {
+        assert!(
+            (skewed.to_engine(t) - linear.to_engine(t)).abs() < 1e-6,
+            "to_engine diverges from linear at t={t}"
+        );
+        let engine = linear.to_engine(t);
+        assert!(
+            (skewed.to_normalized(engine) - linear.to_normalized(engine)).abs() < 1e-6,
+            "to_normalized diverges from linear at t={t}"
+        );
+    }
+}
+
+#[test]
+fn skewed_skew_biases_midpoint_relative_to_arithmetic_mean() {
+    // min=0, max=10 -> arithmetic mean of the endpoints is 5.0.
+    let mean = 5.0_f32;
+    // skew < 1.0 biases toward max: fast rise, so the knob midpoint sits above
+    // the arithmetic mean.
+    let fast = Mapping::Skewed {
+        min: 0.0,
+        max: 10.0,
+        skew: 0.4,
+    };
+    assert!(
+        fast.to_engine(0.5) > mean,
+        "skew<1 midpoint should exceed arithmetic mean, got {}",
+        fast.to_engine(0.5)
+    );
+    // skew > 1.0 biases toward min: slow rise, so the knob midpoint sits below
+    // the arithmetic mean.
+    let slow = Mapping::Skewed {
+        min: 0.0,
+        max: 10.0,
+        skew: 2.5,
+    };
+    assert!(
+        slow.to_engine(0.5) < mean,
+        "skew>1 midpoint should be below arithmetic mean, got {}",
+        slow.to_engine(0.5)
+    );
+}
+
+#[test]
+fn skewed_mapping_round_trips_for_several_skews() {
+    for &skew in &[0.4_f32, 2.5] {
+        let mapping = Mapping::Skewed {
+            min: -3.0,
+            max: 7.0,
+            skew,
+        };
+        for &t in &[0.0_f32, 0.1, 0.37, 0.5, 0.9, 1.0] {
+            let engine = mapping.to_engine(t);
+            let back = mapping.to_normalized(engine);
+            assert!(
+                (back - t).abs() < 1e-4,
+                "round-trip failed at t={t} skew={skew}: back={back}"
+            );
+        }
+    }
+}
+
+#[test]
+fn skewed_to_normalized_clamps_out_of_range_engine() {
+    let mapping = Mapping::Skewed {
+        min: 0.0,
+        max: 10.0,
+        skew: 2.5,
+    };
+    assert_eq!(mapping.to_normalized(-5.0), 0.0); // below min
+    assert_eq!(mapping.to_normalized(50.0), 1.0); // above max
+}
+
+#[test]
+fn skewed_with_invalid_skew_is_rejected_by_validation() {
+    for bad_skew in [0.0_f32, -1.0, f32::NAN, f32::INFINITY] {
+        let mut d = master_gain_descriptor();
+        d.mapping = Mapping::Skewed {
+            min: -120.0,
+            max: 0.0,
+            skew: bad_skew,
+        };
+        let manifest = ParameterManifest::new(vec![d]);
+        assert!(
+            manifest.validate().is_err(),
+            "validation should reject skew={bad_skew}"
+        );
+    }
+}
+
+#[test]
+fn skewed_with_valid_skew_passes_validation() {
+    let mut d = master_gain_descriptor();
+    d.mapping = Mapping::Skewed {
+        min: -120.0,
+        max: 0.0,
+        skew: 2.5,
+    };
+    let manifest = ParameterManifest::new(vec![d]);
+    assert!(manifest.validate().is_ok());
+}
+
+#[test]
 fn lookup_resolves_by_stable_id_and_indexes_by_key() {
     let manifest = builtin_manifest();
     let lookup = ParameterLookup::from_manifest(&manifest).expect("valid manifest");

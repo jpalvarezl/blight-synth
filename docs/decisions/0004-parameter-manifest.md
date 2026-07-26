@@ -90,7 +90,7 @@ Each `ParameterDescriptor` records:
 | `display_name`, `short_name` | Full and abbreviated labels. |
 | `unit` | Engine-value unit (dB, Hz, seconds, linear, percent, semitones, count, custom). |
 | `range: ValueRange { min, max, default }` | Engine-value bounds and default. |
-| `mapping: Mapping` | Normalized `0..1` ↔ engine-value conversion (linear / exponential / amplitude-dB). Single unit-conversion owner. |
+| `mapping: Mapping` | Normalized `0..1` ↔ engine-value conversion (linear / exponential / skewed / amplitude-dB). Single unit-conversion owner. |
 | `kind: ParameterKind` | `Continuous` or `Discrete { steps: [{label, engine_value}] }`. |
 | `automation_rate: AutomationRate` | `SampleEvent` \| `ControlCoalesced` \| `Structural` — the traffic class the value flows through. |
 | `smoothing: SmoothingPolicy` | `None` or `Smoothed { duration_ms, curve }`. |
@@ -109,12 +109,22 @@ the descriptor and the runtime tier:
 - `Linear { min, max }`
 - `Exponential { min, max }` (perceptual freq/time controls; falls back to linear
   for non-positive endpoints)
+- `Skewed { min, max, skew }` (power curve `min + (max-min)·tᵏ` with linear
+  endpoints and a tunable steepness `skew`; `skew==1` is linear, `skew<1` biases
+  toward `max`, `skew>1` biases toward `min`; falls back to linear for a
+  non-finite/non-positive `skew`, which manifest validation also rejects)
 - `AmplitudeDecibel { floor_db }` (normalized is linear amplitude, engine value is
   dB; `1.0 → 0 dB`, `0.5 → −6.02 dB`, `0.0 → floor_db`)
 
 `to_engine`/`to_normalized` are pure clamped arithmetic and are safe to call on
 the audio thread. Every host adapter converts through this type instead of
 carrying its own math.
+
+Choose `Exponential` when the perceived control should be geometric/equal-ratio
+(frequency, time), where steepness is inherently tied to the `max/min` ratio and
+endpoints must be positive. Choose `Skewed` when you need an arbitrary steepness
+with plain linear endpoints (including zero/negative) — the `skew` exponent biases
+the knob toward one end independently of where the endpoints sit.
 
 ### 4. Automation rate maps to the RT traffic classes
 

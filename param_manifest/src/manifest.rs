@@ -134,6 +134,12 @@ fn validate_numeric(d: &ParameterDescriptor) -> Result<(), ManifestError> {
         }
     }
 
+    if let Some(skew) = d.mapping.skew_factor() {
+        if !(skew.is_finite() && skew > 0.0) {
+            return Err(invalid("mapping skew must be finite and > 0"));
+        }
+    }
+
     if let SmoothingPolicy::Smoothed { duration_ms, .. } = d.smoothing {
         if !duration_ms.is_finite() || duration_ms < 0.0 {
             return Err(invalid("smoothing duration_ms must be finite and non-negative"));
