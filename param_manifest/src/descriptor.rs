@@ -147,7 +147,10 @@ pub enum SmoothingPolicy {
     /// No smoothing; the engine value jumps to the target.
     None,
     /// Smooth over `duration_ms` using `curve`.
-    Smoothed { duration_ms: f32, curve: SmoothingCurve },
+    Smoothed {
+        duration_ms: f32,
+        curve: SmoothingCurve,
+    },
 }
 
 /// Host-facing visibility and automation flags.
@@ -205,8 +208,24 @@ pub struct ParameterDescriptor {
 
 impl ParameterDescriptor {
     /// Default engine value expressed as a normalized `0..1` control value.
+    ///
+    /// Continuous parameters invert their mapping. Discrete parameters use the
+    /// authored step's ordinal position because their numeric engine values may
+    /// be non-uniform; validation guarantees the default equals one step. On an
+    /// unvalidated malformed discrete descriptor, this falls back to the mapping
+    /// inverse rather than panicking.
     #[must_use]
     pub fn default_normalized(&self) -> f32 {
+        if let ParameterKind::Discrete { steps } = &self.kind {
+            if steps.len() >= 2 {
+                if let Some(index) = steps
+                    .iter()
+                    .position(|step| step.engine_value == self.range.default)
+                {
+                    return (index as f64 / (steps.len() - 1) as f64) as f32;
+                }
+            }
+        }
         self.mapping.to_normalized(self.range.default)
     }
 }

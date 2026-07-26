@@ -5,8 +5,9 @@
 //!
 //! * A stable ID must not disappear silently — removing a live descriptor without
 //!   first deprecating it is a breaking change.
-//! * A stable ID must not change its automation-rate traffic class; hosts bind
-//!   overload behavior to it.
+//! * A stable ID must not change its automation-rate traffic class, full owner
+//!   identity, value semantics, or host binding capabilities.
+//! * Smoothing is intentionally tunable and is not a schema compatibility event.
 //! * Adding a new descriptor is always compatible.
 
 use crate::descriptor::ParameterId;
@@ -19,10 +20,12 @@ pub enum CompatibilityBreak {
     RemovedWithoutDeprecation(ParameterId),
     /// A previously-published ID changed its automation traffic class.
     AutomationRateChanged(ParameterId),
-    /// A previously-published ID changed a meaning-bearing field (mapping, range,
-    /// unit, kind, or engine parameter slot), which would reinterpret saved
-    /// normalized automation/project values. Renames must use a new ID instead.
+    /// A previously-published ID changed a meaning-bearing field (full owner,
+    /// mapping, range, unit, or kind), changing routing or saved-value meaning.
     SemanticsChanged(ParameterId),
+    /// A previously-published ID changed host visibility, automation, or
+    /// read-only capability and can no longer preserve an existing host binding.
+    HostBindingChanged(ParameterId),
 }
 
 impl std::fmt::Display for CompatibilityBreak {
@@ -35,7 +38,13 @@ impl std::fmt::Display for CompatibilityBreak {
                 write!(f, "parameter `{id}` changed its automation rate")
             }
             CompatibilityBreak::SemanticsChanged(id) => {
-                write!(f, "parameter `{id}` changed a meaning-bearing field under the same id")
+                write!(
+                    f,
+                    "parameter `{id}` changed a meaning-bearing field under the same id"
+                )
+            }
+            CompatibilityBreak::HostBindingChanged(id) => {
+                write!(f, "parameter `{id}` changed host binding capabilities")
             }
         }
     }
@@ -75,7 +84,9 @@ impl ParameterManifest {
                     if old.deprecated.is_none() {
                         report
                             .breaks
-                            .push(CompatibilityBreak::RemovedWithoutDeprecation(old.id.clone()));
+                            .push(CompatibilityBreak::RemovedWithoutDeprecation(
+                                old.id.clone(),
+                            ));
                     }
                 }
                 Some(new) => {
@@ -84,18 +95,27 @@ impl ParameterManifest {
                             .breaks
                             .push(CompatibilityBreak::AutomationRateChanged(old.id.clone()));
                     }
-                    // Meaning-bearing fields must not change under a stable ID;
-                    // saved normalized values would be reinterpreted.
+                    // Routing and value meaning must not change under a stable
+                    // ID. Compare the full owner: a numerically identical slot on
+                    // another node is still a different binding target.
                     if new.mapping != old.mapping
                         || new.range != old.range
                         || new.unit != old.unit
                         || new.kind != old.kind
-                        || new.owner.engine_param_index != old.owner.engine_param_index
+                        || new.owner != old.owner
                     {
                         report
                             .breaks
                             .push(CompatibilityBreak::SemanticsChanged(old.id.clone()));
                     }
+                    if new.visibility != old.visibility {
+                        report
+                            .breaks
+                            .push(CompatibilityBreak::HostBindingChanged(old.id.clone()));
+                    }
+                    // Smoothing is deliberately omitted: changing de-zipper
+                    // tuning does not reinterpret saved values or invalidate a
+                    // host binding, so it is a compatible behavior adjustment.
                     if new.deprecated.is_some() && old.deprecated.is_none() {
                         report.newly_deprecated.push(old.id.clone());
                     }

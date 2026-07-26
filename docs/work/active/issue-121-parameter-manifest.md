@@ -46,57 +46,50 @@ Coordination: parallel #145 (event contract) and #137 (polyphony). Prefer NEW fi
 
 ## Handoff
 
-Status: implemented; verification green. ADR is `proposed` (awaiting acceptance).
+Status: implemented; independent-review findings addressed. ADR remains
+`proposed` pending acceptance.
 
 ### Delivered
-- **ADR 0004** — [`docs/decisions/0004-parameter-manifest.md`](../../decisions/0004-parameter-manifest.md),
-  registered in [`docs/decisions/README.md`](../../decisions/README.md). Records
-  descriptor fields, normalized↔engine mapping ownership, automation-rate classes,
-  smoothing policy, host-visibility flags, schema version + compatibility rules,
-  stable IDs, the bounded string-free RT representation, and how OSC/APVTS/Svelte
-  bind without duplicating conversion/smoothing.
-- **New crate `param_manifest/`** (added to workspace `members` and
-  `workspace.dependencies`; depends only on `serde`, dev-dep `serde_json`).
-  - `descriptor.rs` — `ParameterDescriptor`, `ParameterId`, `NodeRef`/`NodeType`,
-    `Unit`, `ValueRange`, `ParameterKind`/`DiscreteStep`, `AutomationRate`,
-    `SmoothingPolicy`/`SmoothingCurve`, `Visibility`.
-  - `mapping.rs` — `Mapping` (Linear / Exponential / AmplitudeDecibel) with
-    `to_engine`/`to_normalized` (Copy, RT-safe).
-  - `manifest.rs` — `ParameterManifest`, `MANIFEST_SCHEMA_VERSION`, `validate()`,
-    `is_readable_by`, `ManifestError`.
-  - `compatibility.rs` — `compatibility_against` + `CompatibilityReport`/`CompatibilityBreak`.
-  - `runtime.rs` — bounded string-free RT handle `RuntimeParameterTable` (`get`
-    RT O(1) slice index) split from the NRT owner `ParameterLookup`
-    (`from_manifest`, `key_for` NRT, `table`/`into_table`); `RuntimeParameter`
-    (Copy), `RuntimeParamKey`, `RuntimeKind`. The `ParameterId`→key resolver map
-    lives only on the NRT owner and is never handed to the callback.
-  - `builtin.rs` — representative wired parameter: **master gain** (`master.gain`),
-    mapping `AmplitudeDecibel { floor_db: -120 }`, targeting master effect
-    `set_parameter` index 0. Mirrors the OSC `/param/set gain` conversion.
-- **Tests** — `param_manifest/tests/manifest.rs` (15 tests): JSON round-trip,
-  duplicate-id/schema-version/numeric validation (reversed range, non-finite
-  default), compatibility rules (remove/deprecate/add/automation-rate-change/
-  mapping-semantics-change), master-gain mapping matches the OSC numbers
-  (0.5→−6.02 dB), linear round-trip, string-free RT-table handle + bounded key
-  indexing, lookup-by-ID, discrete kind→step-count collapse.
+- **ADR 0004** — [`docs/decisions/0004-parameter-manifest.md`](../../decisions/0004-parameter-manifest.md)
+  records descriptor/mapping ownership, automation and smoothing policy, stable-ID
+  compatibility, strict validation, and the bounded NRT/RT split.
+- **New crate `param_manifest/`** (only `serde`, plus dev-only `serde_json`):
+  - complete serializable descriptors and compatibility reports;
+  - stable Linear/Exponential/Skewed/AmplitudeDecibel conversion with explicit
+    NaN/infinity policy and exact agreement between mapping bounds and ranges;
+  - current-schema and practical capacity validation;
+  - private-construction `Copy` runtime entries, checked compact keys, and a
+    non-`Clone` runtime table whose owning lifecycle remains NRT;
+  - exact non-uniform discrete numeric values in a flat string-free RT arena;
+  - representative, **not yet wired**, master-gain descriptor with stable OSC ID
+    `"gain"` and the existing `-120 dB` floor convention.
+- **Compatibility policy** compares the full owner identity. Value/routing,
+  automation-rate, and visibility/automatable/read-only changes are breaking;
+  smoothing is documented as compatible tuning.
+- **Tests** — 39 integration tests plus one internal malformed-entry defense test.
+  Coverage includes tiny/equal/extreme spans, exponential extreme ratios, skew
+  limits, reversed endpoints, mapping/range disagreement, dB floors, NaN and
+  infinity inputs, schema v0, capacities, exact non-uniform discrete RT values,
+  full-owner/visibility compatibility, and compile-time Copy/size assertions.
 
-### Review-driven refinements (code_review, gpt-5.5)
-- Split the NRT resolver `HashMap` from the RT handle: the callback receives a
-  string-free `RuntimeParameterTable`.
-- `validate()` now rejects non-finite/reversed/out-of-range descriptor data and
-  bad mapping/smoothing/discrete config before it can reach the RT `clamp` path.
-- Compatibility now flags meaning-bearing changes (mapping/range/unit/kind/engine
-  slot) under a stable ID as breaking.
-- The representative descriptor uses the existing public OSC id `"gain"` (not a
-  new `master.gain`) to avoid breaking current clients on migration.
+### Design deviation and rationale
+- Discrete values are carried in a numeric runtime arena rather than reconstructed
+  from `step_count + Mapping`. This preserves authored non-uniform choices exactly
+  without strings, allocation, or unbounded work on RT.
+- Conversion moved to `RuntimeParameterTable::normalized_to_engine` so discrete
+  entries can access that arena. `RuntimeParameter` fields are private and exposed
+  through read-only getters; an internal malformed-entry test verifies the final
+  finite, panic-free fallback.
 
 ### Not done (by design / follow-up)
 - No coalesced RT parameter pipeline (#101 consumes this manifest).
-- OSC/engine dB double-conversion left in place; migrating `normalized_gain_to_db`
-  to `Mapping` is a mechanical follow-up. `engine/src/lib.rs` untouched.
-- Only one representative parameter wired; full catalog is follow-up.
+- No existing crate consumes `param_manifest` yet. The current OSC conversion is
+  unchanged; the representative descriptor is tested against it for future migration.
+- No full instrument/effect catalog; `engine`, `dsp`, `audio_backend`, and
+  `realtime-contract.md` are untouched by this issue.
 
 ### Verification
-- `cargo test --workspace --all-targets` → all pass (param_manifest: 15 passed).
+- `cargo test --workspace --all-targets` → all targets passed; `param_manifest`:
+  1 unit test + 39 integration tests passed.
 - `cargo clippy --workspace --all-targets -- -D warnings` → clean.
 - `python3 scripts/docs/check_docs.py` → `documentation check passed: 27 pages`.

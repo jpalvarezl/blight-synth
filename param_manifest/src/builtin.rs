@@ -1,16 +1,16 @@
 //! Representative built-in descriptors.
 //!
-//! This module wires ONE existing parameter — the standalone master gain — as a
-//! canonical descriptor to prove the manifest shape end to end. It is
-//! deliberately *not* a full parameter catalog; migrating every instrument/effect
-//! parameter is follow-up work (see the issue #121 task packet).
+//! This module describes one existing parameter — the standalone master gain —
+//! as a representative canonical descriptor. It is deliberately *not* wired into
+//! the current engine/OSC path and is not a full catalog; consumer migration and
+//! the remaining instrument/effect descriptors are follow-up work.
 //!
 //! The master gain today is converted ad hoc in the OSC adapter
 //! (`audio_backend/src/standalone_process/osc.rs::normalized_gain_to_db`): a
 //! normalized `0..1` linear amplitude is mapped to dB, then the engine `Gain`
 //! effect re-converts dB to a linear factor. The descriptor below owns that
-//! normalized<->dB conversion via [`Mapping::AmplitudeDecibel`], so any host
-//! adapter (OSC, APVTS, Svelte) can bind to it without re-deriving the math.
+//! normalized<->dB conversion via [`Mapping::AmplitudeDecibel`], demonstrating
+//! the shared conversion that future host-adapter consumers can bind to.
 
 use crate::descriptor::{
     AutomationRate, NodeRef, NodeType, ParameterDescriptor, ParameterId, ParameterKind,

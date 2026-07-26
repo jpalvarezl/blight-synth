@@ -21,7 +21,8 @@ RT pipeline (owned by [#101](https://github.com/jpalvarezl/blight-synth/issues/1
 does not rewire every existing instrument/effect parameter (follow-up), and does
 not change engine voice code (owned by
 [#137](https://github.com/jpalvarezl/blight-synth/issues/137)). It provides the
-types plus one representative wired parameter (the standalone master gain).
+types plus one representative descriptor matching the standalone master gain.
+The existing OSC/engine path is not migrated by this issue.
 
 ## Context
 
@@ -60,9 +61,10 @@ the audio thread to consume.
 
 Adopt a single serializable **parameter manifest** as the source of truth for
 parameter metadata, plus a bounded **runtime lookup** derived from it for the
-audio thread. Both live in a new dedicated workspace crate `param_manifest` that
-`dsp`/`engine`/`audio_backend`, the UI export, and a future plugin all depend on,
-so no boundary re-derives the metadata.
+audio thread. Both live in a new dedicated workspace crate `param_manifest`.
+This issue adds the contract crate and representative descriptor; future
+consumer migrations will make `dsp`/`engine`/`audio_backend`, the UI export, and
+a future plugin depend on it instead of re-deriving metadata.
 
 ### 1. Two tiers, matching the prepared-state rule
 
@@ -71,13 +73,15 @@ so no boundary re-derives the metadata.
   and versioning metadata. It is authored/parsed/validated exclusively off the
   audio thread.
 - **Runtime tier (RT).** `ParameterLookup` is prepared once on NRT from a
-  validated manifest. It exposes a string-free `RuntimeParameterTable` (a bounded
-  `Box<[RuntimeParameter]>`) as the audio-thread handle: parameters are addressed
-  by a compact `RuntimeParamKey(u32)` and resolved with a bounded O(1) slice
-  index — no hashing, no allocation, and no `String` on the RT path. The
-  `ParameterId`→key resolver `HashMap` stays on the NRT `ParameterLookup` owner
-  and is never handed to the callback; `RuntimeParameter` is `Copy` and holds
-  only numeric fields.
+  validated manifest. It exposes a string-free `RuntimeParameterTable` with
+  bounded boxed slices for `RuntimeParameter` entries and exact numeric discrete
+  values. Parameters are addressed by a compact `RuntimeParamKey(u32)` and
+  resolved with bounded O(1) slice indexing — no hashing, allocation, or
+  `String` access in read/conversion methods. The `ParameterId`→key resolver
+  `HashMap` stays on the NRT `ParameterLookup` owner; `RuntimeParameter` is a
+  private-construction `Copy` numeric entry. The table is intentionally not
+  `Clone`: installation, replacement, and destruction are prepared-state
+  lifecycle operations, and displaced tables must be retired to NRT.
 
 ### 2. Descriptor fields
 
@@ -99,7 +103,9 @@ Each `ParameterDescriptor` records:
 
 The manifest carries `schema_version` (`MANIFEST_SCHEMA_VERSION`), bumped only for
 a change to the descriptor *shape/semantics*, never for adding or removing
-individual parameters.
+individual parameters. Version 1 is the first defined schema and this initial
+implementation accepts exactly the current version; supporting an older shape
+requires an explicit migration.
 
 ### 3. Normalized ↔ engine mapping ownership
 
@@ -107,18 +113,23 @@ individual parameters.
 the descriptor and the runtime tier:
 
 - `Linear { min, max }`
-- `Exponential { min, max }` (perceptual freq/time controls; falls back to linear
-  for non-positive endpoints)
-- `Skewed { min, max, skew }` (power curve `min + (max-min)·tᵏ` with linear
-  endpoints and a tunable steepness `skew`; `skew==1` is linear, `skew<1` biases
-  toward `max`, `skew>1` biases toward `min`; falls back to linear for a
-  non-finite/non-positive `skew`, which manifest validation also rejects)
+- `Exponential { min, max }` (perceptual frequency/time controls; valid manifests
+  require finite `0 < min < max`)
+- `Skewed { min, max, skew }` (power curve over linear endpoints; `skew==1` is
+  linear, `skew<1` biases toward `max`, and `skew>1` biases toward `min`; valid
+  manifests bound the exponent to `1/64..=64` to avoid unusable `f32` collapse)
 - `AmplitudeDecibel { floor_db }` (normalized is linear amplitude, engine value is
-  dB; `1.0 → 0 dB`, `0.5 → −6.02 dB`, `0.0 → floor_db`)
+  dB; `1.0 → 0 dB`, `0.5 → −6.02 dB`, `0.0 → floor_db`; valid floors are below
+  the implied `0 dB` maximum)
 
-`to_engine`/`to_normalized` are pure clamped arithmetic and are safe to call on
-the audio thread. Every host adapter converts through this type instead of
-carrying its own math.
+Mapping bounds must exactly match `ValueRange.min/max`. Conversion uses stable
+`f64` intermediates so tiny representable spans and the full finite `f32` linear
+span do not overflow intermediate subtraction/ratios. NaN normalized input falls
+back to `0.0`; NaN engine input falls back to the range floor; infinities clamp.
+The methods also sanitize invalid directly constructed mappings to finite ordered
+bounds, but NRT validation remains mandatory for prepared state. The inverse is
+promised only over the representable, non-floored portion of a mapping (all
+amplitudes at/below a dB floor intentionally map back to `0.0`).
 
 Choose `Exponential` when the perceived control should be geometric/equal-ratio
 (frequency, time), where steepness is inherently tied to the `max/min` ratio and
@@ -163,16 +174,20 @@ identical across every adapter for the same parameter.
   A rename is a new ID plus a `deprecated` marker on the old one.
 - `RuntimeParamKey` is a dense per-prepared-lookup index, *not* a stable
   cross-version identity; the stable identity is always the string `ParameterId`.
-- `ParameterManifest::validate()` enforces supported schema version, unique IDs,
-  no descriptor claiming a version above the manifest's, and finite/consistent
-  numeric fields (`min <= default <= max`, finite mapping/smoothing parameters,
-  non-empty discrete step sets) so malformed serialized data cannot reach the RT
-  `clamp`/conversion path.
+- `ParameterManifest::validate()` enforces the current schema version, practical
+  table/discrete capacities, unique IDs, descriptor versions, finite ordered
+  ranges, variant-specific mapping invariants, exact mapping/range agreement,
+  finite smoothing, and discrete values/defaults within range. Discrete numeric
+  values (including non-uniform sets) are copied into a flat string-free runtime
+  arena rather than reconstructed from `step_count`; normalized discrete positions
+  and `default_normalized()` use ordinal step indexes.
 - `ParameterManifest::compatibility_against(previous)` reports breaking changes:
-  removing a live (non-deprecated) ID, changing an ID's automation rate, and
-  changing a meaning-bearing field (mapping/range/unit/kind/engine slot) under a
-  stable ID are breaking; adding an ID and deprecating an ID are compatible. A
-  CI/review step can diff a proposed manifest against the accepted one.
+  removing a live ID; changing automation rate; changing mapping/range/unit/kind
+  or the full owner identity (`node_type`, `path`, and engine slot); and changing
+  host visibility/automatable/read-only capabilities. Adding or deprecating an ID
+  is compatible. Smoothing changes are explicitly compatible tuning events: they
+  change de-zipper behavior but do not reinterpret saved values or invalidate a
+  host binding. A CI/review step can diff manifests against the accepted one.
 
 ### Non-goals
 
@@ -206,9 +221,9 @@ identical across every adapter for the same parameter.
 - A new workspace crate widens the dependency graph (a
   [system-boundaries](../architecture/system-boundaries.md) contract surface); it
   is intentionally minimal (`serde` only) and depends on nothing else.
-- Until #101 lands and the adapters migrate, the manifest and the ad-hoc OSC
-  conversion coexist; the master-gain descriptor is asserted (in tests) to
-  reproduce the exact OSC numbers to prevent drift.
+- Until #101 lands and the adapters migrate, the unused representative manifest
+  and the ad-hoc OSC conversion coexist; tests assert that the master-gain
+  descriptor reproduces the exact OSC numbers to prevent drift.
 - The descriptor is expressive; authoring discipline (naming conventions, keeping
   `Mapping` in sync with `set_parameter` behavior) is required until parameters
   are generated from a single definition.

@@ -18,8 +18,9 @@
 //!   audio thread (NRT).
 //! * A bounded, string-free **runtime lookup** ([`ParameterLookup`] of
 //!   [`RuntimeParameter`]s) prepared on NRT and consumed on the audio thread by a
-//!   compact numeric [`RuntimeParamKey`]. The RT tier holds only `Copy` numeric
-//!   data, so it never allocates, hashes, or touches a `String` on the callback.
+//!   compact numeric [`RuntimeParamKey`]. The RT table holds only numeric boxed
+//!   slices; its read/conversion methods never allocate, hash, or touch a `String`.
+//!   Table ownership is installed and retired through the prepared-state lifecycle.
 //!
 //! See ADR 0004 (`docs/decisions/0004-parameter-manifest.md`) for the design
 //! rationale and compatibility rules.
@@ -37,6 +38,11 @@ pub use descriptor::{
     AutomationRate, DiscreteStep, NodeRef, NodeType, ParameterDescriptor, ParameterId,
     ParameterKind, SmoothingCurve, SmoothingPolicy, Unit, ValueRange, Visibility,
 };
-pub use manifest::{ManifestError, ParameterManifest, MANIFEST_SCHEMA_VERSION};
-pub use mapping::Mapping;
-pub use runtime::{ParameterLookup, RuntimeKind, RuntimeParamKey, RuntimeParameter, RuntimeParameterTable};
+pub use manifest::{
+    ManifestError, ParameterManifest, MANIFEST_SCHEMA_VERSION, MAX_DISCRETE_STEP_COUNT,
+    MAX_PARAMETER_COUNT, MAX_TOTAL_DISCRETE_VALUES,
+};
+pub use mapping::{Mapping, MAX_SKEW, MIN_SKEW};
+pub use runtime::{
+    ParameterLookup, RuntimeKind, RuntimeParamKey, RuntimeParameter, RuntimeParameterTable,
+};

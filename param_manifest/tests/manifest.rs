@@ -2,8 +2,9 @@
 
 use param_manifest::{
     builtin::{builtin_manifest, master_gain_descriptor, MASTER_GAIN_FLOOR_DB, MASTER_GAIN_ID},
-    AutomationRate, CompatibilityBreak, Mapping, ParameterDescriptor, ParameterId,
-    ParameterLookup, ParameterManifest, RuntimeKind, MANIFEST_SCHEMA_VERSION,
+    AutomationRate, CompatibilityBreak, Mapping, ParameterDescriptor, ParameterId, ParameterLookup,
+    ParameterManifest, RuntimeKind, RuntimeParameter, ValueRange, MANIFEST_SCHEMA_VERSION,
+    MAX_DISCRETE_STEP_COUNT, MAX_PARAMETER_COUNT, MAX_SKEW, MIN_SKEW,
 };
 
 #[test]
@@ -62,7 +63,10 @@ fn deprecating_then_removing_is_compatible() {
 
     let report = deprecated_manifest.compatibility_against(&previous);
     assert!(report.is_compatible());
-    assert_eq!(report.newly_deprecated, vec![ParameterId::from(MASTER_GAIN_ID)]);
+    assert_eq!(
+        report.newly_deprecated,
+        vec![ParameterId::from(MASTER_GAIN_ID)]
+    );
 
     // Step 2: removing an already-deprecated parameter is compatible.
     let removed = ParameterManifest::new(vec![]);
@@ -89,9 +93,9 @@ fn changing_automation_rate_is_a_breaking_change() {
     let report = new.compatibility_against(&previous);
     assert_eq!(
         report.breaks,
-        vec![CompatibilityBreak::AutomationRateChanged(ParameterId::from(
-            MASTER_GAIN_ID
-        ))]
+        vec![CompatibilityBreak::AutomationRateChanged(
+            ParameterId::from(MASTER_GAIN_ID)
+        )]
     );
 }
 
@@ -103,14 +107,15 @@ fn changing_mapping_under_same_id_is_a_breaking_change() {
     let new = ParameterManifest::new(vec![changed]);
 
     let report = new.compatibility_against(&previous);
-    assert!(report.breaks.contains(&CompatibilityBreak::SemanticsChanged(
-        ParameterId::from(MASTER_GAIN_ID)
-    )));
+    assert!(report
+        .breaks
+        .contains(&CompatibilityBreak::SemanticsChanged(ParameterId::from(
+            MASTER_GAIN_ID
+        ))));
 }
 
 #[test]
 fn reversed_range_is_rejected_before_reaching_rt() {
-    use param_manifest::ValueRange;
     let mut bad = master_gain_descriptor();
     // A reversed range would panic f32::clamp on the RT conversion path.
     bad.range = ValueRange {
@@ -124,7 +129,6 @@ fn reversed_range_is_rejected_before_reaching_rt() {
 
 #[test]
 fn building_lookup_from_reversed_range_returns_error_not_panic() {
-    use param_manifest::ValueRange;
     let mut bad = master_gain_descriptor();
     // A reversed range slipping into the lookup would let a later
     // `normalized_to_engine` reach `f32::clamp(min, max)` with min > max.
@@ -140,7 +144,6 @@ fn building_lookup_from_reversed_range_returns_error_not_panic() {
 
 #[test]
 fn non_finite_default_is_rejected() {
-    use param_manifest::ValueRange;
     let mut bad = master_gain_descriptor();
     bad.range = ValueRange {
         min: -120.0,
@@ -163,8 +166,8 @@ fn runtime_table_is_the_string_free_rt_handle() {
     let table = lookup.table();
     assert_eq!(table.len(), 1);
     assert_eq!(
-        table.get(key).unwrap().engine_param_index,
-        lookup.get(key).unwrap().engine_param_index
+        table.get(key).unwrap().engine_param_index(),
+        lookup.get(key).unwrap().engine_param_index()
     );
 
     // Ownership can be transferred to the callback, dropping the NRT resolver.
@@ -215,19 +218,28 @@ fn exponential_mapping_round_trips_and_is_perceptually_geometric() {
     assert!((mapping.to_engine(0.0) - 20.0).abs() < 1e-3);
     assert!((mapping.to_engine(1.0) - 20_000.0).abs() < 1.0);
     let mid = mapping.to_engine(0.5);
-    assert!((mid - 632.4555).abs() < 0.5, "midpoint should be geometric mean, got {mid}");
+    assert!(
+        (mid - 632.4555).abs() < 0.5,
+        "midpoint should be geometric mean, got {mid}"
+    );
     // Round-trip several points through the inverse.
     for &t in &[0.0_f32, 0.1, 0.37, 0.5, 0.9, 1.0] {
         let engine = mapping.to_engine(t);
         let back = mapping.to_normalized(engine);
-        assert!((back - t).abs() < 1e-4, "round-trip failed at t={t}: back={back}");
+        assert!(
+            (back - t).abs() < 1e-4,
+            "round-trip failed at t={t}: back={back}"
+        );
     }
 }
 
 #[test]
 fn to_normalized_clamps_engine_values_outside_the_range() {
     // Values below the range map to 0.0, above the range to 1.0, for every curve.
-    let linear = Mapping::Linear { min: 0.0, max: 10.0 };
+    let linear = Mapping::Linear {
+        min: 0.0,
+        max: 10.0,
+    };
     assert_eq!(linear.to_normalized(-5.0), 0.0);
     assert_eq!(linear.to_normalized(50.0), 1.0);
 
@@ -237,8 +249,8 @@ fn to_normalized_clamps_engine_values_outside_the_range() {
     };
     assert_eq!(exp.to_normalized(1.0), 0.0); // below min
     assert_eq!(exp.to_normalized(1_000_000.0), 1.0); // above max
-    // Non-positive engine input on a positive-endpoint exponential must not
-    // produce NaN/inf; it clamps to 0.0.
+                                                     // Non-positive engine input on a positive-endpoint exponential must not
+                                                     // produce NaN/inf; it clamps to 0.0.
     assert_eq!(exp.to_normalized(0.0), 0.0);
     assert_eq!(exp.to_normalized(-3.0), 0.0);
 
@@ -252,7 +264,10 @@ fn exponential_with_non_positive_endpoints_falls_back_to_linear() {
     // Guarded configuration: a non-positive endpoint can't use the geometric
     // formula, so both directions degrade to linear interpolation rather than
     // returning NaN.
-    let mapping = Mapping::Exponential { min: 0.0, max: 100.0 };
+    let mapping = Mapping::Exponential {
+        min: 0.0,
+        max: 100.0,
+    };
     assert!((mapping.to_engine(0.5) - 50.0).abs() < 1e-3);
     assert!((mapping.to_normalized(50.0) - 0.5).abs() < 1e-3);
 }
@@ -264,7 +279,10 @@ fn skewed_mapping_with_skew_one_matches_linear() {
         max: 10.0,
         skew: 1.0,
     };
-    let linear = Mapping::Linear { min: 0.0, max: 10.0 };
+    let linear = Mapping::Linear {
+        min: 0.0,
+        max: 10.0,
+    };
     for &t in &[0.0_f32, 0.1, 0.37, 0.5, 0.9, 1.0] {
         assert!(
             (skewed.to_engine(t) - linear.to_engine(t)).abs() < 1e-6,
@@ -380,12 +398,13 @@ fn lookup_resolves_by_stable_id_and_indexes_by_key() {
 
     // RT: bounded index by key, no strings involved.
     let entry = lookup.get(key).expect("key resolves to an entry");
-    assert_eq!(entry.engine_param_index, 0);
-    assert!(matches!(entry.kind, RuntimeKind::Continuous));
-    assert_eq!(entry.automation_rate, AutomationRate::ControlCoalesced);
+    assert_eq!(entry.engine_param_index(), 0);
+    assert!(matches!(entry.kind(), RuntimeKind::Continuous));
+    assert_eq!(entry.automation_rate(), AutomationRate::ControlCoalesced);
 
-    // The runtime mapping reproduces the same engine value as the descriptor.
-    assert!((entry.normalized_to_engine(0.5) - (-6.0206)).abs() < 1e-3);
+    // The runtime table reproduces the same engine value as the descriptor.
+    let engine = lookup.normalized_to_engine(key, 0.5).expect("key converts");
+    assert!((engine - (-6.0206)).abs() < 1e-3);
 
     // Out-of-range key yields None (bounded, no panic).
     assert!(lookup.get(param_manifest::RuntimeParamKey(999)).is_none());
@@ -395,7 +414,7 @@ fn lookup_resolves_by_stable_id_and_indexes_by_key() {
 }
 
 #[test]
-fn discrete_kind_collapses_to_step_count_on_rt() {
+fn discrete_kind_carries_exact_numeric_values_on_rt() {
     use param_manifest::{
         DiscreteStep, NodeRef, NodeType, ParameterKind, SmoothingPolicy, Unit, ValueRange,
         Visibility,
@@ -414,7 +433,7 @@ fn discrete_kind_collapses_to_step_count_on_rt() {
         range: ValueRange {
             min: 0.0,
             max: 2.0,
-            default: 0.0,
+            default: 1.25,
         },
         mapping: Mapping::Linear { min: 0.0, max: 2.0 },
         kind: ParameterKind::Discrete {
@@ -425,7 +444,9 @@ fn discrete_kind_collapses_to_step_count_on_rt() {
                 },
                 DiscreteStep {
                     label: "Slap".to_string(),
-                    engine_value: 1.0,
+                    // Deliberately non-uniform: the RT tier must carry this exact
+                    // numeric value rather than reconstructing it from a count.
+                    engine_value: 1.25,
                 },
                 DiscreteStep {
                     label: "Ping-Pong".to_string(),
@@ -440,6 +461,7 @@ fn discrete_kind_collapses_to_step_count_on_rt() {
         deprecated: None,
     };
 
+    assert_eq!(descriptor.default_normalized(), 0.5);
     let manifest = ParameterManifest::new(vec![descriptor]);
     manifest.validate().expect("valid");
     let lookup = ParameterLookup::from_manifest(&manifest).expect("valid manifest");
@@ -447,7 +469,323 @@ fn discrete_kind_collapses_to_step_count_on_rt() {
         .key_for(&ParameterId::from("delay.mode"))
         .expect("resolves");
     assert_eq!(
-        lookup.get(key).unwrap().kind,
+        lookup.get(key).unwrap().kind(),
         RuntimeKind::Discrete { step_count: 3 }
     );
+    assert_eq!(lookup.normalized_to_engine(key, 0.49), Some(1.25));
+    assert_eq!(lookup.normalized_to_engine(key, f32::NAN), Some(0.0));
+}
+
+#[test]
+fn schema_version_zero_is_rejected() {
+    let mut manifest = builtin_manifest();
+    manifest.schema_version = 0;
+    let error = manifest.validate().expect_err("schema v0 is undefined");
+    assert!(matches!(
+        error,
+        param_manifest::ManifestError::UnsupportedSchemaVersion { manifest: 0, .. }
+    ));
+}
+
+#[test]
+fn mapping_bounds_must_match_descriptor_range() {
+    let mut descriptor = master_gain_descriptor();
+    descriptor.mapping = Mapping::Linear { min: 0.0, max: 1.0 };
+    let error = ParameterManifest::new(vec![descriptor])
+        .validate()
+        .expect_err("mapping/range disagreement must fail");
+    assert!(format!("{error}").contains("mapping bounds must equal"));
+}
+
+#[test]
+fn reversed_and_equal_mapping_endpoints_are_rejected() {
+    for mapping in [
+        Mapping::Linear { min: 1.0, max: 0.0 },
+        Mapping::Linear { min: 0.0, max: 0.0 },
+        Mapping::Exponential { min: 1.0, max: 1.0 },
+        Mapping::Skewed {
+            min: 1.0,
+            max: 0.0,
+            skew: 1.0,
+        },
+    ] {
+        let (min, max) = mapping.engine_bounds();
+        let mut descriptor = master_gain_descriptor();
+        descriptor.range = ValueRange {
+            min,
+            max,
+            default: min,
+        };
+        descriptor.mapping = mapping;
+        assert!(
+            ParameterManifest::new(vec![descriptor]).validate().is_err(),
+            "mapping {mapping:?} must be rejected"
+        );
+    }
+
+    // Direct malformed use remains deterministic and finite despite rejection.
+    let equal = Mapping::Linear { min: 2.0, max: 2.0 };
+    assert_eq!(equal.to_engine(0.5), 2.0);
+    assert_eq!(equal.to_normalized(2.0), 0.0);
+}
+
+#[test]
+fn tiny_linear_span_is_valid_and_invertible() {
+    let mapping = Mapping::Linear {
+        min: 0.0,
+        max: 1.0e-8,
+    };
+    let mut descriptor = master_gain_descriptor();
+    descriptor.range = ValueRange {
+        min: 0.0,
+        max: 1.0e-8,
+        default: 0.0,
+    };
+    descriptor.mapping = mapping;
+    ParameterManifest::new(vec![descriptor])
+        .validate()
+        .expect("representable non-zero spans are valid");
+
+    assert_eq!(mapping.to_engine(1.0), 1.0e-8);
+    assert_eq!(mapping.to_normalized(1.0e-8), 1.0);
+    let engine = mapping.to_engine(0.37);
+    assert!((mapping.to_normalized(engine) - 0.37).abs() < 1.0e-6);
+}
+
+#[test]
+fn extreme_linear_span_uses_finite_stable_arithmetic() {
+    let mapping = Mapping::Linear {
+        min: -f32::MAX,
+        max: f32::MAX,
+    };
+    let mut descriptor = master_gain_descriptor();
+    descriptor.range = ValueRange {
+        min: -f32::MAX,
+        max: f32::MAX,
+        default: 0.0,
+    };
+    descriptor.mapping = mapping;
+    ParameterManifest::new(vec![descriptor])
+        .validate()
+        .expect("full finite f32 span is supported");
+
+    assert_eq!(mapping.to_engine(0.5), 0.0);
+    assert_eq!(mapping.to_normalized(0.0), 0.5);
+    for t in [0.0, 0.1, 0.9, 1.0] {
+        assert!(mapping.to_engine(t).is_finite());
+    }
+}
+
+#[test]
+fn exponential_extreme_ratio_does_not_overflow_or_underflow_intermediates() {
+    let mapping = Mapping::Exponential {
+        min: f32::MIN_POSITIVE,
+        max: f32::MAX,
+    };
+    let mut descriptor = master_gain_descriptor();
+    descriptor.range = ValueRange {
+        min: f32::MIN_POSITIVE,
+        max: f32::MAX,
+        default: 1.0,
+    };
+    descriptor.mapping = mapping;
+    ParameterManifest::new(vec![descriptor])
+        .validate()
+        .expect("extreme positive endpoints are supported");
+
+    assert_eq!(mapping.to_engine(0.0), f32::MIN_POSITIVE);
+    assert_eq!(mapping.to_engine(1.0), f32::MAX);
+    let midpoint = mapping.to_engine(0.5);
+    assert!(midpoint.is_finite() && midpoint > 0.0);
+    assert!((mapping.to_normalized(midpoint) - 0.5).abs() < 1.0e-5);
+}
+
+#[test]
+fn skew_bounds_reject_collapsing_shapes_and_accept_extremes() {
+    for skew in [MIN_SKEW / 2.0, MAX_SKEW * 2.0] {
+        let mut descriptor = master_gain_descriptor();
+        descriptor.mapping = Mapping::Skewed {
+            min: -120.0,
+            max: 0.0,
+            skew,
+        };
+        assert!(ParameterManifest::new(vec![descriptor]).validate().is_err());
+    }
+
+    for skew in [MIN_SKEW, MAX_SKEW] {
+        let mapping = Mapping::Skewed {
+            min: 0.0,
+            max: 1.0,
+            skew,
+        };
+        let mut descriptor = master_gain_descriptor();
+        descriptor.range = ValueRange {
+            min: 0.0,
+            max: 1.0,
+            default: 0.5,
+        };
+        descriptor.mapping = mapping;
+        ParameterManifest::new(vec![descriptor])
+            .validate()
+            .expect("boundary skew is valid");
+        let value = mapping.to_engine(0.5);
+        assert!(value.is_finite());
+        assert!((mapping.to_normalized(value) - 0.5).abs() < 1.0e-4);
+    }
+}
+
+#[test]
+fn invalid_amplitude_decibel_floors_are_rejected() {
+    for floor_db in [0.0, 1.0, f32::NAN, f32::INFINITY] {
+        let mut descriptor = master_gain_descriptor();
+        descriptor.mapping = Mapping::AmplitudeDecibel { floor_db };
+        assert!(
+            ParameterManifest::new(vec![descriptor]).validate().is_err(),
+            "floor {floor_db} must fail"
+        );
+    }
+}
+
+#[test]
+fn nan_mapping_inputs_use_finite_range_floor_fallback() {
+    let mappings = [
+        Mapping::Linear {
+            min: -2.0,
+            max: 3.0,
+        },
+        Mapping::Exponential {
+            min: 1.0,
+            max: 100.0,
+        },
+        Mapping::Skewed {
+            min: -2.0,
+            max: 3.0,
+            skew: 2.0,
+        },
+        Mapping::AmplitudeDecibel { floor_db: -120.0 },
+    ];
+
+    for mapping in mappings {
+        let (floor, _) = mapping.engine_bounds();
+        assert_eq!(mapping.to_engine(f32::NAN), floor, "{mapping:?}");
+        assert_eq!(mapping.to_normalized(f32::NAN), 0.0, "{mapping:?}");
+        assert!(mapping.to_engine(f32::NAN).is_finite());
+        assert!(mapping.to_normalized(f32::NAN).is_finite());
+        assert_eq!(mapping.to_engine(f32::NEG_INFINITY), floor);
+        assert_eq!(mapping.to_engine(f32::INFINITY), mapping.engine_bounds().1);
+    }
+}
+
+#[test]
+fn discrete_values_must_be_in_range_and_default_must_be_a_step() {
+    use param_manifest::{DiscreteStep, ParameterKind};
+
+    let mut descriptor = master_gain_descriptor();
+    descriptor.kind = ParameterKind::Discrete {
+        steps: vec![
+            DiscreteStep {
+                label: "floor".into(),
+                engine_value: -120.0,
+            },
+            DiscreteStep {
+                label: "invalid".into(),
+                engine_value: 1.0,
+            },
+        ],
+    };
+    assert!(ParameterManifest::new(vec![descriptor]).validate().is_err());
+
+    let mut descriptor = master_gain_descriptor();
+    descriptor.range.default = -6.0;
+    descriptor.kind = ParameterKind::Discrete {
+        steps: vec![
+            DiscreteStep {
+                label: "floor".into(),
+                engine_value: -120.0,
+            },
+            DiscreteStep {
+                label: "unity".into(),
+                engine_value: 0.0,
+            },
+        ],
+    };
+    assert!(ParameterManifest::new(vec![descriptor]).validate().is_err());
+}
+
+#[test]
+fn practical_parameter_and_step_capacities_are_enforced() {
+    use param_manifest::{DiscreteStep, ParameterKind};
+
+    let descriptors = vec![master_gain_descriptor(); MAX_PARAMETER_COUNT + 1];
+    let error = ParameterManifest::new(descriptors)
+        .validate()
+        .expect_err("parameter capacity must be bounded");
+    assert!(matches!(
+        error,
+        param_manifest::ManifestError::CapacityExceeded { .. }
+    ));
+
+    let mut descriptor = master_gain_descriptor();
+    descriptor.kind = ParameterKind::Discrete {
+        steps: vec![
+            DiscreteStep {
+                label: String::new(),
+                engine_value: 0.0,
+            };
+            MAX_DISCRETE_STEP_COUNT + 1
+        ],
+    };
+    assert!(matches!(
+        ParameterManifest::new(vec![descriptor]).validate(),
+        Err(param_manifest::ManifestError::CapacityExceeded { .. })
+    ));
+}
+
+#[test]
+fn moving_stable_id_to_another_owner_is_breaking() {
+    use param_manifest::NodeType;
+
+    let previous = builtin_manifest();
+    let mut changed = master_gain_descriptor();
+    changed.owner.node_type = NodeType::InstrumentEffect;
+    changed.owner.path = "instrument/effect:gain".to_string();
+    let report = ParameterManifest::new(vec![changed]).compatibility_against(&previous);
+    assert!(report
+        .breaks
+        .contains(&CompatibilityBreak::SemanticsChanged(ParameterId::from(
+            MASTER_GAIN_ID
+        ))));
+}
+
+#[test]
+fn visibility_is_a_binding_break_but_smoothing_is_compatible() {
+    use param_manifest::{SmoothingPolicy, Visibility};
+
+    let previous = builtin_manifest();
+    let mut changed = master_gain_descriptor();
+    changed.visibility = Visibility {
+        host_visible: false,
+        automatable: false,
+        read_only: true,
+    };
+    let report = ParameterManifest::new(vec![changed]).compatibility_against(&previous);
+    assert!(report
+        .breaks
+        .contains(&CompatibilityBreak::HostBindingChanged(ParameterId::from(
+            MASTER_GAIN_ID
+        ))));
+
+    let mut changed = master_gain_descriptor();
+    changed.smoothing = SmoothingPolicy::None;
+    let report = ParameterManifest::new(vec![changed]).compatibility_against(&previous);
+    assert!(report.is_compatible());
+}
+
+#[test]
+fn runtime_parameter_is_copy_and_compact() {
+    const fn require_copy<T: Copy>() {}
+    const _: () = require_copy::<RuntimeParameter>();
+    const _: () = assert!(std::mem::size_of::<RuntimeParameter>() <= 64);
+
+    assert!(std::mem::size_of::<RuntimeParameter>() <= 64);
 }

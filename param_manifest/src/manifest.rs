@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
 use crate::descriptor::{ParameterDescriptor, ParameterId, ParameterKind, SmoothingPolicy};
+use crate::mapping::{Mapping, MAX_SKEW, MIN_SKEW};
 
 /// Current manifest schema version.
 ///
@@ -12,17 +13,33 @@ use crate::descriptor::{ParameterDescriptor, ParameterId, ParameterKind, Smoothi
 /// rules that govern reads across versions.
 pub const MANIFEST_SCHEMA_VERSION: u32 = 1;
 
+/// Maximum number of entries in one prepared runtime parameter table.
+pub const MAX_PARAMETER_COUNT: usize = 16_384;
+/// Maximum number of choices carried by one discrete parameter.
+pub const MAX_DISCRETE_STEP_COUNT: usize = 4_096;
+/// Maximum total discrete numeric choices carried by one runtime table.
+pub const MAX_TOTAL_DISCRETE_VALUES: usize = 1_048_576;
+
 /// A validation error for an authored manifest.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ManifestError {
-    /// The manifest schema version is newer than this build understands.
+    /// The manifest schema version is not one this build supports.
     UnsupportedSchemaVersion { manifest: u32, supported: u32 },
+    /// A manifest exceeds a practical prepared-state/key-space capacity.
+    CapacityExceeded {
+        what: &'static str,
+        count: usize,
+        max: usize,
+    },
     /// Two descriptors share the same stable ID.
     DuplicateId(ParameterId),
     /// A descriptor references a schema version newer than the manifest's.
     DescriptorFromFutureVersion { id: ParameterId, version_added: u32 },
     /// A descriptor carries non-finite or inconsistent numeric fields.
-    InvalidNumericDescriptor { id: ParameterId, reason: &'static str },
+    InvalidNumericDescriptor {
+        id: ParameterId,
+        reason: &'static str,
+    },
 }
 
 impl std::fmt::Display for ManifestError {
@@ -30,8 +47,11 @@ impl std::fmt::Display for ManifestError {
         match self {
             ManifestError::UnsupportedSchemaVersion { manifest, supported } => write!(
                 f,
-                "manifest schema version {manifest} is newer than supported version {supported}"
+                "manifest schema version {manifest} is unsupported; this build requires version {supported}"
             ),
+            ManifestError::CapacityExceeded { what, count, max } => {
+                write!(f, "{what} {count} exceeds prepared-state capacity {max}")
+            }
             ManifestError::DuplicateId(id) => write!(f, "duplicate parameter id `{id}`"),
             ManifestError::DescriptorFromFutureVersion { id, version_added } => write!(
                 f,
@@ -68,16 +88,25 @@ impl ParameterManifest {
         }
     }
 
-    /// Validate structural invariants: supported schema version, unique IDs, and
-    /// no descriptor claiming a version newer than the manifest.
+    /// Validate structural, numeric, mapping, and prepared-capacity invariants.
     pub fn validate(&self) -> Result<(), ManifestError> {
-        if self.schema_version > MANIFEST_SCHEMA_VERSION {
+        // Version 1 is the first and only defined schema. Supporting an older
+        // shape requires an explicit migration rather than accepting it as v1.
+        if self.schema_version != MANIFEST_SCHEMA_VERSION {
             return Err(ManifestError::UnsupportedSchemaVersion {
                 manifest: self.schema_version,
                 supported: MANIFEST_SCHEMA_VERSION,
             });
         }
+        if self.parameters.len() > MAX_PARAMETER_COUNT {
+            return Err(ManifestError::CapacityExceeded {
+                what: "parameter count",
+                count: self.parameters.len(),
+                max: MAX_PARAMETER_COUNT,
+            });
+        }
 
+        let mut total_discrete_values = 0_usize;
         let mut seen: BTreeSet<&ParameterId> = BTreeSet::new();
         for descriptor in &self.parameters {
             if !seen.insert(&descriptor.id) {
@@ -90,6 +119,22 @@ impl ParameterManifest {
                 });
             }
             validate_numeric(descriptor)?;
+            if let ParameterKind::Discrete { steps } = &descriptor.kind {
+                total_discrete_values = total_discrete_values.checked_add(steps.len()).ok_or(
+                    ManifestError::CapacityExceeded {
+                        what: "total discrete value count",
+                        count: usize::MAX,
+                        max: MAX_TOTAL_DISCRETE_VALUES,
+                    },
+                )?;
+                if total_discrete_values > MAX_TOTAL_DISCRETE_VALUES {
+                    return Err(ManifestError::CapacityExceeded {
+                        what: "total discrete value count",
+                        count: total_discrete_values,
+                        max: MAX_TOTAL_DISCRETE_VALUES,
+                    });
+                }
+            }
         }
         Ok(())
     }
@@ -109,8 +154,8 @@ impl ParameterManifest {
     }
 }
 
-/// Reject non-finite or inconsistent numeric descriptor data before it can reach
-/// the RT conversion path (where `f32::clamp` would panic on a reversed range).
+/// Reject non-finite, non-invertible, or inconsistent numeric data before NRT
+/// preparation. The RT tier still sanitizes malformed values as a final defense.
 fn validate_numeric(d: &ParameterDescriptor) -> Result<(), ManifestError> {
     let invalid = |reason: &'static str| ManifestError::InvalidNumericDescriptor {
         id: d.id.clone(),
@@ -128,30 +173,64 @@ fn validate_numeric(d: &ParameterDescriptor) -> Result<(), ManifestError> {
         return Err(invalid("range default must be within [min, max]"));
     }
 
-    for value in d.mapping.endpoint_values() {
-        if !value.is_finite() {
-            return Err(invalid("mapping parameters must be finite"));
-        }
+    let (mapping_min, mapping_max) = d.mapping.engine_bounds();
+    if !(mapping_min.is_finite() && mapping_max.is_finite()) {
+        return Err(invalid("mapping bounds must be finite"));
+    }
+    if mapping_min >= mapping_max {
+        return Err(invalid("mapping bounds must be strictly increasing"));
+    }
+    if mapping_min != r.min || mapping_max != r.max {
+        return Err(invalid("mapping bounds must equal range min/max"));
     }
 
-    if let Some(skew) = d.mapping.skew_factor() {
-        if !(skew.is_finite() && skew > 0.0) {
-            return Err(invalid("mapping skew must be finite and > 0"));
+    match d.mapping {
+        Mapping::Linear { .. } => {}
+        Mapping::Exponential { min, max } => {
+            if !(min > 0.0 && min < max) {
+                return Err(invalid("exponential mapping requires finite 0 < min < max"));
+            }
+        }
+        Mapping::Skewed { skew, .. } => {
+            if !skew.is_finite() || !(MIN_SKEW..=MAX_SKEW).contains(&skew) {
+                return Err(invalid("mapping skew is outside the supported range"));
+            }
+        }
+        Mapping::AmplitudeDecibel { floor_db } => {
+            if !floor_db.is_finite() || floor_db >= 0.0 {
+                return Err(invalid("amplitude-decibel floor must be finite and < 0 dB"));
+            }
         }
     }
 
     if let SmoothingPolicy::Smoothed { duration_ms, .. } = d.smoothing {
         if !duration_ms.is_finite() || duration_ms < 0.0 {
-            return Err(invalid("smoothing duration_ms must be finite and non-negative"));
+            return Err(invalid(
+                "smoothing duration_ms must be finite and non-negative",
+            ));
         }
     }
 
     if let ParameterKind::Discrete { steps } = &d.kind {
-        if steps.is_empty() {
-            return Err(invalid("discrete parameter must have at least one step"));
+        if steps.len() < 2 {
+            return Err(invalid("discrete parameter must have at least two steps"));
         }
-        if steps.iter().any(|s| !s.engine_value.is_finite()) {
-            return Err(invalid("discrete step engine_value must be finite"));
+        if steps.len() > MAX_DISCRETE_STEP_COUNT {
+            return Err(ManifestError::CapacityExceeded {
+                what: "discrete step count",
+                count: steps.len(),
+                max: MAX_DISCRETE_STEP_COUNT,
+            });
+        }
+        if steps.iter().any(|s| {
+            !s.engine_value.is_finite() || s.engine_value < r.min || s.engine_value > r.max
+        }) {
+            return Err(invalid(
+                "discrete step engine_value must be finite and within range",
+            ));
+        }
+        if !steps.iter().any(|s| s.engine_value == r.default) {
+            return Err(invalid("discrete default must equal one authored step"));
         }
     }
 
