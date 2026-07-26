@@ -57,29 +57,34 @@ Status: implemented; independent-review findings addressed. ADR remains
   - complete serializable descriptors and compatibility reports;
   - stable Linear/Exponential/Skewed/AmplitudeDecibel conversion with explicit
     NaN/infinity policy and exact agreement between mapping bounds and ranges;
+    skew is limited to `0.25..=4.0`, with per-range representative round-trip
+    validation at a documented `1e-4` normalized tolerance;
   - current-schema and practical capacity validation;
   - private-construction `Copy` runtime entries, checked compact keys, and a
-    non-`Clone` runtime table whose owning lifecycle remains NRT;
+    non-`Clone` runtime table whose owning lifecycle remains NRT; raw runtime
+    mappings are hidden so table conversion is the sole discrete-aware RT path;
   - exact non-uniform discrete numeric values in a flat string-free RT arena;
   - representative, **not yet wired**, master-gain descriptor with stable OSC ID
     `"gain"` and the existing `-120 dB` floor convention.
 - **Compatibility policy** compares the full owner identity. Value/routing,
   automation-rate, and visibility/automatable/read-only changes are breaking;
   smoothing is documented as compatible tuning.
-- **Tests** — 39 integration tests plus one internal malformed-entry defense test.
-  Coverage includes tiny/equal/extreme spans, exponential extreme ratios, skew
-  limits, reversed endpoints, mapping/range disagreement, dB floors, NaN and
-  infinity inputs, schema v0, capacities, exact non-uniform discrete RT values,
-  full-owner/visibility compatibility, and compile-time Copy/size assertions.
+- **Tests** — 41 manifest integration tests, one RT allocation-audit integration
+  test, one compile-fail API doctest, and one internal malformed-entry defense
+  test. Coverage includes skew-bound round trips at `0.1`/`0.25`/`0.5`/`0.9`,
+  collapsed skew/range rejection, descriptor version 0, contradictory visibility,
+  continuous/discrete/invalid-key zero-allocation conversion (including NaN and
+  infinities), exact non-uniform discrete RT values, and Copy/size assertions.
 
 ### Design deviation and rationale
 - Discrete values are carried in a numeric runtime arena rather than reconstructed
   from `step_count + Mapping`. This preserves authored non-uniform choices exactly
   without strings, allocation, or unbounded work on RT.
 - Conversion moved to `RuntimeParameterTable::normalized_to_engine` so discrete
-  entries can access that arena. `RuntimeParameter` fields are private and exposed
-  through read-only getters; an internal malformed-entry test verifies the final
-  finite, panic-free fallback.
+  entries can access that arena. `RuntimeParameter` fields are private; its raw
+  `Mapping` getter was removed, while metadata remains available through read-only
+  getters. An internal malformed-entry test verifies the final finite, panic-free
+  fallback.
 
 ### Not done (by design / follow-up)
 - No coalesced RT parameter pipeline (#101 consumes this manifest).
@@ -90,6 +95,6 @@ Status: implemented; independent-review findings addressed. ADR remains
 
 ### Verification
 - `cargo test --workspace --all-targets` → all targets passed; `param_manifest`:
-  1 unit test + 39 integration tests passed.
+  1 unit test + 42 integration tests passed.
 - `cargo clippy --workspace --all-targets -- -D warnings` → clean.
 - `python3 scripts/docs/check_docs.py` → `documentation check passed: 27 pages`.

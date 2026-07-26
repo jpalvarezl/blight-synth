@@ -33,8 +33,14 @@ pub enum ManifestError {
     },
     /// Two descriptors share the same stable ID.
     DuplicateId(ParameterId),
-    /// A descriptor references a schema version newer than the manifest's.
-    DescriptorFromFutureVersion { id: ParameterId, version_added: u32 },
+    /// A descriptor's introduction version is outside the defined schema range.
+    InvalidDescriptorVersion {
+        id: ParameterId,
+        version_added: u32,
+        schema_version: u32,
+    },
+    /// A descriptor is simultaneously writable by automation and read-only.
+    ContradictoryVisibility(ParameterId),
     /// A descriptor carries non-finite or inconsistent numeric fields.
     InvalidNumericDescriptor {
         id: ParameterId,
@@ -53,9 +59,17 @@ impl std::fmt::Display for ManifestError {
                 write!(f, "{what} {count} exceeds prepared-state capacity {max}")
             }
             ManifestError::DuplicateId(id) => write!(f, "duplicate parameter id `{id}`"),
-            ManifestError::DescriptorFromFutureVersion { id, version_added } => write!(
+            ManifestError::InvalidDescriptorVersion {
+                id,
+                version_added,
+                schema_version,
+            } => write!(
                 f,
-                "descriptor `{id}` declares version_added {version_added} above the manifest schema version"
+                "descriptor `{id}` declares version_added {version_added} outside 1..={schema_version}"
+            ),
+            ManifestError::ContradictoryVisibility(id) => write!(
+                f,
+                "descriptor `{id}` cannot be both automatable and read-only"
             ),
             ManifestError::InvalidNumericDescriptor { id, reason } => {
                 write!(f, "descriptor `{id}` has invalid numeric fields: {reason}")
@@ -112,11 +126,17 @@ impl ParameterManifest {
             if !seen.insert(&descriptor.id) {
                 return Err(ManifestError::DuplicateId(descriptor.id.clone()));
             }
-            if descriptor.version_added > self.schema_version {
-                return Err(ManifestError::DescriptorFromFutureVersion {
+            if !(1..=self.schema_version).contains(&descriptor.version_added) {
+                return Err(ManifestError::InvalidDescriptorVersion {
                     id: descriptor.id.clone(),
                     version_added: descriptor.version_added,
+                    schema_version: self.schema_version,
                 });
+            }
+            if descriptor.visibility.automatable && descriptor.visibility.read_only {
+                return Err(ManifestError::ContradictoryVisibility(
+                    descriptor.id.clone(),
+                ));
             }
             validate_numeric(descriptor)?;
             if let ParameterKind::Discrete { steps } = &descriptor.kind {
@@ -194,6 +214,11 @@ fn validate_numeric(d: &ParameterDescriptor) -> Result<(), ManifestError> {
         Mapping::Skewed { skew, .. } => {
             if !skew.is_finite() || !(MIN_SKEW..=MAX_SKEW).contains(&skew) {
                 return Err(invalid("mapping skew is outside the supported range"));
+            }
+            if !d.mapping.has_representable_skew_round_trip() {
+                return Err(invalid(
+                    "mapping skew/range loses required f32 round-trip precision",
+                ));
             }
         }
         Mapping::AmplitudeDecibel { floor_db } => {

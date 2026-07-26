@@ -45,8 +45,18 @@ pub enum RuntimeKind {
 ///
 /// Entries can only be obtained from a validated [`ParameterLookup`]. Fields are
 /// private so external callers cannot bypass preparation with NaN or reversed
-/// bounds. Conversion still sanitizes every bound/value defensively: even a
-/// malformed internal entry has a finite, panic-free range-floor fallback.
+/// bounds. The raw [`Mapping`] is intentionally not exposed: conversion must go
+/// through [`RuntimeParameterTable::normalized_to_engine`] so discrete parameters
+/// use their prepared numeric arena as well.
+///
+/// ```compile_fail
+/// fn bypass_discrete_arena(entry: param_manifest::RuntimeParameter) {
+///     let _ = entry.mapping();
+/// }
+/// ```
+///
+/// Conversion still sanitizes every bound/value defensively: even a malformed
+/// internal entry has a finite, panic-free range-floor fallback.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RuntimeParameter {
     key: RuntimeParamKey,
@@ -70,11 +80,6 @@ impl RuntimeParameter {
     #[must_use]
     pub fn engine_param_index(self) -> u32 {
         self.engine_param_index
-    }
-
-    #[must_use]
-    pub fn mapping(self) -> Mapping {
-        self.mapping
     }
 
     #[must_use]

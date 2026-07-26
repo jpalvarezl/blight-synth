@@ -79,9 +79,11 @@ a future plugin depend on it instead of re-deriving metadata.
   resolved with bounded O(1) slice indexing — no hashing, allocation, or
   `String` access in read/conversion methods. The `ParameterId`→key resolver
   `HashMap` stays on the NRT `ParameterLookup` owner; `RuntimeParameter` is a
-  private-construction `Copy` numeric entry. The table is intentionally not
-  `Clone`: installation, replacement, and destruction are prepared-state
-  lifecycle operations, and displaced tables must be retired to NRT.
+  private-construction `Copy` numeric entry. It does not expose its raw `Mapping`;
+  `RuntimeParameterTable::normalized_to_engine` is the single RT conversion API
+  so discrete parameters cannot bypass their numeric arena. The table is
+  intentionally not `Clone`: installation, replacement, and destruction are
+  prepared-state lifecycle operations, and displaced tables must be retired to NRT.
 
 ### 2. Descriptor fields
 
@@ -117,7 +119,11 @@ the descriptor and the runtime tier:
   require finite `0 < min < max`)
 - `Skewed { min, max, skew }` (power curve over linear endpoints; `skew==1` is
   linear, `skew<1` biases toward `max`, and `skew>1` biases toward `min`; valid
-  manifests bound the exponent to `1/64..=64` to avoid unusable `f32` collapse)
+  manifests bound the exponent to `0.25..=4.0`. At the upper bound the lowest
+  audited interior point remains `0.1^4 = 1e-4`, avoiding the endpoint collapse
+  caused by exponent 64. Validation also checks each skew/range pair at normalized
+  `0.1`, `0.25`, `0.5`, and `0.9`, requiring round-trip error no greater than
+  `1e-4`, because endpoint spacing also affects `f32` precision.)
 - `AmplitudeDecibel { floor_db }` (normalized is linear amplitude, engine value is
   dB; `1.0 → 0 dB`, `0.5 → −6.02 dB`, `0.0 → floor_db`; valid floors are below
   the implied `0 dB` maximum)
@@ -177,10 +183,11 @@ identical across every adapter for the same parameter.
 - `ParameterManifest::validate()` enforces the current schema version, practical
   table/discrete capacities, unique IDs, descriptor versions, finite ordered
   ranges, variant-specific mapping invariants, exact mapping/range agreement,
-  finite smoothing, and discrete values/defaults within range. Discrete numeric
-  values (including non-uniform sets) are copied into a flat string-free runtime
-  arena rather than reconstructed from `step_count`; normalized discrete positions
-  and `default_normalized()` use ordinal step indexes.
+  finite smoothing, `version_added` in `1..=schema_version`, non-contradictory
+  automation/read-only visibility, and discrete values/defaults within range.
+  Discrete numeric values (including non-uniform sets) are copied into a flat
+  string-free runtime arena rather than reconstructed from `step_count`;
+  normalized discrete positions and `default_normalized()` use ordinal step indexes.
 - `ParameterManifest::compatibility_against(previous)` reports breaking changes:
   removing a live ID; changing automation rate; changing mapping/range/unit/kind
   or the full owner identity (`node_type`, `path`, and engine slot); and changing
@@ -262,7 +269,9 @@ projection is what makes the RT lookup allocation- and string-free.
 The decision is validated when:
 
 - `cargo test -p param_manifest` proves manifest (de)serialization round-trips, a
-  version/compatibility rule, normalized↔engine mapping, and lookup-by-ID; and
+  version/compatibility rule, normalized↔engine mapping, lookup-by-ID, and zero
+  allocations/deallocations around continuous and discrete RT lookup/conversion
+  (including invalid keys and special float inputs); and
 - [#101](https://github.com/jpalvarezl/blight-synth/issues/101) consumes
   `ParameterLookup`/`RuntimeParamKey` for coalesced continuous values without
   needing transport-specific conversion, and the OSC adapter's `/param/set gain`

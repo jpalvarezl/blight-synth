@@ -488,6 +488,23 @@ fn schema_version_zero_is_rejected() {
 }
 
 #[test]
+fn descriptor_version_added_zero_is_rejected() {
+    let mut descriptor = master_gain_descriptor();
+    descriptor.version_added = 0;
+    let error = ParameterManifest::new(vec![descriptor])
+        .validate()
+        .expect_err("descriptor schema version 0 is undefined");
+    assert!(matches!(
+        error,
+        param_manifest::ManifestError::InvalidDescriptorVersion {
+            version_added: 0,
+            schema_version: MANIFEST_SCHEMA_VERSION,
+            ..
+        }
+    ));
+}
+
+#[test]
 fn mapping_bounds_must_match_descriptor_range() {
     let mut descriptor = master_gain_descriptor();
     descriptor.mapping = Mapping::Linear { min: 0.0, max: 1.0 };
@@ -601,7 +618,7 @@ fn exponential_extreme_ratio_does_not_overflow_or_underflow_intermediates() {
 }
 
 #[test]
-fn skew_bounds_reject_collapsing_shapes_and_accept_extremes() {
+fn skew_bounds_reject_collapsing_shapes_and_round_trip_representative_values() {
     for skew in [MIN_SKEW / 2.0, MAX_SKEW * 2.0] {
         let mut descriptor = master_gain_descriptor();
         descriptor.mapping = Mapping::Skewed {
@@ -612,26 +629,50 @@ fn skew_bounds_reject_collapsing_shapes_and_accept_extremes() {
         assert!(ParameterManifest::new(vec![descriptor]).validate().is_err());
     }
 
+    // mapping.rs documents 1e-4 as the accepted f32 normalized round-trip
+    // tolerance. Exercise both the unit range from the original underflow report
+    // and the translated -120..=0 range where endpoint rounding occurs sooner.
+    const ROUND_TRIP_TOLERANCE: f32 = 1.0e-4;
     for skew in [MIN_SKEW, MAX_SKEW] {
-        let mapping = Mapping::Skewed {
-            min: 0.0,
-            max: 1.0,
-            skew,
-        };
-        let mut descriptor = master_gain_descriptor();
-        descriptor.range = ValueRange {
-            min: 0.0,
-            max: 1.0,
-            default: 0.5,
-        };
-        descriptor.mapping = mapping;
-        ParameterManifest::new(vec![descriptor])
-            .validate()
-            .expect("boundary skew is valid");
-        let value = mapping.to_engine(0.5);
-        assert!(value.is_finite());
-        assert!((mapping.to_normalized(value) - 0.5).abs() < 1.0e-4);
+        for (min, max, default) in [(0.0, 1.0, 0.5), (-120.0, 0.0, 0.0)] {
+            let mapping = Mapping::Skewed { min, max, skew };
+            let mut descriptor = master_gain_descriptor();
+            descriptor.range = ValueRange { min, max, default };
+            descriptor.mapping = mapping;
+            ParameterManifest::new(vec![descriptor])
+                .validate()
+                .expect("boundary skew/range pair is representable");
+
+            for normalized in [0.1_f32, 0.25, 0.5, 0.9] {
+                let engine = mapping.to_engine(normalized);
+                let round_trip = mapping.to_normalized(engine);
+                assert!(
+                    (round_trip - normalized).abs() <= ROUND_TRIP_TOLERANCE,
+                    "round-trip failed for range {min}..={max}, skew={skew}, normalized={normalized}: {round_trip}"
+                );
+            }
+        }
     }
+
+    // Bounds alone cannot guarantee precision when endpoints are adjacent f32s;
+    // validation therefore rejects an authored skew/range pair that collapses.
+    let min = 1.0e20_f32;
+    let max = f32::from_bits(min.to_bits() + 1);
+    let mut descriptor = master_gain_descriptor();
+    descriptor.range = ValueRange {
+        min,
+        max,
+        default: min,
+    };
+    descriptor.mapping = Mapping::Skewed {
+        min,
+        max,
+        skew: MAX_SKEW,
+    };
+    let error = ParameterManifest::new(vec![descriptor])
+        .validate()
+        .expect_err("collapsed skew/range pair must be rejected");
+    assert!(format!("{error}").contains("round-trip precision"));
 }
 
 #[test]
@@ -755,6 +796,25 @@ fn moving_stable_id_to_another_owner_is_breaking() {
         .contains(&CompatibilityBreak::SemanticsChanged(ParameterId::from(
             MASTER_GAIN_ID
         ))));
+}
+
+#[test]
+fn automatable_read_only_visibility_is_rejected() {
+    use param_manifest::Visibility;
+
+    let mut descriptor = master_gain_descriptor();
+    descriptor.visibility = Visibility {
+        host_visible: true,
+        automatable: true,
+        read_only: true,
+    };
+    let error = ParameterManifest::new(vec![descriptor])
+        .validate()
+        .expect_err("read-only parameters cannot accept automation writes");
+    assert!(matches!(
+        error,
+        param_manifest::ManifestError::ContradictoryVisibility(_)
+    ));
 }
 
 #[test]

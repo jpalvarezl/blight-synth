@@ -11,16 +11,26 @@ use serde::{Deserialize, Serialize};
 
 /// Smallest supported power-curve exponent.
 ///
-/// Smaller exponents collapse too much of a `f32` engine range onto its upper
-/// endpoint and make the inverse numerically unusable. The reciprocal is also
-/// deliberately bounded for predictable real-time arithmetic.
-pub const MIN_SKEW: f32 = 1.0 / 64.0;
+/// This is the reciprocal of [`MAX_SKEW`], keeping the supported shapes
+/// symmetric around linear (`1.0`) without collapsing useful normalized
+/// positions onto the upper endpoint after conversion to `f32`.
+pub const MIN_SKEW: f32 = 0.25;
 
 /// Largest supported power-curve exponent.
 ///
-/// This symmetric bound prevents useful normalized positions from collapsing to
-/// the lower endpoint while still allowing strongly shaped controls.
-pub const MAX_SKEW: f32 = 64.0;
+/// At this bound, the smallest representative interior position used by
+/// validation remains `0.1^4 = 1e-4`. That is materially above `f32` underflow
+/// and remains distinguishable from the lower endpoint for practical ranges
+/// such as `-120..=0` dB. Validation additionally checks each authored skew/range
+/// pair at representative positions because endpoint spacing also affects
+/// representability.
+pub const MAX_SKEW: f32 = 4.0;
+
+/// Maximum accepted normalized error for a skewed mapping's `f32` round trip.
+///
+/// Validation checks `0.1`, `0.25`, `0.5`, and `0.9` against this tolerance.
+pub(crate) const SKEW_ROUND_TRIP_TOLERANCE: f32 = 1.0e-4;
+const SKEW_ROUND_TRIP_POINTS: [f32; 4] = [0.1, 0.25, 0.5, 0.9];
 
 const FALLBACK_DB_FLOOR: f32 = -120.0;
 
@@ -160,6 +170,14 @@ impl Mapping {
             | Mapping::Skewed { min, max, .. } => (min, max),
             Mapping::AmplitudeDecibel { floor_db } => (floor_db, 0.0),
         }
+    }
+
+    pub(crate) fn has_representable_skew_round_trip(self) -> bool {
+        SKEW_ROUND_TRIP_POINTS.into_iter().all(|normalized| {
+            let engine = self.to_engine(normalized);
+            let round_trip = self.to_normalized(engine);
+            (round_trip - normalized).abs() <= SKEW_ROUND_TRIP_TOLERANCE
+        })
     }
 
     fn sanitized_engine_bounds(self) -> (f32, f32) {
