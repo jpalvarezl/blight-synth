@@ -13,16 +13,13 @@ impl HiHat {
         envelope.set_parameters(0.01, 0.05, 0.0, 0.1);
 
         // Note ID is unused in a monophonic instrument.
-        let voice = VoiceSlot {
-            inner: Voice::new(
-                0,
-                NoiseGenerator::default(),
-                envelope,
-                pan,
-                MonoEffectChain::new(10),
-            ),
-            note_id: None,
-        };
+        let voice = VoiceSlot::new(Voice::new(
+            0,
+            NoiseGenerator::default(),
+            envelope,
+            pan,
+            MonoEffectChain::new(10),
+        ));
         HiHat {
             instrument_id,
             voice,

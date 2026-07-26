@@ -154,7 +154,7 @@ fn prepared_engine_note_parameter_and_render_path_has_no_heap_activity() {
     // Warm paths and any lazy process-global initialization before measuring.
     engine.note_on(instrument_id, 60, 127);
     engine.process(&mut left, &mut right, SAMPLE_RATE);
-    engine.note_off(instrument_id);
+    engine.note_off(instrument_id, 60);
     left.fill(0.0);
     right.fill(0.0);
 
@@ -196,9 +196,11 @@ impl InstrumentTrait for IntentionallyAllocatingInstrument {
         self.id
     }
 
-    fn note_on(&mut self, _note: u8, _velocity: u8) {}
+    fn note_on(&mut self, _event: dsp::NoteEvent) {}
 
-    fn note_off(&mut self) {}
+    fn note_off(&mut self, _note_id: dsp::id::NoteId) {}
+
+    fn all_notes_off(&mut self) {}
 
     fn process(&mut self, _left: &mut [f32], _right: &mut [f32], _sample_rate: f32) {
         black_box(vec![0_u8; 128]);
@@ -308,4 +310,75 @@ fn audit_harness_detects_an_intentional_allocation_and_drop() {
         counts.deallocations > 0,
         "deallocation fixture was not detected"
     );
+}
+
+#[test]
+fn polyphonic_note_on_steal_and_render_has_no_heap_activity() {
+    const SAMPLE_RATE: f32 = 48_000.0;
+    let instrument_id = 1;
+    let factory = InstrumentFactory::new(SAMPLE_RATE);
+    let mut engine = Engine::new();
+    // A small fixed voice pool so distinct pitches exhaust polyphony and force
+    // a deterministic voice steal on the measured note-on.
+    engine.add_instrument(factory.create_polyphonic_oscillator(instrument_id, 0.0, 2));
+    let mut left = [0.0; 256];
+    let mut right = [0.0; 256];
+
+    // Warm paths and any lazy process-global initialization before measuring:
+    // fill the pool, steal once, and render a block.
+    engine.note_on(instrument_id, 60, 100);
+    engine.note_on(instrument_id, 64, 100);
+    engine.note_on(instrument_id, 67, 100); // steal
+    engine.process(&mut left, &mut right, SAMPLE_RATE);
+    engine.note_off(instrument_id, 67);
+    engine.all_notes_off(instrument_id);
+    engine.process(&mut left, &mut right, SAMPLE_RATE);
+    left.fill(0.0);
+    right.fill(0.0);
+
+    let counts = measure_allocations(|| {
+        // Re-fill and steal on the audio thread: allocation-free voice pool.
+        engine.note_on(instrument_id, 60, 100);
+        engine.note_on(instrument_id, 64, 100);
+        engine.note_on(instrument_id, 72, 100); // exhausted pool -> steal oldest
+        engine.process(&mut left, &mut right, SAMPLE_RATE);
+        engine.note_off(instrument_id, 72); // targeted release
+        engine.all_notes_off(instrument_id);
+    });
+
+    assert_eq!(counts.allocations, 0, "unexpected RT allocations");
+    assert_eq!(counts.deallocations, 0, "unexpected RT deallocations");
+    assert_eq!(counts.reallocations, 0, "unexpected RT reallocations");
+    assert!(left.iter().any(|sample| *sample != 0.0));
+}
+
+#[test]
+fn instrument_capacity_rejection_moves_owner_without_rt_heap_activity() {
+    const SAMPLE_RATE: f32 = 48_000.0;
+    let factory = InstrumentFactory::new(SAMPLE_RATE);
+    let mut engine = Engine::with_instrument_capacity(2);
+    let mut retired = CollectRetired(Vec::with_capacity(4));
+    for id in 1..=2 {
+        engine.add_instrument_with_retirement(
+            factory.create_simple_oscillator(id, 0.0),
+            &mut retired,
+        );
+    }
+    // Prepared off the audio thread; only the callback-side rejection is measured.
+    let over_cap = factory.create_simple_oscillator(3, 0.0);
+
+    let counts = measure_allocations(|| {
+        engine.handle_command_with_retirement(
+            InstrumentCmd::AddInstrument {
+                instrument: over_cap,
+            }
+            .into(),
+            &mut retired,
+        );
+    });
+
+    assert_eq!(counts.allocations, 0, "unexpected RT allocations");
+    assert_eq!(counts.deallocations, 0, "unexpected RT deallocations");
+    assert_eq!(counts.reallocations, 0, "unexpected RT reallocations");
+    assert_eq!(retired.0.len(), 1, "over-cap instrument must be retired");
 }

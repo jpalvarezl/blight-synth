@@ -25,10 +25,7 @@ impl SamplePlayer {
 
         MonophonicInstrument {
             instrument_id,
-            voice: VoiceSlot {
-                note_id: None,
-                inner: voice,
-            },
+            voice: VoiceSlot::new(voice),
         }
     }
 
@@ -50,10 +47,7 @@ impl SamplePlayer {
 
         MonophonicInstrument {
             instrument_id,
-            voice: VoiceSlot {
-                note_id: None,
-                inner: voice,
-            },
+            voice: VoiceSlot::new(voice),
         }
     }
 }
