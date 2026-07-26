@@ -2,7 +2,7 @@
 title: Architecture Index
 summary: Routing page for cross-domain contracts and target architecture.
 status: current
-updated: 2026-07-19
+updated: 2026-07-26
 ---
 
 # Architecture
@@ -15,7 +15,7 @@ updated: 2026-07-19
 - [Offline render contract](offline-render-contract.md) — canonical PCM, golden regression policy, and reference updates.
 - [Real-time audio contract](realtime-contract.md) — proposed callback rules, ownership, overload, reclamation, and current violations.
 - [Device host boundary (draft)](device-host-boundary.md) — reusable in-process device host vs OSC standalone transport adapter (ADR 0002).
-- [Event-source contract (draft)](event-source-contract.md) — composition→engine timestamped-event boundary (ADR 0003).
+- [Event-source contract (draft)](event-source-contract.md) — producer-side clock mapping, bounded current-block events, and separate NRT lookahead (ADR 0003).
 - [RT allocation audit](rt-allocation-audit.md) — test-only heap allocation/deallocation instrumentation for prepared Engine processing.
 - [Current product specification](../spec/current-product.md) — what architecture is serving.
 - [ADR index](../decisions/README.md) — accepted decisions.
