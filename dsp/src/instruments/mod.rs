@@ -61,12 +61,6 @@ impl<S: SynthNode> InstrumentTrait for MonophonicInstrument<S> {
     fn note_on(&mut self, event: NoteEvent) {
         // A monophonic instrument always reuses its single voice; the identity
         // is recorded only so a targeted note-off can match it.
-        crate::rt_debug_log!(
-            "mono note_on: id={} pitch={} vel={}",
-            event.id.get(),
-            event.pitch,
-            event.velocity
-        );
         self.voice.note_id = Some(event.id);
         self.voice.inner.note_on(event.pitch, event.velocity);
     }
@@ -74,9 +68,7 @@ impl<S: SynthNode> InstrumentTrait for MonophonicInstrument<S> {
     fn note_off(&mut self, note_id: NoteId) {
         // Release only when the identity matches and the voice is still sounding,
         // so a duplicate/late note-off cannot re-gate an already-idle envelope.
-        let matched = self.voice.note_id == Some(note_id) && self.voice.inner.is_active();
-        crate::rt_debug_log!("mono note_off: id={} released={}", note_id.get(), matched);
-        if matched {
+        if self.voice.note_id == Some(note_id) && self.voice.inner.is_active() {
             self.voice.inner.note_off();
         }
     }
@@ -131,15 +123,12 @@ impl<S: SynthNode> PolyphonicInstrument<S> {
     /// 2. Otherwise use the lowest-index idle voice.
     /// 3. Otherwise steal the oldest active voice (smallest age); ties break
     ///    toward the lowest index, so the choice is fully deterministic.
-    ///
-    /// Returns the chosen slot index and why it was chosen, so the caller can
-    /// emit a compact developer diagnostic without recomputing the decision.
-    fn allocate_slot(&mut self, note_id: NoteId) -> (usize, SlotDecision) {
+    fn allocate_slot(&mut self, note_id: NoteId) -> usize {
         let mut free: Option<usize> = None;
         let mut oldest = 0usize;
         for (index, slot) in self.voices.iter().enumerate() {
             if slot.note_id == Some(note_id) && slot.inner.is_active() {
-                return (index, SlotDecision::Retrigger);
+                return index;
             }
             if free.is_none() && !slot.inner.is_active() {
                 free = Some(index);
@@ -148,23 +137,8 @@ impl<S: SynthNode> PolyphonicInstrument<S> {
                 oldest = index;
             }
         }
-        match free {
-            Some(index) => (index, SlotDecision::FreeSlot),
-            None => (oldest, SlotDecision::Steal),
-        }
+        free.unwrap_or(oldest)
     }
-}
-
-/// Why [`PolyphonicInstrument::allocate_slot`] chose a given voice slot.
-/// Kept as a plain `Copy` enum so the developer diagnostic stays allocation-free.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum SlotDecision {
-    /// Reused the voice already holding the incoming identity (repeated note).
-    Retrigger,
-    /// Took the lowest-index idle voice.
-    FreeSlot,
-    /// Stole the oldest active voice because the pool was exhausted.
-    Steal,
 }
 
 impl<S: SynthNode> InstrumentTrait for PolyphonicInstrument<S> {
@@ -174,22 +148,12 @@ impl<S: SynthNode> InstrumentTrait for PolyphonicInstrument<S> {
 
     fn note_on(&mut self, event: NoteEvent) {
         if self.voices.is_empty() {
-            crate::rt_debug_log!(
-                "poly note_on ignored (empty pool): id={} pitch={}",
-                event.id.get(),
-                event.pitch
-            );
             return;
         }
-        let (index, decision) = self.allocate_slot(event.id);
-        crate::rt_debug_log!(
-            "poly note_on: id={} pitch={} vel={} -> slot={} ({:?})",
-            event.id.get(),
-            event.pitch,
-            event.velocity,
-            index,
-            decision
-        );
+        let index = self.allocate_slot(event.id);
+        // Compile-time-gated developer diagnostic: which voice took the note.
+        // Fully removed in release builds; see the RT contract's build modes.
+        crate::rt_debug_log!("poly note_on id={} pitch={} -> slot={index}", event.id.get(), event.pitch);
         let age = self.next_age;
         self.next_age = self.next_age.wrapping_add(1);
         let slot = &mut self.voices[index];
