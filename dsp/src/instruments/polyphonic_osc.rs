@@ -7,7 +7,8 @@ pub type PolyphonicOscillator = PolyphonicInstrument<OscillatorNode>;
 impl PolyphonicOscillator {
     pub fn new(instrument_id: InstrumentId, pan: f32, sample_rate: f32, max_polyphony: u8) -> Self {
         let mut envelope = Envelope::new(sample_rate);
-        envelope.set_parameters(0.1, 0.1, 1.0, 1.0); // Default ADSR values
+        // Default ADSR values.
+        envelope.set_parameters(0.1, 0.1, 1.0, 1.0);
         // The voice pool is fixed and preallocated here (off the audio thread);
         // it never grows, so note allocation and stealing stay heap-free on RT.
         let voices: Vec<VoiceSlot<OscillatorNode>> = (0..max_polyphony)
@@ -24,6 +25,7 @@ impl PolyphonicOscillator {
 
         PolyphonicOscillator {
             instrument_id,
+            age_scratch: vec![0; voices.len()],
             voices,
             next_age: 0,
         }

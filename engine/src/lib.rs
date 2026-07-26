@@ -822,14 +822,22 @@ mod tests {
         let capacity_before = engine.instruments.capacity();
         engine.add_instrument_with_retirement(make(3), &mut retired);
         assert_eq!(retired.0.len(), 1, "over-cap instrument must be retired");
-        assert_eq!(engine.instruments.len(), 2, "over-cap instrument must not install");
+        assert_eq!(
+            engine.instruments.len(),
+            2,
+            "over-cap instrument must not install"
+        );
         assert_eq!(
             engine.instruments.capacity(),
             capacity_before,
             "rejection must not reallocate the slot vector"
         );
         assert_eq!(
-            engine.instruments.iter().map(|slot| slot.id).collect::<Vec<_>>(),
+            engine
+                .instruments
+                .iter()
+                .map(|slot| slot.id)
+                .collect::<Vec<_>>(),
             [1, 2]
         );
 

@@ -2,7 +2,7 @@
 title: Real-Time Audio Contract
 summary: Enforced callback safety, bounded-work, ownership, overload, and verification rules for M1.
 status: accepted
-updated: 2026-07-24
+updated: 2026-07-26
 issues: [101, 132, 133, 134, 136, 137, 138, 145, 171, 172, 173, 174, 175]
 ---
 
@@ -107,7 +107,7 @@ The transitional standalone compatibility queue consumes at most **64 command it
 - Continuous values coalesce by contract rather than filling the structural queue. *(Contract target; the coalesced continuous-parameter path is deferred to open [#101](https://github.com/jpalvarezl/blight-synth/issues/101) — today `/param/set` still enqueues a structural command.)*
 - Structural updates are not silently dropped: replaced/rejected owners are retired to NRT rather than discarded on RT. *(Observable NRT result reporting for effect remove/reorder is deferred to open [#136](https://github.com/jpalvarezl/blight-synth/issues/136); those commands currently succeed as no-ops.)*
 - Event overflow behavior is explicit and deterministic; all-notes-off/recovery remains possible. *(Contract target for the bounded timestamped-event queue, deferred to open [#134](https://github.com/jpalvarezl/blight-synth/issues/134).)*
-- Capacity exhaustion increments a bounded counter/status in strict RT builds. Developer diagnostic builds may additionally emit a compile-time-gated callback log.
+- Capacity exhaustion must have a documented bounded signal. Command-queue submission exposes producer-visible `Full`; hard instrument-capacity rejection is not yet counted or typed and currently surfaces only by retiring the rejected new owner as `RetiredState::Instrument`, the same variant used for a displaced old owner. Developer diagnostic builds may additionally emit a compile-time-gated callback log where one is explicitly specified.
 
 ## Deferred reclamation
 

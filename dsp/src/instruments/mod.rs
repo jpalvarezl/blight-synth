@@ -30,9 +30,9 @@ struct VoiceSlot<S: SynthNode> {
     /// Ignored by monophonic instruments; used by polyphonic instruments to
     /// target note-off and to retrigger a repeated note.
     note_id: Option<NoteId>,
-    /// Monotonic sequence number stamped on each note-on. Lower values are
-    /// older, giving polyphonic instruments a deterministic oldest-first
-    /// voice-stealing order without wall-clock time or allocation.
+    /// Sequence number stamped on each note-on. Lower values are older. The
+    /// pool renormalizes all ages before the sequence can wrap, preserving the
+    /// same deterministic oldest-first order indefinitely.
     age: u64,
 }
 
@@ -111,11 +111,39 @@ impl<S: SynthNode> InstrumentTrait for MonophonicInstrument<S> {
 pub struct PolyphonicInstrument<S: SynthNode> {
     instrument_id: crate::id::InstrumentId,
     voices: Vec<VoiceSlot<S>>,
-    /// Monotonic counter used to stamp voice ages for deterministic stealing.
+    /// Next sequence number used to stamp voice ages for deterministic stealing.
     next_age: u64,
+    /// Fixed scratch storage, prepared with the voice pool off RT, used only to
+    /// preserve age ordering when `next_age` reaches its rollover boundary.
+    age_scratch: Vec<u64>,
 }
 
 impl<S: SynthNode> PolyphonicInstrument<S> {
+    /// Compacts all slot ages into stable ranks before `next_age` can wrap.
+    ///
+    /// This O(voices²) pass is bounded by the fixed prepared voice count and
+    /// uses only the preallocated scratch buffer. Ranking by `(age, slot index)`
+    /// preserves oldest-first order and its lowest-index tie break exactly.
+    fn renormalize_ages(&mut self) {
+        debug_assert_eq!(self.age_scratch.len(), self.voices.len());
+        for (saved_age, slot) in self.age_scratch.iter_mut().zip(&self.voices) {
+            *saved_age = slot.age;
+        }
+        for index in 0..self.voices.len() {
+            let age = self.age_scratch[index];
+            let rank = self
+                .age_scratch
+                .iter()
+                .enumerate()
+                .filter(|(other_index, other_age)| {
+                    **other_age < age || (**other_age == age && *other_index < index)
+                })
+                .count();
+            self.voices[index].age = rank as u64;
+        }
+        self.next_age = self.voices.len() as u64;
+    }
+
     /// Picks the slot to (re)use for a note-on, following a deterministic,
     /// allocation-free policy:
     ///
@@ -150,12 +178,19 @@ impl<S: SynthNode> InstrumentTrait for PolyphonicInstrument<S> {
         if self.voices.is_empty() {
             return;
         }
+        if self.next_age == u64::MAX {
+            self.renormalize_ages();
+        }
         let index = self.allocate_slot(event.id);
         // Compile-time-gated developer diagnostic: which voice took the note.
         // Fully removed in release builds; see the RT contract's build modes.
-        crate::rt_debug_log!("poly note_on id={} pitch={} -> slot={index}", event.id.get(), event.pitch);
+        crate::rt_debug_log!(
+            "poly note_on id={} pitch={} -> slot={index}",
+            event.id.get(),
+            event.pitch
+        );
         let age = self.next_age;
-        self.next_age = self.next_age.wrapping_add(1);
+        self.next_age += 1;
         let slot = &mut self.voices[index];
         slot.note_id = Some(event.id);
         slot.age = age;
@@ -251,7 +286,7 @@ impl<S: SynthNode> InstrumentTrait for PolyphonicInstrument<S> {
 mod polyphony_tests {
     use super::*;
     use crate::id::{NoteEvent, NoteId};
-    use crate::{MonoEffectChain, SynthNode, Voice};
+    use crate::{Envelope, MonoEffectChain, SynthNode, Voice};
 
     /// Builds a note-on event for tests.
     fn ev(id: NoteId, pitch: u8, velocity: u8) -> NoteEvent {
@@ -270,10 +305,12 @@ mod polyphony_tests {
         active: bool,
         note_ons: u32,
         note_offs: u32,
+        processes: u32,
     }
 
     impl SynthNode for TestNode {
         fn process(&mut self, output_buffer: &mut [f32], _sample_rate: f32) {
+            self.processes += 1;
             output_buffer.fill(0.0);
         }
         fn note_on(&mut self, _note: u8, _velocity: u8) {
@@ -290,7 +327,7 @@ mod polyphony_tests {
     }
 
     fn poly(max_polyphony: usize) -> PolyphonicInstrument<TestNode> {
-        let voices = (0..max_polyphony)
+        let voices: Vec<_> = (0..max_polyphony)
             .map(|_| {
                 VoiceSlot::new(Voice::new_no_envelope(
                     0,
@@ -302,6 +339,47 @@ mod polyphony_tests {
             .collect();
         PolyphonicInstrument {
             instrument_id: 1,
+            age_scratch: vec![0; voices.len()],
+            voices,
+            next_age: 0,
+        }
+    }
+
+    /// Node that stays active while its Voice envelope owns the lifecycle.
+    #[derive(Default)]
+    struct EnvelopeTestNode {
+        note_offs: u32,
+    }
+
+    impl SynthNode for EnvelopeTestNode {
+        fn process(&mut self, output_buffer: &mut [f32], _sample_rate: f32) {
+            output_buffer.fill(0.0);
+        }
+        fn note_on(&mut self, _note: u8, _velocity: u8) {}
+        fn note_off(&mut self) {
+            self.note_offs += 1;
+        }
+        fn is_active(&self) -> bool {
+            true
+        }
+    }
+
+    fn envelope_poly(max_polyphony: usize) -> PolyphonicInstrument<EnvelopeTestNode> {
+        const SAMPLE_RATE: f32 = 1_000.0;
+        let voices = (0..max_polyphony)
+            .map(|_| {
+                VoiceSlot::new(Voice::new(
+                    0,
+                    EnvelopeTestNode::default(),
+                    Envelope::new_adsr(SAMPLE_RATE, 0.0, 0.0, 1.0, 0.01),
+                    0.0,
+                    MonoEffectChain::new(1),
+                ))
+            })
+            .collect::<Vec<_>>();
+        PolyphonicInstrument {
+            instrument_id: 1,
+            age_scratch: vec![0; voices.len()],
             voices,
             next_age: 0,
         }
@@ -383,8 +461,9 @@ mod polyphony_tests {
         let newer = NoteId(2);
         let stealer = NoteId(3);
 
-        instrument.note_on(ev(oldest, 60, 100)); // age 0 -> slot 0
-        instrument.note_on(ev(newer, 64, 100)); // age 1 -> slot 1
+        // Fill slot 0 at age 0, then slot 1 at age 1.
+        instrument.note_on(ev(oldest, 60, 100));
+        instrument.note_on(ev(newer, 64, 100));
         // Pool exhausted: the third note steals the oldest (slot 0), not slot 1.
         instrument.note_on(ev(stealer, 67, 100));
 
@@ -400,6 +479,35 @@ mod polyphony_tests {
     }
 
     #[test]
+    fn age_renormalization_preserves_true_oldest_first_across_rollover() {
+        let mut instrument = poly(2);
+        let genuinely_older = NoteId(1);
+        let freshly_stamped = NoteId(2);
+        let stealer = NoteId(3);
+        instrument.next_age = u64::MAX - 1;
+
+        instrument.note_on(ev(genuinely_older, 60, 100));
+        instrument.note_on(ev(freshly_stamped, 64, 100));
+        assert!(instrument.voices[0].age < instrument.voices[1].age);
+
+        instrument.note_on(ev(stealer, 67, 100));
+
+        assert_eq!(instrument.voices[0].note_id, Some(stealer));
+        assert_eq!(instrument.voices[1].note_id, Some(freshly_stamped));
+    }
+
+    #[test]
+    fn equal_age_stealing_tie_uses_the_lowest_slot_index() {
+        let mut instrument = poly(2);
+        instrument.note_on(ev(NoteId(1), 60, 100));
+        instrument.note_on(ev(NoteId(2), 64, 100));
+        instrument.voices[0].age = 7;
+        instrument.voices[1].age = 7;
+
+        assert_eq!(instrument.allocate_slot(NoteId(3)), 0);
+    }
+
+    #[test]
     fn freed_voices_are_reused_before_stealing() {
         let mut instrument = poly(2);
         instrument.note_on(ev(NoteId(1), 60, 100));
@@ -412,6 +520,69 @@ mod polyphony_tests {
         assert!(instrument.voices[0].inner.is_active());
         assert_eq!(instrument.voices[1].note_id, Some(NoteId(2)));
         assert!(instrument.voices[1].inner.is_active());
+    }
+
+    #[test]
+    fn process_skips_inactive_voices() {
+        let mut instrument = poly(3);
+        instrument.note_on(ev(NoteId(1), 60, 100));
+        let mut left = [0.0; 8];
+        let mut right = [0.0; 8];
+
+        instrument.process(&mut left, &mut right, 48_000.0);
+
+        assert_eq!(instrument.voices[0].inner.node.processes, 1);
+        assert_eq!(instrument.voices[1].inner.node.processes, 0);
+        assert_eq!(instrument.voices[2].inner.node.processes, 0);
+    }
+
+    #[test]
+    fn duplicate_and_all_notes_off_are_safe_during_envelope_release() {
+        const SAMPLE_RATE: f32 = 1_000.0;
+        let mut instrument = envelope_poly(2);
+        let first = NoteId(1);
+        let second = NoteId(2);
+        instrument.note_on(ev(first, 60, 100));
+        instrument.note_on(ev(second, 64, 100));
+        let mut left = [0.0; 3];
+        let mut right = [0.0; 3];
+        instrument.process(&mut left, &mut right, SAMPLE_RATE);
+
+        instrument.note_off(first);
+        assert!(instrument.voices[0].inner.is_active());
+        assert!(instrument.voices[1].inner.is_active());
+        let mut release_progress_left = [0.0; 3];
+        let mut release_progress_right = [0.0; 3];
+        instrument.process(
+            &mut release_progress_left,
+            &mut release_progress_right,
+            SAMPLE_RATE,
+        );
+        assert!(instrument.voices[0].inner.is_active());
+
+        // A duplicate targeted release remains confined to the matching voice;
+        // reapplying gate-off cannot revive or restart the envelope from peak.
+        instrument.note_off(first);
+        assert_eq!(instrument.voices[0].inner.node.note_offs, 2);
+        assert_eq!(instrument.voices[1].inner.node.note_offs, 0);
+        assert!(instrument.voices[0].inner.is_active());
+
+        // all-notes-off also leaves both voices in their real Release phase.
+        instrument.all_notes_off();
+        assert_eq!(instrument.voices[0].inner.node.note_offs, 3);
+        assert_eq!(instrument.voices[1].inner.node.note_offs, 1);
+        assert!(instrument.voices.iter().all(|slot| slot.inner.is_active()));
+
+        let mut release_left = [0.0; 16];
+        let mut release_right = [0.0; 16];
+        instrument.process(&mut release_left, &mut release_right, SAMPLE_RATE);
+        assert!(instrument.voices.iter().all(|slot| !slot.inner.is_active()));
+
+        // Once Idle, neither targeted nor global release may re-gate a voice.
+        instrument.note_off(first);
+        instrument.all_notes_off();
+        assert_eq!(instrument.voices[0].inner.node.note_offs, 3);
+        assert_eq!(instrument.voices[1].inner.node.note_offs, 1);
     }
 
     #[test]
