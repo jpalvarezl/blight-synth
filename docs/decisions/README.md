@@ -2,7 +2,7 @@
 title: Architecture Decision Index
 summary: Durable decisions with status, rationale, and supersession history.
 status: current
-updated: 2026-07-14
+updated: 2026-07-26
 ---
 
 # Architecture Decision Records
@@ -23,3 +23,4 @@ ADRs record decisions that affect multiple domains or constrain future work. The
 |---|---|---|
 | [0001](0001-product-and-host-priorities.md) | Accepted | Standalone experimental composition is primary; composition UX remains open; plugins are optional complete-engine hosts. |
 | [0002](0002-device-host-osc-split.md) | Proposed | Split a reusable in-process `device_host` from the OSC standalone process adapter; OSC is a transport over the shared `BlightAudio` control boundary, not an owner of device-host semantics. |
+| [0003](0003-event-source-contract.md) | Proposed | Host/producer-side clock adapters fill bounded, already-offset event blocks for the engine; current pull, NRT lookahead, ordering, and fail-closed recovery are explicit. |
