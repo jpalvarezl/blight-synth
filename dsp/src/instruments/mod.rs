@@ -17,7 +17,7 @@ pub use snare_drum::*;
 pub use synth_nodes::*;
 
 use crate::{
-    id::{EffectId, NoteId},
+    id::{EffectId, NoteEvent, NoteId},
     EffectInstallError, EffectInstallErrorKind, InstrumentTrait, MonoEffect, SynthNode, Voice,
     VoiceEffects, VoiceTrait,
 };
@@ -58,17 +58,25 @@ impl<S: SynthNode> InstrumentTrait for MonophonicInstrument<S> {
         self.instrument_id
     }
 
-    fn note_on(&mut self, note_id: NoteId, note: u8, velocity: u8) {
+    fn note_on(&mut self, event: NoteEvent) {
         // A monophonic instrument always reuses its single voice; the identity
         // is recorded only so a targeted note-off can match it.
-        self.voice.note_id = Some(note_id);
-        self.voice.inner.note_on(note, velocity);
+        crate::rt_debug_log!(
+            "mono note_on: id={} pitch={} vel={}",
+            event.id.get(),
+            event.pitch,
+            event.velocity
+        );
+        self.voice.note_id = Some(event.id);
+        self.voice.inner.note_on(event.pitch, event.velocity);
     }
 
     fn note_off(&mut self, note_id: NoteId) {
         // Release only when the identity matches and the voice is still sounding,
         // so a duplicate/late note-off cannot re-gate an already-idle envelope.
-        if self.voice.note_id == Some(note_id) && self.voice.inner.is_active() {
+        let matched = self.voice.note_id == Some(note_id) && self.voice.inner.is_active();
+        crate::rt_debug_log!("mono note_off: id={} released={}", note_id.get(), matched);
+        if matched {
             self.voice.inner.note_off();
         }
     }
@@ -123,12 +131,15 @@ impl<S: SynthNode> PolyphonicInstrument<S> {
     /// 2. Otherwise use the lowest-index idle voice.
     /// 3. Otherwise steal the oldest active voice (smallest age); ties break
     ///    toward the lowest index, so the choice is fully deterministic.
-    fn allocate_slot(&mut self, note_id: NoteId) -> usize {
+    ///
+    /// Returns the chosen slot index and why it was chosen, so the caller can
+    /// emit a compact developer diagnostic without recomputing the decision.
+    fn allocate_slot(&mut self, note_id: NoteId) -> (usize, SlotDecision) {
         let mut free: Option<usize> = None;
         let mut oldest = 0usize;
         for (index, slot) in self.voices.iter().enumerate() {
             if slot.note_id == Some(note_id) && slot.inner.is_active() {
-                return index;
+                return (index, SlotDecision::Retrigger);
             }
             if free.is_none() && !slot.inner.is_active() {
                 free = Some(index);
@@ -137,8 +148,23 @@ impl<S: SynthNode> PolyphonicInstrument<S> {
                 oldest = index;
             }
         }
-        free.unwrap_or(oldest)
+        match free {
+            Some(index) => (index, SlotDecision::FreeSlot),
+            None => (oldest, SlotDecision::Steal),
+        }
     }
+}
+
+/// Why [`PolyphonicInstrument::allocate_slot`] chose a given voice slot.
+/// Kept as a plain `Copy` enum so the developer diagnostic stays allocation-free.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SlotDecision {
+    /// Reused the voice already holding the incoming identity (repeated note).
+    Retrigger,
+    /// Took the lowest-index idle voice.
+    FreeSlot,
+    /// Stole the oldest active voice because the pool was exhausted.
+    Steal,
 }
 
 impl<S: SynthNode> InstrumentTrait for PolyphonicInstrument<S> {
@@ -146,17 +172,30 @@ impl<S: SynthNode> InstrumentTrait for PolyphonicInstrument<S> {
         self.instrument_id
     }
 
-    fn note_on(&mut self, note_id: NoteId, note: u8, velocity: u8) {
+    fn note_on(&mut self, event: NoteEvent) {
         if self.voices.is_empty() {
+            crate::rt_debug_log!(
+                "poly note_on ignored (empty pool): id={} pitch={}",
+                event.id.get(),
+                event.pitch
+            );
             return;
         }
-        let index = self.allocate_slot(note_id);
+        let (index, decision) = self.allocate_slot(event.id);
+        crate::rt_debug_log!(
+            "poly note_on: id={} pitch={} vel={} -> slot={} ({:?})",
+            event.id.get(),
+            event.pitch,
+            event.velocity,
+            index,
+            decision
+        );
         let age = self.next_age;
         self.next_age = self.next_age.wrapping_add(1);
         let slot = &mut self.voices[index];
-        slot.note_id = Some(note_id);
+        slot.note_id = Some(event.id);
         slot.age = age;
-        slot.inner.note_on(note, velocity);
+        slot.inner.note_on(event.pitch, event.velocity);
     }
 
     /// Releases only the voice that owns `note_id`, leaving the rest sounding.
@@ -244,8 +283,17 @@ impl<S: SynthNode> InstrumentTrait for PolyphonicInstrument<S> {
 #[cfg(test)]
 mod polyphony_tests {
     use super::*;
-    use crate::id::NoteId;
+    use crate::id::{NoteEvent, NoteId};
     use crate::{MonoEffectChain, SynthNode, Voice};
+
+    /// Builds a note-on event for tests.
+    fn ev(id: NoteId, pitch: u8, velocity: u8) -> NoteEvent {
+        NoteEvent {
+            id,
+            pitch,
+            velocity,
+        }
+    }
 
     /// A deterministic, allocation-free voice source whose activity is driven
     /// directly by note-on/note-off, so tests can observe voice allocation,
@@ -305,8 +353,8 @@ mod polyphony_tests {
         let mut instrument = poly(4);
         let id = NoteId::from_pitch(60);
 
-        instrument.note_on(id, 60, 100);
-        instrument.note_on(id, 60, 100);
+        instrument.note_on(ev(id, 60, 100));
+        instrument.note_on(ev(id, 60, 100));
 
         // A repeated note under the same identity retriggers the same slot
         // instead of consuming a second voice.
@@ -323,8 +371,8 @@ mod polyphony_tests {
 
         // Same MIDI pitch, distinct identities: two independently addressable
         // sounding voices.
-        instrument.note_on(first, 60, 100);
-        instrument.note_on(second, 60, 100);
+        instrument.note_on(ev(first, 60, 100));
+        instrument.note_on(ev(second, 60, 100));
 
         assert_eq!(active_voices(&instrument), 2);
         assert_eq!(instrument.voices[0].note_id, Some(first));
@@ -336,8 +384,8 @@ mod polyphony_tests {
         let mut instrument = poly(4);
         let keep = NoteId(1);
         let release = NoteId(2);
-        instrument.note_on(keep, 60, 100);
-        instrument.note_on(release, 64, 100);
+        instrument.note_on(ev(keep, 60, 100));
+        instrument.note_on(ev(release, 64, 100));
 
         instrument.note_off(release);
 
@@ -352,9 +400,9 @@ mod polyphony_tests {
     #[test]
     fn all_notes_off_releases_every_sounding_voice() {
         let mut instrument = poly(4);
-        instrument.note_on(NoteId(1), 60, 100);
-        instrument.note_on(NoteId(2), 64, 100);
-        instrument.note_on(NoteId(3), 67, 100);
+        instrument.note_on(ev(NoteId(1), 60, 100));
+        instrument.note_on(ev(NoteId(2), 64, 100));
+        instrument.note_on(ev(NoteId(3), 67, 100));
 
         instrument.all_notes_off();
 
@@ -368,10 +416,10 @@ mod polyphony_tests {
         let newer = NoteId(2);
         let stealer = NoteId(3);
 
-        instrument.note_on(oldest, 60, 100); // age 0 -> slot 0
-        instrument.note_on(newer, 64, 100); // age 1 -> slot 1
+        instrument.note_on(ev(oldest, 60, 100)); // age 0 -> slot 0
+        instrument.note_on(ev(newer, 64, 100)); // age 1 -> slot 1
         // Pool exhausted: the third note steals the oldest (slot 0), not slot 1.
-        instrument.note_on(stealer, 67, 100);
+        instrument.note_on(ev(stealer, 67, 100));
 
         assert_eq!(instrument.voices[0].note_id, Some(stealer));
         assert_eq!(instrument.voices[1].note_id, Some(newer));
@@ -387,12 +435,12 @@ mod polyphony_tests {
     #[test]
     fn freed_voices_are_reused_before_stealing() {
         let mut instrument = poly(2);
-        instrument.note_on(NoteId(1), 60, 100);
-        instrument.note_on(NoteId(2), 64, 100);
+        instrument.note_on(ev(NoteId(1), 60, 100));
+        instrument.note_on(ev(NoteId(2), 64, 100));
         instrument.note_off(NoteId(1)); // slot 0 now idle
 
         // A new note should take the idle slot 0 rather than steal slot 1.
-        instrument.note_on(NoteId(3), 67, 100);
+        instrument.note_on(ev(NoteId(3), 67, 100));
         assert_eq!(instrument.voices[0].note_id, Some(NoteId(3)));
         assert!(instrument.voices[0].inner.is_active());
         assert_eq!(instrument.voices[1].note_id, Some(NoteId(2)));
@@ -405,8 +453,8 @@ mod polyphony_tests {
         // release phase, so a stale `note_id` must not be re-gated once idle.
         // A duplicate/late note-off must be a no-op on the finished voice.
         let mut instrument = poly(2);
-        instrument.note_on(NoteId(1), 60, 100);
-        instrument.note_on(NoteId(2), 64, 100);
+        instrument.note_on(ev(NoteId(1), 60, 100));
+        instrument.note_on(ev(NoteId(2), 64, 100));
 
         instrument.note_off(NoteId(1));
         assert!(!instrument.voices[0].inner.is_active());
@@ -421,7 +469,7 @@ mod polyphony_tests {
         );
 
         // A fresh note reuses the idle slot instead of stealing the survivor.
-        instrument.note_on(NoteId(3), 67, 100);
+        instrument.note_on(ev(NoteId(3), 67, 100));
         assert_eq!(instrument.voices[0].note_id, Some(NoteId(3)));
         assert!(instrument.voices[1].inner.is_active());
         assert_eq!(instrument.voices[1].note_id, Some(NoteId(2)));
@@ -430,7 +478,7 @@ mod polyphony_tests {
     #[test]
     fn empty_voice_pool_ignores_notes_without_panicking() {
         let mut instrument = poly(0);
-        instrument.note_on(NoteId(1), 60, 100);
+        instrument.note_on(ev(NoteId(1), 60, 100));
         instrument.note_off(NoteId(1));
         instrument.all_notes_off();
         assert_eq!(active_voices(&instrument), 0);

@@ -265,7 +265,7 @@ mod tests {
         fn id(&self) -> InstrumentId {
             self.id
         }
-        fn note_on(&mut self, _note_id: dsp::id::NoteId, _note: u8, _velocity: u8) {}
+        fn note_on(&mut self, _event: dsp::NoteEvent) {}
         fn note_off(&mut self, _note_id: dsp::id::NoteId) {}
         fn all_notes_off(&mut self) {}
         fn process(&mut self, _left: &mut [f32], _right: &mut [f32], _sample_rate: f32) {}
@@ -290,7 +290,7 @@ mod tests {
             1
         }
 
-        fn note_on(&mut self, _note_id: dsp::id::NoteId, _note: u8, _velocity: u8) {}
+        fn note_on(&mut self, _event: dsp::NoteEvent) {}
 
         fn note_off(&mut self, _note_id: dsp::id::NoteId) {}
 

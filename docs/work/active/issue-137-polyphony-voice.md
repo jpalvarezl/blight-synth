@@ -49,6 +49,36 @@ Coordination: parallel #121 may add a NEW params module — avoid gratuitous `en
 
 ## Handoff
 
+### PR #200 review follow-up (NoteEvent + RT-safe voice-allocation diagnostics)
+Two maintainer-requested changes were applied on top of the implementation below
+(committed, not pushed):
+
+1. **`NoteEvent` bundling.** Added `dsp::NoteEvent { id: NoteId, pitch: u8, velocity: u8 }`
+   (in `dsp/src/id.rs`, re-exported as `dsp::NoteEvent`), derives `Clone, Copy, Debug,
+   PartialEq`, with `NoteEvent::from_pitch(pitch, velocity)` using `NoteId::from_pitch`.
+   `InstrumentTrait::note_on` is now `note_on(&mut self, event: NoteEvent)`; `note_off`
+   and `all_notes_off` are unchanged. The lower-level `SynthNode`/`Voice`
+   `note_on(note, velocity)` signatures were intentionally left untouched — instruments
+   still call `voice.inner.note_on(event.pitch, event.velocity)`. Updated implementors
+   (`MonophonicInstrument`, `PolyphonicInstrument`, and every test stub in
+   `engine/src/lib.rs`, `audio_backend/src/device_host/audio_processor/mod.rs`,
+   `engine/tests/rt_allocations.rs`, and the dsp `polyphony_tests`), plus Engine call
+   sites (`note_on`/`note_on_with_id` construct a `NoteEvent`). `Engine::note_on` keeps
+   its `(instrument_id, note, velocity)` signature (velocity behavior preserved).
+2. **RT-safe voice-allocation diagnostics.** Restored per-voice allocation logging using
+   the compile-time-gated `dsp::rt_debug_log!` macro (compiles out entirely in release).
+   `PolyphonicInstrument::note_on` logs incoming note (id + pitch + velocity), the chosen
+   slot index, and the decision; `allocate_slot` now returns a `SlotDecision`
+   (`Retrigger`/`FreeSlot`/`Steal`) so the diagnostic reports why. Empty-pool ignore is
+   also logged. `MonophonicInstrument` note_on/note_off log concise id/pitch/release info.
+   No raw `eprintln!`/`println!`/`format!` on the callback path — `scripts/check_rt_logging.py`
+   passes. The `note_off` identity guard is unchanged.
+
+Verification: `cargo test --workspace --all-targets` all green (incl. `offline_golden`
+2/2 byte-identical and `rt_allocations` 7/7 with 0 alloc/dealloc/realloc), `cargo clippy
+--workspace --all-targets -- -D warnings` clean, `check_rt_logging.py` and
+`docs/check_docs.py` pass.
+
 ### Status: implementation complete on `issue/137-polyphony-voice` (committed, not pushed).
 
 ### Note/voice identity design

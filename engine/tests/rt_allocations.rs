@@ -196,7 +196,7 @@ impl InstrumentTrait for IntentionallyAllocatingInstrument {
         self.id
     }
 
-    fn note_on(&mut self, _note_id: dsp::id::NoteId, _note: u8, _velocity: u8) {}
+    fn note_on(&mut self, _event: dsp::NoteEvent) {}
 
     fn note_off(&mut self, _note_id: dsp::id::NoteId) {}
 

@@ -2,7 +2,7 @@ mod commands;
 
 pub use commands::*;
 use dsp::{
-    id::{EffectId, InstrumentId, NoteId},
+    id::{EffectId, InstrumentId, NoteEvent, NoteId},
     InstrumentTrait, MonoEffect, StereoEffect, StereoEffectChain, SynthCmd, VoiceEffects,
 };
 use std::{any::Any, sync::Arc};
@@ -187,7 +187,11 @@ impl Engine {
         velocity: u8,
     ) {
         if let Some(instrument) = self.instrument_mut(instrument_id) {
-            instrument.note_on(note_id, note, velocity);
+            instrument.note_on(NoteEvent {
+                id: note_id,
+                pitch: note,
+                velocity,
+            });
         }
     }
 
@@ -399,7 +403,7 @@ mod tests {
             self.id
         }
 
-        fn note_on(&mut self, _note_id: dsp::id::NoteId, _note: u8, _velocity: u8) {
+        fn note_on(&mut self, _event: dsp::NoteEvent) {
             self.note_ons.fetch_add(1, Ordering::Relaxed);
         }
 
@@ -463,7 +467,7 @@ mod tests {
         fn id(&self) -> InstrumentId {
             self.id
         }
-        fn note_on(&mut self, _note_id: dsp::id::NoteId, _note: u8, _velocity: u8) {}
+        fn note_on(&mut self, _event: dsp::NoteEvent) {}
         fn note_off(&mut self, _note_id: dsp::id::NoteId) {}
         fn all_notes_off(&mut self) {}
         fn process(&mut self, _left: &mut [f32], _right: &mut [f32], _sample_rate: f32) {}
