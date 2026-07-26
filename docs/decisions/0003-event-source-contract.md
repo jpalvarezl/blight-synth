@@ -14,11 +14,25 @@ supersedes: []
 Proposed
 
 Deciding issue: [#145](https://github.com/jpalvarezl/blight-synth/issues/145).
-This ADR records a target boundary and its contracts only. It does **not**
+This ADR records a target boundary and its hard constraints. It does **not**
 change engine/DSP code, Cargo files, or the accepted
 [real-time audio contract](../architecture/realtime-contract.md). Implementation
-is scheduled follow-up work under #134, #132, #138, and the composition-adapter
-extraction described below.
+belongs to #134, #132, #138, and the composition-adapter extraction under #145.
+
+## Scope of this decision
+
+This decision fixes ownership, dependency direction, and the constraints that
+all implementations must satisfy. It intentionally does not freeze queue
+protocols, packet layouts, ordering-key fields, RNG reconstruction algorithms,
+or concrete Rust APIs. Those mechanisms and the named open questions below are
+delegated to the implementing issues, especially #134 and #132.
+
+Implementation may refine or replace a mechanism suggested here when evidence
+shows a better approach, provided it preserves the decision and hard
+constraints. A change to those boundaries or constraints must supersede or amend
+the relevant part of this ADR through the normal ADR process. This latitude is
+intentional: a Proposed design must not pre-empt what sample-accurate scheduling
+and engine-lifecycle implementation teach us.
 
 ## Context
 
@@ -27,8 +41,8 @@ through `audio_backend::player::Player` and `TrackerEngineAdapter`. `Player`
 owns an `Arc<Song>`, `TimingState`, and `PlayerPosition`. For each callback,
 `TimingState::advance` returns only the number of elapsed ticks; `Player` walks
 `Song → arrangement → Chain → Phrase → Event`, invokes note methods, and then
-renders the whole block. It therefore has the useful shape of demand-driven
-block evaluation, but it does **not** compute sample offsets and is not a
+renders the whole block. It has the useful shape of demand-driven block
+evaluation, but it does **not** compute sample offsets and is not a
 sample-accurate implementation of this contract.
 
 The tracker path is not the only way to drive the engine. `Engine` exposes
@@ -37,39 +51,32 @@ public note, command, and `process` methods used directly by
 the current first-party *song/composition* path interprets one tracker document
 model directly on the callback instead of crossing a generic event boundary.
 
-`TrackerEngineAdapter` also already owns the tracker-only
-`track_last_instrument` state. Merely saying that state moves “behind the
-adapter” does not fix its real-time violation: it is a `HashMap`, and
-`HashMap::insert` remains callback-reachable and can allocate despite initial
-preallocation. A direct-RT tracker evaluator needs structurally fixed indexed
-state, or tracker evaluation must move to NRT.
+`TrackerEngineAdapter` already owns tracker-only `track_last_instrument` state.
+It constructs that `HashMap` with `HashMap::with_capacity(MAX_TRACKS)`, and the
+current caller inserts at most `MAX_TRACKS` distinct keys (all in
+`0..MAX_TRACKS`); Rust guarantees the table can hold that many entries without
+reallocating. The current path therefore does **not** demonstrate a Hard-Rule-1
+allocation violation from these inserts. The gap is structural: the
+bound is implicit in the caller and collection usage rather than enforced by
+the state representation or its type. Direct-RT tracker evaluation must harden
+that invariant and prove its other work bounds; this is preventative structural
+work, not remediation of an observed allocation.
 
-This matters for two accepted directions:
-
-- [ADR 0001](0001-product-and-host-priorities.md) keeps the composition
-  interaction open. The tracker remains supported, but an ORCA-like grid,
-  hybrid, or generative model must not require DSP, mixer, routing, or device
-  changes.
-- The [real-time audio contract](../architecture/realtime-contract.md) defines
-  timestamped musical/control events as a distinct ordered, bounded traffic
-  class. It must not be conflated with latest-value continuous parameters or
-  prepared structural updates, and its overload behavior must keep recovery
-  reachable.
-
-The earlier draft also assigned musical-time conversion to both the engine and
-clock/event-source adapters, and mixed current-block output with future
-lookahead in one buffer. Neither model has one implementable owner. This
-revision chooses one clock flow and separates the current-block pull from NRT
-lookahead publication.
+The boundary must support the existing tracker and future ORCA-like, hybrid, or
+generative models without making the engine understand any composition
+document. It must also honor traffic class 2 of the
+[real-time audio contract](../architecture/realtime-contract.md): timestamped
+events have bounded work, deterministic ordering and explicit overload behavior,
+and remain separate from latest-value controls and prepared structural swaps.
 
 ## Decision
 
 Adopt a host-orchestrated, demand-driven boundary:
 
 ```text
-selected clock/input adapters + versioned document
-  -> composite event source/scheduler
-  -> current-block, already-offset event slice
+host-selected clock/input adapters + versioned document
+  -> composition runtime and host-owned composite scheduler
+  -> bounded current-block events with sample offsets
   -> Engine event application + DSP rendering
 ```
 
@@ -79,335 +86,220 @@ or external clock time into sample offsets.
 ### 1. Roles and clock authority
 
 **Host/control and clock adapters.** The host owns device/plugin callback
-wiring, clock-source selection, filesystem and MIDI/OSC I/O, live edit
-submission, and side-effect routing. For every render block it provides the
-producer side with a bounded `BlockWindow` containing, conceptually:
+wiring, clock-source selection, filesystem and MIDI/OSC I/O, live-edit
+submission, and side-effect routing. Its selected clock adapter is the sole
+producer-side authority for mapping clock/musical positions to render frames.
+It supplies a bounded prepared mapping for the current block. When NRT
+lookahead is used, that same adapter also owns provision of a bounded, prepared
+future-clock window or horizon on which future timestamps can reliably be
+based.
 
-- a `clock_epoch` identifying one continuous clock mapping;
-- the half-open absolute render-frame interval
-  `[start_frame, start_frame + frame_count)`;
-- a prepared, bounded list of clock segments that is queryable in both
-  directions between render frames and semantic musical positions; and
-- the active document/publication generation and bounded timestamped input
-  trace.
+If a selected clock cannot provide a reliable future mapping, the runtime falls
+back to the current-block pull path; future lookahead must not extrapolate an
+unreliable mapping. A runtime may execute in that path only when its callback
+state and worst-case work satisfy the RT contract. Otherwise that runtime/clock
+combination cannot run until an accepted implementation provides a compliant
+strategy. Exact future-window preparation and ownership mechanics are an open
+implementation question.
 
-Each clock segment has a half-open frame span, a monotonic/invertible semantic
-span, transport state, and an occurrence identity (including loop iteration
-when needed). Stopped regions produce no musical-deadline mapping; absolute
-live-input frames remain schedulable. Loop wraps and other non-invertible points
-split segments rather than asking each producer to invent an inverse. The
-maximum segments and loop crossings per block are fixed at `prepare`. A loop or
-tempo map whose worst case exceeds that bound is rejected on NRT before
-transport starts; an unexpected invalid map fails closed and starts a new epoch.
-This makes both frame-to-position observation and semantic-deadline-to-frame
-conversion one shared, deterministic operation.
-
-Internal, plugin-host, MIDI, and external clocks all terminate in a clock
-adapter here. MIDI/OSC ingestion and clock estimation run on NRT. A seek, clock
-source change, or discontinuous remap creates a new `clock_epoch`; it is not
-smuggled into an existing continuous mapping.
+A clock-source change or discontinuous remap starts a new clock epoch. Clock
+adapters may represent internal, plugin-host, MIDI, or external clocks, but
+clock estimation and external I/O remain NRT responsibilities.
 
 **Composition runtime/event source.** The runtime owns document semantics,
-interpreter cursor, seeded randomness, and composition-specific replay. Given a
-`BlockWindow`, it or its producer-side clock adapter maps semantic deadlines to
-absolute render frames and then to `sample_offset` values in the current block.
-It emits only already-offset events. It does no audio-device, socket, or
-filesystem I/O and does not mutate the engine object graph.
+interpreter state, seeded randomness, and composition-specific replay. Using
+the selected clock mapping, it produces semantic events at absolute render
+frames or current-block sample offsets. It does not own audio devices, sockets,
+filesystems, or the engine object graph.
 
-**Composite event source/scheduler.** One host-owned composite producer merges
-the active composition runtime, live input, transport, and sample-accurate
-automation producers. It is the only writer of the final engine event buffer.
-This gives cross-producer conflicts one deterministic ordering authority rather
-than relying on callback, queue, or hash iteration order.
+**Composite event source/scheduler.** One host-owned composite scheduler
+combines the active composition runtime, live input, transport, and
+sample-accurate control producers. It is the final ordering authority before the
+engine and exposes one bounded current-block event slice.
 
 **Audio `Engine`.** The engine owns instruments, voices, routing, render-time
 transport state, event application, DSP rendering, and telemetry. It receives a
-block descriptor and a bounded sorted slice whose offsets are already in
-`[0, frame_count)`. It applies events at those offsets and renders caller-owned
-buffers. It does **not** receive musical timestamps, select a clock, estimate
-tempo, or convert time. `Transport` events are already-offset state transitions
-such as start, stop, continue, or loop boundary; they are not requests for the
-engine to perform clock conversion. Stopping transport does not by itself
-prevent effect/release tails from rendering (#132).
+block descriptor and events whose offsets are already in the current block. It
+does not receive musical timestamps, select a clock, estimate tempo, or inspect
+composition/publication generations. Stopping composition transport does not by
+itself prevent effect or release tails from rendering; lifecycle details remain
+with #132.
 
-This producer-side conversion is the sole clock/timestamp flow. It intentionally
-resolves the ambiguous “engine owns transport clock conversion” wording from the
-issue boundary in favor of an engine API that consumes sample offsets.
+### 2. Current-block pull and optional lookahead
 
-### 2. Current-block pull interface
+“Pull” means the host scheduler requests events for the current half-open render
+block before calling the engine. It does not mean that `Engine` calls arbitrary
+composition code. The concrete API is owned by #134/#132 and must satisfy these
+constraints:
 
-“Pull” means the host scheduler requests bounded output for the current block;
-it does not mean that `Engine` calls arbitrary composition code. The conceptual
-call sequence is:
+- The engine-facing slice contains only events for the current block, with every
+  `sample_offset` in `[0, frame_count)`. An event at the block end belongs to the
+  next block.
+- Event storage, work, producer/input counts, and callback-visible status are
+  bounded and prepared. Callback filling, ordering, and application obey all
+  hard RT rules, including no allocation, blocking, I/O, logging, or unbounded
+  retry.
+- A runtime may evaluate directly during current-block pull only when its state
+  and worst-case work are demonstrably fixed and bounded. Other runtimes may use
+  NRT lookahead behind the same engine-facing pull boundary.
+- Lookahead uses separate bounded future storage. Future events do not enter the
+  engine-facing slice until their current block is pulled and their offsets are
+  known.
+- Lookahead records are associated with the relevant clock epoch and active
+  document/publication generation so stale work cannot cross a clock,
+  seek/reset, or document boundary.
+- The RT↔NRT handoff is bounded, non-allocating, nonblocking, and cannot expose
+  torn, overwritten, or partially declared event coverage. RT must be able to
+  determine, with bounded work, whether the current block is complete.
+- Missing or over-capacity lookahead follows deterministic, observable,
+  fail-closed behavior. It never waits, consumes a partial block, or silently
+  applies late events, and note/transport recovery remains reachable even when
+  ordinary event capacity is exhausted.
 
-```text
-composite.fill_current_block(window, bounded_inputs, caller_owned_event_buffer)
-engine.process(block_descriptor, caller_owned_event_buffer.as_ordered_slice())
-```
+These are protocol constraints, not a mandate for a particular ring, cursor,
+watermark, memory ordering, or resumption sequence.
 
-The concrete Rust API belongs to #134/#132, but it must preserve these
-invariants:
+### 3. Event semantics, ordering, and overload
 
-- The host owns and preallocates the event buffer during `prepare`. The callback
-  passes it empty to exactly one composite producer and retains ownership.
-- The ordinary event capacity and the separate recovery capacity are fixed by
-  preparation. Filling, sorting/merging, and application perform no allocation,
-  deallocation, blocking, logging, parsing, or unbounded retry.
-- The buffer contains only events for the requested half-open current window.
-  Every `sample_offset` is in `[0, frame_count)`. An event exactly at the end
-  belongs to the next block.
-- Producer count, per-producer scratch capacity, input count, event count, and
-  merge work all have configured maxima. Child producers emit ordered streams;
-  the composite performs a bounded merge rather than a general allocating sort.
-- The fill result reports compact statuses such as complete, ordinary overflow,
-  invalid clock/generation, or lookahead deadline miss. NRT formats diagnostics;
-  strict RT only updates bounded counters/status.
+The engine event lane contains already-offset musical and render-control facts,
+not composition instructions:
 
-A fixed-memory runtime may evaluate in this call only if all of its state and
-worst-case work satisfy the real-time contract. Otherwise its adapter consumes
-prepared NRT lookahead as described next. The engine sees the same current-block
-slice in either case.
+- `Note` operations such as note-on, note-off, choke, or release, with stable
+  target identity;
+- sample-accurate `Control` changes keyed by stable target/parameter identity;
+  latest-value continuous controls remain traffic class 1; and
+- already-offset `Transport` state transitions, not requests to perform clock
+  conversion.
 
-### 3. NRT lookahead is a separate publication contract
+For every accepted block, ordering is deterministic and total, including events
+from different producers at the same sample offset. It must not depend on hash
+iteration, callback arrival races, thread scheduling, or incidental runtime
+registration order. The schema must define any semantic precedence needed to
+avoid ambiguous results such as same-offset release/attack behavior.
 
-Future lookahead never shares the current-block output buffer. An NRT evaluator
-uses separate storage with two limits established at `prepare`:
+Ordinary event capacity is fixed. Overflow and malformed input are observable
+and deterministic, never silently reorder accepted events, and fail closed.
+Transport-stop/all-notes-off recovery must remain representable when ordinary
+capacity is full. Initial recovery may be engine-global because voices do not
+yet carry producer ownership; a narrower scope requires an accepted ownership
+model.
 
-1. a maximum future horizon in render frames; and
-2. a maximum number of stored events/coverage records.
+The exact total-order key, producer identity/sequence model, bounded merge or
+sort strategy, admission rule, and recovery signaling mechanism are deliberately
+left to #134/#132 and adapter implementation.
 
-Lookahead records use the absolute producer-side timestamp domain
-`(clock_epoch, publication_generation, absolute_render_frame)`, plus ordering
-metadata. They do not contain an in-block offset until the RT adapter pulls the
-matching current window. NRT publishes fixed-capacity plain-data event packets
-and a contiguous `covered_through_frame` marker through a prepared bounded SPSC
-ring. Publication of the marker follows publication of every record it covers.
+### 4. Seek, reset, and discontinuity boundary
 
-The ring protocol is explicitly two-way: its NRT write cursor is the publication
-watermark, and RT advances an atomic read/consumption cursor only after it no
-longer needs a packet. NRT observes that cursor before reusing a slot and never
-overwrites unread data. A full ring rejects further publication with a compact
-observable status; coverage cannot advance past an unpublished/full slot, so a
-block eventually takes the declared deadline-miss path rather than reading torn
-or overwritten data. Packet slots contain no heap ownership, and cursor
-publication/consumption is bounded and nonblocking. Ownership-bearing document
-or generation state uses the separate structural swap-and-retire path.
+A seek, reset, or clock discontinuity takes effect only at sample offset zero of
+the next render block. It installs a new active generation (and a new clock
+epoch when the mapping changes). A request arriving during a block does not
+alter that block's mapping or events, and there is no alternative
+“anywhere-in-block seek barrier.” Work tagged for the old generation is not
+accepted after the boundary.
 
-At callback time, the lookahead adapter may expose a block only if matching
-records provide contiguous declared coverage through the block end. It copies
-or views only events inside the current window and computes their
-`sample_offset = absolute_render_frame - start_frame`. Future records remain in
-the lookahead store. Thus horizon capacity provides scheduling headroom without
-changing current-block buffer semantics.
+Document revisions and other invalidating runtime-state changes use the same
+block-boundary generation rule. Prepared reconciliation may preserve selected
+notes, but the safe default is bounded stop/all-notes-off recovery. Ownership
+replaced at the boundary follows the accepted structural swap-and-retire
+contract and is reclaimed on NRT.
 
-A missing complete coverage watermark at the start of fill is a deterministic
-deadline miss. The adapter does not consume a partial block, wait, or apply a
-late packet on a later callback. It raises a recovery barrier at offset zero,
-increments an underflow counter, and enters a suspended state. Recovery stops
-composition transport and releases active notes while DSP tails may continue.
-The source remains suspended until the host explicitly installs/resumes a
-prepared generation with contiguous coverage beginning at a declared future
-block. Scheduler speed therefore affects whether a deadline miss occurs, but
-the response to the observed deadline trace is fixed and testable.
+Ordinary, already-scheduled transport events that are not a seek, reset, or
+clock discontinuity may still have in-block offsets when their semantics allow
+it. #132/#134 own the concrete lifecycle/API expression of this rule.
 
-Document edits, seeks, loop-policy changes, and clock discontinuities invalidate
-stale lookahead as follows:
+### 5. Fixed-memory evaluation and tracker migration
 
-- records are tagged with document revision, `clock_epoch`, and publication
-  generation;
-- an invalidating operation prepares a new generation on NRT and installs its
-  snapshot, cursor, and publication storage together at a block boundary;
-- RT accepts only the active tags and never scans an unbounded stale backlog;
-- displaced snapshot/publication ownership follows the structural
-  swap-and-retire rule and is reclaimed on NRT; and
-- old-generation notes are reconciled by a bounded prepared release list or,
-  by default, the recovery barrier. Old events never leak into the new epoch.
+The producer strategy is selected per runtime:
 
-A predictable loop whose mapping was published ahead may remain in one epoch.
-A discontinuous or edited loop mapping creates a new generation.
-
-### 4. Event model and total ordering
-
-The ordinary engine lane contains:
-
-- `Note`: note-on, note-off, and choke/release operations with stable target
-  identity and velocity/expression data;
-- `Control`: sample-accurate automation keyed by stable target/parameter IDs;
-  continuous latest-value knob traffic remains on traffic class 1; and
-- `Transport`: already-offset render-state transitions (start, stop, continue,
-  reset/seek notification, loop boundary), not musical-time conversion.
-
-Every child producer receives a stable `producer_id` during preparation and
-assigns a deterministic source-local `producer_sequence`. The composite merger
-uses the total key:
-
-```text
-(sample_offset, semantic_phase, producer_id, producer_sequence)
-```
-
-`semantic_phase` is fixed by the event schema:
-
-1. stop/seek/discontinuity transport barriers;
-2. note-off/choke/release;
-3. start/continue and other non-barrier transport state;
-4. sample-accurate control;
-5. note-on/attack.
-
-The schema must define a phase for every future event kind before that kind can
-enter the lane. Stable IDs, not runtime registration order or hash order, decide
-cross-producer ties. Same-offset `Control` applies to already-existing target
-state; expression needed to initialize a newly attacked voice travels in that
-`Note` event. The composite validates generation tags and does not include them
-in the final engine slice, so the engine does not track document/publication
-generations. It preserves the total key exactly. A stop/seek transition closes
-the render transport gate for later attacks (releases still apply) until an
-ordered start/continue transition reopens it.
-
-### 5. Capacity, rejection, and always-reachable recovery
-
-Traffic class 2 uses two structurally separate capacities:
-
-- an ordinary lane of `C` events; and
-- one reserved, coalescing recovery latch that ordinary events can never
-  consume.
-
-The composite bounded merge retains the earliest `C` ordinary events by the
-total key and rejects every later ordinary event. The fill report exposes the
-rejected count and first rejected key; strict RT increments a bounded overflow
-counter. It never overwrites an accepted event, silently reorders the prefix, or
-uses “drop oldest/newest” based on arrival races.
-
-Rejecting any ordinary event fails closed. At the first rejected event's offset,
-the recovery latch produces one compound recovery barrier whose semantics are
-engine-global transport-stop plus all-notes-off. M1 uses global scope because
-voices do not yet carry producer ownership; pretending recovery were
-producer-scoped could leave shared-instrument notes stuck. The conservative
-barrier may therefore release notes started by another producer.
-
-The engine applies the retained canonical prefix before that point, then applies
-the barrier and ignores ordinary events at or after it for the current block.
-The composite scheduling generation becomes suspended and requires the same
-explicit prepared resync as an underflow. Multiple recovery requests coalesce
-to the earliest offset; the global effect is already the widest scope, so the
-latch remains bounded and cannot itself become `Full`. This makes
-note/transport recovery reachable even when ordinary capacity is exhausted and
-avoids hanging voices after a rejected note-off. A future producer-scoped
-barrier first requires an accepted voice-ownership model.
-
-Malformed ordering, an out-of-window timestamp, a child scratch overflow, and
-an NRT lookahead-capacity failure use the same fail-closed recovery semantics.
-Tests must cover capacity zero/one, same-offset overflow, rejected note-off, and
-repeated panic requests.
-
-### 6. Fixed-memory RT evaluation and the tracker adapter
-
-The producer strategy is per runtime:
-
-- A fixed-memory RT evaluator may fill the current block directly when its
-  document view is immutable/prepared, all mutable state is fixed-capacity, and
-  event/work bounds are proven from `prepare` limits.
+- A fixed-memory runtime may evaluate in current-block pull when its prepared
+  immutable view, mutable state, event capacity, and worst-case work satisfy the
+  RT contract.
 - An arbitrary generative, graph-rewriting, or otherwise unbounded runtime runs
-  on NRT and uses the lookahead publication contract. It never evaluates its
-  program on the callback.
+  on NRT and uses bounded lookahead when its selected clock can provide the
+  required future mapping.
 
-The current tracker becomes one event-source adapter, but the boundary alone is
-not an RT fix. `track_last_instrument` already lives in
-`tracker_engine_adapter.rs`; its callback-reachable `HashMap::insert` violates
-Hard Rule 1. Before tracker evaluation can be classified as direct RT, the
-follow-up must replace it with structurally fixed indexed state (for example, a
-prepared `[InstrumentId; MAX_TRACKS]` plus explicit validity/sentinel state) and
-prove all tick/event bounds. If that work is not done, tracker interpretation
-must run on NRT lookahead. Preallocating a `HashMap` or moving it to another
-adapter type is insufficient.
+The current tracker becomes one event-source adapter. Its existing
+`track_last_instrument` map is preallocated for the current path's at most
+`MAX_TRACKS` distinct keys, so this ADR does not label it an observed allocation
+violation. Before the
+adapter is classified as direct RT, however, the implementation must make the
+track bound structural (fixed indexed state is one possible implementation) and
+prove all tick/event work limits. Otherwise tracker interpretation runs on NRT.
 
-`TimingState::advance` also only returns an elapsed tick count. It is evidence
-for demand-driven evaluation, not for sample-accurate timing. #134 must preserve
-fractional timing and calculate each event's absolute frame/offset instead of
-triggering all elapsed ticks before whole-block rendering.
+`TimingState::advance` returns only an elapsed tick count. It is evidence for
+demand-driven evaluation, not sample-accurate timing. #134 must preserve the
+timing information needed to place each event at its absolute frame/current
+block offset rather than triggering all elapsed ticks before whole-block
+rendering.
 
-The target event API becomes the first-party tracker/song processing path after
+The event API becomes the first-party tracker/song processing path after
 #132/#134. Public direct engine note/command/process APIs may remain for
-instrument audition, embeddings, examples, and tests; this ADR does not claim
-that the tracker adapter is the engine's only caller.
+instrument audition, embeddings, examples, and tests.
 
-### 7. Seed, seek, loop, restart, and save determinism
+### 6. Determinism across replay and rendering
 
-A runtime that promises deterministic replay must declare one of these models:
+A runtime that promises deterministic replay must reproduce the same semantic
+event values and total order from the same versioned document/runtime, declared
+seed or saved state, clock/block/input trace, and loop/transport context. Seek,
+loop, restart, and save/restore must preserve enough versioned interpreter and
+random state to honor that promise. No promised replay path may depend on wall
+clock, OS entropy, hash iteration order, or thread timing.
 
-- **Position/counter-addressed randomness.** Each draw is a pure function of a
-  versioned algorithm ID and a key such as `(seed, stable node ID, semantic
-  position, local draw index, loop iteration when applicable)`. Seeking can
-  calculate the same draw without replaying wall time.
-- **Checkpoint replay.** A checkpoint contains the exact document revision,
-  semantic cursor, loop iteration, RNG algorithm/state, pending interpreter
-  state, and any event cursor needed for replay. Seek restores a canonical
-  checkpoint at or before the target and deterministically replays to the exact
-  target. Replay runs on NRT when its work is not strictly bounded for RT.
+The contract does not choose position-addressed randomness, checkpoint replay,
+or another reconstruction design. It also does not prescribe the exact saved
+interpreter cursor, checkpoint cadence, or repeat/evolve loop representation.
+Those choices are composition-runtime semantics and must be versioned and tested
+when implemented.
 
-Every loop declares one of two policies in versioned state:
+This is **semantic event-stream determinism**. It is not byte identity unless a
+canonical event serialization is separately defined.
 
-- `repeat`: each pass restores the loop-entry cursor/RNG state, or excludes loop
-  iteration from counter-addressed keys, so the loop repeats; or
-- `evolve`: a persisted monotonic loop iteration participates in the RNG
-  key/state, so each pass differs reproducibly.
-
-Restart restores the document's defined initial cursor/seed/checkpoint. Seek
-must include enough transport context (including loop iteration for `evolve`)
-to identify one state; an ambiguous position is rejected on NRT rather than
-chosen from wall-clock history. Save/restore persists the declared seed model,
-algorithm version, cursor, loop policy/iteration, and exact checkpoint/RNG state
-where applicable. No promised replay path draws from wall-clock or OS entropy.
-
-This defines **semantic event-stream determinism**: for the same versioned
-runtime/document, seed or checkpoint, block-window/input trace, and loop policy,
-two runs produce equal event values and total order. “Equal” does not mean
-byte-identical until a versioned canonical event serialization is separately
-defined.
-
-Render determinism is a separate property. Given equal semantic events, the
-same engine/DSP version and configuration must be repeatable under the
+Render determinism is separate. Given equal semantic events, the same engine/DSP
+version and configuration must follow the
 [offline render contract](../architecture/offline-render-contract.md). Exact
 PCM/reference equality is required only on that contract's canonical platform;
-other platforms use its repeated-render, structure, clipping, and metric policy
-unless they gain a separately reviewed platform hash.
+other platforms follow its repeated-render, structure, clipping, and metric
+policy unless they gain a separately reviewed platform hash.
 
-### 8. Live edits and prepared generations
+### 7. Outbound MIDI/OSC side effects
 
-Live edits build immutable versioned document/runtime snapshots on NRT. The host
-installs a prepared snapshot, runtime cursor/checkpoint, and (for NRT sources)
-lookahead publication generation together at a block boundary. The displaced
-state is retired for NRT destruction under the structural traffic class
-(#174/#138). No callback path parses, migrates, allocates, or drops the last
-owner.
+Abstract outbound MIDI/OSC is not an engine event kind and never causes I/O on
+the audio thread. Under this ADR, a direct-RT evaluator is prohibited from
+producing outbound side effects. A runtime that emits them evaluates that output
+on NRT and submits abstract timestamped messages to a host-owned, bounded NRT
+scheduler. Admission and failure are deterministic and observable, and recovery
+must not leave destination notes stuck; actual I/O remains with the host on NRT.
 
-An edit either supplies a bounded prepared reconciliation list for notes that
-survive the revision or uses the default recovery barrier. In both cases the
-new generation starts from an explicit cursor/clock mapping, and old lookahead
-is invalid by tag. This is a semantic choice of the runtime snapshot, not an
-engine document concern. This ADR does not promise a seamless live edit: the
-safe default audibly releases notes, while any seamless policy must be fully
-prepared and bounded before the swap.
+A future requirement to derive outbound messages on RT needs an accepted
+additive or superseding contract for a bounded RT-to-NRT handoff. It is not
+permitted implicitly by this ADR.
 
-### 9. Outbound MIDI/OSC side effects
+## Named open questions for implementation
 
-Abstract outbound MIDI/OSC is **not** an engine event kind and never causes I/O
-on the audio thread. Under this ADR, a direct-RT event evaluator is prohibited
-from producing outbound side effects. A runtime that emits outbound events must
-evaluate that output on NRT (it may use the same deterministic semantic plan as
-its audio events) and submit abstract timestamped messages to a host-owned NRT
-side-effect scheduler.
+These are intentional design latitude, not omissions to fill in this ADR:
 
-That scheduler has a configured horizon/event capacity and deterministic
-admission: retain the earliest messages by their canonical timestamp/order key,
-reject the suffix with an observable status, then require a destination-scoped
-panic/all-notes-off before accepting later output for that destination. The host
-performs actual MIDI/OSC I/O and handles transport-specific timing on NRT.
+1. **Future-clock window preparation and ownership (#134/#132).** What bounded
+   horizon representation does each clock adapter prepare, who owns its storage,
+   and how is reliability declared without duplicating clock authority?
+2. **RT↔NRT lookahead handoff (#145/#132).** Does implementation use SPSC storage
+   or another bounded handoff; what packet/coverage representation, memory
+   ordering, full-capacity response, recovery timing, and resume rule satisfy
+   the constraints above?
+3. **Deterministic total order (#134).** What stable producer identity and
+   source-local sequence scheme, semantic precedence, and merge/admission key
+   produce a total order without depending on runtime registration accidents?
+4. **Seek/loop state reconstruction (#138 and runtime adapters).** Which
+   position-addressed, checkpoint, or other versioned RNG/interpreter-state
+   model reproduces promised behavior, and what exact loop context is persisted?
+5. **Concrete process/lifecycle surface (#132/#134).** What Rust types and
+   prepare/process/reset/suspend/resume operations express current-block pull,
+   bounded capacities, status, and recovery without creating a competing event
+   schema?
+6. **Recovery publication and scope (#134/#132).** What bounded representation
+   keeps recovery available at ordinary capacity, and when can producer-owned
+   voices justify narrower-than-global recovery?
 
-A future need to derive outbound messages on RT requires a superseding/additive
-contract with a bounded RT-to-NRT handoff and deterministic overflow/recovery;
-it is not permitted implicitly by this ADR.
-
-### Non-goals
+## Non-goals
 
 - No engine/DSP/Cargo change or tracker extraction in this documentation PR.
 - No selection of the final composition UI/language; that remains #113.
@@ -421,63 +313,65 @@ it is not permitted implicitly by this ADR.
 
 ### Positive
 
-- Clock ownership is singular: host/producer-side adapters define windows and
-  offsets; the engine only applies already-offset events.
-- Current-block work, NRT scheduling headroom, and lookahead publication have
-  separate capacities and timestamp domains.
-- Overload is deterministic and fail-closed, with a reserved recovery mechanism
-  that cannot be crowded out by ordinary events.
-- One composite merger defines cross-producer ordering.
-- RT eligibility is structural and testable; the current tracker `HashMap` is
-  called out as work to replace rather than hidden by an adapter rename.
+- Clock ownership is singular: host-selected clock adapters define producer-side
+  mappings, while the engine only applies already-offset events.
+- Future lookahead has an explicit mapping owner and a safe fallback when that
+  mapping is unavailable.
+- Seek/reset/discontinuity has one block-boundary generation rule.
+- Current-block work and optional NRT scheduling share one engine boundary while
+  retaining bounded, non-allocating RT behavior.
+- Ordering, overload, recovery, replay, and side effects have hard constraints
+  without freezing premature queue or state-reconstruction mechanisms.
+- The tracker claim now matches current code: its map capacity is sufficient for
+  the current caller, while structural enforcement remains follow-up work.
 - A second composition model can drive the engine without changing DSP, mixer,
   routing, or device code.
 
 ### Costs and risks
 
-- The host must coordinate block windows, composite producer IDs, generation
-  swaps, and clock epochs instead of delegating musical-time conversion to the
+- The host coordinates clock selection, block-boundary generations, and the
+  composite scheduler instead of delegating musical-time conversion to the
   engine.
-- NRT sources need bounded packet storage, a coverage protocol, deadline
-  telemetry, and explicit resynchronization after failure.
-- Fail-closed overflow/underflow can audibly stop playback and, because M1
-  recovery is engine-global, can release notes from a producer that did not
-  overflow. That is preferable to nondeterministic partial evaluation or stuck
-  notes without producer-owned voices, but capacities must be measurable and
-  configurable.
-- Position-addressed RNG constrains runtime design; checkpoint replay adds
-  snapshot storage and NRT replay cost.
-- Prohibiting outbound generation from direct RT evaluators may require a
-  runtime with outbound behavior to use NRT even when its audio-event evaluator
-  could otherwise be RT-safe.
+- Some runtimes cannot operate with clocks that lack reliable future mapping
+  unless they can satisfy direct current-block RT bounds.
+- Fail-closed overflow/underflow can audibly stop playback and global recovery
+  can release notes from a producer that did not fail.
+- Important mechanism choices remain for implementation and require focused
+  evidence and coordination across #134, #132, #138, and adapter work.
+- Prohibiting outbound generation from direct RT evaluators may require an NRT
+  runtime even when its audio-event evaluator could otherwise be RT-safe.
 
 ## Alternatives considered
 
 ### Engine owns tempo/clock conversion
 
 Rejected. It duplicates authority with composition/clock adapters, forces the
-engine to understand musical and external clock domains, and makes NRT
-lookahead's timestamp domain ambiguous. A producer-side `BlockWindow` gives one
-mapping authority while preserving already-offset engine events.
+engine to understand musical and external clock domains, and prevents a clean
+already-offset event boundary.
 
-### Put current and future events in one fill buffer
+### Lookahead extrapolates any selected clock
 
-Rejected. Current-block offsets are defined only in `[0, frame_count)`, whereas
-future lookahead needs an absolute timestamp, horizon, coverage, and publication
-protocol. Combining them makes capacity and deadline semantics impossible to
-state cleanly.
+Rejected. A future timestamp is only meaningful when the selected clock adapter
+can prepare a reliable future mapping. Current-block pull is the fallback;
+lookahead may not invent one.
 
-### Unbounded push stream
+### Seek can take effect anywhere in the current block
 
-Rejected. It races the callback and provides neither a per-block work budget nor
-deterministic overload. NRT lookahead does publish ahead, but only into bounded,
-prepared storage that the current-block adapter pulls under a coverage rule.
+Rejected for this contract. Combining arbitrary in-block seek barriers with
+block-boundary generation swaps creates two conflicting activation rules. One
+next-block, offset-zero generation boundary is simpler and deterministic.
 
-### Evaluate every runtime on RT
+### Put current and future events in one engine-facing buffer
 
-Rejected. Arbitrary generative/graph programs cannot satisfy no-allocation and
-bounded-work rules. RT evaluation remains an earned property of a concrete
-adapter, not a requirement of the engine contract.
+Rejected. Future events do not yet have current-block offsets and need separate
+bounded storage and stale-generation handling. They enter the engine-facing
+slice only when their block is pulled.
+
+### Unbounded push stream or evaluate every runtime on RT
+
+Rejected. Neither provides bounded callback work. Arbitrary generative programs
+must use compliant NRT preparation/lookahead, while direct RT evaluation is an
+earned property of a concrete adapter.
 
 ### One undifferentiated command/event queue
 
@@ -487,61 +381,39 @@ contract.
 
 ### Best-effort drop on overflow or underflow
 
-Rejected. Dropping whichever event happens to arrive last can lose note-offs,
-leave voices stuck, and vary by producer race. A canonical retained prefix plus
-an independent recovery barrier is bounded and testable.
+Rejected. It can lose note-offs, leave voices stuck, silently reorder musical
+results, and make behavior depend on producer races. Failure must be observable,
+deterministic, and recoverable.
 
 ## Validation and revisit triggers
 
 The decision is validated when follow-up implementations demonstrate:
 
-- #134/#132 expose a prepared current-block event buffer and engine processing
-  API with no tracker document dependency and no engine-side musical-time
-  conversion.
-- Multiple block-size sequences produce the same absolute event frame positions,
-  including events at boundaries, tempo changes, and multiple events per block.
-- Tests cover the total cross-producer tie key, ordinary capacity boundaries,
-  rejected note-off, recovery-latch coalescing, malformed offsets, and no RT
-  allocation/deallocation.
-- Clock tests cover stopped spans, invertible tempo segments, loop wraps, the
-  configured crossing/segment bound, and rejection before transport when a map
-  cannot fit.
-- NRT tests cover exact-end coverage, partial publication, late publication,
-  full-ring write rejection, consumption-cursor slot reuse, bounded horizon
-  overflow, explicit resume, and stale edit/seek/clock packets.
-- The tracker adapter retains its playback regressions and either uses proven
-  fixed indexed callback state or NRT evaluation. A minimal synthetic/generative
-  source renders without DSP-engine changes.
-- Determinism tests compare semantic event values/order across restart, seek,
-  save/restore, and both loop policies. Offline PCM assertions follow the
-  canonical-platform qualification rather than claiming universal byte identity.
-- Outbound MIDI/OSC is produced and routed on NRT with bounded admission and no
-  callback I/O, or a later accepted contract explicitly adds RT-to-NRT handoff.
+- #134/#132 provide a bounded current-block event/process path with no tracker
+  document dependency and no engine-side musical-time conversion.
+- Event placement is sample-accurate across block boundaries and block-size
+  sequences, with deterministic total same-offset ordering.
+- Callback work and RT↔NRT handoff satisfy the accepted RT contract under normal,
+  full-capacity, stale-generation, and missed-deadline cases, with recovery
+  always reachable.
+- Seek/reset/discontinuity activates only at the next block's offset zero and no
+  old-generation event crosses that boundary.
+- The tracker retains playback regressions and uses structurally bounded RT
+  state or NRT evaluation; a minimal second source requires no DSP-engine
+  changes.
+- Promised replay is reproducible across restart, seek, loop, and save/restore;
+  offline PCM assertions retain their platform qualification.
+- Outbound MIDI/OSC remains bounded and NRT-routed with no callback I/O.
 
-Named implementation owners and landing order:
+Mechanism-level validation belongs in the implementing issues. Their results may
+refine or replace the open mechanisms above; changes to this ADR's boundary or
+hard constraints require the normal ADR amendment/supersession process.
 
-- [#134](https://github.com/jpalvarezl/blight-synth/issues/134) lands the public
-  ordinary/recovery event schema, semantic phase table, clock-segment timing
-  rules, and engine event application first.
-- [#132](https://github.com/jpalvarezl/blight-synth/issues/132) owns `prepare`
-  capacities, caller-owned block buffers/descriptors, process/reset/suspend/
-  resume, and the direct API surface, using #134's schema.
-- Composition-adapter extraction under #145 owns the composite bounded merge,
-  fixed tracker state or NRT tracker evaluation, two-cursor lookahead ring
-  protocol, and synthetic second source, using #134/#132 rather than defining a
-  competing recovery type.
-- [#138](https://github.com/jpalvarezl/blight-synth/issues/138), under #174's
-  accepted rules, owns snapshot/publication-generation handoff, exact saved
-  runtime state, and NRT reclamation.
-
-These issues share one public event/recovery surface and must follow that order
-or add an explicit coordination note before parallel changes.
-
-Revisit with a superseding ADR if a #113 prototype cannot be expressed by a
-bounded current-block pull plus bounded NRT lookahead; if a required clock
-cannot provide a prepared block mapping; if fail-closed recovery is unsuitable
-for a proven use case; or if direct-RT outbound generation becomes a product
-requirement.
+Revisit the decision if a #113 prototype cannot be expressed by bounded
+current-block pull plus optional bounded lookahead; if required clocks and
+runtimes have no compliant current-block or future-mapping strategy; if
+fail-closed recovery is unsuitable for a proven use case; or if direct-RT
+outbound generation becomes a product requirement.
 
 ## Related
 
