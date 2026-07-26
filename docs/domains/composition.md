@@ -12,8 +12,9 @@ issues: [113, 134, 138, 145, 181]
 
 1. [Current product specification](../spec/current-product.md)
 2. [Target system boundaries](../architecture/system-boundaries.md)
-3. Issue [#145](https://github.com/jpalvarezl/blight-synth/issues/145)
-4. The assigned issue
+3. [ADR 0003 — Event-source contract](../decisions/0003-event-source-contract.md) and its [routing page](../architecture/event-source-contract.md)
+4. Issue [#145](https://github.com/jpalvarezl/blight-synth/issues/145)
+5. The assigned issue
 
 ## Owns
 
@@ -37,7 +38,7 @@ issues: [113, 134, 138, 145, 181]
 
 ## Open direction
 
-The final interaction model is intentionally undecided. The existing tracker remains one event source. Issue [#113](https://github.com/jpalvarezl/blight-synth/issues/113) requires small tracker, ORCA-like, and hybrid spikes before production UI selection.
+The final interaction model is intentionally undecided. The existing tracker remains one event source. [ADR 0003](../decisions/0003-event-source-contract.md) records the target boundary: the engine consumes bounded timestamped events and the tracker `Player` becomes one adapter, so a second runtime needs no DSP-engine changes. Issue [#113](https://github.com/jpalvarezl/blight-synth/issues/113) requires small tracker, ORCA-like, and hybrid spikes before production UI selection.
 
 ## Tracker host threading
 

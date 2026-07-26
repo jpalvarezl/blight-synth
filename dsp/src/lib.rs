@@ -11,6 +11,7 @@ pub use commands::*;
 #[cfg(debug_assertions)]
 pub use diagnostics::{emit as __emit_rt_log, enabled as __rt_log_enabled};
 pub use factories::*;
+pub use id::{NoteEvent, NoteId};
 #[doc(hidden)]
 #[cfg(debug_assertions)]
 pub use log::Level as __RtLogLevel;

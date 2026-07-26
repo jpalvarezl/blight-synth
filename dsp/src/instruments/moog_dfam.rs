@@ -21,10 +21,7 @@ impl MoogDFAM {
             MonoEffectChain::new(10),
         );
         // Note ID is unused in a monophonic instrument.
-        let voice = VoiceSlot {
-            inner: voice,
-            note_id: None,
-        };
+        let voice = VoiceSlot::new(voice);
         MoogDFAM {
             instrument_id,
             voice,

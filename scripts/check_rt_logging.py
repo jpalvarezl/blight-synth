@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SCANNED = [
     ROOT / "engine" / "src",
     ROOT / "audio_backend" / "src" / "player",
-    ROOT / "audio_backend" / "src" / "standalone" / "audio_processor",
+    ROOT / "audio_backend" / "src" / "device_host" / "audio_processor",
     ROOT / "dsp" / "src" / "effects",
     ROOT / "dsp" / "src" / "instruments" / "mod.rs",
     ROOT / "dsp" / "src" / "instruments" / "synth_nodes",
@@ -31,6 +31,13 @@ def rust_files(path: Path):
 
 
 def main() -> int:
+    missing = [path.relative_to(ROOT) for path in SCANNED if not path.exists()]
+    if missing:
+        print("RT logging check failed; configured scan paths do not exist:", file=sys.stderr)
+        for path in missing:
+            print(f"- {path}", file=sys.stderr)
+        return 1
+
     errors = []
     for root in SCANNED:
         for path in rust_files(root):

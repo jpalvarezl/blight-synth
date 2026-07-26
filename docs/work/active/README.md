@@ -2,7 +2,7 @@
 title: Active Task Packets
 summary: Index of temporary focused packets for work currently in progress.
 status: current
-updated: 2026-07-24
+updated: 2026-07-26
 ---
 
 # Active Task Packets
@@ -13,4 +13,4 @@ A packet is a handoff cache, not a second specification. It links to the issue a
 
 ## Active
 
-_No active packets. Create one when an issue moves to `status:in-progress`._
+- [Issue #145 — Decouple composition runtimes from the audio engine through an event-source contract](issue-145-event-source-contract.md)

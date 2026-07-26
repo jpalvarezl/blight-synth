@@ -15,20 +15,23 @@ const MAX_BUFFER_SIZE: usize = 4096;
 pub(crate) const MAX_COMMANDS_PER_PROCESS_BLOCK: usize = 64;
 /// Worst-case retired-object count emitted by one current structural command.
 /// The largest producer is `SequencerCmd::LoadSong`, which clears every prepared
-/// instrument (Engine's current soft 64-instrument capacity) and then retires
-/// the replaced `Arc<Song>`. Rejecting one full `VoiceEffects` batch retires at
-/// most 64 owners, which is smaller. This is coupled to Engine's current soft
-/// 64-instrument capacity; #137 must update the instrument portion when it makes
-/// instrument capacity hard/configurable.
-const MAX_INSTRUMENTS_PER_CLEAR: usize = 64;
+/// instrument and then retires the replaced `Arc<Song>`. Rejecting one full
+/// `VoiceEffects` batch retires at most 64 owners, which is smaller. This is
+/// coupled to Engine's hard `DEFAULT_INSTRUMENT_CAPACITY` (64): the engine now
+/// rejects distinct instruments past that cap, so a clear can never retire more
+/// than `MAX_INSTRUMENTS_PER_CLEAR` owners. Deriving the constant from the engine
+/// export keeps the retirement-ring sizing from silently drifting if the cap
+/// changes.
+const MAX_INSTRUMENTS_PER_CLEAR: usize = engine::DEFAULT_INSTRUMENT_CAPACITY;
 const MAX_RETIRED_OBJECTS_PER_COMMAND: usize = MAX_INSTRUMENTS_PER_CLEAR + 1;
-// NOTE(#137): This bound assumes Engine's *soft* 64-instrument capacity
-// (`DEFAULT_INSTRUMENT_CAPACITY`). It is not enforced today: installing 65+
-// distinct instrument IDs would let a single clear retire more than
-// `MAX_INSTRUMENTS_PER_CLEAR` owners and, in release builds (no debug_assert),
-// grow `pending_retired` past its preallocation — an RT reallocation. Making
-// instrument capacity hard/configurable is #137's work; when it lands,
-// `MAX_INSTRUMENTS_PER_CLEAR` and this constant must be updated together with it.
+// NOTE(#137): This bound tracks Engine's hard 64-instrument capacity
+// (`engine::DEFAULT_INSTRUMENT_CAPACITY`), which #137 made a fixed, preallocated
+// slot count with explicit rejection. The engine no longer reallocates its slot
+// vector on the callback: installing a distinct 65th instrument is rejected and
+// its owner retired, so a single clear retires at most `MAX_INSTRUMENTS_PER_CLEAR`
+// instruments and `pending_retired` cannot grow past its preallocation. If the
+// engine capacity constant changes, `MAX_INSTRUMENTS_PER_CLEAR` must change with
+// it to keep the retirement-ring sizing correct.
 const MAX_PENDING_RETIRED_OBJECTS: usize =
     MAX_COMMANDS_PER_PROCESS_BLOCK * MAX_RETIRED_OBJECTS_PER_COMMAND;
 
@@ -72,7 +75,7 @@ impl AudioProcessor {
         channels: usize,
         meter: Arc<MeterState>,
     ) -> Self {
-        Self {
+        let processor = Self {
             command_rx,
             retirement_tx,
             pending_retired: Vec::with_capacity(MAX_PENDING_RETIRED_OBJECTS),
@@ -82,7 +85,9 @@ impl AudioProcessor {
             right_buf: vec![0.0; MAX_BUFFER_SIZE],
             meter,
             player: Player::new(song, sample_rate as f64),
-        }
+        };
+        processor.assert_retirement_bound_invariant();
+        processor
     }
 
     pub fn new(
@@ -93,7 +98,7 @@ impl AudioProcessor {
         meter: Arc<MeterState>,
     ) -> Self {
         let default_song = Arc::new(sequencer::models::Song::new("Untitled"));
-        Self {
+        let processor = Self {
             command_rx,
             retirement_tx,
             pending_retired: Vec::with_capacity(MAX_PENDING_RETIRED_OBJECTS),
@@ -103,7 +108,32 @@ impl AudioProcessor {
             right_buf: vec![0.0; MAX_BUFFER_SIZE],
             meter,
             player: Player::new(default_song, sample_rate as f64),
-        }
+        };
+        processor.assert_retirement_bound_invariant();
+        processor
+    }
+
+    /// Guards the retirement-ring sizing invariant: `pending_retired` is
+    /// preallocated assuming a single clear retires at most
+    /// `MAX_INSTRUMENTS_PER_CLEAR` instrument owners, which holds only while the
+    /// engine's hard instrument capacity is `<= MAX_INSTRUMENTS_PER_CLEAR`.
+    ///
+    /// The processor currently only ever constructs a default-capacity engine
+    /// (`Engine::new()`, capacity 64 == `MAX_INSTRUMENTS_PER_CLEAR`). If a future
+    /// change wires in a larger-capacity engine via
+    /// `Engine::with_instrument_capacity(n)` with `n > MAX_INSTRUMENTS_PER_CLEAR`,
+    /// a single clear could retire more owners than `pending_retired` holds,
+    /// forcing a reallocation on the RT callback. This assertion makes that
+    /// regression fail loudly in debug builds instead of silently reintroducing
+    /// an RT allocation.
+    fn assert_retirement_bound_invariant(&self) {
+        debug_assert!(
+            self.player.instrument_capacity() <= MAX_INSTRUMENTS_PER_CLEAR,
+            "engine instrument capacity ({}) exceeds MAX_INSTRUMENTS_PER_CLEAR ({}); \
+             pending_retired preallocation would be undersized and reallocate on the RT callback",
+            self.player.instrument_capacity(),
+            MAX_INSTRUMENTS_PER_CLEAR,
+        );
     }
 
     /// The main processing function called by the audio driver.
@@ -235,8 +265,9 @@ mod tests {
         fn id(&self) -> InstrumentId {
             self.id
         }
-        fn note_on(&mut self, _note: u8, _velocity: u8) {}
-        fn note_off(&mut self) {}
+        fn note_on(&mut self, _event: dsp::NoteEvent) {}
+        fn note_off(&mut self, _note_id: dsp::id::NoteId) {}
+        fn all_notes_off(&mut self) {}
         fn process(&mut self, _left: &mut [f32], _right: &mut [f32], _sample_rate: f32) {}
         fn set_pan(&mut self, _pan: f32) {}
         fn add_effect(&mut self, effect: Box<dyn MonoEffect>) -> Result<(), EffectInstallError> {
@@ -259,9 +290,11 @@ mod tests {
             1
         }
 
-        fn note_on(&mut self, _note: u8, _velocity: u8) {}
+        fn note_on(&mut self, _event: dsp::NoteEvent) {}
 
-        fn note_off(&mut self) {}
+        fn note_off(&mut self, _note_id: dsp::id::NoteId) {}
+
+        fn all_notes_off(&mut self) {}
 
         fn process(&mut self, left: &mut [f32], right: &mut [f32], _sample_rate: f32) {
             self.renders.fetch_add(1, Ordering::Relaxed);
