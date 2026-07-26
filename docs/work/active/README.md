@@ -13,4 +13,4 @@ A packet is a handoff cache, not a second specification. It links to the issue a
 
 ## Active
 
-- [Issue #145 — Decouple composition runtimes from the audio engine through an event-source contract](issue-145-event-source-contract.md)
+_No active packets. Create one when an issue moves to `status:in-progress`._
