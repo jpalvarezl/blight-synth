@@ -4,7 +4,7 @@ use std::{
     hint::black_box,
 };
 
-use sequencer::timing::{TickTempo, TimingAdvanceStatus, TimingState};
+use sequencer::timing::{TickBoundary, TickTempo, TimingAdvanceStatus, TimingState};
 
 struct TrackingAllocator;
 
@@ -70,10 +70,10 @@ fn measure_allocations(operation: impl FnOnce()) -> AllocationCounts {
 }
 
 #[test]
-fn prepared_tick_advance_has_no_heap_activity() {
+fn prepared_tick_advance_failure_and_reuse_have_no_heap_activity() {
     let mut timing = TimingState::prepare(48_000.0, 125.0, 32).unwrap();
-    let mut offsets = [0_usize; 32];
-    let mut written = 0;
+    let mut output = [TickBoundary::default(); 32];
+    let mut observed = 0;
     let mut tempo_changed = false;
 
     // Initialize the thread-local audit state before entering the measured region.
@@ -81,9 +81,7 @@ fn prepared_tick_advance_has_no_heap_activity() {
 
     let counts = measure_allocations(|| {
         for frame_count in [64, 511, 2_048, 1, 4_096, 127] {
-            let result = timing.advance_ticks(frame_count, |tick| {
-                offsets[written] = tick.sample_offset;
-                written += 1;
+            let result = timing.advance_ticks(frame_count, &mut output, |_| {
                 if tempo_changed {
                     TickTempo::Unchanged
                 } else {
@@ -91,14 +89,31 @@ fn prepared_tick_advance_has_no_heap_activity() {
                     TickTempo::SetBpm(130.0)
                 }
             });
+            if result.status == TimingAdvanceStatus::Complete {
+                observed += result.ticks_emitted as usize;
+                black_box(&output[..result.ticks_emitted as usize]);
+            }
             black_box(result);
         }
+
+        // Caller storage exhaustion is fail-closed and still allocation-free.
+        let mut too_small = [TickBoundary::default(); 1];
+        let failure = timing.advance_ticks(4_096, &mut too_small, |_| TickTempo::Unchanged);
+        assert_eq!(failure.status, TimingAdvanceStatus::TickCapacityExceeded);
+        assert_eq!(failure.ticks_emitted, 0);
+
+        // Reset and reuse the same prepared clock and storage without allocation.
+        timing.reset().unwrap();
+        let reused = timing.advance_ticks(2_048, &mut output, |_| TickTempo::Unchanged);
+        assert_eq!(reused.status, TimingAdvanceStatus::Complete);
+        black_box(&output[..reused.ticks_emitted as usize]);
     });
 
-    assert!(written > 0);
-    assert!(offsets[..written].iter().all(|offset| *offset < 4_096));
+    assert!(observed > 0);
     assert_eq!(
-        timing.advance_ticks(0, |_| TickTempo::Unchanged).status,
+        timing
+            .advance_ticks(0, &mut output, |_| TickTempo::Unchanged)
+            .status,
         TimingAdvanceStatus::Complete
     );
     assert_eq!(counts.allocations, 0, "unexpected RT allocations");

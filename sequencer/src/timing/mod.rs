@@ -18,10 +18,11 @@ const MAX_TICK_INTERVAL_FRAMES: f64 = u32::MAX as f64;
 
 /// Default callback work bound used by the compatibility constructors.
 ///
-/// Prepared users should choose an explicit bound with [`TimingState::prepare`]
-/// based on their maximum render slice. Since valid tick intervals are at
-/// least one frame, no slice can contain more ticks than frames.
-pub const DEFAULT_MAX_TICKS_PER_SLICE: u32 = 1_024;
+/// This covers every tick possible in the project's prepared 4096-frame render
+/// slice because valid intervals are at least one frame. Callers with another
+/// maximum slice size should use [`TimingState::prepare`] and provide a bound
+/// of at least one tick per frame.
+pub const DEFAULT_MAX_TICKS_PER_SLICE: u32 = 4_096;
 
 /// A timing configuration rejected during non-real-time preparation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -34,13 +35,13 @@ pub enum TimingError {
 }
 
 /// A tick boundary relative to the exact frame slice being advanced.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct TickBoundary {
     /// Offset in the half-open range `0..frame_count`.
     pub sample_offset: usize,
 }
 
-/// A tempo directive returned after processing an emitted tick.
+/// A tempo directive used while planning an emitted tick.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TickTempo {
     /// Keep the currently prepared interval.
@@ -54,7 +55,8 @@ pub enum TickTempo {
 #[repr(u8)]
 pub enum TimingAdvanceStatus {
     Complete,
-    /// More tick boundaries existed in the slice than the prepared work bound.
+    /// More tick boundaries existed in the slice than the prepared work or
+    /// caller-provided output capacity.
     TickCapacityExceeded,
     /// Preparation or a tempo directive supplied an invalid value.
     InvalidConfiguration,
@@ -65,6 +67,8 @@ pub enum TimingAdvanceStatus {
 /// Result of advancing one exact frame slice.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TimingAdvance {
+    /// Number of valid entries written to the caller's output on success.
+    /// This is always zero when `status` is not `Complete`.
     pub ticks_emitted: u32,
     pub status: TimingAdvanceStatus,
 }
@@ -73,8 +77,8 @@ pub struct TimingAdvance {
 ///
 /// Tick phases use unsigned Q64.64 fixed point. Adding the same prepared
 /// interval once per tick makes absolute boundaries independent of render-slice
-/// partitioning while retaining sub-frame phase. A BPM directive returned for
-/// a tick adds the new interval to that tick's exact phase, not its rounded
+/// partitioning while retaining sub-frame phase. A BPM directive planned for a
+/// tick adds the new interval to that tick's exact phase, not its rounded
 /// sample offset, so an already emitted boundary never moves.
 #[derive(Debug, Clone)]
 pub struct TimingState {
@@ -84,6 +88,7 @@ pub struct TimingState {
     next_tick_phase: u128,
     frame_position: u64,
     max_ticks_per_slice: u32,
+    configuration_valid: bool,
     fault: Option<TimingAdvanceStatus>,
 }
 
@@ -92,7 +97,7 @@ impl TimingState {
     ///
     /// Prefer [`Self::prepare`] when invalid input must be reported before the
     /// callback starts. Invalid compatibility input creates a fail-closed clock
-    /// whose advances return [`TimingAdvanceStatus::InvalidConfiguration`].
+    /// whose status is [`TimingAdvanceStatus::InvalidConfiguration`].
     pub fn new(sample_rate: f64) -> Self {
         Self::new_with_bpm(sample_rate, INITIAL_BPM)
     }
@@ -105,7 +110,7 @@ impl TimingState {
         Self::new_with_bpm(sample_rate, initial_bpm)
     }
 
-    /// Compatibility constructor with the default work bound.
+    /// Compatibility constructor with the default 4096-tick work bound.
     pub fn new_with_bpm(sample_rate: f64, initial_bpm: f64) -> Self {
         Self::prepare(sample_rate, initial_bpm, DEFAULT_MAX_TICKS_PER_SLICE)
             .unwrap_or_else(|_| Self::invalid(sample_rate, initial_bpm))
@@ -129,33 +134,66 @@ impl TimingState {
             next_tick_phase: tick_interval,
             frame_position: 0,
             max_ticks_per_slice,
+            configuration_valid: true,
             fault: None,
         })
     }
 
-    /// Advances one half-open frame slice and exposes every accepted tick.
+    /// Plans one half-open frame slice into caller-owned prepared storage.
     ///
-    /// The callback runs in strict offset order at most
-    /// `max_ticks_per_slice` times and must itself obey the caller's real-time
-    /// rules. Its tempo directive applies to the interval after the tick being
-    /// processed. No storage is allocated or freed by this method.
+    /// `plan_tempo` is a planning callback only: it may inspect immutable
+    /// producer/document state to select the interval after a tick, but it must
+    /// not commit producer side effects. Timing is staged locally and committed
+    /// only after the complete slice, every tempo directive, and every output
+    /// entry have been validated. On a non-[`TimingAdvanceStatus::Complete`]
+    /// result, `ticks_emitted` is zero and the caller must ignore all output.
+    /// This lets the caller apply producer mutations only from a complete
+    /// result, so invalid tempo or capacity cannot leave producer state partly
+    /// advanced.
     ///
-    /// Capacity and position failures are fail-closed and sticky. Call
-    /// [`Self::reset`] at a deliberate transport boundary after handling the
-    /// status; a reset starts a full interval at the current absolute frame.
+    /// The planner and timing path allocate and deallocate nothing. Both work
+    /// and output are bounded by the lesser of the prepared tick capacity and
+    /// `output.len()`.
     pub fn advance_ticks(
         &mut self,
         frame_count: usize,
-        on_tick: impl FnMut(TickBoundary) -> TickTempo,
+        output: &mut [TickBoundary],
+        plan_tempo: impl FnMut(TickBoundary) -> TickTempo,
     ) -> TimingAdvance {
-        self.advance_internal(frame_count, false, on_tick)
+        let output_capacity = output.len().min(self.max_ticks_per_slice as usize);
+        self.advance_transaction(
+            frame_count,
+            false,
+            output_capacity,
+            plan_tempo,
+            |index, boundary| output[index] = boundary,
+        )
     }
 
-    fn advance_internal(
+    /// Bounded count-only compatibility shim for the current tracker player.
+    ///
+    /// This returns the full status instead of silently discarding it. It keeps
+    /// the historical end-inclusive count behavior so existing whole-block
+    /// playback references do not change before #204; do not mix it with
+    /// [`Self::advance_ticks`]. The compatibility caller must handle every
+    /// non-complete status before applying the returned count.
+    pub fn advance(&mut self, frame_count: usize) -> TimingAdvance {
+        self.advance_transaction(
+            frame_count,
+            true,
+            self.max_ticks_per_slice as usize,
+            |_| TickTempo::Unchanged,
+            |_, _| {},
+        )
+    }
+
+    fn advance_transaction(
         &mut self,
         frame_count: usize,
         include_block_end: bool,
-        mut on_tick: impl FnMut(TickBoundary) -> TickTempo,
+        capacity: usize,
+        mut plan_tempo: impl FnMut(TickBoundary) -> TickTempo,
+        mut write_boundary: impl FnMut(usize, TickBoundary),
     ) -> TimingAdvance {
         if let Some(status) = self.fault {
             return TimingAdvance {
@@ -164,99 +202,120 @@ impl TimingState {
             };
         }
 
-        let Ok(frame_count) = u64::try_from(frame_count) else {
-            return self.fail(0, TimingAdvanceStatus::PositionOverflow);
-        };
-        let Some(block_end) = self.frame_position.checked_add(frame_count) else {
-            return self.fail(0, TimingAdvanceStatus::PositionOverflow);
-        };
+        let mut staged = self.clone();
+        match staged.plan_slice(
+            frame_count,
+            include_block_end,
+            capacity,
+            &mut plan_tempo,
+            &mut write_boundary,
+        ) {
+            Ok(ticks_emitted) => {
+                *self = staged;
+                TimingAdvance {
+                    ticks_emitted,
+                    status: TimingAdvanceStatus::Complete,
+                }
+            }
+            Err(status) => {
+                // A representable rejected slice still consumes its host frames.
+                // Recovery reanchors from that boundary rather than replaying time.
+                self.frame_position = staged.frame_position;
+                self.fault = Some(status);
+                TimingAdvance {
+                    ticks_emitted: 0,
+                    status,
+                }
+            }
+        }
+    }
+
+    fn plan_slice(
+        &mut self,
+        frame_count: usize,
+        include_block_end: bool,
+        capacity: usize,
+        plan_tempo: &mut impl FnMut(TickBoundary) -> TickTempo,
+        write_boundary: &mut impl FnMut(usize, TickBoundary),
+    ) -> Result<u32, TimingAdvanceStatus> {
+        let frame_count =
+            u64::try_from(frame_count).map_err(|_| TimingAdvanceStatus::PositionOverflow)?;
         let block_start = self.frame_position;
-        let mut ticks_emitted = 0;
+        let block_end = block_start
+            .checked_add(frame_count)
+            .ok_or(TimingAdvanceStatus::PositionOverflow)?;
+        // Even a rejected slice consumes the host-provided frame interval. The
+        // transaction commits no ticks/tempo, but recovery must reanchor after
+        // this slice rather than replaying its elapsed time.
+        self.frame_position = block_end;
 
         if frame_count == 0 {
-            return TimingAdvance {
-                ticks_emitted,
-                status: TimingAdvanceStatus::Complete,
-            };
+            return Ok(0);
         }
 
+        let hard_capacity = capacity.min(self.max_ticks_per_slice as usize);
+        let mut ticks_emitted = 0_usize;
         loop {
-            let Some(boundary_frame) = fixed_phase_ceiling(self.next_tick_phase) else {
-                self.frame_position = block_end;
-                return self.fail(ticks_emitted, TimingAdvanceStatus::PositionOverflow);
-            };
+            let boundary_frame = fixed_phase_ceiling(self.next_tick_phase)
+                .ok_or(TimingAdvanceStatus::PositionOverflow)?;
 
             if boundary_frame > block_end || (!include_block_end && boundary_frame == block_end) {
                 self.frame_position = block_end;
-                return TimingAdvance {
-                    ticks_emitted,
-                    status: TimingAdvanceStatus::Complete,
-                };
+                return u32::try_from(ticks_emitted)
+                    .map_err(|_| TimingAdvanceStatus::TickCapacityExceeded);
             }
             if boundary_frame < block_start {
                 self.frame_position = block_end;
-                return self.fail(ticks_emitted, TimingAdvanceStatus::PositionOverflow);
+                return Err(TimingAdvanceStatus::PositionOverflow);
             }
-            if ticks_emitted == self.max_ticks_per_slice {
+            if ticks_emitted == hard_capacity {
                 self.frame_position = block_end;
-                return self.fail(ticks_emitted, TimingAdvanceStatus::TickCapacityExceeded);
+                return Err(TimingAdvanceStatus::TickCapacityExceeded);
             }
 
-            let sample_offset = usize::try_from(boundary_frame - block_start)
-                .expect("an offset within a usize-sized input slice fits usize");
-            let tempo = on_tick(TickBoundary { sample_offset });
+            let boundary = TickBoundary {
+                sample_offset: usize::try_from(boundary_frame - block_start)
+                    .map_err(|_| TimingAdvanceStatus::PositionOverflow)?,
+            };
+            let (bpm, interval) = match plan_tempo(boundary) {
+                TickTempo::Unchanged => (self.bpm, self.tick_interval),
+                TickTempo::SetBpm(new_bpm) => (
+                    new_bpm,
+                    prepare_tick_interval(self.sample_rate, new_bpm)
+                        .map_err(|_| TimingAdvanceStatus::InvalidConfiguration)?,
+                ),
+            };
+            let next_tick_phase = self
+                .next_tick_phase
+                .checked_add(interval)
+                .ok_or(TimingAdvanceStatus::PositionOverflow)?;
+
+            write_boundary(ticks_emitted, boundary);
             ticks_emitted += 1;
-
-            let interval = match tempo {
-                TickTempo::Unchanged => self.tick_interval,
-                TickTempo::SetBpm(new_bpm) => {
-                    let Ok(interval) = prepare_tick_interval(self.sample_rate, new_bpm) else {
-                        self.frame_position = block_end;
-                        return self.fail(ticks_emitted, TimingAdvanceStatus::InvalidConfiguration);
-                    };
-                    self.bpm = new_bpm;
-                    self.tick_interval = interval;
-                    interval
-                }
-            };
-
-            let Some(next_tick_phase) = self.next_tick_phase.checked_add(interval) else {
-                self.frame_position = block_end;
-                return self.fail(ticks_emitted, TimingAdvanceStatus::PositionOverflow);
-            };
+            self.bpm = bpm;
+            self.tick_interval = interval;
             self.next_tick_phase = next_tick_phase;
         }
     }
 
-    /// Bounded count-only compatibility shim for the current tracker player.
-    ///
-    /// This deliberately discards offsets and status and must be removed when
-    /// #204 migrates the tracker to offset-bearing events. It retains the old
-    /// end-inclusive count behavior so existing whole-block playback references
-    /// do not change before that migration; do not mix it with `advance_ticks`.
-    /// Unlike the former implementation, its loop is capped by the prepared
-    /// tick bound.
-    pub fn advance(&mut self, frame_count: usize) -> u32 {
-        self.advance_internal(frame_count, true, |_| TickTempo::Unchanged)
-            .ticks_emitted
-    }
-
     /// Latches a BPM for intervals scheduled after the next emitted tick.
     ///
-    /// To change the interval immediately after a particular tick, return
-    /// [`TickTempo::SetBpm`] while processing that tick in [`Self::advance_ticks`].
-    /// This method never moves the already scheduled next boundary.
+    /// This never moves the already scheduled next boundary. An invalid value
+    /// is rejected without changing or faulting an otherwise valid clock. If an
+    /// invalid tempo directive previously faulted the clock, a valid value
+    /// reanchors a full interval at the current host-frame boundary and resumes
+    /// it. To change tempo while planning a particular tick inside a slice, use
+    /// [`TickTempo::SetBpm`] in [`Self::advance_ticks`].
     pub fn set_bpm(&mut self, new_bpm: f64) -> Result<(), TimingError> {
-        let interval = match prepare_tick_interval(self.sample_rate, new_bpm) {
-            Ok(interval) => interval,
-            Err(error) => {
-                self.fault = Some(TimingAdvanceStatus::InvalidConfiguration);
-                return Err(error);
-            }
-        };
+        let interval = prepare_tick_interval(self.sample_rate, new_bpm)?;
+        let recovering_invalid_configuration = !self.configuration_valid
+            || self.fault == Some(TimingAdvanceStatus::InvalidConfiguration);
+
         self.bpm = new_bpm;
         self.tick_interval = interval;
-        if self.fault == Some(TimingAdvanceStatus::InvalidConfiguration) {
+        self.configuration_valid = true;
+        if recovering_invalid_configuration {
+            self.reanchor_at_current_frame()?;
             self.fault = None;
         }
         Ok(())
@@ -267,24 +326,38 @@ impl TimingState {
         self.bpm
     }
 
-    /// Returns the prepared maximum number of callbacks per frame slice.
+    /// Returns the prepared maximum number of ticks per frame slice.
     pub fn max_ticks_per_slice(&self) -> u32 {
         self.max_ticks_per_slice
     }
 
-    /// Reanchors the next tick one full interval after the current frame.
+    /// Returns the current sticky callback status.
+    pub fn status(&self) -> TimingAdvanceStatus {
+        self.fault.unwrap_or(TimingAdvanceStatus::Complete)
+    }
+
+    /// Starts a new transport epoch with the next tick one full interval away.
     ///
-    /// The absolute frame counter remains monotonic; reset changes musical phase
-    /// without rewinding elapsed render time.
+    /// Reset discards prior absolute frame position, clears capacity/position or
+    /// directive faults, and makes position-overflow recovery reachable. It
+    /// cannot repair an invalid sample rate or initial BPM; prepare a valid BPM
+    /// first with [`Self::set_bpm`] (an invalid sample rate requires a newly
+    /// prepared clock).
     pub fn reset(&mut self) -> Result<(), TimingError> {
-        if self.fault == Some(TimingAdvanceStatus::InvalidConfiguration) {
-            return Err(TimingError::InvalidBpm);
-        }
+        let interval = prepare_tick_interval(self.sample_rate, self.bpm)?;
+        self.tick_interval = interval;
+        self.frame_position = 0;
+        self.next_tick_phase = interval;
+        self.configuration_valid = true;
+        self.fault = None;
+        Ok(())
+    }
+
+    fn reanchor_at_current_frame(&mut self) -> Result<(), TimingError> {
         let current_phase = u128::from(self.frame_position) << FIXED_FRACTION_BITS;
         self.next_tick_phase = current_phase
             .checked_add(self.tick_interval)
             .ok_or(TimingError::PositionOverflow)?;
-        self.fault = None;
         Ok(())
     }
 
@@ -296,15 +369,8 @@ impl TimingState {
             next_tick_phase: ONE_FRAME,
             frame_position: 0,
             max_ticks_per_slice: DEFAULT_MAX_TICKS_PER_SLICE,
+            configuration_valid: false,
             fault: Some(TimingAdvanceStatus::InvalidConfiguration),
-        }
-    }
-
-    fn fail(&mut self, ticks_emitted: u32, status: TimingAdvanceStatus) -> TimingAdvance {
-        self.fault = Some(status);
-        TimingAdvance {
-            ticks_emitted,
-            status,
         }
     }
 }
@@ -350,13 +416,16 @@ mod tests {
         let mut timing = TimingState::prepare(sample_rate, bpm, 4_096).unwrap();
         let mut elapsed = 0_u64;
         let mut ticks = Vec::new();
+        let mut output = [TickBoundary::default(); 4_096];
 
         for &frame_count in partitions {
-            let result = timing.advance_ticks(frame_count, |tick| {
-                ticks.push(elapsed + tick.sample_offset as u64);
-                TickTempo::Unchanged
-            });
+            let result = timing.advance_ticks(frame_count, &mut output, |_| TickTempo::Unchanged);
             assert_eq!(result.status, TimingAdvanceStatus::Complete);
+            ticks.extend(
+                output[..result.ticks_emitted as usize]
+                    .iter()
+                    .map(|tick| elapsed + tick.sample_offset as u64),
+            );
             elapsed += frame_count as u64;
         }
         ticks
@@ -376,68 +445,67 @@ mod tests {
     }
 
     #[test]
-    fn default_values_are_prepared() {
+    fn default_values_cover_the_maximum_render_slice() {
         let timing = TimingState::new(44_100.0);
         assert_eq!(timing.bpm(), INITIAL_BPM);
-        assert_eq!(timing.max_ticks_per_slice(), DEFAULT_MAX_TICKS_PER_SLICE);
+        assert_eq!(timing.max_ticks_per_slice(), 4_096);
+        assert_eq!(timing.status(), TimingAdvanceStatus::Complete);
     }
 
     #[test]
     fn exact_slice_end_boundary_is_retained_for_next_slice() {
         let mut timing = TimingState::prepare(48_000.0, 125.0, 8).unwrap();
-        let first = timing.advance_ticks(960, |_| TickTempo::Unchanged);
+        let mut output = [TickBoundary::default(); 8];
+        let first = timing.advance_ticks(960, &mut output, |_| TickTempo::Unchanged);
         assert_eq!(first.ticks_emitted, 0);
         assert_eq!(first.status, TimingAdvanceStatus::Complete);
 
-        let mut offset = None;
-        let second = timing.advance_ticks(1, |tick| {
-            offset = Some(tick.sample_offset);
-            TickTempo::Unchanged
-        });
+        let second = timing.advance_ticks(1, &mut output, |_| TickTempo::Unchanged);
         assert_eq!(second.ticks_emitted, 1);
-        assert_eq!(offset, Some(0));
+        assert_eq!(output[0].sample_offset, 0);
     }
 
     #[test]
     fn zero_length_slice_retains_an_offset_zero_boundary() {
         let mut timing = TimingState::prepare(48_000.0, 125.0, 8).unwrap();
+        let mut output = [TickBoundary::default(); 8];
         assert_eq!(
-            timing.advance_ticks(960, |_| TickTempo::Unchanged),
+            timing.advance_ticks(960, &mut output, |_| TickTempo::Unchanged),
             TimingAdvance {
                 ticks_emitted: 0,
                 status: TimingAdvanceStatus::Complete,
             }
         );
         assert_eq!(
-            timing.advance_ticks(0, |_| panic!("empty slice emitted a tick")),
+            timing.advance_ticks(0, &mut output, |_| panic!("empty slice planned a tick")),
             TimingAdvance {
                 ticks_emitted: 0,
                 status: TimingAdvanceStatus::Complete,
             }
         );
-
-        let mut observed = usize::MAX;
-        timing.advance_ticks(1, |tick| {
-            observed = tick.sample_offset;
-            TickTempo::Unchanged
-        });
-        assert_eq!(observed, 0);
+        assert_eq!(
+            timing.advance_ticks(1, &mut output, |_| TickTempo::Unchanged),
+            TimingAdvance {
+                ticks_emitted: 1,
+                status: TimingAdvanceStatus::Complete,
+            }
+        );
+        assert_eq!(output[0].sample_offset, 0);
     }
 
     #[test]
     fn multiple_ticks_are_emitted_in_strict_offset_order() {
         let mut timing = TimingState::prepare(48_000.0, 125.0, 16).unwrap();
-        let mut offsets = [usize::MAX; 8];
-        let mut len = 0;
-        let result = timing.advance_ticks(5_000, |tick| {
-            offsets[len] = tick.sample_offset;
-            len += 1;
-            TickTempo::Unchanged
-        });
+        let mut output = [TickBoundary::default(); 16];
+        let result = timing.advance_ticks(5_000, &mut output, |_| TickTempo::Unchanged);
 
         assert_eq!(result.status, TimingAdvanceStatus::Complete);
-        assert_eq!(&offsets[..len], &[960, 1_920, 2_880, 3_840, 4_800]);
-        assert!(offsets[..len].windows(2).all(|pair| pair[0] < pair[1]));
+        let offsets: Vec<_> = output[..result.ticks_emitted as usize]
+            .iter()
+            .map(|tick| tick.sample_offset)
+            .collect();
+        assert_eq!(offsets, [960, 1_920, 2_880, 3_840, 4_800]);
+        assert!(offsets.windows(2).all(|pair| pair[0] < pair[1]));
     }
 
     #[test]
@@ -461,9 +529,9 @@ mod tests {
             let mut elapsed = 0_u64;
             let mut tick_index = 0;
             let mut ticks = Vec::new();
+            let mut output = [TickBoundary::default(); 128];
             for &frame_count in partitions {
-                let result = timing.advance_ticks(frame_count, |tick| {
-                    ticks.push(elapsed + tick.sample_offset as u64);
+                let result = timing.advance_ticks(frame_count, &mut output, |_| {
                     tick_index += 1;
                     if tick_index == 3 {
                         TickTempo::SetBpm(250.0 / 11.0)
@@ -472,6 +540,11 @@ mod tests {
                     }
                 });
                 assert_eq!(result.status, TimingAdvanceStatus::Complete);
+                ticks.extend(
+                    output[..result.ticks_emitted as usize]
+                        .iter()
+                        .map(|tick| elapsed + tick.sample_offset as u64),
+                );
                 elapsed += frame_count as u64;
             }
             ticks
@@ -502,12 +575,11 @@ mod tests {
     #[test]
     fn bpm_change_at_tick_uses_new_next_interval_and_exact_phase() {
         let mut timing = TimingState::prepare(10.0, 10.0, 8).unwrap(); // 2.5 frames/tick
-        let mut offsets = [usize::MAX; 4];
-        let mut len = 0;
-        let result = timing.advance_ticks(6, |tick| {
-            offsets[len] = tick.sample_offset;
-            len += 1;
-            if len == 1 {
+        let mut output = [TickBoundary::default(); 8];
+        let mut planned = 0;
+        let result = timing.advance_ticks(6, &mut output, |_| {
+            planned += 1;
+            if planned == 1 {
                 TickTempo::SetBpm(250.0 / 11.0) // 1.1 frames/tick
             } else {
                 TickTempo::Unchanged
@@ -515,37 +587,57 @@ mod tests {
         });
 
         assert_eq!(result.status, TimingAdvanceStatus::Complete);
+        let offsets: Vec<_> = output[..result.ticks_emitted as usize]
+            .iter()
+            .map(|tick| tick.sample_offset)
+            .collect();
         // Exact phases are 2.5, 3.6, and 4.7. Reanchoring at the rounded first
         // boundary (frame 3) would incorrectly place the second tick at frame 5.
-        assert_eq!(&offsets[..len], &[3, 4, 5]);
+        assert_eq!(offsets, [3, 4, 5]);
         assert_eq!(timing.bpm(), 250.0 / 11.0);
+    }
+
+    #[test]
+    fn public_set_bpm_between_ticks_keeps_next_boundary_then_uses_new_interval() {
+        let mut timing = TimingState::prepare(10.0, 10.0, 8).unwrap(); // 2.5 frames/tick
+        let mut output = [TickBoundary::default(); 8];
+        assert_eq!(
+            timing.advance_ticks(2, &mut output, |_| TickTempo::Unchanged),
+            TimingAdvance {
+                ticks_emitted: 0,
+                status: TimingAdvanceStatus::Complete,
+            }
+        );
+
+        timing.set_bpm(250.0 / 11.0).unwrap(); // 1.1 frames/tick
+        let result = timing.advance_ticks(3, &mut output, |_| TickTempo::Unchanged);
+        assert_eq!(result.status, TimingAdvanceStatus::Complete);
+        assert_eq!(result.ticks_emitted, 2);
+        // The old exact boundary remains 2.5 -> exposed frame 3 (offset 1).
+        // The new interval then yields exact phase 3.6 -> frame 4 (offset 2).
+        assert_eq!(output[0].sample_offset, 1);
+        assert_eq!(output[1].sample_offset, 2);
     }
 
     #[test]
     fn tpl_compatibility_argument_does_not_change_tick_spacing() {
         let mut slow_rows = TimingState::new_with_bpm_tpl(48_000.0, 125.0, 3);
         let mut fast_rows = TimingState::new_with_bpm_tpl(48_000.0, 125.0, 12);
-        let mut slow = [usize::MAX; 4];
-        let mut fast = [usize::MAX; 4];
-        let mut slow_len = 0;
-        let mut fast_len = 0;
+        let mut slow = [TickBoundary::default(); 8];
+        let mut fast = [TickBoundary::default(); 8];
 
-        slow_rows.advance_ticks(4_000, |tick| {
-            slow[slow_len] = tick.sample_offset;
-            slow_len += 1;
-            TickTempo::Unchanged
-        });
-        fast_rows.advance_ticks(4_000, |tick| {
-            fast[fast_len] = tick.sample_offset;
-            fast_len += 1;
-            TickTempo::Unchanged
-        });
+        let slow_result = slow_rows.advance_ticks(4_000, &mut slow, |_| TickTempo::Unchanged);
+        let fast_result = fast_rows.advance_ticks(4_000, &mut fast, |_| TickTempo::Unchanged);
 
-        assert_eq!(&slow[..slow_len], &fast[..fast_len]);
+        assert_eq!(slow_result, fast_result);
+        assert_eq!(
+            &slow[..slow_result.ticks_emitted as usize],
+            &fast[..fast_result.ticks_emitted as usize]
+        );
     }
 
     #[test]
-    fn invalid_inputs_are_rejected_without_callback_work() {
+    fn invalid_inputs_are_rejected_without_planner_work() {
         assert_eq!(
             TimingState::prepare(0.0, 125.0, 8).unwrap_err(),
             TimingError::InvalidSampleRate
@@ -572,58 +664,157 @@ mod tests {
         );
 
         let mut invalid = TimingState::new(f64::NAN);
-        let result = invalid.advance_ticks(usize::MAX, |_| panic!("invalid clock ran callback"));
+        let mut output = [TickBoundary::default(); 8];
+        let result = invalid.advance_ticks(usize::MAX, &mut output, |_| {
+            panic!("invalid clock ran planner")
+        });
         assert_eq!(result.ticks_emitted, 0);
         assert_eq!(result.status, TimingAdvanceStatus::InvalidConfiguration);
     }
 
     #[test]
-    fn invalid_tempo_directive_fails_closed() {
+    fn invalid_public_bpm_is_rejected_without_faulting_valid_playback() {
         let mut timing = TimingState::prepare(48_000.0, 125.0, 8).unwrap();
-        let result = timing.advance_ticks(2_000, |_| TickTempo::SetBpm(f64::NAN));
-        assert_eq!(result.ticks_emitted, 1);
-        assert_eq!(result.status, TimingAdvanceStatus::InvalidConfiguration);
-
-        let sticky = timing.advance_ticks(2_000, |_| panic!("faulted clock ran callback"));
-        assert_eq!(sticky.ticks_emitted, 0);
-        assert_eq!(sticky.status, TimingAdvanceStatus::InvalidConfiguration);
+        assert_eq!(timing.set_bpm(0.0), Err(TimingError::InvalidBpm));
+        assert_eq!(timing.bpm(), 125.0);
+        assert_eq!(timing.status(), TimingAdvanceStatus::Complete);
+        assert_eq!(timing.advance(960).status, TimingAdvanceStatus::Complete);
     }
 
     #[test]
-    fn capacity_overflow_is_explicit_sticky_and_resettable() {
+    fn invalid_tempo_plan_commits_no_output_and_reset_recovers_old_tempo() {
+        let mut timing = TimingState::prepare(48_000.0, 125.0, 8).unwrap();
+        let mut output = [TickBoundary::default(); 8];
+        let result = timing.advance_ticks(2_000, &mut output, |_| TickTempo::SetBpm(f64::NAN));
+        assert_eq!(result.ticks_emitted, 0);
+        assert_eq!(result.status, TimingAdvanceStatus::InvalidConfiguration);
+        assert_eq!(timing.bpm(), 125.0);
+
+        let sticky =
+            timing.advance_ticks(2_000, &mut output, |_| panic!("faulted clock ran planner"));
+        assert_eq!(sticky.ticks_emitted, 0);
+        assert_eq!(sticky.status, TimingAdvanceStatus::InvalidConfiguration);
+
+        timing.reset().unwrap();
+        let resumed = timing.advance_ticks(961, &mut output, |_| TickTempo::Unchanged);
+        assert_eq!(resumed.status, TimingAdvanceStatus::Complete);
+        assert_eq!(resumed.ticks_emitted, 1);
+        assert_eq!(output[0].sample_offset, 960);
+    }
+
+    #[test]
+    fn valid_bpm_recovers_invalid_directive_after_the_rejected_slice() {
+        let mut timing = TimingState::prepare(48_000.0, 125.0, 8).unwrap();
+        let mut output = [TickBoundary::default(); 8];
+        let failed = timing.advance_ticks(2_000, &mut output, |_| TickTempo::SetBpm(f64::NAN));
+        assert_eq!(failed.status, TimingAdvanceStatus::InvalidConfiguration);
+
+        timing.set_bpm(125.0).unwrap();
+        assert_eq!(timing.status(), TimingAdvanceStatus::Complete);
+        assert_eq!(
+            timing.advance_ticks(960, &mut output, |_| TickTempo::Unchanged),
+            TimingAdvance {
+                ticks_emitted: 0,
+                status: TimingAdvanceStatus::Complete,
+            }
+        );
+        let resumed = timing.advance_ticks(1, &mut output, |_| TickTempo::Unchanged);
+        assert_eq!(resumed.ticks_emitted, 1);
+        assert_eq!(output[0].sample_offset, 0);
+    }
+
+    #[test]
+    fn valid_bpm_recovers_an_invalid_initial_bpm() {
+        let mut timing = TimingState::new_with_bpm(48_000.0, 0.0);
+        assert_eq!(timing.status(), TimingAdvanceStatus::InvalidConfiguration);
+        assert_eq!(timing.reset(), Err(TimingError::InvalidBpm));
+
+        timing.set_bpm(125.0).unwrap();
+        assert_eq!(timing.status(), TimingAdvanceStatus::Complete);
+        assert_eq!(timing.advance(960).ticks_emitted, 1);
+    }
+
+    #[test]
+    fn capacity_overflow_commits_no_ticks_is_sticky_and_resettable() {
         let mut timing = TimingState::prepare(48_000.0, 125.0, 2).unwrap();
-        let overflow = timing.advance_ticks(5_000, |_| TickTempo::Unchanged);
-        assert_eq!(overflow.ticks_emitted, 2);
+        let mut output = [TickBoundary::default(); 8];
+        let overflow = timing.advance_ticks(5_000, &mut output, |_| TickTempo::Unchanged);
+        assert_eq!(overflow.ticks_emitted, 0);
         assert_eq!(overflow.status, TimingAdvanceStatus::TickCapacityExceeded);
 
-        let sticky = timing.advance_ticks(1, |_| panic!("faulted clock ran callback"));
+        let sticky = timing.advance_ticks(1, &mut output, |_| panic!("faulted clock ran planner"));
         assert_eq!(sticky.ticks_emitted, 0);
         assert_eq!(sticky.status, TimingAdvanceStatus::TickCapacityExceeded);
 
         timing.reset().unwrap();
-        let mut offset = None;
-        let resumed = timing.advance_ticks(961, |tick| {
-            offset = Some(tick.sample_offset);
-            TickTempo::Unchanged
-        });
+        let resumed = timing.advance_ticks(961, &mut output, |_| TickTempo::Unchanged);
         assert_eq!(resumed.status, TimingAdvanceStatus::Complete);
-        assert_eq!(offset, Some(960));
+        assert_eq!(resumed.ticks_emitted, 1);
+        assert_eq!(output[0].sample_offset, 960);
     }
 
     #[test]
-    fn absolute_frame_overflow_is_explicit() {
+    fn output_capacity_failure_is_transactional_and_reusable_after_reset() {
+        let mut timing = TimingState::prepare(48_000.0, 125.0, 8).unwrap();
+        let mut output = [TickBoundary::default(); 1];
+        let overflow = timing.advance_ticks(2_000, &mut output, |_| TickTempo::Unchanged);
+        assert_eq!(overflow.ticks_emitted, 0);
+        assert_eq!(overflow.status, TimingAdvanceStatus::TickCapacityExceeded);
+
+        timing.reset().unwrap();
+        let complete = timing.advance_ticks(961, &mut output, |_| TickTempo::Unchanged);
+        assert_eq!(complete.ticks_emitted, 1);
+        assert_eq!(complete.status, TimingAdvanceStatus::Complete);
+    }
+
+    #[test]
+    fn absolute_frame_overflow_is_explicit_and_transport_reset_recovers() {
         let mut timing = TimingState::prepare(48_000.0, 125.0, 8).unwrap();
         timing.frame_position = u64::MAX;
-        let result = timing.advance_ticks(1, |_| panic!("overflowed clock ran callback"));
+        let mut output = [TickBoundary::default(); 8];
+        let result =
+            timing.advance_ticks(1, &mut output, |_| panic!("overflowed clock ran planner"));
         assert_eq!(result.ticks_emitted, 0);
         assert_eq!(result.status, TimingAdvanceStatus::PositionOverflow);
+
+        timing.reset().unwrap();
+        assert_eq!(timing.status(), TimingAdvanceStatus::Complete);
+        assert_eq!(
+            timing.advance_ticks(961, &mut output, |_| TickTempo::Unchanged),
+            TimingAdvance {
+                ticks_emitted: 1,
+                status: TimingAdvanceStatus::Complete,
+            }
+        );
     }
 
     #[test]
-    fn compatibility_count_retains_legacy_end_inclusive_semantics() {
+    fn maximum_host_chunk_at_high_valid_bpm_stays_within_default_bound() {
+        let mut timing = TimingState::new_with_bpm(48_000.0, u16::MAX as f64);
+        let result = timing.advance(4_096);
+        assert_eq!(result.status, TimingAdvanceStatus::Complete);
+        assert_eq!(result.ticks_emitted, 2_236);
+    }
+
+    #[test]
+    fn one_frame_interval_covers_the_complete_default_host_chunk() {
+        let mut timing = TimingState::new_with_bpm(48_000.0, 120_000.0);
+        let result = timing.advance(4_096);
+        assert_eq!(result.status, TimingAdvanceStatus::Complete);
+        assert_eq!(result.ticks_emitted, 4_096);
+    }
+
+    #[test]
+    fn compatibility_count_retains_legacy_end_inclusive_semantics_and_status() {
         let mut timing = TimingState::new(48_000.0);
-        assert_eq!(timing.advance(959), 0);
-        assert_eq!(timing.advance(1), 1);
-        assert_eq!(timing.advance(1_920), 2);
+        assert_eq!(timing.advance(959).ticks_emitted, 0);
+        assert_eq!(timing.advance(1).ticks_emitted, 1);
+        assert_eq!(
+            timing.advance(1_920),
+            TimingAdvance {
+                ticks_emitted: 2,
+                status: TimingAdvanceStatus::Complete,
+            }
+        );
     }
 }

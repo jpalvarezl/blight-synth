@@ -16,8 +16,9 @@ issue: 202
 - Branch: `issue/202-sample-accurate-tick-offsets`
 - Worktree: `/Users/jpalvarezl/code/blight-202`
 - Base branch/SHA: `origin/main` / `1ba4db77ba2ed56e0a68986b55a3fcd85653f108`
-- Head SHA: `1ba4db77ba2ed56e0a68986b55a3fcd85653f108`
-- Last handoff: 2026-08-01
+- Reviewed implementation SHA: `a9c6e3dd68a9ef5a20533376fee2e81544977205`
+- Head SHA: branch tip (resolve with `git rev-parse HEAD`; the packet does not self-reference its owning commit)
+- Last handoff: 2026-08-02
 
 ## Goal
 
@@ -41,8 +42,8 @@ Implement [issue #202](https://github.com/jpalvarezl/blight-synth/issues/202): a
 
 - Bounded offset-bearing tick timing API and focused tests.
 - Exact half-open block boundaries, partition invariance, fractional timing, and BPM next-interval semantics.
-- Explicit invalid configuration and result-capacity overflow behavior.
-- TPL ownership documentation and a bounded compatibility path for the current tracker caller if migration is deferred to #204.
+- Explicit invalid configuration, transactional result-capacity overflow, and recovery behavior.
+- TPL ownership documentation and an observable, correctly prepared compatibility path for the current tracker caller if migration is deferred to #204.
 - Durable composition timing documentation where the resolved behavior belongs.
 
 ### Out of scope
@@ -57,7 +58,8 @@ Expected paths:
 
 - `sequencer/src/timing/mod.rs`
 - `sequencer/tests/rt_timing_allocations.rs`
-- `audio_backend/src/player/mod.rs` (move TPL row progression out of the tick clock and keep the count shim bounded until #204)
+- `audio_backend/src/player/mod.rs` (move TPL row progression out of the tick clock and keep the count shim bounded/observable until #204)
+- `audio_backend/src/lib.rs`, `audio_backend/src/offline.rs`, `audio_backend/src/device_host/audio_processor/mod.rs` (one enforced 4096-frame compatibility slice bound and host-visible timing status)
 - `docs/architecture/event-source-contract.md`
 - `docs/work/active/issue-202-sample-accurate-tick-offsets.md`
 - `docs/work/active/README.md` and `docs/work/burndown.md` (generated reconciliation only)
@@ -73,7 +75,8 @@ Potential parallel conflicts: `docs/architecture/event-source-contract.md` is sh
 - [x] Add focused boundary, partition, fractional-phase, tempo-change, invalid-input, overflow, and allocation-regression tests.
 - [x] Document TPL and the resolved timing rules; migrate or explicitly sunset compatibility at #204.
 - [x] Run focused/workspace tests, strict clippy/fmt, and documentation reconciliation/checks.
-- [x] Review the complete diff and prepare the focused commit.
+- [x] Correct the independent BLOCK findings around compatibility status, maximum host chunks, invalid BPM, transactional producer state, and recovery.
+- [x] Review the complete corrected diff and create the focused follow-up commit.
 
 ## Progress and decisions
 
@@ -83,7 +86,11 @@ Potential parallel conflicts: `docs/architecture/event-source-contract.md` is sh
 - 2026-08-01 — A tempo directive at an emitted tick schedules the next interval from that tick's exact phase. Invalid directives, capacity exhaustion, and position exhaustion become sticky fail-closed statuses requiring deliberate recovery/reset.
 - 2026-08-01 — Intervals shorter than one frame are rejected so offsets remain strictly increasing and callback work has the structural upper bound of one tick per frame.
 - 2026-08-01 — Moved TPL to `Player` row state. The old TPL constructor ignores TPL, and count-only `advance` keeps historical end-inclusive behavior solely to preserve current PCM references until #204 removes both shims.
-- 2026-08-01 — Independent complete-diff review returned APPROVE with no critical findings or warnings; minor allocation/comment suggestions were incorporated.
+- 2026-08-02 — Independent BLOCK review invalidated the original callback contract: callbacks could mutate producer state before a later non-complete result, Player discarded status, and the 1024 default was smaller than a valid high-BPM 4096-frame host chunk.
+- 2026-08-02 — Changed `advance_ticks` to stage a complete slice into caller-owned prepared storage. Tempo planning is side-effect-free; only `Complete` exposes a committed output prefix, while invalid tempo/capacity/position returns zero committed ticks and sticky status.
+- 2026-08-02 — Kept exact at-tick tempo changes in the planner and specified public between-tick `set_bpm`: it preserves the scheduled boundary and changes the following interval. Invalid public BPM is rejected without poisoning valid playback.
+- 2026-08-02 — Unified the audio-backend render-slice limit at 4096 frames and prepares Player for the structural one-tick-per-frame maximum. Compatibility `advance` now returns status; Player stops/releases on failure and rejects invalid initial/replacement BPM while retaining valid-song recovery.
+- 2026-08-02 — Transport reset now starts a new absolute-frame epoch, giving capacity and position overflow one tested recovery operation; invalid initial BPM first requires valid tempo preparation.
 
 ## Verification
 
@@ -91,14 +98,18 @@ Potential parallel conflicts: `docs/architecture/event-source-contract.md` is sh
 - [x] `cargo test -p audio_backend --lib`
 - [x] `cargo test --workspace`
 - [x] `cargo clippy --workspace --all-targets --all-features -- -D warnings`
+- [x] `cargo clippy -p audio_backend --no-default-features --all-targets -- -D warnings`
+- [x] `cargo test -p audio_backend --no-default-features --all-targets`
 - [x] `cargo fmt --all -- --check`
-- [ ] `python3 scripts/docs/reconcile_work.py --check` — generated docs reconcile, but live parallel issue #203 has no active packet in this worktree.
+- [x] `python3 scripts/check_architecture.py`
+- [x] `python3 scripts/check_rt_logging.py`
+- [x] `python3 scripts/docs/reconcile_work.py --check`
 - [x] `python3 scripts/docs/check_docs.py`
 
 ## Handoff
 
-- Completed: implementation, focused/adversarial/allocation tests, current-player compatibility, durable docs, generated docs reconciliation, workspace verification, and independent review.
-- Remaining: commit this prepared change; #204 later consumes offsets and removes the two explicitly documented compatibility shims.
-- Known failures/risks: reconciliation remains externally blocked only by missing active packet for parallel in-progress issue #203. Q64.64 derives its prepared interval from the supplied `f64`, then accumulates that quantized interval exactly.
-- Next smallest action: integrate `advance_ticks` into #204's bounded event producer and remove `advance`/`new_with_bpm_tpl`.
+- Completed: corrected transactional timing/output contract, exact 4096-frame compatibility preparation, observable Player fail-closed handling, invalid-song rejection/recovery, focused/adversarial/allocation tests, and durable timing documentation.
+- Remaining: commit/push/PR. #204 later consumes the prepared offsets and removes the compatibility shims.
+- Known failures/risks: Q64.64 derives each prepared interval from supplied `f64`, then accumulates the quantized interval exactly. Tempo planners are contractually side-effect-free; callers mutate producer state only after `Complete`.
+- Next smallest action: verify and review this correction, then hand the complete offset slice to #204's bounded event producer.
 - Files a new agent should read next: `sequencer/src/timing/mod.rs`, `audio_backend/src/player/mod.rs`, `docs/architecture/event-source-contract.md`.

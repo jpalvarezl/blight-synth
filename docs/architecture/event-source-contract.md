@@ -151,35 +151,44 @@ ordered bounded slice; those follow-ups own producing it.
 ## Implemented tracker tick clock (#202)
 
 `sequencer::timing::TimingState` now owns only the musical tick clock and exposes
-`advance_ticks`, a bounded allocation-free callback cursor plus compact result:
+`advance_ticks`, a bounded allocation-free transaction into caller-owned
+prepared storage plus a compact result:
 
 - Tick boundaries are relative to the exact half-open frame slice. Every emitted
   offset is in `0..frame_count`; a boundary equal to `frame_count` is retained
   and appears at offset zero of the next non-empty slice.
-- Exact tick phases use prepared Q64.64 intervals and absolute frame state. Each
-  interval is added once per tick, so fixed, alternating, single-frame, and
-  oversized partitions produce identical absolute integer tick boundaries.
+- Exact tick phases use prepared Q64.64 intervals and per-transport-epoch frame
+  state. Each interval is added once per tick, so fixed, alternating,
+  single-frame, and oversized partitions produce identical integer boundaries.
   Fractional phases are rounded up only when exposed as render-frame offsets;
   the fractional phase itself is retained.
-- A BPM directive returned while processing a tick changes the interval after
-  that tick. The new interval is added to the emitted tick's exact fractional
-  phase, never to its rounded sample offset, and therefore cannot move the
-  already emitted boundary. A BPM latched between ticks leaves the already
-  scheduled next boundary unchanged and applies after that boundary.
+- A side-effect-free tempo planner may select the interval after each tick. The
+  complete slice, all directives, fixed-point additions, and output capacity are
+  validated before the staged clock is committed. A non-`Complete` result
+  commits zero output ticks, and callers ignore scratch entries; producer state
+  is mutated only after a complete result. The new interval is added to the
+  tick's exact fractional phase, never its rounded offset. Public `set_bpm`
+  between ticks similarly leaves the already scheduled boundary unchanged and
+  applies after it.
 - Preparation rejects non-finite/non-positive sample rate or BPM, intervals
   shorter than one frame (which guarantees strict offset order), intervals
-  beyond the documented representable range, and a zero work bound.
-  Per-slice callback work is capped by the prepared tick count. Capacity,
-  invalid-tempo, and absolute-position failures return explicit sticky status;
-  callers must treat offsets from a non-`Complete` result as failed output and
-  deliberately reset at a transport boundary.
+  beyond the representable range, and a zero work bound. Capacity,
+  invalid-tempo, and position failures are explicit and sticky. Invalid public
+  BPM changes leave a valid clock untouched; valid tempo preparation or a
+  deliberate transport reset provides the documented recovery. Reset begins a
+  new frame epoch so even absolute-position exhaustion is recoverable.
+- The shared audio-backend render-slice limit is 4096 frames. Player prepares a
+  4096-tick bound, which covers the structural worst case of one valid tick per
+  frame and valid `u16` song BPM at a maximum-size host chunk; the former 1024
+  default did not. The allocation audit covers complete, failed, reset, and
+  reused paths.
 - Ticks per line (TPL) is tracker row-progression state in
   `audio_backend::player::Player`; it is not an input to tick spacing. The
-  count-only `TimingState::advance` temporarily retains its historical
-  end-inclusive count behavior so existing whole-block PCM references remain
-  stable; it must not be mixed with the half-open offset API. That method and
-  the old TPL constructor are bounded compatibility shims only until #204
-  consumes offsets and removes them.
+  count-only `TimingState::advance` temporarily retains historical end-inclusive
+  behavior but now returns the full status. Player observes every status,
+  releases/stops on failure, rejects invalid initial/replacement BPM, and makes
+  the compact status available to the host. This compatibility shim and the old
+  TPL constructor end when #204 consumes offsets.
 
 This clock has no dependency on `engine`, tracker song/document types, host
 hardware, or event-admission storage. It therefore preserves the #201 event
