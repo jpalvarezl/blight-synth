@@ -56,6 +56,8 @@ impl Default for PlayerPosition {
 pub struct Player {
     song: Arc<Song>,
     timing: TimingState,
+    // Ticks per line advances tracker rows; it never changes tick spacing.
+    tpl: u32,
     position: PlayerPosition,
     is_playing: bool,
     loop_enabled: bool,
@@ -64,15 +66,13 @@ pub struct Player {
 
 impl Player {
     pub fn new(song: Arc<Song>, sample_rate: f64) -> Self {
-        let timing = TimingState::new_with_bpm_tpl(
-            sample_rate,
-            song.initial_bpm as f64,   // Initial BPM
-            song.initial_speed as u32, // Initial Ticks Per Line (TPL)
-        );
+        let timing = TimingState::new_with_bpm(sample_rate, song.initial_bpm as f64);
+        let tpl = song.initial_speed as u32;
 
         Self {
             song,
             timing,
+            tpl,
             position: PlayerPosition::default(),
             is_playing: false,
             loop_enabled: false,
@@ -103,9 +103,10 @@ impl Player {
     }
 
     fn set_song(&mut self, song: Arc<Song>, retired: &mut impl RetireSink) {
-        self.timing.set_bpm(song.initial_bpm as f64);
-        self.timing.set_tpl(song.initial_speed as u32);
-        self.timing.reset();
+        if self.timing.set_bpm(song.initial_bpm as f64).is_ok() {
+            let _ = self.timing.reset();
+        }
+        self.tpl = song.initial_speed as u32;
         self.position.reset();
         // Replacing the live song can drop its last owner; hand the displaced
         // `Arc<Song>` to NRT for destruction instead of freeing it on RT.
@@ -156,6 +157,8 @@ impl Player {
             return;
         }
 
+        // #204 replaces this legacy count shim with offset-bearing events and
+        // observes its status; the prepared default bound covers current host chunks.
         let ticks_to_process = self.timing.advance(buffer_len_samples);
 
         for _ in 0..ticks_to_process {
@@ -182,7 +185,7 @@ impl Player {
         // --- Advance the playback position ---
         self.position.tick_counter += 1;
 
-        if self.position.tick_counter >= self.timing.tpl() {
+        if self.position.tick_counter >= self.tpl {
             // A row has finished, reset tick counter and advance to the next phrase step.
             self.position.tick_counter = 0;
 
@@ -210,7 +213,7 @@ impl Player {
                     if self.loop_enabled {
                         // self.engine_adapter.stop_all_notes();
                         self.position.reset();
-                        self.timing.reset();
+                        let _ = self.timing.reset();
                         dsp::rt_debug_log!("Looping back to start of song");
                     } else {
                         // Stop playback and reset state

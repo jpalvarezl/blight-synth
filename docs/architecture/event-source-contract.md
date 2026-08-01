@@ -2,8 +2,8 @@
 title: Event-Source Contract (draft)
 summary: Routing page for the host-orchestrated composition→engine boundary defined in ADR 0003.
 status: draft
-updated: 2026-07-26
-issues: [145, 134, 132, 138, 113, 201, 203, 204]
+updated: 2026-08-01
+issues: [145, 134, 132, 138, 113, 201, 202, 203, 204]
 ---
 
 # Event-Source Contract (draft)
@@ -147,6 +147,43 @@ This slice deliberately does not provide event admission storage, merge
 capacity, or producer-visible overload (#203), tracker tick offsets (#202), or
 first-party tracker/live integration (#204). The engine accepts an already
 ordered bounded slice; those follow-ups own producing it.
+
+## Implemented tracker tick clock (#202)
+
+`sequencer::timing::TimingState` now owns only the musical tick clock and exposes
+`advance_ticks`, a bounded allocation-free callback cursor plus compact result:
+
+- Tick boundaries are relative to the exact half-open frame slice. Every emitted
+  offset is in `0..frame_count`; a boundary equal to `frame_count` is retained
+  and appears at offset zero of the next non-empty slice.
+- Exact tick phases use prepared Q64.64 intervals and absolute frame state. Each
+  interval is added once per tick, so fixed, alternating, single-frame, and
+  oversized partitions produce identical absolute integer tick boundaries.
+  Fractional phases are rounded up only when exposed as render-frame offsets;
+  the fractional phase itself is retained.
+- A BPM directive returned while processing a tick changes the interval after
+  that tick. The new interval is added to the emitted tick's exact fractional
+  phase, never to its rounded sample offset, and therefore cannot move the
+  already emitted boundary. A BPM latched between ticks leaves the already
+  scheduled next boundary unchanged and applies after that boundary.
+- Preparation rejects non-finite/non-positive sample rate or BPM, intervals
+  shorter than one frame (which guarantees strict offset order), intervals
+  beyond the documented representable range, and a zero work bound.
+  Per-slice callback work is capped by the prepared tick count. Capacity,
+  invalid-tempo, and absolute-position failures return explicit sticky status;
+  callers must treat offsets from a non-`Complete` result as failed output and
+  deliberately reset at a transport boundary.
+- Ticks per line (TPL) is tracker row-progression state in
+  `audio_backend::player::Player`; it is not an input to tick spacing. The
+  count-only `TimingState::advance` temporarily retains its historical
+  end-inclusive count behavior so existing whole-block PCM references remain
+  stable; it must not be mixed with the half-open offset API. That method and
+  the old TPL constructor are bounded compatibility shims only until #204
+  consumes offsets and removes them.
+
+This clock has no dependency on `engine`, tracker song/document types, host
+hardware, or event-admission storage. It therefore preserves the #201 event
+surface and does not define any #203 admission API.
 
 ## Intentionally open implementation questions
 
