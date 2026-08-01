@@ -62,7 +62,12 @@ Expected paths:
 - `engine/src/events.rs`
 - `engine/src/lib.rs`
 - `engine/tests/rt_allocations.rs`
-- focused architecture documentation only if implementation resolves an open mechanism
+- `engine/tests/timestamped_events.rs`
+- `scripts/check_architecture.py`
+- `docs/architecture/crate-dependency-graph.md`
+- `docs/architecture/event-source-contract.md`
+- `docs/architecture/realtime-contract.md`
+- `docs/domains/audio-engine.md`
 - `docs/work/active/issue-201-timestamped-engine-events.md`
 - generated `docs/work/burndown.md`
 
@@ -74,30 +79,36 @@ Potential parallel conflicts: #202 is safe in `sequencer/src/timing/`; #101, #13
 
 - [x] Characterize the current imperative note/process path and parameter runtime binding.
 - [x] Specify the first note/recovery event payload, order key, validation status, and process signature through red tests.
-- [ ] Implement event validation/application and offset-segmented rendering.
-- [ ] Add focused semantic, malformed-input, deterministic-render, and RT-allocation tests.
-- [ ] Run focused and workspace verification; update contract routing only for durable resolved details.
+- [x] Implement event validation/application and offset-segmented rendering.
+- [x] Add focused semantic, malformed-input, deterministic-render, parameter-binding, and RT-allocation tests.
+- [x] Run focused and workspace verification; update contract routing only for durable resolved details.
 
 ## Progress and decisions
 
 - 2026-07-26 — Claimed #201 and established it as the sole owner of the public engine event/process contract.
 - 2026-07-26 — Tutoring mode: assistant writes executable contract tests; owner writes production implementation; review proceeds in small green checkpoints.
-- 2026-07-26 — First red tranche fixes `EventProducerId`, `TimestampedEvent`, note/recovery `EngineEvent`, `EventProcessError`, and `Engine::process_with_events`; canonical order is offset → semantic precedence (recovery, release, attack) → producer → sequence. Parameters remain a later tranche.
+- 2026-07-26 — First red tranche fixed `EventProducerId`, `TimestampedEvent`, note/recovery `EngineEvent`, `EventProcessError`, and `Engine::process_with_events`; canonical order is offset → semantic precedence → producer → sequence.
+- 2026-07-26 — Implementation validates the complete slice before mutation, rejects non-increasing canonical keys, and segments existing DSP processing at event offsets without changing instrument interfaces.
+- 2026-07-26 — `engine` now consumes `param_manifest`: NRT binding accepts only validated `SampleEvent` runtime parameters, retains the runtime key plus concrete effect/index target, and sends already-mapped engine values on RT. Coalesced/structural rates are rejected.
+- 2026-07-26 — Architecture-checker feature expectations still described the pre-#190 monolithic `standalone` feature; because this issue must add the new `engine -> param_manifest` allowlist, the checker/page were synchronized to the already-merged `device-host`/`standalone-process` split rather than preserving a failing stale baseline.
 
 ## Verification
 
-- [ ] `cargo test -p engine --all-targets`
-- [ ] focused strict RT allocation tests
-- [ ] `cargo test --workspace --all-targets`
-- [ ] `cargo clippy --workspace --all-targets --all-features -- -D warnings`
-- [ ] `cargo fmt --all -- --check`
-- [ ] `python3 scripts/docs/reconcile_work.py --check`
-- [ ] `python3 scripts/docs/check_docs.py`
+- [x] `cargo test -p engine --all-targets`
+- [x] focused strict RT allocation tests (`prepared_timestamped_event_application_and_segmented_render_has_no_heap_activity`)
+- [x] `cargo test --workspace --all-targets`
+- [x] `cargo clippy --workspace --all-targets --all-features -- -D warnings`
+- [x] `cargo fmt --all -- --check`
+- [x] `python3 scripts/check_architecture.py`
+- [x] `python3 scripts/check_rt_logging.py`
+- [x] `python3 scripts/docs/reconcile_work.py --check`
+- [x] `python3 scripts/docs/check_docs.py`
+- [x] independent final code review — APPROVE, no warnings
 
 ## Handoff
 
-- Completed: issue claimed; branch/worktree and focused packet created.
-- Remaining: design, implementation, tests, and verification.
-- Known failures/risks: event control binding must use #121 runtime identities without pulling NRT strings into RT; process API must leave #132 lifecycle room.
-- Next smallest action: map the existing note/process and parameter-binding types, then write the event contract examples.
+- Completed: event/order types, atomic validation, segmented rendering, note/recovery/sample-parameter application, focused semantics tests, zero-heap event audit, contract docs, all quality gates, and independent review.
+- Remaining: commit/PR and issue closure; first-party host integration remains intentionally #203/#204.
+- Known failures/risks: future block-size/latency-dependent DSP must preserve semantics across segment slices; #203 must use `EventOrderKey` rather than define a second comparator.
+- Next smallest action: review the local diff, commit it, and open the #201 PR.
 - Files a new agent should read next: this packet, `engine/src/lib.rs`, ADR 0003, and the RT contract.

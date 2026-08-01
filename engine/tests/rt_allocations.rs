@@ -5,12 +5,19 @@ use std::{
 };
 
 use dsp::{
-    id::{EffectId, InstrumentId},
+    id::{EffectId, InstrumentId, NoteEvent, NoteId},
     instruments::Waveform,
     EffectFactory, EffectInstallError, EffectInstallErrorKind, InstrumentFactory, InstrumentTrait,
     MonoEffect, SynthCmd,
 };
-use engine::{Engine, InstrumentCmd, MixerCmd, RetireSink, RetiredState};
+use engine::{
+    Engine, EngineEvent, EventProducerId, InstrumentCmd, MixerCmd, ParameterTarget,
+    PreparedParameterBinding, RetireSink, RetiredState, TimestampedEvent,
+};
+use param_manifest::{
+    builtin::{master_gain_descriptor, MASTER_GAIN_ID},
+    AutomationRate, ParameterId, ParameterLookup, ParameterManifest,
+};
 
 struct TrackingAllocator;
 
@@ -228,6 +235,93 @@ impl RetireSink for CollectRetired {
     fn retire(&mut self, state: RetiredState) {
         self.0.push(state);
     }
+}
+
+#[test]
+fn prepared_timestamped_event_application_and_segmented_render_has_no_heap_activity() {
+    const SAMPLE_RATE: f32 = 48_000.0;
+    let instrument_id = 1;
+    let factory = InstrumentFactory::new(SAMPLE_RATE);
+    let mut engine = Engine::new();
+    engine.add_instrument(factory.create_simple_oscillator(instrument_id, 0.0));
+    engine.add_master_effect(
+        EffectFactory::new(SAMPLE_RATE).create_stereo_gain(99, 1.0),
+        &mut engine::DropRetireSink,
+    );
+
+    // Manifest parsing, validation, stable-ID resolution, mapping, and target
+    // binding all happen on NRT before the measured callback operation.
+    let mut descriptor = master_gain_descriptor();
+    descriptor.automation_rate = AutomationRate::SampleEvent;
+    let lookup = ParameterLookup::from_manifest(&ParameterManifest::new(vec![descriptor]))
+        .expect("valid sample-event descriptor");
+    let key = lookup
+        .key_for(&ParameterId::from(MASTER_GAIN_ID))
+        .expect("stable id resolves");
+    let runtime_parameter = *lookup.get(key).expect("runtime parameter is prepared");
+    let binding = PreparedParameterBinding::new(
+        runtime_parameter,
+        ParameterTarget::MasterEffect { effect_id: 99 },
+    )
+    .expect("sample-event parameter binds");
+    let engine_value = lookup
+        .normalized_to_engine(key, 0.5)
+        .expect("normalized value maps on NRT");
+    let producer = EventProducerId::new(1);
+    let note = NoteEvent {
+        id: NoteId(42),
+        pitch: 64,
+        velocity: 100,
+    };
+    let events = [
+        TimestampedEvent::new(
+            0,
+            producer,
+            0,
+            EngineEvent::SampleParameter {
+                binding,
+                engine_value,
+            },
+        ),
+        TimestampedEvent::new(
+            0,
+            producer,
+            1,
+            EngineEvent::NoteOn {
+                instrument_id,
+                note,
+            },
+        ),
+        TimestampedEvent::new(
+            192,
+            producer,
+            2,
+            EngineEvent::NoteOff {
+                instrument_id,
+                note_id: note.id,
+            },
+        ),
+        TimestampedEvent::new(255, producer, 3, EngineEvent::AllNotesOff),
+    ];
+    let mut left = [0.0; 256];
+    let mut right = [0.0; 256];
+
+    // Warm DSP paths and lazy process-global initialization before measuring.
+    engine.note_on_with_id(instrument_id, note.id, note.pitch, note.velocity);
+    engine.process(&mut left, &mut right, SAMPLE_RATE);
+    engine.all_notes_off(instrument_id);
+    left.fill(0.0);
+    right.fill(0.0);
+
+    let counts = measure_allocations(|| {
+        let result = engine.process_with_events(&mut left, &mut right, SAMPLE_RATE, &events);
+        assert_eq!(result, Ok(()));
+    });
+
+    assert_eq!(counts.allocations, 0, "unexpected RT allocations");
+    assert_eq!(counts.deallocations, 0, "unexpected RT deallocations");
+    assert_eq!(counts.reallocations, 0, "unexpected RT reallocations");
+    assert!(left[..192].iter().any(|sample| *sample != 0.0));
 }
 
 #[test]

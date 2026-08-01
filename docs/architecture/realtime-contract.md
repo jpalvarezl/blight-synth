@@ -3,7 +3,7 @@ title: Real-Time Audio Contract
 summary: Enforced callback safety, bounded-work, ownership, overload, and verification rules for M1.
 status: accepted
 updated: 2026-07-26
-issues: [101, 132, 133, 134, 136, 137, 138, 145, 171, 172, 173, 174, 175]
+issues: [101, 132, 133, 134, 136, 137, 138, 145, 171, 172, 173, 174, 175, 201]
 ---
 
 # Real-Time Audio Contract
@@ -152,6 +152,7 @@ The hard callback rules ([#172](https://github.com/jpalvarezl/blight-synth/issue
 - `engine` and `dsp` have no CPAL/OSC/Tokio/file dependencies.
 - Standalone callback buffers are preallocated and oversized host buffers are chunked.
 - Engine instrument render order uses a sorted preallocated slot vector.
+- `engine::TimestampedEvent`/`Engine::process_with_events` validate an already bounded current-block slice before mutation, apply canonical deterministic ordering, segment rendering at exact offsets, and have zero-heap audit coverage (#201). Admission capacity and first-party scheduling remain #203/#204.
 - Voice effect batches use fixed-capacity `ArrayVec` containers.
 - Meter handoff uses nonblocking atomics and performs network/formatting work outside RT.
 - The transitional standalone command queue applies a 64-command FIFO prefix per callback; reliable NRT submission preserves FIFO order across saturation, nonblocking submission exposes explicit backpressure, and OSC success responses require acceptance.

@@ -2,8 +2,8 @@
 title: M0 Crate Dependency Graph
 summary: Current enforced workspace dependency direction after the M0 boundary refactor.
 status: current
-updated: 2026-07-19
-issues: [130, 157]
+updated: 2026-07-26
+issues: [130, 157, 201]
 ---
 
 # M0 Crate Dependency Graph
@@ -21,6 +21,7 @@ flowchart TD
     AB -. standalone feature .-> HOST[CPAL / ringbuf / rosc / Tokio]
 
     ENG --> DSP
+    ENG --> PARAM[param_manifest parameter contract]
     DSP --> UTILS[utils music helpers]
     SEQ --> MODEL[serde / bincode / CLI-project dependencies]
     OSDLS[os_dls parser] --> RIFF[riff]
@@ -32,7 +33,8 @@ flowchart TD
 | Crate | Owns | Must not own |
 |---|---|---|
 | `dsp` | Synth nodes, voices, envelopes, effects, factories, immutable sample data | Engine orchestration, composition documents, CPAL/OSC/Tokio, file/platform loading, UI |
-| `engine` | Deterministic instrument slots, instrument/master commands, planar mixing, master effects | Sequencer/tracker types, devices, network/async runtime, files/resources, UI |
+| `engine` | Deterministic instrument slots, timestamped event application, instrument/master commands, planar mixing, master effects | Sequencer/tracker types, devices, network/async runtime, files/resources, UI |
+| `param_manifest` | Serializable parameter descriptors and prepared string-free RT parameter lookup | DSP/engine/host/composition/UI dependencies |
 | `sequencer` | Current tracker `Song -> Chain -> Phrase` document/timing runtime and project serialization | DSP/engine/device/network/UI dependencies |
 | `utils` | Small music-theory/data helpers | DSP/engine/sequencer/host/UI/file-decoder dependencies |
 | `os_dls` | DLS/RIFF parsing | Engine/DSP/host orchestration |
@@ -45,7 +47,8 @@ flowchart TD
 CI requires:
 
 ```text
-engine   -> dsp
+engine   -> dsp, param_manifest
+param_manifest -> serde (plus serde_json for tests)
 dsp      -> arrayvec, log, utils
 utils    -> serde, serde_json
 sequencer -> anyhow, bincode, clap, serde, serde_json, serde_with
@@ -56,7 +59,7 @@ Any new portable-crate dependency is an architecture change and must update both
 
 ## Standalone target boundary
 
-`audio_backend` defaults to feature `standalone` for current applications. CPAL, ringbuf, rosc, env_logger, and Tokio are optional and enabled only by that feature. The `dsp-core` binary and device/network examples require it. `render_song`, `update_offline_references`, tracker composition, resources, and offline golden tests compile with `--no-default-features`.
+`audio_backend` defaults to the compatibility alias `standalone`, which enables `standalone-process`. The `device-host` layer owns optional CPAL/ringbuf device and callback infrastructure; `standalone-process` adds optional rosc, env_logger, and Tokio transport/process adapters. Device-only examples require `device-host`; OSC/process examples and `dsp-core` require `standalone-process`. `render_song`, `update_offline_references`, tracker composition, resources, and offline golden tests compile with `--no-default-features`.
 
 Tokio currently uses its current-thread runtime. M2 issue #161 removes it after protocol/lifecycle behavior is stable.
 

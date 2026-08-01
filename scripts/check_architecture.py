@@ -75,25 +75,34 @@ ALLOWED = {
     # explicit architecture change rather than a way to route around the
     # known-forbidden list above.
     "dsp": {"arrayvec", "log", "utils"},
-    "engine": {"dsp"},
+    "engine": {"dsp", "param_manifest"},
+    "param_manifest": {"serde", "serde_json"},
     "sequencer": {"anyhow", "bincode", "clap", "serde", "serde_json", "serde_with"},
     "utils": {"serde", "serde_json"},
     "os_dls": {"riff"},
 }
-STANDALONE_OPTIONAL_DEPENDENCIES = {"cpal", "env_logger", "ringbuf", "rosc", "tokio"}
-STANDALONE_EXAMPLES = {
+OPTIONAL_DEPENDENCY_FEATURES = {
+    "cpal": "device-host",
+    "ringbuf": "device-host",
+    "env_logger": "standalone-process",
+    "rosc": "standalone-process",
+    "tokio": "standalone-process",
+}
+DEVICE_HOST_EXAMPLES = {
     "cycle_waveforms",
     "envelope",
     "master_gain",
-    "meter_listen",
-    "osc_control",
-    "play_song_file",
-    "polyphonic_song",
     "sample_playback_from_file",
     "sample_playback_from_gl_instruments",
     "simple_setup",
     "simple_song",
     "voice_effects",
+}
+STANDALONE_PROCESS_EXAMPLES = {
+    "meter_listen",
+    "osc_control",
+    "play_song_file",
+    "polyphonic_song",
 }
 HOST_FREE_EXAMPLES = {"render_song", "update_offline_references"}
 
@@ -158,20 +167,24 @@ def main() -> int:
             dependency["name"]: dependency
             for dependency in audio_backend["dependencies"]
         }
-        standalone_feature = set(audio_backend["features"].get("standalone", []))
-        for dependency in sorted(STANDALONE_OPTIONAL_DEPENDENCIES):
+        for dependency, feature in sorted(OPTIONAL_DEPENDENCY_FEATURES.items()):
             record = dependency_records.get(dependency)
             if record is None:
-                errors.append(f"`audio_backend` standalone dependency `{dependency}` is missing")
+                errors.append(f"`audio_backend` {feature} dependency `{dependency}` is missing")
                 continue
             if not record["optional"]:
                 errors.append(
-                    f"`audio_backend` standalone dependency `{dependency}` must be optional"
+                    f"`audio_backend` {feature} dependency `{dependency}` must be optional"
                 )
-            if f"dep:{dependency}" not in standalone_feature:
+            enabled = set(audio_backend["features"].get(feature, []))
+            if f"dep:{dependency}" not in enabled:
                 errors.append(
-                    f"`audio_backend` standalone feature must enable `dep:{dependency}`"
+                    f"`audio_backend` {feature} must enable `dep:{dependency}`"
                 )
+
+        standalone_alias = set(audio_backend["features"].get("standalone", []))
+        if "standalone-process" not in standalone_alias:
+            errors.append("`audio_backend` standalone alias must enable `standalone-process`")
 
         tokio = dependency_records.get("tokio")
         if tokio is not None:
@@ -186,10 +199,16 @@ def main() -> int:
             for target in audio_backend["targets"]
             if "example" in target["kind"]
         }
-        for example in sorted(STANDALONE_EXAMPLES):
+        for example in sorted(DEVICE_HOST_EXAMPLES):
             target = example_targets.get(example)
-            if target is None or "standalone" not in target.get("required-features", []):
-                errors.append(f"standalone example `{example}` must require `standalone`")
+            if target is None or "device-host" not in target.get("required-features", []):
+                errors.append(f"device-host example `{example}` must require `device-host`")
+        for example in sorted(STANDALONE_PROCESS_EXAMPLES):
+            target = example_targets.get(example)
+            if target is None or "standalone-process" not in target.get("required-features", []):
+                errors.append(
+                    f"standalone-process example `{example}` must require `standalone-process`"
+                )
         for example in sorted(HOST_FREE_EXAMPLES):
             target = example_targets.get(example)
             if target is None:
@@ -205,8 +224,10 @@ def main() -> int:
             ),
             None,
         )
-        if dsp_core is None or "standalone" not in dsp_core.get("required-features", []):
-            errors.append("`dsp-core` must require the `standalone` feature")
+        if dsp_core is None or "standalone-process" not in dsp_core.get(
+            "required-features", []
+        ):
+            errors.append("`dsp-core` must require the `standalone-process` feature")
 
     if errors:
         print("architecture dependency check failed:", file=sys.stderr)

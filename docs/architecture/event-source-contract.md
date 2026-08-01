@@ -3,7 +3,7 @@ title: Event-Source Contract (draft)
 summary: Routing page for the host-orchestrated composition→engine boundary defined in ADR 0003.
 status: draft
 updated: 2026-07-26
-issues: [145, 134, 132, 138, 113]
+issues: [145, 134, 132, 138, 113, 201, 203, 204]
 ---
 
 # Event-Source Contract (draft)
@@ -109,6 +109,44 @@ otherwise it uses NRT evaluation.
 demand-driven block evaluation, not sample-accurate event placement; #134 must
 retain the timing needed to calculate each event's absolute frame/current-block
 offset.
+
+## Implemented engine-facing slice (#201)
+
+Issue #201 implements the canonical current-block event/application surface in
+`engine/src/events.rs` and `Engine::process_with_events`:
+
+- One render block is the exact common planar-buffer prefix passed to one engine
+  process call. Offsets use the half-open `0..frame_count` interval; a boundary
+  at `frame_count` belongs to the next block.
+- `TimestampedEvent` wraps an engine-ready payload with a stable producer ID and
+  source-local sequence. `EventOrderKey` is the shared canonical key for #203:
+  sample offset, semantic precedence, producer ID, then sequence.
+- Same-offset semantic precedence is global recovery, targeted release,
+  sample-accurate parameter, then attack. This makes recovery/release happen
+  first and lets a new attack observe a parameter changed at the same sample.
+- The complete slice is validated before rendering or state mutation. Invalid
+  offsets, non-increasing keys, and non-finite/out-of-range prepared parameter
+  values return a compact `EventProcessError`; the engine never silently sorts
+  or partially applies malformed input. Live hosts
+  must inspect that result: because buffers remain untouched, they should render
+  current voices/tails through the event-free `Engine::process` fallback, record
+  bounded telemetry, and arrange recovery rather than emit stale buffer data.
+- Rendering is segmented at event offsets while existing instrument/effect state
+  and DSP interfaces remain unchanged. Instruments and the master chain observe
+  each segment as a contiguous process slice; future block-size/latency-dependent
+  DSP must preserve semantics across such slices or adopt a separately reviewed
+  strategy. Direct imperative note/process APIs remain available for audition
+  and focused embedding/tests.
+- `PreparedParameterBinding` is constructed on NRT from a validated
+  `param_manifest::RuntimeParameter` and rejects any rate other than
+  `AutomationRate::SampleEvent`. Stable IDs are resolved and normalized values
+  are mapped before RT; the event carries only a string-free runtime key,
+  concrete effect target/index, and engine value.
+
+This slice deliberately does not provide event admission storage, merge
+capacity, or producer-visible overload (#203), tracker tick offsets (#202), or
+first-party tracker/live integration (#204). The engine accepts an already
+ordered bounded slice; those follow-ups own producing it.
 
 ## Intentionally open implementation questions
 

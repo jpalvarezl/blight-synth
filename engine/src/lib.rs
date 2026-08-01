@@ -1,10 +1,12 @@
 mod commands;
+mod events;
 
 pub use commands::*;
 use dsp::{
     id::{EffectId, InstrumentId, NoteEvent, NoteId},
     InstrumentTrait, MonoEffect, StereoEffect, StereoEffectChain, SynthCmd, VoiceEffects,
 };
+pub use events::*;
 use std::{any::Any, sync::Arc};
 
 /// Hard, fixed instrument-slot capacity. The backing vector is preallocated to
@@ -232,6 +234,120 @@ impl Engine {
             slot.instrument.process(left, right, sample_rate);
         }
         self.master_effects.process(left, right, sample_rate);
+    }
+
+    /// Applies an already ordered current-block event slice at exact sample
+    /// offsets while rendering the caller-provided planar buffers.
+    ///
+    /// The complete event slice is validated before audio or engine state is
+    /// mutated. Offsets belong to the half-open `0..frame_count` interval, where
+    /// `frame_count` is the common stereo-buffer prefix. On rejection, buffers
+    /// and engine state are left unchanged.
+    ///
+    /// RT hosts must inspect the result. After rejection they may call
+    /// [`Engine::process`] on the same untouched buffers to render current
+    /// voices/tails, record compact telemetry, and arrange bounded recovery;
+    /// they must not emit stale host-buffer contents or silently discard the
+    /// error.
+    ///
+    /// Every event boundary invokes instruments and the master chain on another
+    /// contiguous slice. Current DSP nodes are slice-continuous; future
+    /// block-size/latency-dependent nodes must explicitly preserve semantics
+    /// across these segment boundaries or use a separately reviewed strategy.
+    pub fn process_with_events(
+        &mut self,
+        left: &mut [f32],
+        right: &mut [f32],
+        sample_rate: f32,
+        events: &[TimestampedEvent],
+    ) -> Result<(), EventProcessError> {
+        let frame_count = left.len().min(right.len());
+        Self::validate_events(events, frame_count)?;
+
+        let left = &mut left[..frame_count];
+        let right = &mut right[..frame_count];
+        let mut rendered_until = 0;
+
+        for event in events {
+            if rendered_until < event.sample_offset {
+                self.process(
+                    &mut left[rendered_until..event.sample_offset],
+                    &mut right[rendered_until..event.sample_offset],
+                    sample_rate,
+                );
+                rendered_until = event.sample_offset;
+            }
+            self.apply_event(event.event);
+        }
+
+        if rendered_until < frame_count {
+            self.process(
+                &mut left[rendered_until..],
+                &mut right[rendered_until..],
+                sample_rate,
+            );
+        }
+        Ok(())
+    }
+
+    fn validate_events(
+        events: &[TimestampedEvent],
+        frame_count: usize,
+    ) -> Result<(), EventProcessError> {
+        let mut previous_key = None;
+        for event in events {
+            if event.sample_offset >= frame_count {
+                return Err(EventProcessError::OffsetOutOfRange);
+            }
+            if let EngineEvent::SampleParameter {
+                binding,
+                engine_value,
+            } = event.event
+            {
+                if !binding.accepts_engine_value(engine_value) {
+                    return Err(EventProcessError::InvalidParameterValue);
+                }
+            }
+            let key = event.order_key();
+            if previous_key.is_some_and(|previous| key <= previous) {
+                return Err(EventProcessError::EventsNotOrdered);
+            }
+            previous_key = Some(key);
+        }
+        Ok(())
+    }
+
+    fn apply_event(&mut self, event: EngineEvent) {
+        match event {
+            EngineEvent::AllNotesOff => self.stop_all_notes(),
+            EngineEvent::NoteOff {
+                instrument_id,
+                note_id,
+            } => self.note_off_id(instrument_id, note_id),
+            EngineEvent::SampleParameter {
+                binding,
+                engine_value,
+            } => match binding.target() {
+                ParameterTarget::MasterEffect { effect_id } => self.set_master_effect_parameter(
+                    effect_id,
+                    binding.engine_param_index(),
+                    engine_value,
+                ),
+                ParameterTarget::InstrumentEffect {
+                    instrument_id,
+                    effect_id,
+                } => self.set_instrument_effect_parameter(
+                    instrument_id,
+                    effect_id,
+                    binding.engine_param_index(),
+                    engine_value,
+                ),
+            },
+            EngineEvent::NoteOn {
+                instrument_id,
+                note,
+            } => self.note_on_with_id(instrument_id, note.id, note.pitch, note.velocity),
+        }
     }
 
     /// Adds an instrument on a caller known to be outside RT.
