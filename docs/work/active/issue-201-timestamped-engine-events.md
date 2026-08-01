@@ -91,6 +91,7 @@ Potential parallel conflicts: #202 is safe in `sequencer/src/timing/`; #101, #13
 - 2026-07-26 — Implementation validates the complete slice before mutation, rejects non-increasing canonical keys, and segments existing DSP processing at event offsets without changing instrument interfaces.
 - 2026-07-26 — `engine` now consumes `param_manifest`: NRT binding accepts only validated `SampleEvent` runtime parameters, retains the runtime key plus concrete effect/index target, and sends already-mapped engine values on RT. Coalesced/structural rates are rejected.
 - 2026-07-26 — Architecture-checker feature expectations still described the pre-#190 monolithic `standalone` feature; because this issue must add the new `engine -> param_manifest` allowlist, the checker/page were synchronized to the already-merged `device-host`/`standalone-process` split rather than preserving a failing stale baseline.
+- 2026-08-01 — Copilot review found a stale test-module description; corrected. Linux host-free CI exposed two #190 capacity accessors compiled without their only `device-host` caller; both methods are now feature-gated and the exact host-free Clippy/test commands pass.
 
 ## Verification
 
@@ -98,6 +99,8 @@ Potential parallel conflicts: #202 is safe in `sequencer/src/timing/`; #101, #13
 - [x] focused strict RT allocation tests (`prepared_timestamped_event_application_and_segmented_render_has_no_heap_activity`)
 - [x] `cargo test --workspace --all-targets`
 - [x] `cargo clippy --workspace --all-targets --all-features -- -D warnings`
+- [x] `cargo clippy -p audio_backend --no-default-features --all-targets -- -D warnings`
+- [x] `cargo test -p audio_backend --no-default-features --all-targets`
 - [x] `cargo fmt --all -- --check`
 - [x] `python3 scripts/check_architecture.py`
 - [x] `python3 scripts/check_rt_logging.py`

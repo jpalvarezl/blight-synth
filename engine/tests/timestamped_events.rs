@@ -1,8 +1,7 @@
 //! Executable contract for #201's engine-facing current-block events.
 //!
-//! These tests deliberately exercise only note/recovery application, ordering,
-//! validation, and segmented rendering. Sample-accurate parameter bindings are a
-//! separate test tranche once this core process contract is green.
+//! These tests exercise note/recovery and sample-parameter application,
+//! canonical ordering, whole-slice validation, and offset-segmented rendering.
 
 use std::sync::{
     atomic::{AtomicU32, AtomicUsize, Ordering},

@@ -24,6 +24,7 @@ impl TrackerEngineAdapter {
 
     /// Hard instrument-slot capacity of the wrapped engine. Non-RT accessor used
     /// to validate retirement-ring sizing invariants at construction time.
+    #[cfg(feature = "device-host")]
     pub fn instrument_capacity(&self) -> usize {
         self.engine.instrument_capacity()
     }
