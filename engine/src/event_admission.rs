@@ -61,6 +61,7 @@ impl EventAdmissionError {
 ///
 /// `Staged` remains provisional until [`BoundedEventAdmission::finish_block`]: a
 /// later producer can reject the whole ordinary block.
+#[must_use = "producer admission remains provisional until the finalized block is inspected"]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProducerAdmissionStatus {
     Staged,
@@ -77,6 +78,7 @@ pub enum RecoveryAdmissionError {
 }
 
 /// Result of staging the block's capacity-independent all-notes-off event.
+#[must_use = "recovery admission can fail and must be inspected"]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RecoveryAdmissionStatus {
     Staged,
@@ -84,6 +86,7 @@ pub enum RecoveryAdmissionStatus {
 }
 
 /// Final ordinary-lane outcome for one block.
+#[must_use = "rejected ordinary blocks must not be processed as accepted"]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OrdinaryEventBlockStatus {
     /// Every staged ordinary producer slice was accepted and canonically ordered.
@@ -100,6 +103,7 @@ pub enum OrdinaryEventBlockStatus {
 /// contains only the independently staged recovery event, if any. This is the
 /// fail-closed guarantee: no ordinary prefix is exposed and nothing is queued
 /// for a later block.
+#[must_use = "the finalized admission status and event slice must be inspected"]
 #[derive(Debug, Clone, Copy)]
 pub struct FinalizedEventBlock<'a> {
     ordinary_status: OrdinaryEventBlockStatus,
@@ -107,7 +111,6 @@ pub struct FinalizedEventBlock<'a> {
 }
 
 impl<'a> FinalizedEventBlock<'a> {
-    #[must_use]
     pub const fn ordinary_status(self) -> OrdinaryEventBlockStatus {
         self.ordinary_status
     }
@@ -155,6 +158,8 @@ pub struct BoundedEventAdmission {
     events: Vec<TimestampedEvent>,
     phase: AdmissionPhase,
     rejection: Option<EventAdmissionError>,
+    submitted_event_count: usize,
+    lowest_capacity_contributor: Option<EventProducerId>,
     finalized_status: OrdinaryEventBlockStatus,
 }
 
@@ -206,6 +211,8 @@ impl BoundedEventAdmission {
             events,
             phase: AdmissionPhase::Idle,
             rejection: None,
+            submitted_event_count: 0,
+            lowest_capacity_contributor: None,
             finalized_status: OrdinaryEventBlockStatus::NotStarted,
         })
     }
@@ -237,6 +244,8 @@ impl BoundedEventAdmission {
         self.events.clear();
         self.recovery_event = None;
         self.rejection = None;
+        self.submitted_event_count = 0;
+        self.lowest_capacity_contributor = None;
         self.finalized_status = OrdinaryEventBlockStatus::NotStarted;
         for producer in &mut self.producers {
             producer.pending_sequence = None;
@@ -251,7 +260,10 @@ impl BoundedEventAdmission {
     /// strictly and sample offsets do not move backwards. Same-offset semantic
     /// order need not match emission order; finalization intentionally applies
     /// #201's canonical `order_key`, whose semantic precedence can override
-    /// sequence. Any rejection is sticky and fails the complete ordinary block.
+    /// sequence. Each call reports its own slice status, while finalization
+    /// deterministically selects one aggregate failure across every submission:
+    /// malformed/protocol failures before capacity, then stable producer identity.
+    /// A previous producer failure never prevents validation of a later producer.
     pub fn submit_producer(
         &mut self,
         producer: EventProducerId,
@@ -262,9 +274,6 @@ impl BoundedEventAdmission {
                 producer,
                 kind: EventAdmissionErrorKind::NotCollecting,
             });
-        }
-        if let Some(error) = self.rejection {
-            return ProducerAdmissionStatus::Rejected(error);
         }
 
         let index = match self
@@ -277,9 +286,14 @@ impl BoundedEventAdmission {
         if self.producers[index].submitted {
             return self.reject(producer, EventAdmissionErrorKind::ProducerAlreadySubmitted);
         }
-        let remaining_capacity = self.ordinary_capacity.saturating_sub(self.events.len());
-        if events.len() > remaining_capacity {
-            return self.reject(producer, EventAdmissionErrorKind::OrdinaryCapacityExceeded);
+        self.producers[index].submitted = true;
+
+        // A single slice larger than the complete prepared lane is intrinsically
+        // over capacity. This check keeps rejected RT work bounded by the
+        // prepared capacity; all slices that could fit are fully validated before
+        // aggregate/remaining-capacity effects are considered.
+        if events.len() > self.ordinary_capacity {
+            return self.record_capacity_rejection(producer, events.len());
         }
 
         let committed_sequence = self.producers[index].committed_sequence;
@@ -311,9 +325,24 @@ impl BoundedEventAdmission {
             previous_offset = Some(event.sample_offset);
         }
 
-        self.events.extend_from_slice(events);
-        self.producers[index].submitted = true;
         self.producers[index].pending_sequence = events.last().map(|event| event.sequence);
+        if events.is_empty() {
+            return ProducerAdmissionStatus::Staged;
+        }
+
+        self.submitted_event_count = self.submitted_event_count.saturating_add(events.len());
+        self.lowest_capacity_contributor = Some(
+            self.lowest_capacity_contributor
+                .map_or(producer, |current| current.min(producer)),
+        );
+        if self.submitted_event_count > self.ordinary_capacity {
+            return self.record_capacity_rejection(producer, 0);
+        }
+
+        // If the aggregate fits, every validated slice fits regardless of call
+        // order. Storage contents on a rejected block are provisional and are
+        // cleared by finish_block.
+        self.events.extend_from_slice(events);
         ProducerAdmissionStatus::Staged
     }
 
@@ -414,6 +443,8 @@ impl BoundedEventAdmission {
         self.recovery_committed_sequence = None;
         self.frame_count = 0;
         self.rejection = None;
+        self.submitted_event_count = 0;
+        self.lowest_capacity_contributor = None;
         self.finalized_status = OrdinaryEventBlockStatus::NotStarted;
         self.phase = AdmissionPhase::Idle;
         for producer in &mut self.producers {
@@ -429,9 +460,63 @@ impl BoundedEventAdmission {
         kind: EventAdmissionErrorKind,
     ) -> ProducerAdmissionStatus {
         let error = EventAdmissionError { producer, kind };
-        self.rejection = Some(error);
+        self.record_rejection(error);
         ProducerAdmissionStatus::Rejected(error)
     }
+
+    fn record_capacity_rejection(
+        &mut self,
+        submitting_producer: EventProducerId,
+        event_count: usize,
+    ) -> ProducerAdmissionStatus {
+        if event_count != 0 {
+            self.submitted_event_count = self.submitted_event_count.saturating_add(event_count);
+            self.lowest_capacity_contributor = Some(
+                self.lowest_capacity_contributor
+                    .map_or(submitting_producer, |current| {
+                        current.min(submitting_producer)
+                    }),
+            );
+        }
+        let final_error = EventAdmissionError {
+            producer: self
+                .lowest_capacity_contributor
+                .unwrap_or(submitting_producer),
+            kind: EventAdmissionErrorKind::OrdinaryCapacityExceeded,
+        };
+        self.record_rejection(final_error);
+        ProducerAdmissionStatus::Rejected(EventAdmissionError {
+            producer: submitting_producer,
+            kind: EventAdmissionErrorKind::OrdinaryCapacityExceeded,
+        })
+    }
+
+    fn record_rejection(&mut self, candidate: EventAdmissionError) {
+        if self
+            .rejection
+            .is_none_or(|current| rejection_key(candidate) < rejection_key(current))
+        {
+            self.rejection = Some(candidate);
+        }
+    }
+}
+
+// This orders diagnostics, never events. Event merge ordering remains solely
+// TimestampedEvent::order_key / EventOrderKey.
+const fn rejection_key(error: EventAdmissionError) -> (u8, u64, u8) {
+    let (class, kind) = match error.kind {
+        EventAdmissionErrorKind::OrdinaryCapacityExceeded => (1, 0),
+        EventAdmissionErrorKind::NotCollecting => (2, 0),
+        EventAdmissionErrorKind::UnknownProducer => (0, 0),
+        EventAdmissionErrorKind::ProducerAlreadySubmitted => (0, 1),
+        EventAdmissionErrorKind::EventProducerMismatch => (0, 2),
+        EventAdmissionErrorKind::SequenceNotIncreasing => (0, 3),
+        EventAdmissionErrorKind::SourceOffsetsNotOrdered => (0, 4),
+        EventAdmissionErrorKind::OffsetOutOfRange => (0, 5),
+        EventAdmissionErrorKind::InvalidEvent => (0, 6),
+        EventAdmissionErrorKind::RecoveryInOrdinaryLane => (0, 7),
+    };
+    (class, error.producer.get(), kind)
 }
 
 const _: () = assert!(std::mem::size_of::<EventAdmissionError>() <= 16);

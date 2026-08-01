@@ -11,9 +11,9 @@ use dsp::{
     MonoEffect, SynthCmd,
 };
 use engine::{
-    BoundedEventAdmission, Engine, EngineEvent, EventProducerId, InstrumentCmd, MixerCmd,
-    OrdinaryEventBlockStatus, ParameterTarget, PreparedParameterBinding, ProducerAdmissionStatus,
-    RecoveryAdmissionStatus, RetireSink, RetiredState, TimestampedEvent,
+    BoundedEventAdmission, Engine, EngineEvent, EventAdmissionErrorKind, EventProducerId,
+    InstrumentCmd, MixerCmd, OrdinaryEventBlockStatus, ParameterTarget, PreparedParameterBinding,
+    ProducerAdmissionStatus, RecoveryAdmissionStatus, RetireSink, RetiredState, TimestampedEvent,
 };
 use param_manifest::{
     builtin::{master_gain_descriptor, MASTER_GAIN_ID},
@@ -326,7 +326,7 @@ fn prepared_timestamped_event_application_and_segmented_render_has_no_heap_activ
 }
 
 #[test]
-fn prepared_bounded_admission_merge_and_recovery_have_no_heap_activity() {
+fn prepared_bounded_admission_reuse_rejection_and_reset_have_no_heap_activity() {
     let producer_a = EventProducerId::new(10);
     let producer_b = EventProducerId::new(20);
     let recovery = EventProducerId::new(99);
@@ -380,6 +380,30 @@ fn prepared_bounded_admission_merge_and_recovery_have_no_heap_activity() {
             },
         ),
     ];
+    let overflow_a = [
+        TimestampedEvent::new(0, producer_a, 12, producer_a_events[0].event),
+        TimestampedEvent::new(32, producer_a, 13, producer_a_events[1].event),
+        TimestampedEvent::new(64, producer_a, 14, producer_a_events[0].event),
+        TimestampedEvent::new(96, producer_a, 15, producer_a_events[1].event),
+    ];
+    let overflow_b = [TimestampedEvent::new(
+        128,
+        producer_b,
+        22,
+        producer_b_events[0].event,
+    )];
+    let valid_prefix = [TimestampedEvent::new(
+        0,
+        producer_a,
+        12,
+        producer_a_events[0].event,
+    )];
+    let malformed_b = [TimestampedEvent::new(
+        0,
+        producer_a,
+        22,
+        producer_b_events[0].event,
+    )];
 
     let counts = measure_allocations(|| {
         admission.begin_block(256);
@@ -405,6 +429,71 @@ fn prepared_bounded_admission_merge_and_recovery_have_no_heap_activity() {
             .events()
             .windows(2)
             .all(|pair| pair[0].order_key() < pair[1].order_key()));
+
+        // Reuse after finalization, ordinary overflow, and recovery-only output.
+        admission.begin_block(256);
+        assert_eq!(
+            admission.submit_producer(producer_a, &overflow_a),
+            ProducerAdmissionStatus::Staged
+        );
+        assert!(matches!(
+            admission.submit_producer(producer_b, &overflow_b),
+            ProducerAdmissionStatus::Rejected(error)
+                if error.kind() == EventAdmissionErrorKind::OrdinaryCapacityExceeded
+        ));
+        assert_eq!(
+            admission.request_all_notes_off(0, 2),
+            RecoveryAdmissionStatus::Staged
+        );
+        let block = admission.finish_block();
+        assert!(matches!(
+            block.ordinary_status(),
+            OrdinaryEventBlockStatus::Rejected(error)
+                if error.kind() == EventAdmissionErrorKind::OrdinaryCapacityExceeded
+        ));
+        assert_eq!(block.events().len(), 1);
+
+        // Reuse again after malformed input; the provisional prefix stays hidden.
+        admission.begin_block(256);
+        assert_eq!(
+            admission.submit_producer(producer_a, &valid_prefix),
+            ProducerAdmissionStatus::Staged
+        );
+        assert!(matches!(
+            admission.submit_producer(producer_b, &malformed_b),
+            ProducerAdmissionStatus::Rejected(error)
+                if error.kind() == EventAdmissionErrorKind::EventProducerMismatch
+        ));
+        assert_eq!(
+            admission.request_all_notes_off(0, 3),
+            RecoveryAdmissionStatus::Staged
+        );
+        let block = admission.finish_block();
+        assert!(matches!(
+            block.ordinary_status(),
+            OrdinaryEventBlockStatus::Rejected(error)
+                if error.kind() == EventAdmissionErrorKind::EventProducerMismatch
+        ));
+        assert_eq!(block.events().len(), 1);
+
+        // Reset neither deallocates nor loses prepared capacity, and it clears
+        // both ordinary and recovery sequence baselines for explicit reuse.
+        admission.reset();
+        admission.begin_block(256);
+        assert_eq!(
+            admission.submit_producer(producer_a, &producer_a_events),
+            ProducerAdmissionStatus::Staged
+        );
+        assert_eq!(
+            admission.request_all_notes_off(0, 1),
+            RecoveryAdmissionStatus::Staged
+        );
+        let block = admission.finish_block();
+        assert_eq!(
+            block.ordinary_status(),
+            OrdinaryEventBlockStatus::Accepted { event_count: 2 }
+        );
+        assert_eq!(block.events().len(), 3);
     });
 
     assert_eq!(counts.allocations, 0, "unexpected RT allocations");

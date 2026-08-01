@@ -10,13 +10,19 @@ use dsp::{
     EffectInstallError, EffectInstallErrorKind, InstrumentTrait, MonoEffect, SynthCmd,
 };
 use engine::{
-    BoundedEventAdmission, Engine, EngineEvent, EventAdmissionErrorKind,
-    EventAdmissionPrepareError, EventProducerId, OrdinaryEventBlockStatus, ProducerAdmissionStatus,
-    RecoveryAdmissionError, RecoveryAdmissionStatus, TimestampedEvent,
+    BoundedEventAdmission, Engine, EngineEvent, EventAdmissionError, EventAdmissionErrorKind,
+    EventAdmissionPrepareError, EventProducerId, OrdinaryEventBlockStatus, ParameterTarget,
+    PreparedParameterBinding, ProducerAdmissionStatus, RecoveryAdmissionError,
+    RecoveryAdmissionStatus, TimestampedEvent,
+};
+use param_manifest::{
+    builtin::{master_gain_descriptor, MASTER_GAIN_ID},
+    AutomationRate, ParameterId, ParameterLookup, ParameterManifest,
 };
 
 const PRODUCER_A: EventProducerId = EventProducerId::new(10);
 const PRODUCER_B: EventProducerId = EventProducerId::new(20);
+const PRODUCER_C: EventProducerId = EventProducerId::new(30);
 const RECOVERY: EventProducerId = EventProducerId::new(99);
 const FRAMES: usize = 64;
 
@@ -63,6 +69,44 @@ fn rejected_kind(status: ProducerAdmissionStatus) -> EventAdmissionErrorKind {
         ProducerAdmissionStatus::Rejected(error) => error.kind(),
         ProducerAdmissionStatus::Staged => panic!("expected producer rejection"),
     }
+}
+
+fn rejected_block_error(status: OrdinaryEventBlockStatus) -> EventAdmissionError {
+    match status {
+        OrdinaryEventBlockStatus::Rejected(error) => error,
+        status => panic!("expected rejected block, got {status:?}"),
+    }
+}
+
+fn prepared_sample_binding() -> PreparedParameterBinding {
+    let mut descriptor = master_gain_descriptor();
+    descriptor.automation_rate = AutomationRate::SampleEvent;
+    let lookup = ParameterLookup::from_manifest(&ParameterManifest::new(vec![descriptor]))
+        .expect("valid sample-event descriptor");
+    let key = lookup
+        .key_for(&ParameterId::from(MASTER_GAIN_ID))
+        .expect("stable id resolves");
+    PreparedParameterBinding::new(
+        *lookup.get(key).expect("runtime parameter is prepared"),
+        ParameterTarget::MasterEffect { effect_id: 99 },
+    )
+    .expect("sample-event parameter binds")
+}
+
+fn invalid_sample_parameter(
+    producer: EventProducerId,
+    sequence: u64,
+    binding: PreparedParameterBinding,
+) -> TimestampedEvent {
+    TimestampedEvent::new(
+        0,
+        producer,
+        sequence,
+        EngineEvent::SampleParameter {
+            binding,
+            engine_value: f32::NAN,
+        },
+    )
 }
 
 struct RecoveryProbe {
@@ -176,11 +220,12 @@ fn over_capacity_rejects_the_whole_ordinary_block_without_carrying_a_prefix() {
     );
 
     let block = admission.finish_block();
-    let error = match block.ordinary_status() {
-        OrdinaryEventBlockStatus::Rejected(error) => error,
-        status => panic!("expected rejected block, got {status:?}"),
-    };
-    assert_eq!(error.producer(), PRODUCER_B);
+    let error = rejected_block_error(block.ordinary_status());
+    assert_eq!(
+        error.producer(),
+        PRODUCER_A,
+        "overflow attribution uses the lowest stable contributing producer"
+    );
     assert_eq!(
         error.kind(),
         EventAdmissionErrorKind::OrdinaryCapacityExceeded
@@ -200,6 +245,57 @@ fn over_capacity_rejects_the_whole_ordinary_block_without_carrying_a_prefix() {
         OrdinaryEventBlockStatus::Accepted { event_count: 1 }
     );
     assert_eq!(next.events(), &[note_on(0, PRODUCER_B, 1, 3)]);
+}
+
+#[test]
+fn final_rejection_is_independent_of_overflow_and_malformed_submission_order() {
+    fn run(
+        binding: PreparedParameterBinding,
+        reverse: bool,
+    ) -> (EventAdmissionError, Vec<EventAdmissionErrorKind>) {
+        let mut admission =
+            BoundedEventAdmission::prepare(2, &[PRODUCER_C, PRODUCER_B, PRODUCER_A], RECOVERY)
+                .unwrap();
+        admission.begin_block(FRAMES);
+        let a = [note_on(0, PRODUCER_A, 1, 1), note_off(1, PRODUCER_A, 2, 1)];
+        let b = [invalid_sample_parameter(PRODUCER_B, 1, binding)];
+        let c = [note_on(2, PRODUCER_C, 1, 3)];
+        let mut failures = Vec::new();
+        let submissions = if reverse {
+            [
+                (PRODUCER_C, &c[..]),
+                (PRODUCER_B, &b[..]),
+                (PRODUCER_A, &a[..]),
+            ]
+        } else {
+            [
+                (PRODUCER_A, &a[..]),
+                (PRODUCER_B, &b[..]),
+                (PRODUCER_C, &c[..]),
+            ]
+        };
+        for (producer, events) in submissions {
+            if let ProducerAdmissionStatus::Rejected(error) =
+                admission.submit_producer(producer, events)
+            {
+                failures.push(error.kind());
+            }
+        }
+        let block = admission.finish_block();
+        assert!(block.events().is_empty());
+        (rejected_block_error(block.ordinary_status()), failures)
+    }
+
+    let binding = prepared_sample_binding();
+    let (forward, forward_failures) = run(binding, false);
+    let (reverse, reverse_failures) = run(binding, true);
+    assert_eq!(forward, reverse);
+    assert_eq!(forward.producer(), PRODUCER_B);
+    assert_eq!(forward.kind(), EventAdmissionErrorKind::InvalidEvent);
+    for failures in [forward_failures, reverse_failures] {
+        assert!(failures.contains(&EventAdmissionErrorKind::InvalidEvent));
+        assert!(failures.contains(&EventAdmissionErrorKind::OrdinaryCapacityExceeded));
+    }
 }
 
 #[test]
@@ -320,6 +416,58 @@ fn malformed_identity_sequence_source_order_and_duplicate_submission_are_observa
 }
 
 #[test]
+fn invalid_event_hides_and_clears_staged_prefix_while_recovery_remains_available() {
+    let binding = prepared_sample_binding();
+    let prefix = note_on(0, PRODUCER_A, 7, 1);
+    let mut admission =
+        BoundedEventAdmission::prepare(2, &[PRODUCER_A, PRODUCER_B], RECOVERY).unwrap();
+    admission.begin_block(FRAMES);
+    assert_eq!(
+        admission.submit_producer(PRODUCER_A, &[prefix]),
+        ProducerAdmissionStatus::Staged
+    );
+    assert_eq!(
+        rejected_kind(admission.submit_producer(
+            PRODUCER_B,
+            &[invalid_sample_parameter(PRODUCER_B, 1, binding)]
+        )),
+        EventAdmissionErrorKind::InvalidEvent
+    );
+    assert_eq!(
+        admission.request_all_notes_off(0, 1),
+        RecoveryAdmissionStatus::Staged
+    );
+
+    let rejected = admission.finish_block();
+    let error = rejected_block_error(rejected.ordinary_status());
+    assert_eq!(error.producer(), PRODUCER_B);
+    assert_eq!(error.kind(), EventAdmissionErrorKind::InvalidEvent);
+    assert_eq!(
+        rejected.events().len(),
+        1,
+        "ordinary prefix must stay hidden"
+    );
+    assert!(matches!(
+        rejected.events()[0].event,
+        EngineEvent::AllNotesOff
+    ));
+
+    // The rejected prefix was cleared and its sequence baseline was not
+    // committed, so the same source event can be submitted in the next block.
+    admission.begin_block(FRAMES);
+    assert_eq!(
+        admission.submit_producer(PRODUCER_A, &[prefix]),
+        ProducerAdmissionStatus::Staged
+    );
+    let accepted = admission.finish_block();
+    assert_eq!(
+        accepted.ordinary_status(),
+        OrdinaryEventBlockStatus::Accepted { event_count: 1 }
+    );
+    assert_eq!(accepted.events(), &[prefix]);
+}
+
+#[test]
 fn sequence_baselines_commit_only_for_successful_blocks_and_reset_explicitly() {
     let mut admission = BoundedEventAdmission::prepare(1, &[PRODUCER_A], RECOVERY).unwrap();
     admission.begin_block(FRAMES);
@@ -390,7 +538,11 @@ fn phase_and_recovery_failures_are_compact_and_recovery_sequence_is_validated() 
         admission.request_all_notes_off(1, 6),
         RecoveryAdmissionStatus::Rejected(RecoveryAdmissionError::AlreadyRequested)
     );
-    admission.finish_block();
+    let finalized = admission.finish_block();
+    assert_eq!(
+        finalized.ordinary_status(),
+        OrdinaryEventBlockStatus::Accepted { event_count: 0 }
+    );
 
     admission.begin_block(FRAMES);
     assert_eq!(
@@ -401,6 +553,18 @@ fn phase_and_recovery_failures_are_compact_and_recovery_sequence_is_validated() 
         admission.request_all_notes_off(0, 6),
         RecoveryAdmissionStatus::Staged
     );
+    let finalized = admission.finish_block();
+    assert_eq!(finalized.events().len(), 1);
+
+    admission.reset();
+    admission.begin_block(FRAMES);
+    assert_eq!(
+        admission.request_all_notes_off(0, 1),
+        RecoveryAdmissionStatus::Staged,
+        "reset must clear the committed recovery sequence baseline"
+    );
+    let finalized = admission.finish_block();
+    assert_eq!(finalized.events().len(), 1);
 }
 
 #[test]
