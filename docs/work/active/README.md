@@ -13,4 +13,4 @@ A packet is a handoff cache, not a second specification. It links to the issue a
 
 ## Active
 
-- [Issue #201 — Define and apply bounded timestamped engine events](issue-201-timestamped-engine-events.md)
+_No active packets. Create one when an issue moves to `status:in-progress`._
