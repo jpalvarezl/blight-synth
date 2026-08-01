@@ -83,6 +83,7 @@ impl Player {
     /// Hard instrument-slot capacity of the underlying render engine. Non-RT
     /// accessor used to validate retirement-ring sizing invariants at
     /// `AudioProcessor` construction time.
+    #[cfg(feature = "device-host")]
     pub(crate) fn instrument_capacity(&self) -> usize {
         self.engine_adapter.instrument_capacity()
     }

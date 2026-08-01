@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 dsp = { workspace = true }
+param_manifest = { workspace = true }
