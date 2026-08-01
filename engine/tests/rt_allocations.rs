@@ -11,8 +11,9 @@ use dsp::{
     MonoEffect, SynthCmd,
 };
 use engine::{
-    Engine, EngineEvent, EventProducerId, InstrumentCmd, MixerCmd, ParameterTarget,
-    PreparedParameterBinding, RetireSink, RetiredState, TimestampedEvent,
+    BoundedEventAdmission, Engine, EngineEvent, EventProducerId, InstrumentCmd, MixerCmd,
+    OrdinaryEventBlockStatus, ParameterTarget, PreparedParameterBinding, ProducerAdmissionStatus,
+    RecoveryAdmissionStatus, RetireSink, RetiredState, TimestampedEvent,
 };
 use param_manifest::{
     builtin::{master_gain_descriptor, MASTER_GAIN_ID},
@@ -322,6 +323,93 @@ fn prepared_timestamped_event_application_and_segmented_render_has_no_heap_activ
     assert_eq!(counts.deallocations, 0, "unexpected RT deallocations");
     assert_eq!(counts.reallocations, 0, "unexpected RT reallocations");
     assert!(left[..192].iter().any(|sample| *sample != 0.0));
+}
+
+#[test]
+fn prepared_bounded_admission_merge_and_recovery_have_no_heap_activity() {
+    let producer_a = EventProducerId::new(10);
+    let producer_b = EventProducerId::new(20);
+    let recovery = EventProducerId::new(99);
+    let mut admission =
+        BoundedEventAdmission::prepare(4, &[producer_b, producer_a], recovery).unwrap();
+    let producer_a_events = [
+        TimestampedEvent::new(
+            0,
+            producer_a,
+            10,
+            EngineEvent::NoteOn {
+                instrument_id: 1,
+                note: NoteEvent {
+                    id: NoteId(1),
+                    pitch: 60,
+                    velocity: 100,
+                },
+            },
+        ),
+        TimestampedEvent::new(
+            0,
+            producer_a,
+            11,
+            EngineEvent::NoteOff {
+                instrument_id: 1,
+                note_id: NoteId(1),
+            },
+        ),
+    ];
+    let producer_b_events = [
+        TimestampedEvent::new(
+            0,
+            producer_b,
+            20,
+            EngineEvent::NoteOn {
+                instrument_id: 1,
+                note: NoteEvent {
+                    id: NoteId(2),
+                    pitch: 64,
+                    velocity: 100,
+                },
+            },
+        ),
+        TimestampedEvent::new(
+            128,
+            producer_b,
+            21,
+            EngineEvent::NoteOff {
+                instrument_id: 1,
+                note_id: NoteId(2),
+            },
+        ),
+    ];
+
+    let counts = measure_allocations(|| {
+        admission.begin_block(256);
+        assert_eq!(
+            admission.submit_producer(producer_b, &producer_b_events),
+            ProducerAdmissionStatus::Staged
+        );
+        assert_eq!(
+            admission.submit_producer(producer_a, &producer_a_events),
+            ProducerAdmissionStatus::Staged
+        );
+        assert_eq!(
+            admission.request_all_notes_off(0, 1),
+            RecoveryAdmissionStatus::Staged
+        );
+        let block = admission.finish_block();
+        assert_eq!(
+            block.ordinary_status(),
+            OrdinaryEventBlockStatus::Accepted { event_count: 4 }
+        );
+        assert_eq!(block.events().len(), 5);
+        assert!(block
+            .events()
+            .windows(2)
+            .all(|pair| pair[0].order_key() < pair[1].order_key()));
+    });
+
+    assert_eq!(counts.allocations, 0, "unexpected RT allocations");
+    assert_eq!(counts.deallocations, 0, "unexpected RT deallocations");
+    assert_eq!(counts.reallocations, 0, "unexpected RT reallocations");
 }
 
 #[test]

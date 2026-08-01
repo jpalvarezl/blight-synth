@@ -188,6 +188,12 @@ pub struct TimestampedEvent {
     pub event: EngineEvent,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum EventValidationError {
+    OffsetOutOfRange,
+    InvalidParameterValue,
+}
+
 impl TimestampedEvent {
     #[must_use]
     pub const fn new(
@@ -214,6 +220,22 @@ impl TimestampedEvent {
             producer: self.producer,
             sequence: self.sequence,
         }
+    }
+
+    pub(crate) fn validate_for_block(self, frame_count: usize) -> Result<(), EventValidationError> {
+        if self.sample_offset >= frame_count {
+            return Err(EventValidationError::OffsetOutOfRange);
+        }
+        if let EngineEvent::SampleParameter {
+            binding,
+            engine_value,
+        } = self.event
+        {
+            if !binding.accepts_engine_value(engine_value) {
+                return Err(EventValidationError::InvalidParameterValue);
+            }
+        }
+        Ok(())
     }
 }
 
