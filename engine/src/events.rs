@@ -226,13 +226,16 @@ impl TimestampedEvent {
         if self.sample_offset >= frame_count {
             return Err(EventValidationError::OffsetOutOfRange);
         }
-        if let EngineEvent::SampleParameter {
-            binding,
-            engine_value,
-        } = self.event
-        {
-            if !binding.accepts_engine_value(engine_value) {
-                return Err(EventValidationError::InvalidParameterValue);
+        match self.event {
+            EngineEvent::SampleParameter {
+                binding,
+                engine_value,
+            } => {
+                if !binding.accepts_engine_value(engine_value) {
+                    return Err(EventValidationError::InvalidParameterValue);
+                }
+            }
+            EngineEvent::AllNotesOff | EngineEvent::NoteOff { .. } | EngineEvent::NoteOn { .. } => {
             }
         }
         Ok(())

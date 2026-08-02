@@ -303,8 +303,13 @@ impl BoundedEventAdmission {
             if event.producer != producer {
                 return self.reject(producer, EventAdmissionErrorKind::EventProducerMismatch);
             }
-            if matches!(event.event, EngineEvent::AllNotesOff) {
-                return self.reject(producer, EventAdmissionErrorKind::RecoveryInOrdinaryLane);
+            match event.event {
+                EngineEvent::AllNotesOff => {
+                    return self.reject(producer, EventAdmissionErrorKind::RecoveryInOrdinaryLane);
+                }
+                EngineEvent::NoteOff { .. }
+                | EngineEvent::SampleParameter { .. }
+                | EngineEvent::NoteOn { .. } => {}
             }
             if previous_sequence.is_some_and(|sequence| event.sequence <= sequence) {
                 return self.reject(producer, EventAdmissionErrorKind::SequenceNotIncreasing);
