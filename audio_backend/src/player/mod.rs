@@ -5,7 +5,7 @@ use std::sync::Arc;
 use engine::{RetireSink, RetiredState};
 use sequencer::{
     models::{NoteSentinelValues, Song, DEFAULT_CHAIN_LENGTH, DEFAULT_PHRASE_LENGTH, MAX_TRACKS},
-    timing::{TimingAdvanceStatus, TimingState},
+    timing::{TimingAdvanceStatus, TimingError, TimingState},
 };
 
 use crate::{id::InstrumentId, Command, SequencerCmd, TransportCmd, MAX_RENDER_SLICE_FRAMES};
@@ -201,7 +201,7 @@ impl Player {
         }
 
         self.engine_adapter.process(left, right, sample_rate);
-        TimingAdvanceStatus::Complete
+        self.timing_status
     }
 
     /// This is the heart of the sequencer. It processes a single tick,
@@ -246,7 +246,11 @@ impl Player {
                     if self.loop_enabled {
                         // self.engine_adapter.stop_all_notes();
                         self.position.reset();
-                        let _ = self.timing.reset();
+                        if let Err(error) = self.timing.reset() {
+                            self.timing_status = timing_error_status(error);
+                            self.stop();
+                            return;
+                        }
                         dsp::rt_debug_log!("Looping back to start of song");
                     } else {
                         // Stop playback and reset state
@@ -325,6 +329,16 @@ impl Player {
     }
 }
 
+fn timing_error_status(error: TimingError) -> TimingAdvanceStatus {
+    match error {
+        TimingError::PositionOverflow => TimingAdvanceStatus::PositionOverflow,
+        TimingError::InvalidSampleRate
+        | TimingError::InvalidBpm
+        | TimingError::TickIntervalOutOfRange
+        | TimingError::ZeroTickCapacity => TimingAdvanceStatus::InvalidConfiguration,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -335,6 +349,25 @@ mod tests {
     impl RetireSink for CollectRetired {
         fn retire(&mut self, state: RetiredState) {
             self.0.push(state);
+        }
+    }
+
+    #[test]
+    fn reset_errors_map_to_observable_timing_status() {
+        assert_eq!(
+            timing_error_status(TimingError::PositionOverflow),
+            TimingAdvanceStatus::PositionOverflow,
+        );
+        for error in [
+            TimingError::InvalidSampleRate,
+            TimingError::InvalidBpm,
+            TimingError::TickIntervalOutOfRange,
+            TimingError::ZeroTickCapacity,
+        ] {
+            assert_eq!(
+                timing_error_status(error),
+                TimingAdvanceStatus::InvalidConfiguration,
+            );
         }
     }
 
