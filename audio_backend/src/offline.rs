@@ -179,8 +179,7 @@ impl OfflineGoldenManifest {
             baseline_kind: "characterization".to_string(),
             canonical_platform: current_platform(),
             known_limitations: vec![
-                "#132 transport-independent rendering and release/effect tails".to_string(),
-                "#134 sample-accurate event scheduling".to_string(),
+                "#132 explicit lifecycle and offline post-transport tail duration".to_string(),
                 "#136 mixer gain staging and clipping".to_string(),
             ],
             config,
@@ -238,7 +237,14 @@ pub fn render_song(song: &Song, config: OfflineRenderConfig) -> Result<OfflineRe
         let right = &mut block_right[..frame_count];
         left.fill(0.0);
         right.fill(0.0);
-        player.process(left, right, config.sample_rate as f32, frame_count);
+        let status = player.process(left, right, config.sample_rate as f32);
+        if !status.is_complete() {
+            bail!(
+                "offline render failed: timing={:?}, events={:?}",
+                status.timing,
+                status.events
+            );
+        }
         if left
             .iter()
             .chain(right.iter())

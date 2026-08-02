@@ -21,7 +21,8 @@ pub use commands::*;
 #[cfg(feature = "device-host")]
 pub use device_host::*;
 pub use offline::*;
-pub(crate) use player::*;
+pub(crate) use player::Player;
+pub use player::{EventLaneStatus, PlayerProcessStatus};
 pub use resources::*;
 pub use result::*;
 pub use song_hydration::*;

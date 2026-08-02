@@ -118,6 +118,10 @@ pub enum EngineEvent {
         instrument_id: InstrumentId,
         note_id: NoteId,
     },
+    /// Release every sounding voice owned by one instrument. This preserves
+    /// legacy tracker/live release semantics for sources that do not carry an
+    /// individual note identity, without widening recovery to the whole engine.
+    InstrumentAllNotesOff { instrument_id: InstrumentId },
     /// Apply an already normalized-to-engine value through an NRT-prepared
     /// sample-event binding.
     SampleParameter {
@@ -140,7 +144,7 @@ impl EngineEvent {
     pub const fn semantic_precedence(self) -> u8 {
         match self {
             Self::AllNotesOff => 0,
-            Self::NoteOff { .. } => 1,
+            Self::NoteOff { .. } | Self::InstrumentAllNotesOff { .. } => 1,
             Self::SampleParameter { .. } => 2,
             Self::NoteOn { .. } => 3,
         }
@@ -235,8 +239,10 @@ impl TimestampedEvent {
                     return Err(EventValidationError::InvalidParameterValue);
                 }
             }
-            EngineEvent::AllNotesOff | EngineEvent::NoteOff { .. } | EngineEvent::NoteOn { .. } => {
-            }
+            EngineEvent::AllNotesOff
+            | EngineEvent::NoteOff { .. }
+            | EngineEvent::InstrumentAllNotesOff { .. }
+            | EngineEvent::NoteOn { .. } => {}
         }
         Ok(())
     }

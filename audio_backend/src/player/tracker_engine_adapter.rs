@@ -1,6 +1,4 @@
-use std::collections::HashMap;
-
-use engine::{Engine, EngineCommand, RetireSink};
+use engine::{Engine, EngineCommand, EventProcessError, RetireSink, TimestampedEvent};
 use sequencer::models::{MAX_TRACKS, NO_INSTRUMENT};
 
 use crate::id::InstrumentId;
@@ -8,17 +6,18 @@ use crate::id::InstrumentId;
 /// Tracker-specific adapter around the host-independent render engine.
 ///
 /// Track-to-last-instrument state remains here because it belongs to tracker
-/// event interpretation, not to generic sound rendering.
+/// event interpretation, not generic sound rendering. The indexed array makes
+/// the `MAX_TRACKS` bound structural and keeps lookup/update work constant.
 pub struct TrackerEngineAdapter {
     engine: Engine,
-    track_last_instrument: HashMap<usize, InstrumentId>,
+    track_last_instrument: [InstrumentId; MAX_TRACKS],
 }
 
 impl TrackerEngineAdapter {
     pub fn new() -> Self {
         Self {
             engine: Engine::new(),
-            track_last_instrument: HashMap::with_capacity(MAX_TRACKS),
+            track_last_instrument: [NO_INSTRUMENT as InstrumentId; MAX_TRACKS],
         }
     }
 
@@ -29,13 +28,15 @@ impl TrackerEngineAdapter {
         self.engine.instrument_capacity()
     }
 
-    pub fn note_on(&mut self, instrument_id: InstrumentId, note: u8, velocity: u8) {
-        dsp::rt_debug_log!("Playing note: {} on instrument: {}", note, instrument_id);
-        self.engine.note_on(instrument_id, note, velocity);
-    }
-
-    pub fn note_off(&mut self, instrument_id: InstrumentId) {
-        self.engine.all_notes_off(instrument_id);
+    pub fn process_with_events(
+        &mut self,
+        left: &mut [f32],
+        right: &mut [f32],
+        sample_rate: f32,
+        events: &[TimestampedEvent],
+    ) -> Result<(), EventProcessError> {
+        self.engine
+            .process_with_events(left, right, sample_rate, events)
     }
 
     pub fn process(&mut self, left: &mut [f32], right: &mut [f32], sample_rate: f32) {
@@ -44,57 +45,19 @@ impl TrackerEngineAdapter {
 
     pub fn clear_instruments(&mut self, retired: &mut impl RetireSink) {
         self.engine.clear_instruments(retired);
-        self.track_last_instrument.clear();
-    }
-
-    pub fn stop_all_notes(&mut self) {
-        self.engine.stop_all_notes();
+        self.track_last_instrument
+            .fill(NO_INSTRUMENT as InstrumentId);
     }
 
     pub fn handle_engine_command(&mut self, command: EngineCommand, retired: &mut impl RetireSink) {
         self.engine.handle_command_with_retirement(command, retired);
     }
 
-    /// Determine if there is an instrument_id cached for the track if not specified in the event.
-    pub fn cache_instrument_id_for_track(
-        &mut self,
-        track_index: usize,
-        instrument_id: InstrumentId,
-    ) -> InstrumentId {
-        if instrument_id == NO_INSTRUMENT as InstrumentId {
-            self.get_last_instrument_for_track(track_index)
-        } else {
-            self.set_last_instrument_for_track(track_index, instrument_id);
-            instrument_id
-        }
-    }
-
-    fn get_last_instrument_for_track(&self, track_index: usize) -> InstrumentId {
+    pub fn track_instruments(&self) -> [InstrumentId; MAX_TRACKS] {
         self.track_last_instrument
-            .get(&track_index)
-            .copied()
-            .unwrap_or(NO_INSTRUMENT as InstrumentId)
     }
 
-    fn set_last_instrument_for_track(&mut self, track_index: usize, instrument_id: InstrumentId) {
-        match self
-            .track_last_instrument
-            .insert(track_index, instrument_id)
-        {
-            Some(previous_id) => {
-                dsp::rt_debug_log!(
-                    "Track {}: Updated last instrument from {} to {}",
-                    track_index,
-                    previous_id,
-                    instrument_id
-                );
-                self.engine.all_notes_off(previous_id);
-            }
-            None => dsp::rt_debug_log!(
-                "Track {}: Set last instrument to {}",
-                track_index,
-                instrument_id
-            ),
-        }
+    pub fn set_track_instruments(&mut self, state: [InstrumentId; MAX_TRACKS]) {
+        self.track_last_instrument = state;
     }
 }

@@ -3,8 +3,7 @@
   "baseline_kind": "characterization",
   "canonical_platform": "macos-aarch64",
   "known_limitations": [
-    "#132 transport-independent rendering and release/effect tails",
-    "#134 sample-accurate event scheduling",
+    "#132 explicit lifecycle and offline post-transport tail duration",
     "#136 mixer gain staging and clipping"
   ],
   "config": {
@@ -16,24 +15,24 @@
     "calibration.json": {
       "sample_rate": 48000,
       "channels": 2,
-      "frames": 1536000,
-      "pcm_sha256": "5a2087c55868be1270f631521d0e38f68000935a4e896ceac2deb56af7c0b59c",
-      "peak_left": 0.70640814,
-      "peak_right": 0.70640814,
-      "rms_left": 0.20414215,
-      "rms_right": 0.20414215,
+      "frames": 1536256,
+      "pcm_sha256": "23e7a99a3a9c98c553e369d5229ca7764f9ad2f3d358857b34eeb101f530ede2",
+      "peak_left": 0.7084048,
+      "peak_right": 0.7084048,
+      "rms_left": 0.20400448,
+      "rms_right": 0.20400448,
       "clipped_samples": 0
     },
     "ending_theme_no_effect.json": {
       "sample_rate": 48000,
       "channels": 2,
-      "frames": 1024000,
-      "pcm_sha256": "08edb8e205121cd9b4a5900de850202d04fea041ef70b285a9b68ef974d2b67f",
-      "peak_left": 1.9216841,
-      "peak_right": 1.9216841,
-      "rms_left": 0.33914942,
-      "rms_right": 0.33914942,
-      "clipped_samples": 17926
+      "frames": 1024256,
+      "pcm_sha256": "5aecfff4a09366bb70631502cbb867a1e782f2feb73e5431d73b72ec16d1b0e8",
+      "peak_left": 2.009869,
+      "peak_right": 2.009869,
+      "rms_left": 0.33943203,
+      "rms_right": 0.33943203,
+      "clipped_samples": 17922
     }
   }
 }
