@@ -508,6 +508,56 @@ fn invalid_replacement_retires_rejection_and_keeps_old_song_recoverable() {
 }
 
 #[test]
+fn stop_then_restart_reanchors_the_first_tick_deterministically() {
+    let song = song_with_track_phrases(25, 1, vec![vec![cell(60, 1)]]);
+    let (mut player, _) = player_with_trace(song, 100.0); // ten frames per tick
+    assert_eq!(player.play(), TimingAdvanceStatus::Complete);
+
+    let mut left = [0.0; 10];
+    let mut right = [0.0; 10];
+    assert!(player
+        .process(&mut left[..3], &mut right[..3], 100.0)
+        .is_complete());
+    player.stop();
+    assert_eq!(player.play(), TimingAdvanceStatus::Complete);
+
+    // Reset uses half-open timing: the exact boundary at ten frames belongs to
+    // offset zero of the following slice, independent of the pre-stop phase.
+    assert!(player.process(&mut left, &mut right, 100.0).is_complete());
+    assert_eq!(player.position.tick_counter, 0);
+    assert!(player
+        .process(&mut left[..1], &mut right[..1], 100.0)
+        .is_complete());
+    assert_eq!(player.position.tick_counter, 0);
+    assert_eq!(player.position.track_positions[0].phrase_step, 1);
+}
+
+#[test]
+fn explicit_stop_recovers_a_sticky_timing_fault() {
+    let song = song_with_track_phrases(250, 1, vec![vec![cell(60, 1)]]);
+    let (mut player, _) = player_with_trace(song, 100.0); // one frame per tick
+    player.timing = TimingState::prepare(100.0, 250.0, 1).unwrap();
+    assert_eq!(player.play(), TimingAdvanceStatus::Complete);
+    let mut left = [0.0; 3];
+    let mut right = [0.0; 3];
+
+    let failed = player.process(&mut left, &mut right, 100.0);
+    assert_eq!(failed.timing, TimingAdvanceStatus::TickCapacityExceeded);
+    assert!(!player.is_playing());
+
+    player.stop();
+    assert_eq!(player.play(), TimingAdvanceStatus::Complete);
+    assert!(player
+        .process(&mut left[..1], &mut right[..1], 100.0)
+        .is_complete());
+    assert!(player
+        .process(&mut left[..1], &mut right[..1], 100.0)
+        .is_complete());
+    assert_eq!(player.position.tick_counter, 0);
+    assert_eq!(player.position.track_positions[0].phrase_step, 1);
+}
+
+#[test]
 fn tracker_instrument_cache_is_exactly_max_tracks_and_directly_indexed() {
     let adapter = tracker_engine_adapter::TrackerEngineAdapter::new();
     assert_eq!(adapter.track_instruments().len(), MAX_TRACKS);

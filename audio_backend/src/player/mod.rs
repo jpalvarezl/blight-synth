@@ -12,7 +12,7 @@ use sequencer::{
         EffectType, Event, NoteSentinelValues, Song, DEFAULT_CHAIN_LENGTH, DEFAULT_PHRASE_LENGTH,
         EMPTY_CHAIN_SLOT, EMPTY_PHRASE_SLOT, MAX_TRACKS, NO_INSTRUMENT,
     },
-    timing::{TickBoundary, TickTempo, TimingAdvanceStatus, TimingState},
+    timing::{TickBoundary, TickTempo, TimingAdvanceStatus, TimingError, TimingState},
 };
 
 use crate::{id::InstrumentId, Command, SequencerCmd, TransportCmd, MAX_RENDER_SLICE_FRAMES};
@@ -206,6 +206,11 @@ impl Player {
     fn stop_transport(&mut self, discard_earlier_live_events: bool) {
         self.is_playing = false;
         self.position.reset();
+        self.timing_status = match self.timing.reset() {
+            Ok(()) => TimingAdvanceStatus::Complete,
+            Err(error) => timing_error_status(error),
+        };
+        self.process_status.timing = self.timing_status;
         self.pending_recovery = true;
         if discard_earlier_live_events {
             // Preserve command FIFO semantics at offset zero: live events before
@@ -486,6 +491,12 @@ impl Player {
                     .set_track_instruments(staged_track_instruments);
                 self.tracker_sequence = staged_tracker_sequence;
                 self.live_sequence = staged_live_sequence;
+                if tracker_end_offset.is_some() && !staged_playing {
+                    self.timing_status = match self.timing.reset() {
+                        Ok(()) => TimingAdvanceStatus::Complete,
+                        Err(error) => timing_error_status(error),
+                    };
+                }
             } else {
                 self.is_playing = false;
                 self.position.reset();
@@ -499,6 +510,16 @@ impl Player {
         self.live_overflow = false;
         self.process_status = PlayerProcessStatus::new(self.timing_status, event_status);
         self.process_status
+    }
+}
+
+fn timing_error_status(error: TimingError) -> TimingAdvanceStatus {
+    match error {
+        TimingError::PositionOverflow => TimingAdvanceStatus::PositionOverflow,
+        TimingError::InvalidSampleRate
+        | TimingError::InvalidBpm
+        | TimingError::TickIntervalOutOfRange
+        | TimingError::ZeroTickCapacity => TimingAdvanceStatus::InvalidConfiguration,
     }
 }
 
