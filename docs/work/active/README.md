@@ -13,5 +13,4 @@ A packet is a handoff cache, not a second specification. It links to the issue a
 
 ## Active
 
-- [Issue #202 — Emit sample-accurate tracker tick offsets across block partitions](issue-202-sample-accurate-tick-offsets.md)
-- [Issue #203 — Implement bounded current-block event admission and recovery](issue-203-bounded-event-admission.md)
+_No active packets. Create one when an issue moves to `status:in-progress`._
