@@ -1,4 +1,8 @@
 mod commands;
+
+/// Maximum frame count of one prepared render slice. Device callbacks larger
+/// than this are chunked, and offline configuration rejects larger blocks.
+pub(crate) const MAX_RENDER_SLICE_FRAMES: usize = 4_096;
 #[cfg(feature = "device-host")]
 pub mod device_host;
 mod offline;

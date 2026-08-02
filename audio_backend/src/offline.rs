@@ -6,7 +6,9 @@ use sequencer::{cli::FileFormat, models::Song, project::open_song_from_file};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::{build_song_hydration_commands, Player, SequencerCmd, TransportCmd};
+use crate::{
+    build_song_hydration_commands, Player, SequencerCmd, TransportCmd, MAX_RENDER_SLICE_FRAMES,
+};
 
 /// Versioned golden-render profile values, not device/runtime defaults.
 ///
@@ -17,7 +19,6 @@ use crate::{build_song_hydration_commands, Player, SequencerCmd, TransportCmd};
 pub const CANONICAL_SAMPLE_RATE: u32 = 48_000;
 pub const CANONICAL_BLOCK_SIZE: usize = 256;
 pub const CANONICAL_MAX_FRAMES: usize = CANONICAL_SAMPLE_RATE as usize * 120;
-const MAX_ENGINE_BLOCK_SIZE: usize = 4_096;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OfflineRenderConfig {
@@ -39,9 +40,9 @@ impl OfflineRenderConfig {
         if self.sample_rate == 0 {
             bail!("offline sample rate must be greater than zero");
         }
-        if self.block_size == 0 || self.block_size > MAX_ENGINE_BLOCK_SIZE {
+        if self.block_size == 0 || self.block_size > MAX_RENDER_SLICE_FRAMES {
             bail!(
-                "offline block size must be in 1..={MAX_ENGINE_BLOCK_SIZE}, got {}",
+                "offline block size must be in 1..={MAX_RENDER_SLICE_FRAMES}, got {}",
                 self.block_size
             );
         }

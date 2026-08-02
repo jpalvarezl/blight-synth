@@ -5,10 +5,10 @@ use std::sync::Arc;
 use engine::{RetireSink, RetiredState};
 use sequencer::{
     models::{NoteSentinelValues, Song, DEFAULT_CHAIN_LENGTH, DEFAULT_PHRASE_LENGTH, MAX_TRACKS},
-    timing::TimingState,
+    timing::{TimingAdvanceStatus, TimingError, TimingState},
 };
 
-use crate::{id::InstrumentId, Command, SequencerCmd, TransportCmd};
+use crate::{id::InstrumentId, Command, SequencerCmd, TransportCmd, MAX_RENDER_SLICE_FRAMES};
 
 /// Holds the playback position for a single track.
 #[derive(Debug, Clone, Copy, Default)]
@@ -56,6 +56,9 @@ impl Default for PlayerPosition {
 pub struct Player {
     song: Arc<Song>,
     timing: TimingState,
+    timing_status: TimingAdvanceStatus,
+    // Ticks per line advances tracker rows; it never changes tick spacing.
+    tpl: u32,
     position: PlayerPosition,
     is_playing: bool,
     loop_enabled: bool,
@@ -64,15 +67,18 @@ pub struct Player {
 
 impl Player {
     pub fn new(song: Arc<Song>, sample_rate: f64) -> Self {
-        let timing = TimingState::new_with_bpm_tpl(
-            sample_rate,
-            song.initial_bpm as f64,   // Initial BPM
-            song.initial_speed as u32, // Initial Ticks Per Line (TPL)
-        );
+        let max_ticks = u32::try_from(MAX_RENDER_SLICE_FRAMES)
+            .expect("the prepared render-slice bound fits u32");
+        let timing = TimingState::prepare(sample_rate, song.initial_bpm as f64, max_ticks)
+            .unwrap_or_else(|_| TimingState::new_with_bpm(sample_rate, song.initial_bpm as f64));
+        let timing_status = timing.status();
+        let tpl = song.initial_speed as u32;
 
         Self {
             song,
             timing,
+            timing_status,
+            tpl,
             position: PlayerPosition::default(),
             is_playing: false,
             loop_enabled: false,
@@ -88,12 +94,19 @@ impl Player {
         self.engine_adapter.instrument_capacity()
     }
 
-    pub fn play(&mut self) {
-        self.is_playing = true;
+    pub fn play(&mut self) -> TimingAdvanceStatus {
+        self.timing_status = self.timing.status();
+        self.is_playing = self.timing_status == TimingAdvanceStatus::Complete;
+        self.timing_status
     }
 
     pub(crate) fn is_playing(&self) -> bool {
         self.is_playing
+    }
+
+    #[cfg(feature = "device-host")]
+    pub(crate) fn timing_status(&self) -> TimingAdvanceStatus {
+        self.timing_status
     }
 
     pub fn stop(&mut self) {
@@ -102,22 +115,32 @@ impl Player {
         self.engine_adapter.stop_all_notes(); // Stop all notes when stopping playback
     }
 
-    fn set_song(&mut self, song: Arc<Song>, retired: &mut impl RetireSink) {
-        self.timing.set_bpm(song.initial_bpm as f64);
-        self.timing.set_tpl(song.initial_speed as u32);
-        self.timing.reset();
+    fn set_song(&mut self, song: Arc<Song>, retired: &mut impl RetireSink) -> bool {
+        if self.timing.set_bpm(song.initial_bpm as f64).is_err() || self.timing.reset().is_err() {
+            // Reject an invalid replacement without disturbing the last valid
+            // song. The rejected Arc still crosses the RT retirement handoff.
+            self.stop();
+            self.timing_status = TimingAdvanceStatus::InvalidConfiguration;
+            retired.retire(RetiredState::Prepared(song));
+            return false;
+        }
+
+        self.timing_status = TimingAdvanceStatus::Complete;
+        self.tpl = song.initial_speed as u32;
         self.position.reset();
         // Replacing the live song can drop its last owner; hand the displaced
         // `Arc<Song>` to NRT for destruction instead of freeing it on RT.
         let displaced = std::mem::replace(&mut self.song, song);
         retired.retire(RetiredState::Prepared(displaced));
+        true
     }
 
     fn load_song(&mut self, song: Arc<Song>, retired: &mut impl RetireSink) {
         dsp::rt_debug_log!("Loading song: {}", song.name);
         self.stop();
-        self.engine_adapter.clear_instruments(retired);
-        self.set_song(song, retired);
+        if self.set_song(song, retired) {
+            self.engine_adapter.clear_instruments(retired);
+        }
     }
 
     pub fn handle_command(&mut self, command: Command, retired: &mut impl RetireSink) {
@@ -125,14 +148,17 @@ impl Player {
             Command::Sequencer(SequencerCmd::LoadSong { song }) => self.load_song(song, retired),
             Command::Sequencer(SequencerCmd::PlaySong { song }) => {
                 dsp::rt_debug_log!("Playing song: {}", song.name);
-                self.set_song(song, retired);
-                self.play();
+                if self.set_song(song, retired) {
+                    self.play();
+                }
             }
             Command::Transport(TransportCmd::StopSong) => self.stop(),
             Command::Transport(TransportCmd::SetLooping { enabled }) => {
                 self.loop_enabled = enabled;
             }
-            Command::Transport(TransportCmd::PlayLastSong) => self.play(),
+            Command::Transport(TransportCmd::PlayLastSong) => {
+                self.play();
+            }
             Command::Instrument(command) => self
                 .engine_adapter
                 .handle_engine_command(command.into(), retired),
@@ -151,14 +177,23 @@ impl Player {
         right: &mut [f32],
         sample_rate: f32,
         buffer_len_samples: usize,
-    ) {
+    ) -> TimingAdvanceStatus {
         if !self.is_playing {
-            return;
+            return self.timing_status;
         }
 
-        let ticks_to_process = self.timing.advance(buffer_len_samples);
+        // #204 replaces this count-only path with offset-bearing events. Until
+        // then, the shim returns status and Player fail-closes instead of
+        // applying a partial tick prefix or remaining silently stuck playing.
+        let timing_advance = self.timing.advance(buffer_len_samples);
+        self.timing_status = timing_advance.status;
+        if timing_advance.status != TimingAdvanceStatus::Complete {
+            self.stop();
+            self.engine_adapter.process(left, right, sample_rate);
+            return timing_advance.status;
+        }
 
-        for _ in 0..ticks_to_process {
+        for _ in 0..timing_advance.ticks_emitted {
             self.advance_tick();
             if !self.is_playing {
                 break;
@@ -166,6 +201,7 @@ impl Player {
         }
 
         self.engine_adapter.process(left, right, sample_rate);
+        self.timing_status
     }
 
     /// This is the heart of the sequencer. It processes a single tick,
@@ -182,7 +218,7 @@ impl Player {
         // --- Advance the playback position ---
         self.position.tick_counter += 1;
 
-        if self.position.tick_counter >= self.timing.tpl() {
+        if self.position.tick_counter >= self.tpl {
             // A row has finished, reset tick counter and advance to the next phrase step.
             self.position.tick_counter = 0;
 
@@ -210,7 +246,11 @@ impl Player {
                     if self.loop_enabled {
                         // self.engine_adapter.stop_all_notes();
                         self.position.reset();
-                        self.timing.reset();
+                        if let Err(error) = self.timing.reset() {
+                            self.timing_status = timing_error_status(error);
+                            self.stop();
+                            return;
+                        }
                         dsp::rt_debug_log!("Looping back to start of song");
                     } else {
                         // Stop playback and reset state
@@ -289,6 +329,16 @@ impl Player {
     }
 }
 
+fn timing_error_status(error: TimingError) -> TimingAdvanceStatus {
+    match error {
+        TimingError::PositionOverflow => TimingAdvanceStatus::PositionOverflow,
+        TimingError::InvalidSampleRate
+        | TimingError::InvalidBpm
+        | TimingError::TickIntervalOutOfRange
+        | TimingError::ZeroTickCapacity => TimingAdvanceStatus::InvalidConfiguration,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -299,6 +349,25 @@ mod tests {
     impl RetireSink for CollectRetired {
         fn retire(&mut self, state: RetiredState) {
             self.0.push(state);
+        }
+    }
+
+    #[test]
+    fn reset_errors_map_to_observable_timing_status() {
+        assert_eq!(
+            timing_error_status(TimingError::PositionOverflow),
+            TimingAdvanceStatus::PositionOverflow,
+        );
+        for error in [
+            TimingError::InvalidSampleRate,
+            TimingError::InvalidBpm,
+            TimingError::TickIntervalOutOfRange,
+            TimingError::ZeroTickCapacity,
+        ] {
+            assert_eq!(
+                timing_error_status(error),
+                TimingAdvanceStatus::InvalidConfiguration,
+            );
         }
     }
 
@@ -371,5 +440,105 @@ mod tests {
             .track_positions
             .iter()
             .all(|position| position.chain_step == 0 && position.phrase_step == 0));
+    }
+
+    #[test]
+    fn invalid_initial_bpm_is_observable_and_cannot_enter_playback() {
+        let mut song = Song::new("invalid tempo");
+        song.initial_bpm = 0;
+        let mut player = Player::new(Arc::new(song), 48_000.0);
+        let mut left = [0.0; 16];
+        let mut right = [0.0; 16];
+
+        assert_eq!(player.play(), TimingAdvanceStatus::InvalidConfiguration);
+        assert!(!player.is_playing());
+        assert_eq!(
+            player.process(&mut left, &mut right, 48_000.0, 16),
+            TimingAdvanceStatus::InvalidConfiguration
+        );
+        assert_eq!(player.position.tick_counter, 0);
+    }
+
+    #[test]
+    fn invalid_replacement_is_rejected_and_old_song_remains_recoverable() {
+        let old_song = Arc::new(Song::new("valid old song"));
+        let mut player = Player::new(old_song.clone(), 48_000.0);
+        assert_eq!(player.play(), TimingAdvanceStatus::Complete);
+        let mut retired = CollectRetired(Vec::new());
+
+        let mut invalid = Song::new("invalid replacement");
+        invalid.initial_bpm = 0;
+        player.handle_command(
+            SequencerCmd::PlaySong {
+                song: Arc::new(invalid),
+            }
+            .into(),
+            &mut retired,
+        );
+
+        assert_eq!(player.song.name, "valid old song");
+        assert_eq!(
+            player.timing_status,
+            TimingAdvanceStatus::InvalidConfiguration
+        );
+        assert!(!player.is_playing());
+        assert_eq!(retired.0.len(), 1);
+
+        // The rejected command does not poison the valid prepared clock or the
+        // previous song; explicit PlayLastSong clears the request error.
+        player.handle_command(TransportCmd::PlayLastSong.into(), &mut retired);
+        assert!(player.is_playing());
+        assert_eq!(player.timing_status, TimingAdvanceStatus::Complete);
+
+        let mut recovered = Song::new("valid replacement");
+        recovered.initial_bpm = 240;
+        player.handle_command(
+            SequencerCmd::PlaySong {
+                song: Arc::new(recovered),
+            }
+            .into(),
+            &mut retired,
+        );
+        assert_eq!(player.song.name, "valid replacement");
+        assert!(player.is_playing());
+        assert_eq!(player.timing_status, TimingAdvanceStatus::Complete);
+        assert_eq!(retired.0.len(), 2);
+    }
+
+    #[test]
+    fn maximum_host_chunk_at_high_song_bpm_does_not_exhaust_tick_capacity() {
+        let mut song = Song::new("high tempo");
+        song.initial_bpm = u16::MAX;
+        song.initial_speed = u16::MAX;
+        let mut player = Player::new(Arc::new(song), 48_000.0);
+        assert_eq!(player.play(), TimingAdvanceStatus::Complete);
+        let mut left = [0.0; MAX_RENDER_SLICE_FRAMES];
+        let mut right = [0.0; MAX_RENDER_SLICE_FRAMES];
+
+        assert_eq!(
+            player.process(&mut left, &mut right, 48_000.0, MAX_RENDER_SLICE_FRAMES,),
+            TimingAdvanceStatus::Complete
+        );
+        assert!(player.is_playing());
+        assert_eq!(player.position.tick_counter, 2_236);
+    }
+
+    #[test]
+    fn compatibility_capacity_failure_stops_without_partial_position_commit() {
+        let mut song = Song::new("high tempo oversized direct call");
+        song.initial_bpm = u16::MAX;
+        song.initial_speed = u16::MAX;
+        let mut player = Player::new(Arc::new(song), 48_000.0);
+        player.play();
+        let mut left = [0.0; 1];
+        let mut right = [0.0; 1];
+
+        assert_eq!(
+            player.process(&mut left, &mut right, 48_000.0, 10_000),
+            TimingAdvanceStatus::TickCapacityExceeded
+        );
+        assert!(!player.is_playing());
+        assert_eq!(player.position.tick_counter, 0);
+        assert_eq!(player.position.song_step, 0);
     }
 }

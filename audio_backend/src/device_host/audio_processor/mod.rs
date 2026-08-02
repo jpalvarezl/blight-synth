@@ -5,10 +5,10 @@ use ringbuf::{HeapCons, HeapProd};
 use crate::Command;
 use crate::MeterState;
 use crate::Player;
-use sequencer::models::Song;
+use crate::MAX_RENDER_SLICE_FRAMES;
+use sequencer::{models::Song, timing::TimingAdvanceStatus};
 use std::sync::Arc;
 
-const MAX_BUFFER_SIZE: usize = 4096;
 /// Maximum compatibility control commands applied before rendering one host
 /// callback block. A backlog remains FIFO-queued for later blocks so control
 /// bursts cannot postpone rendering indefinitely.
@@ -81,8 +81,8 @@ impl AudioProcessor {
             pending_retired: Vec::with_capacity(MAX_PENDING_RETIRED_OBJECTS),
             sample_rate,
             channels,
-            left_buf: vec![0.0; MAX_BUFFER_SIZE],
-            right_buf: vec![0.0; MAX_BUFFER_SIZE],
+            left_buf: vec![0.0; MAX_RENDER_SLICE_FRAMES],
+            right_buf: vec![0.0; MAX_RENDER_SLICE_FRAMES],
             meter,
             player: Player::new(song, sample_rate as f64),
         };
@@ -104,8 +104,8 @@ impl AudioProcessor {
             pending_retired: Vec::with_capacity(MAX_PENDING_RETIRED_OBJECTS),
             sample_rate,
             channels,
-            left_buf: vec![0.0; MAX_BUFFER_SIZE],
-            right_buf: vec![0.0; MAX_BUFFER_SIZE],
+            left_buf: vec![0.0; MAX_RENDER_SLICE_FRAMES],
+            right_buf: vec![0.0; MAX_RENDER_SLICE_FRAMES],
             meter,
             player: Player::new(default_song, sample_rate as f64),
         };
@@ -136,8 +136,10 @@ impl AudioProcessor {
         );
     }
 
-    /// The main processing function called by the audio driver.
-    pub fn process(&mut self, output_buffer: &mut [f32]) {
+    /// The main processing function called by the audio driver. The compact
+    /// return status is available to host adapters for bounded telemetry; Player
+    /// has already stopped/released playback before returning a timing failure.
+    pub fn process(&mut self, output_buffer: &mut [f32]) -> TimingAdvanceStatus {
         self.flush_retired();
 
         // If a previous block retained retirement ownership, pause this block's
@@ -160,23 +162,25 @@ impl AudioProcessor {
             // A CPAL stream always has at least one channel, but keep this method
             // total for tests and future non-CPAL hosts.
             output_buffer.fill(0.0);
-            return;
+            return self.player.timing_status();
         }
 
         // Scratch buffers in AudioProcessor and Voice are preallocated to this
         // bound. A host callback may still provide more frames, so process it in
         // bounded chunks instead of slicing past the buffers and panicking.
-        let samples_per_chunk = MAX_BUFFER_SIZE * self.channels;
+        let samples_per_chunk = MAX_RENDER_SLICE_FRAMES * self.channels;
         let complete_sample_count = (output_buffer.len() / self.channels) * self.channels;
         let (complete_frames, trailing_samples) = output_buffer.split_at_mut(complete_sample_count);
 
+        let mut timing_status = self.player.timing_status();
         for output_chunk in complete_frames.chunks_mut(samples_per_chunk) {
-            self.process_chunk(output_chunk);
+            timing_status = self.process_chunk(output_chunk);
         }
 
         // Host buffers should contain complete frames. Silence any malformed
         // trailing samples rather than leaving stale output behind.
         trailing_samples.fill(0.0);
+        timing_status
     }
 
     fn flush_retired(&mut self) {
@@ -194,7 +198,7 @@ impl AudioProcessor {
         }
     }
 
-    fn process_chunk(&mut self, output_buffer: &mut [f32]) {
+    fn process_chunk(&mut self, output_buffer: &mut [f32]) -> TimingAdvanceStatus {
         let frame_count = output_buffer.len() / self.channels;
         let (left, right) = (
             &mut self.left_buf[..frame_count],
@@ -205,7 +209,8 @@ impl AudioProcessor {
         right.fill(0.0);
 
         // Move the play-head by the frames in this bounded processing chunk.
-        self.player
+        let timing_status = self
+            .player
             .process(left, right, self.sample_rate, frame_count);
 
         // Record the post-master stereo chunk for meter streaming.
@@ -220,6 +225,7 @@ impl AudioProcessor {
                 frame[1] = right[i];
             }
         }
+        timing_status
     }
 }
 
@@ -360,9 +366,29 @@ mod tests {
     }
 
     #[test]
+    fn invalid_song_timing_is_observable_after_callback_handling() {
+        let (mut command_tx, mut processor) = processor_with_capacity(2, 1);
+        let mut invalid = Song::new("invalid tempo");
+        invalid.initial_bpm = 0;
+        assert!(command_tx
+            .try_push(
+                SequencerCmd::PlaySong {
+                    song: Arc::new(invalid),
+                }
+                .into(),
+            )
+            .is_ok());
+
+        let status = processor.process(&mut [0.0; 16]);
+
+        assert_eq!(status, TimingAdvanceStatus::InvalidConfiguration);
+        assert!(!processor.player.is_playing());
+    }
+
+    #[test]
     fn process_chunks_host_buffers_larger_than_internal_scratch_space() {
         let channels = 2;
-        let frame_count = MAX_BUFFER_SIZE * 2 + 17;
+        let frame_count = MAX_RENDER_SLICE_FRAMES * 2 + 17;
         let mut output = vec![1.0; frame_count * channels];
         let mut processor = processor(channels);
 
@@ -398,7 +424,7 @@ mod tests {
                 )
                 .is_ok());
         }
-        let frame_count = MAX_BUFFER_SIZE * 2 + 17;
+        let frame_count = MAX_RENDER_SLICE_FRAMES * 2 + 17;
         let mut output = vec![0.0; frame_count * 2];
 
         processor.process(&mut output);
