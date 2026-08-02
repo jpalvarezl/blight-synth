@@ -443,6 +443,20 @@ fn admission_overflow_is_fail_closed_observable_and_recovery_is_reserved() {
     assert!(left.iter().all(|sample| *sample == 0.125));
     assert!(!player.is_playing());
     assert_eq!(player.position, PlayerPosition::default());
+    assert_eq!(player.timing.status(), TimingAdvanceStatus::Complete);
+    let mut boundaries = [TickBoundary::default(); 2];
+    assert_eq!(
+        player
+            .timing
+            .advance_ticks(1, &mut boundaries, |_| TickTempo::Unchanged)
+            .ticks_emitted,
+        0,
+    );
+    let restarted = player
+        .timing
+        .advance_ticks(1, &mut boundaries, |_| TickTempo::Unchanged);
+    assert_eq!(restarted.ticks_emitted, 1);
+    assert_eq!(boundaries[0].sample_offset, 0);
 }
 
 struct CollectRetired(Vec<RetiredState>);
@@ -533,7 +547,7 @@ fn stop_then_restart_reanchors_the_first_tick_deterministically() {
 }
 
 #[test]
-fn explicit_stop_recovers_a_sticky_timing_fault() {
+fn timing_failure_reanchors_for_play_last_song_recovery() {
     let song = song_with_track_phrases(250, 1, vec![vec![cell(60, 1)]]);
     let (mut player, _) = player_with_trace(song, 100.0); // one frame per tick
     player.timing = TimingState::prepare(100.0, 250.0, 1).unwrap();
@@ -544,8 +558,8 @@ fn explicit_stop_recovers_a_sticky_timing_fault() {
     let failed = player.process(&mut left, &mut right, 100.0);
     assert_eq!(failed.timing, TimingAdvanceStatus::TickCapacityExceeded);
     assert!(!player.is_playing());
+    assert_eq!(player.timing.status(), TimingAdvanceStatus::Complete);
 
-    player.stop();
     assert_eq!(player.play(), TimingAdvanceStatus::Complete);
     assert!(player
         .process(&mut left[..1], &mut right[..1], 100.0)

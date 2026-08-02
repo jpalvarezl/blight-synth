@@ -85,6 +85,7 @@ Potential parallel conflicts: none currently safe; #204 is the sole integration 
 - 2026-08-02 — Canonical references intentionally changed because events now apply at exact offsets and a song-ending block-boundary tick moves to offset zero of one additional 256-frame block. The update tool generated `target/offline-renders/calibration.wav` and `target/offline-renders/ending_theme_no_effect.wav`.
 - 2026-08-02 — @jpalvarezl auditioned both regenerated WAVs from the #208 branch and confirmed they sound correct; the final #204 acceptance criterion is satisfied.
 - 2026-08-02 — Copilot correctly identified that StopSong reset tracker position without reanchoring the clock. `stop_transport` and natural non-looping song end now reset timing with observable failure status; looping intentionally preserves continuous phase. Added stop/restart determinism and sticky-fault recovery tests.
+- 2026-08-02 — Copilot follow-up correctly found the same gap on callback fail-close paths. Timing, admission, local-capacity, and engine-process failures now stop and reset/reanchor through one helper while retaining the compact failure status for telemetry; recovery-event success still clears pending recovery.
 
 ## Verification
 

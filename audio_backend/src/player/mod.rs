@@ -224,6 +224,20 @@ impl Player {
         self.stop_transport(true);
     }
 
+    /// Stop after a callback failure while preserving the compact failure status
+    /// for telemetry. Resetting the underlying clock clears sticky timing faults
+    /// and reanchors a later PlayLastSong at the document origin.
+    fn fail_close_transport(&mut self) {
+        let observed_status = self.timing_status;
+        self.is_playing = false;
+        self.position.reset();
+        self.pending_recovery = true;
+        self.timing_status = match self.timing.reset() {
+            Ok(()) => observed_status,
+            Err(error) => timing_error_status(error),
+        };
+    }
+
     fn set_song(&mut self, song: Arc<Song>, retired: &mut impl RetireSink) -> bool {
         if self.timing.set_bpm(song.initial_bpm as f64).is_err() || self.timing.reset().is_err() {
             self.stop_transport(true);
@@ -478,7 +492,7 @@ impl Player {
             // without events rather than exposing stale output.
             self.engine_adapter.process(left, right, sample_rate);
             event_status = EventLaneStatus::ProcessRejected(error);
-            self.pending_recovery = true;
+            self.fail_close_transport();
         } else {
             if matches!(ordinary_status, OrdinaryEventBlockStatus::Accepted { .. })
                 && !timing_failed
@@ -498,8 +512,7 @@ impl Player {
                     };
                 }
             } else {
-                self.is_playing = false;
-                self.position.reset();
+                self.fail_close_transport();
             }
             if recovery_staged {
                 self.pending_recovery = false;
