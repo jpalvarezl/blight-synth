@@ -16,8 +16,8 @@ issues: [203]
 - Status: in-progress
 - Branch: `issue/203-bounded-event-admission`
 - Worktree: `/Users/jpalvarezl/code/blight-203`
-- Base branch/SHA: `origin/main` / `1ba4db77ba2ed56e0a68986b55a3fcd85653f108`
-- Head SHA: final focused commit on this branch (packet is included in that commit)
+- Base branch/SHA: `origin/main` / `078d4f25977bb68ee93f4fedbe1a742428ab52f0`
+- Head: branch tip at handoff; intentionally not duplicated as an in-file SHA
 - Last handoff: 2026-08-01
 
 ## Goal
@@ -83,8 +83,11 @@ Potential parallel conflicts: #204 must consume this API rather than edit it con
 - 2026-08-01 — #201's `TimestampedEvent::order_key()` / `EventOrderKey` is the sole ordering comparator; semantic precedence intentionally overrides source emission sequence across event kinds.
 - 2026-08-01 — Recovery uses one separately prepared physical slot and a distinct stable producer identity, so all-notes-off remains admissible at exact ordinary capacity and after ordinary rejection.
 - 2026-08-01 — Each configured active producer may stage one complete bounded slice per block; silent configured producers may omit submission. Source sequence must increase across successfully finalized blocks, while `reset` explicitly clears sequence history.
-- 2026-08-01 — Ordinary failures are sticky and expose only a valid recovery event, never an ordinary prefix. Rejected events are discarded at the next `begin_block` and are never carried forward implicitly.
-- 2026-08-01 — Final merge uses allocation-free `sort_unstable_by_key(TimestampedEvent::order_key)`; an independent code review approved the implementation and requested recovery error coverage, which was added.
+- 2026-08-01 — Ordinary failures are fail-closed and expose only a valid recovery event, never an ordinary prefix. Admission still validates later producer submissions; final failure selection is independent of call interleaving, prioritizing malformed/protocol failures over capacity and then stable producer identity. Rejected events are cleared at finalization and are never carried forward implicitly.
+- 2026-08-01 — Slices no larger than total prepared capacity are validated before aggregate capacity accounting. A larger slice is intrinsically overflow without an unbounded RT scan. Overflow attribution uses the lowest stable identity among non-empty capacity contributors.
+- 2026-08-01 — Rejected blocks do not commit ordinary sequence baselines. Recovery commits independently when finalized, and `reset` clears both ordinary and recovery baselines.
+- 2026-08-01 — Final merge still uses allocation-free `sort_unstable_by_key(TimestampedEvent::order_key)` as the sole event comparator.
+- 2026-08-01 — An independent REVISE review found call-order-dependent final rejection and incomplete fallible-result/allocation coverage; the correction and focused regressions are included in this handoff.
 
 ## Verification
 
@@ -95,14 +98,14 @@ Potential parallel conflicts: #204 must consume this API rather than edit it con
 - [x] `cargo fmt --all -- --check`
 - [x] `python3 scripts/check_architecture.py`
 - [x] `python3 scripts/check_rt_logging.py`
-- [ ] `python3 scripts/docs/reconcile_work.py --check` — #203 packet/index/burndown reconcile cleanly, but live GitHub reports unrelated in-progress leaf #202 has no active packet.
+- [x] `python3 scripts/docs/reconcile_work.py --check`
 - [x] `python3 scripts/docs/check_docs.py`
 - [x] `python3 -m unittest scripts.docs.test_reconcile_work`
 
 ## Handoff
 
-- Completed: host-independent bounded admission/merge/recovery API, focused and workspace tests, zero-heap audit, durable contract updates, independent review, and generated-doc reconciliation.
+- Completed: host-independent bounded admission/merge/recovery API; interleaving-independent final rejection; malformed-before-aggregate-capacity validation; fail-closed baseline handling; must-use statuses; focused/workspace and expanded zero-heap coverage; durable contract updates.
 - Remaining: first-party host/composition integration in #204; no #203 implementation work remains.
-- Known failures/risks: work-state reconciliation is blocked only by unrelated live issue #202 lacking an active packet. #204 must pass the same frame count to `begin_block` and `Engine::process_with_events`, retain the admission owner for NRT destruction, and explicitly decide whether rejected producer events are dropped or resubmitted.
-- Next smallest action: #204 consumes `BoundedEventAdmission`; do not add another comparator or queue rejected current-block events implicitly.
+- Known failures/risks: none in the #203 verification set. #204 must inspect every fallible admission/finalization result, pass the same frame count to `begin_block` and `Engine::process_with_events`, retain the admission owner for NRT destruction, and explicitly decide whether rejected producer events are dropped or resubmitted.
+- Next smallest action: #204 consumes `BoundedEventAdmission`; do not add another event comparator or queue rejected current-block events implicitly.
 - Files a new agent should read next: `engine/src/event_admission.rs`, `engine/src/events.rs`, `engine/tests/bounded_event_admission.rs`, `engine/tests/rt_allocations.rs`.

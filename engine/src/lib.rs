@@ -1,4 +1,5 @@
 mod commands;
+mod event_admission;
 mod events;
 
 pub use commands::*;
@@ -6,6 +7,7 @@ use dsp::{
     id::{EffectId, InstrumentId, NoteEvent, NoteId},
     InstrumentTrait, MonoEffect, StereoEffect, StereoEffectChain, SynthCmd, VoiceEffects,
 };
+pub use event_admission::*;
 pub use events::*;
 use std::{any::Any, sync::Arc};
 
@@ -296,18 +298,16 @@ impl Engine {
     ) -> Result<(), EventProcessError> {
         let mut previous_key = None;
         for event in events {
-            if event.sample_offset >= frame_count {
-                return Err(EventProcessError::OffsetOutOfRange);
-            }
-            if let EngineEvent::SampleParameter {
-                binding,
-                engine_value,
-            } = event.event
-            {
-                if !binding.accepts_engine_value(engine_value) {
-                    return Err(EventProcessError::InvalidParameterValue);
-                }
-            }
+            event
+                .validate_for_block(frame_count)
+                .map_err(|error| match error {
+                    events::EventValidationError::OffsetOutOfRange => {
+                        EventProcessError::OffsetOutOfRange
+                    }
+                    events::EventValidationError::InvalidParameterValue => {
+                        EventProcessError::InvalidParameterValue
+                    }
+                })?;
             let key = event.order_key();
             if previous_key.is_some_and(|previous| key <= previous) {
                 return Err(EventProcessError::EventsNotOrdered);

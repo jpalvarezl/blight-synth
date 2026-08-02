@@ -2,8 +2,8 @@
 title: Audio Engine Domain
 summary: Focused context for DSP, instruments, effects, rendering, and RT contracts.
 status: current
-updated: 2026-07-26
-issues: [132, 133, 134, 135, 136, 137, 174, 186, 187, 188, 201]
+updated: 2026-08-01
+issues: [132, 133, 134, 135, 136, 137, 174, 186, 187, 188, 201, 203]
 ---
 
 # Audio Engine Domain
@@ -52,7 +52,7 @@ Do not read every effect/instrument implementation unless the issue targets it. 
 - `audio_backend::SequencerCmd` owns song loading/playback; `TransportCmd` owns adapter transport.
 - `audio_backend::Command` remains the compatibility queue envelope and re-exports engine command types.
 
-These are transitional control-plane commands. The canonical engine-facing current-block API is `engine::TimestampedEvent` plus `Engine::process_with_events`, implemented by #201. First-party tracker/host scheduling still uses the transitional commands until #202–#204 fill and integrate bounded event blocks.
+These are transitional control-plane commands. The canonical engine-facing current-block API is `engine::TimestampedEvent` plus `Engine::process_with_events`, implemented by #201. `engine::BoundedEventAdmission` provides #203's NRT-prepared fixed-capacity multi-producer admission, canonical merge, fail-closed status, and reserved recovery slot. First-party tracker/host scheduling still uses the transitional commands until #202/#204 integrate bounded event blocks.
 
 ## Current hazards already tracked
 
