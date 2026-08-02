@@ -82,7 +82,8 @@ Potential parallel conflicts: none currently safe; #204 is the sole integration 
 - 2026-08-02 — Player now prepares 4096 tick slots, a structural maximum of two events per tick/track, 64 live events, stable tracker/live/recovery producers, and one bounded admission owner. Tracker state is `[InstrumentId; MAX_TRACKS]`; ordinary state commits only after complete timing and accepted admission.
 - 2026-08-02 — F01–F1F changes TPL for the row beginning at the current tick; F20–FF applies BPM to the next interval; stable ascending track order with last applicable command wins. Looping preserves the exact timing phase.
 - 2026-08-02 — Queued live note/release uses offset zero while stopped. Same-block NoteOn→release coalesces zero-duration prior attacks so canonical release precedence cannot create a stuck note. Transport/end/timing/overflow recovery uses the reserved global slot.
-- 2026-08-02 — Canonical references intentionally changed because events now apply at exact offsets and a song-ending block-boundary tick moves to offset zero of one additional 256-frame block. The update tool generated `target/offline-renders/calibration.wav` and `target/offline-renders/ending_theme_no_effect.wav`; no human audition was performed or claimed.
+- 2026-08-02 — Canonical references intentionally changed because events now apply at exact offsets and a song-ending block-boundary tick moves to offset zero of one additional 256-frame block. The update tool generated `target/offline-renders/calibration.wav` and `target/offline-renders/ending_theme_no_effect.wav`.
+- 2026-08-02 — @jpalvarezl auditioned both regenerated WAVs from the #208 branch and confirmed they sound correct; the final #204 acceptance criterion is satisfied.
 
 ## Verification
 
@@ -102,7 +103,7 @@ Potential parallel conflicts: none currently safe; #204 is the sole integration 
 ## Handoff
 
 - Completed: full #204 implementation, focused/full verification, golden update, durable docs, independent review, and local commit.
-- Remaining: human audition of the two generated review WAVs; GitHub metadata/PR/push are intentionally untouched by task instruction.
-- Known risks: canonical PCM intentionally changed and requires human listening review; offline post-transport tail duration remains a #132 lifecycle policy. The prepared ordinary event lane is intentionally large enough for the structural 4096 × 8 × 2 tracker worst case, trading several MiB of NRT-prepared memory for a direct-RT proof.
+- Remaining: PR review/merge only; implementation and human audition are complete.
+- Known risks: canonical PCM intentionally changed and was human-auditioned successfully; offline post-transport tail duration remains a #132 lifecycle policy. The prepared ordinary event lane is intentionally large enough for the structural 4096 × 8 × 2 tracker worst case, trading several MiB of NRT-prepared memory for a direct-RT proof.
 - Exact review artifacts: `target/offline-renders/calibration.wav` and `target/offline-renders/ending_theme_no_effect.wav` (generated, not committed).
 - Key paths: `audio_backend/src/player/mod.rs`, `audio_backend/src/player/tracker_engine_adapter.rs`, `audio_backend/src/device_host/audio_processor/mod.rs`, `audio_backend/tests/rt_player_allocations.rs`, `engine/src/events.rs`, and the event/offline/RT contract pages.
