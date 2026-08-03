@@ -17,13 +17,20 @@ use sequencer::{
 
 use crate::{id::InstrumentId, Command, SequencerCmd, TransportCmd, MAX_RENDER_SLICE_FRAMES};
 
+// Timing terminology used by this adapter:
+// - a frame is one sample instant across every output channel;
+// - a host callback block is the complete interleaved buffer supplied by CPAL;
+// - AudioProcessor splits that block into render slices of at most 4096 frames;
+// - Player processes exactly one render slice per call, and event offsets are
+//   relative to that slice's half-open `0..frame_count` interval;
+// - Engine may subdivide a render slice into DSP segments at event boundaries.
 const TRACKER_PRODUCER: EventProducerId = EventProducerId::new(1);
 const LIVE_PRODUCER: EventProducerId = EventProducerId::new(2);
 const RECOVERY_PRODUCER: EventProducerId = EventProducerId::new(3);
-const MAX_TICKS_PER_SLICE: usize = MAX_RENDER_SLICE_FRAMES;
+const MAX_TICKS_PER_RENDER_SLICE: usize = MAX_RENDER_SLICE_FRAMES;
 // One explicit instrument cell can release the prior instrument and then emit
 // its note/release operation. This is the structural per-tick/track maximum.
-const MAX_TRACKER_EVENTS_PER_SLICE: usize = MAX_TICKS_PER_SLICE * MAX_TRACKS * 2;
+const MAX_TRACKER_EVENTS_PER_SLICE: usize = MAX_TICKS_PER_RENDER_SLICE * MAX_TRACKS * 2;
 // The device host drains at most this many commands before one callback. Keep
 // this local constant in sync with that host budget; direct callers get the
 // same explicit bound.
@@ -83,15 +90,20 @@ impl PlayerProcessStatus {
 /// Holds the playback position for a single track.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct TrackPosition {
+    /// Current step within this track's active chain (0..15).
     pub chain_step: u8,
+    /// Current row within this track's active phrase (0..15).
     pub phrase_step: u8,
 }
 
 /// Holds the complete playback position state for the entire song.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PlayerPosition {
+    /// Current row in the song arrangement.
     pub song_step: usize,
+    /// Current tick within the row, in `0..tpl`.
     pub tick_counter: u32,
+    /// Independent chain/phrase cursor for every structurally bounded track.
     pub track_positions: [TrackPosition; MAX_TRACKS],
 }
 
@@ -146,8 +158,8 @@ impl Player {
     }
 
     fn with_event_capacity(song: Arc<Song>, sample_rate: f64, event_capacity: usize) -> Self {
-        let max_ticks =
-            u32::try_from(MAX_TICKS_PER_SLICE).expect("the prepared render-slice bound fits u32");
+        let max_ticks = u32::try_from(MAX_TICKS_PER_RENDER_SLICE)
+            .expect("the prepared render-slice bound fits u32");
         let timing = TimingState::prepare(sample_rate, song.initial_bpm as f64, max_ticks)
             .unwrap_or_else(|_| TimingState::new_with_bpm(sample_rate, song.initial_bpm as f64));
         let timing_status = timing.status();
@@ -168,7 +180,7 @@ impl Player {
             is_playing: false,
             loop_enabled: false,
             engine_adapter: tracker_engine_adapter::TrackerEngineAdapter::new(),
-            tick_boundaries: vec![TickBoundary::default(); MAX_TICKS_PER_SLICE],
+            tick_boundaries: vec![TickBoundary::default(); MAX_TICKS_PER_RENDER_SLICE],
             tracker_events: Vec::with_capacity(MAX_TRACKER_EVENTS_PER_SLICE),
             queued_live_events: Vec::with_capacity(MAX_LIVE_EVENTS_PER_BLOCK),
             live_events: Vec::with_capacity(MAX_LIVE_EVENTS_PER_BLOCK),
@@ -182,6 +194,8 @@ impl Player {
         }
     }
 
+    /// Hard instrument-slot capacity of the underlying render engine. This is
+    /// queried only by the device host while validating retirement-ring bounds.
     #[cfg(feature = "device-host")]
     pub(crate) fn instrument_capacity(&self) -> usize {
         self.engine_adapter.instrument_capacity()

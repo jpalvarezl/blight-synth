@@ -174,17 +174,16 @@ impl AudioProcessor {
         let complete_sample_count = (output_buffer.len() / self.channels) * self.channels;
         let (complete_frames, trailing_samples) = output_buffer.split_at_mut(complete_sample_count);
 
+        let had_complete_frames = !complete_frames.is_empty();
         let mut process_status = PlayerProcessStatus::complete();
-        let mut processed_chunk = false;
         for output_chunk in complete_frames.chunks_mut(samples_per_chunk) {
             process_status = process_status.combine(self.process_chunk(output_chunk));
-            processed_chunk = true;
         }
 
         // Host buffers should contain complete frames. Silence any malformed
         // trailing samples rather than leaving stale output behind.
         trailing_samples.fill(0.0);
-        if processed_chunk {
+        if had_complete_frames {
             process_status
         } else {
             self.player.process_status()
