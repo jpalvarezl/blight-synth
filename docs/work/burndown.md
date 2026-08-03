@@ -2,7 +2,7 @@
 title: Generated Roadmap Burndown
 summary: Offline Obsidian snapshot generated from GitHub roadmap issue metadata.
 status: generated
-source-updated: 2026-08-02T21:07:15Z
+source-updated: 2026-08-03T20:48:23Z
 generator: scripts/docs/sync_roadmap.py
 ---
 
@@ -11,14 +11,14 @@ generator: scripts/docs/sync_roadmap.py
 > [!warning] Generated file
 > GitHub Issues are canonical. Do not edit this page manually. Run `python3 scripts/docs/sync_roadmap.py`.
 
-Data snapshot through `2026-08-02T21:07:15Z`.
+Data snapshot through `2026-08-03T20:48:23Z`.
 
 ## Summary
 
 | Milestone | Open | Done | Ready | In progress | Blocked | Backlog | Sized points done/total | Unsized |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | M0: Architecture & Repository Baseline | 0 | 14 | 0 | 0 | 0 | 0 | 27/27 | 3 |
-| M1: Host-Independent Engine & RT Contracts | 8 | 17 | 0 | 1 | 2 | 5 | 39/47 | 10 |
+| M1: Host-Independent Engine & RT Contracts | 7 | 18 | 1 | 0 | 1 | 5 | 44/47 | 10 |
 | M2: Standalone Host & Control Protocol | 6 | 2 | 0 | 0 | 1 | 5 | 4/7 | 5 |
 | M3: JS/TS Composition UI & Standalone App | 9 | 0 | 0 | 0 | 0 | 9 | 0/0 | 9 |
 | M4 (Optional): Desktop Plugins (VST3/AU) | 7 | 0 | 0 | 0 | 0 | 7 | 0/0 | 7 |
@@ -30,12 +30,11 @@ Data snapshot through `2026-08-02T21:07:15Z`.
 
 - [ ] [#101](https://github.com/jpalvarezl/blight-synth/issues/101) Implement the coalesced real-time parameter pipeline — `backlog`, `unsized`, unassigned
 - [ ] [#132](https://github.com/jpalvarezl/blight-synth/issues/132) Define the host-independent `Engine` lifecycle and offline render harness — `blocked`, `epic`, unassigned
-- [ ] [#134](https://github.com/jpalvarezl/blight-synth/issues/134) Implement sample-accurate event scheduling across block sizes — `blocked`, `epic`, unassigned
+- [ ] [#134](https://github.com/jpalvarezl/blight-synth/issues/134) Implement sample-accurate event scheduling across block sizes — `ready`, `epic`, unassigned
 - [ ] [#135](https://github.com/jpalvarezl/blight-synth/issues/135) Introduce typed instance IDs and versioned instrument/effect definitions — `backlog`, `unsized`, unassigned
 - [ ] [#136](https://github.com/jpalvarezl/blight-synth/issues/136) Define and implement the scalable audio routing graph — `backlog`, `unsized`, unassigned
 - [ ] [#138](https://github.com/jpalvarezl/blight-synth/issues/138) Define versioned engine state snapshots and migrations — `backlog`, `unsized`, unassigned
 - [ ] [#179](https://github.com/jpalvarezl/blight-synth/issues/179) Expand RT allocation audit across existing instrument and effect paths — `backlog`, `M`, unassigned
-- [ ] [#204](https://github.com/jpalvarezl/blight-synth/issues/204) Adapt tracker and live playback to the timestamped event path — `in-progress`, `L`, @jpalvarezl
 
 ## All roadmap tasks
 
@@ -62,7 +61,7 @@ Data snapshot through `2026-08-02T21:07:15Z`.
 - [x] [#121](https://github.com/jpalvarezl/blight-synth/issues/121) Design the canonical parameter manifest and host bindings — `done`, `unsized`, @jpalvarezl
 - [ ] [#132](https://github.com/jpalvarezl/blight-synth/issues/132) Define the host-independent `Engine` lifecycle and offline render harness — `blocked`, `epic`, unassigned
 - [x] [#133](https://github.com/jpalvarezl/blight-synth/issues/133) Enforce and test the real-time safety contract — `done`, `epic`, @jpalvarezl
-- [ ] [#134](https://github.com/jpalvarezl/blight-synth/issues/134) Implement sample-accurate event scheduling across block sizes — `blocked`, `epic`, unassigned
+- [ ] [#134](https://github.com/jpalvarezl/blight-synth/issues/134) Implement sample-accurate event scheduling across block sizes — `ready`, `epic`, unassigned
 - [ ] [#135](https://github.com/jpalvarezl/blight-synth/issues/135) Introduce typed instance IDs and versioned instrument/effect definitions — `backlog`, `unsized`, unassigned
 - [ ] [#136](https://github.com/jpalvarezl/blight-synth/issues/136) Define and implement the scalable audio routing graph — `backlog`, `unsized`, unassigned
 - [x] [#137](https://github.com/jpalvarezl/blight-synth/issues/137) Complete polyphony, note identity, and voice-allocation semantics — `done`, `unsized`, @jpalvarezl
@@ -82,7 +81,7 @@ Data snapshot through `2026-08-02T21:07:15Z`.
 - [x] [#201](https://github.com/jpalvarezl/blight-synth/issues/201) Define and apply bounded timestamped engine events — `done`, `L`, @jpalvarezl
 - [x] [#202](https://github.com/jpalvarezl/blight-synth/issues/202) Emit sample-accurate tracker tick offsets across block partitions — `done`, `M`, @jpalvarezl
 - [x] [#203](https://github.com/jpalvarezl/blight-synth/issues/203) Implement bounded current-block event admission and recovery — `done`, `M`, @jpalvarezl
-- [ ] [#204](https://github.com/jpalvarezl/blight-synth/issues/204) Adapt tracker and live playback to the timestamped event path — `in-progress`, `L`, @jpalvarezl
+- [x] [#204](https://github.com/jpalvarezl/blight-synth/issues/204) Adapt tracker and live playback to the timestamped event path — `done`, `L`, @jpalvarezl
 
 ### M2: Standalone Host & Control Protocol
 
