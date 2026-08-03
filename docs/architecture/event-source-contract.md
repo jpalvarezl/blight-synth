@@ -2,15 +2,17 @@
 title: Event-Source Contract (draft)
 summary: Routing page for the host-orchestrated composition→engine boundary defined in ADR 0003.
 status: draft
-updated: 2026-08-01
+updated: 2026-08-02
 issues: [145, 134, 132, 138, 113, 201, 202, 203, 204]
 ---
 
 # Event-Source Contract (draft)
 
 This page routes readers to the boundary proposed in
-[ADR 0003](../decisions/0003-event-source-contract.md). The ADR is authoritative;
-the API is not implemented yet. Owning issue:
+[ADR 0003](../decisions/0003-event-source-contract.md). The ADR is authoritative.
+Issues #201–#204 implement the bounded first-party current-block tracker/live
+path; lifecycle, publication generations, optional lookahead, and extraction of
+additional composition runtimes remain with #132/#138/#145. Owning issue:
 [#145](https://github.com/jpalvarezl/blight-synth/issues/145).
 
 ## Read first
@@ -96,19 +98,19 @@ side-effect handoff requires an accepted additive or superseding contract.
 
 ## Tracker migration truth
 
-`TrackerEngineAdapter` constructs `track_last_instrument` with capacity
-`MAX_TRACKS`, and the current caller inserts at most `MAX_TRACKS` distinct keys
-(all in `0..MAX_TRACKS`). Rust guarantees that prepared capacity can hold those
-entries without reallocating, so the inserts do not currently demonstrate a
-Hard-Rule-1 allocation. The gap is that this bound is implicit rather than
-structurally or type-enforced.
-Direct RT tracker evaluation must harden the bound and prove tick/event work;
-otherwise it uses NRT evaluation.
+Issue #204 makes direct-RT tracker evaluation structurally bounded.
+`TrackerEngineAdapter` stores last-instrument state as
+`[InstrumentId; MAX_TRACKS]`, so lookup/update cannot exceed the eight prepared
+track slots or allocate. `Player` prepares storage for at most 4096 tick
+boundaries, two tracker events per tick/track (prior-instrument release plus the
+cell operation), 64 live events, and the corresponding admission lane. Callback
+work is therefore bounded by 4096 ticks × eight tracks × two events, 64 live
+events, one canonical bounded sort, and segmented engine rendering.
 
-`TimingState::advance` returns only elapsed tick count. It demonstrates
-demand-driven block evaluation, not sample-accurate event placement; #134 must
-retain the timing needed to calculate each event's absolute frame/current-block
-offset.
+`Player` consumes `TimingState::advance_ticks`; offsets are relative to each
+exact common stereo render slice. A tick at the half-open block end is retained
+for offset zero of the next slice, so fixed, alternating, one-frame, and 4096
+frame host-chunk partitions produce equal absolute event positions.
 
 ## Implemented engine-facing slice (#201)
 
@@ -143,10 +145,9 @@ Issue #201 implements the canonical current-block event/application surface in
   are mapped before RT; the event carries only a string-free runtime key,
   concrete effect target/index, and engine value.
 
-This slice deliberately does not provide event admission storage, merge
-capacity, or producer-visible overload (#203), tracker tick offsets (#202), or
-first-party tracker/live integration (#204). The engine accepts an already
-ordered bounded slice; those follow-ups own producing it.
+This slice deliberately does not itself provide event admission storage, merge
+capacity, tracker interpretation, or live-input collection. Those are host and
+composition-adapter responsibilities implemented by #202–#204.
 
 ## Implemented tracker tick clock (#202)
 
@@ -183,16 +184,47 @@ prepared storage plus a compact result:
   default did not. The allocation audit covers complete, failed, reset, and
   reused paths.
 - Ticks per line (TPL) is tracker row-progression state in
-  `audio_backend::player::Player`; it is not an input to tick spacing. The
-  count-only `TimingState::advance` temporarily retains historical end-inclusive
-  behavior but now returns the full status. Player observes every status,
-  releases/stops on failure, rejects invalid initial/replacement BPM, and makes
-  the compact status available to the host. This compatibility shim and the old
-  TPL constructor end when #204 consumes offsets.
+  `audio_backend::player::Player`; it is not an input to tick spacing. #204
+  consumes `advance_ticks` directly. The count-only compatibility method remains
+  only for external transitional callers and is no longer in first-party
+  playback.
 
 This clock has no dependency on `engine`, tracker song/document types, host
 hardware, or event-admission storage. It therefore preserves the #201 event
 surface and does not define any #203 admission API.
+
+## Implemented first-party admission and playback (#203/#204)
+
+`Player` is the first host-owned composite scheduler for two stable ordinary
+producers (tracker and queued live input) plus the reserved recovery producer.
+It fills prepared tracker/live slices, submits both through
+`BoundedEventAdmission`, and passes only the finalized canonical slice to
+`Engine::process_with_events`. A rejected ordinary block renders no ordinary
+prefix; reserved global all-notes-off remains available and current voices/tails
+render through the event-free fallback if engine validation unexpectedly fails.
+`PlayerProcessStatus` exposes compact timing plus event-admission/application
+status to the device host and offline renderer.
+
+Queued `InstrumentCmd::NoteOn` becomes a live note event at offset zero.
+Legacy instrument-wide release becomes the additive canonical
+`EngineEvent::InstrumentAllNotesOff` variant, which has targeted-release
+precedence and avoids widening a live/tracker release into global recovery.
+Transport stop uses the separate reserved global recovery slot. Events queued
+before a stop in the same callback are cancelled; events queued after it remain
+eligible. Because every live command is intentionally at offset zero and
+canonical precedence orders releases before attacks, an instrument-wide release
+coalesces earlier same-block attacks/releases for that instrument (their lifetime
+is zero frames); later attacks remain after the release. This preserves FIFO
+lifecycle meaning without inventing nonzero live offsets or a competing sort.
+
+Tracker Fxx timing is deterministic: F01–F1F changes TPL for the row beginning
+at that tick, F20–FF selects BPM for the interval after that tick (the #202
+next-interval rule), and F00 is ignored. Tracks are scanned by ascending stable
+index and the last applicable command wins. Looping resets tracker position but
+keeps the exact timing phase continuous; non-looping end emits recovery at the
+ending tick. Engine rendering is no longer gated by tracker play/stop, so live
+audition, releases, voices, and effect tails continue while transport is
+stopped.
 
 ## Intentionally open implementation questions
 

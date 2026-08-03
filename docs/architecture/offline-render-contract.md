@@ -2,8 +2,8 @@
 title: Offline Render and Golden Reference Contract
 summary: Canonical hardware-free render settings, regression policy, and intentional reference-update workflow.
 status: current
-updated: 2026-07-18
-issues: [132, 134, 155, 164]
+updated: 2026-08-02
+issues: [132, 134, 155, 164, 204]
 ---
 
 # Offline Render and Golden Reference Contract
@@ -30,8 +30,15 @@ CPAL is intentionally absent from this path because it streams to real devices r
 
 The committed manifest is marked `characterization` and records known limitations:
 
-- #132 — rendering/tails are still transport-gated;
-- #134 — tracker events are not yet sample-accurate.
+- #132 — the offline harness still needs an explicit lifecycle/post-transport
+  tail-duration policy;
+- #136 — mixer gain staging and clipping remain characterization behavior.
+
+Issue #204 removed the former sample-accuracy and stopped-rendering limitations:
+tracker/live events now use exact current-block offsets, and the engine continues
+to render voices/effects while tracker transport is stopped. The canonical song
+harness still ends after the complete block in which non-looping transport ends;
+it does not yet append an independently configured tail duration.
 
 An unrelated change must not alter a reference. An intentional timing, synthesis, envelope, effect, routing, or mixer correction may update references, but the PR must explain the change and include/listen to generated WAVs. The gate is strict about unexplained changes, not about preserving known bugs.
 
@@ -51,6 +58,17 @@ Before committing an update:
 2. listen to every changed WAV;
 3. link the issue that intentionally changes audio behavior;
 4. include the manifest diff in review.
+
+## Issue #204 reference update
+
+The #204 integration intentionally replaces callback-start tracker attacks with
+sample-offset event application. It also adopts the half-open timing rule: the
+song-ending tick that previously counted at a block end is retained for the
+next block at offset zero. Both canonical references therefore gain one
+256-frame block, and segmented note/release placement intentionally changes PCM,
+peak/RMS, and clipping metrics. The update tool generated deterministic review
+WAVs under `target/offline-renders/`; generation is not a claim that a human
+audition occurred.
 
 ## Platform policy
 

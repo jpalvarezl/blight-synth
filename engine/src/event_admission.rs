@@ -308,6 +308,7 @@ impl BoundedEventAdmission {
                     return self.reject(producer, EventAdmissionErrorKind::RecoveryInOrdinaryLane);
                 }
                 EngineEvent::NoteOff { .. }
+                | EngineEvent::InstrumentAllNotesOff { .. }
                 | EngineEvent::SampleParameter { .. }
                 | EngineEvent::NoteOn { .. } => {}
             }

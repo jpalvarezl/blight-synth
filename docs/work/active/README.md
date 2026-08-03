@@ -13,4 +13,4 @@ A packet is a handoff cache, not a second specification. It links to the issue a
 
 ## Active
 
-_No active packets. Create one when an issue moves to `status:in-progress`._
+- [Issue #204 — Adapt tracker and live playback to the timestamped event path](issue-204-tracker-live-event-integration.md)

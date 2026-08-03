@@ -324,6 +324,9 @@ impl Engine {
                 instrument_id,
                 note_id,
             } => self.note_off_id(instrument_id, note_id),
+            EngineEvent::InstrumentAllNotesOff { instrument_id } => {
+                self.all_notes_off(instrument_id)
+            }
             EngineEvent::SampleParameter {
                 binding,
                 engine_value,

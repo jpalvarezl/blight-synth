@@ -5,8 +5,9 @@ use ringbuf::{HeapCons, HeapProd};
 use crate::Command;
 use crate::MeterState;
 use crate::Player;
+use crate::PlayerProcessStatus;
 use crate::MAX_RENDER_SLICE_FRAMES;
-use sequencer::{models::Song, timing::TimingAdvanceStatus};
+use sequencer::models::Song;
 use std::sync::Arc;
 
 /// Maximum compatibility control commands applied before rendering one host
@@ -137,9 +138,10 @@ impl AudioProcessor {
     }
 
     /// The main processing function called by the audio driver. The compact
-    /// return status is available to host adapters for bounded telemetry; Player
-    /// has already stopped/released playback before returning a timing failure.
-    pub fn process(&mut self, output_buffer: &mut [f32]) -> TimingAdvanceStatus {
+    /// timing/event return status is available to host adapters for bounded
+    /// telemetry; Player has already arranged recovery before returning a
+    /// failure.
+    pub fn process(&mut self, output_buffer: &mut [f32]) -> PlayerProcessStatus {
         self.flush_retired();
 
         // If a previous block retained retirement ownership, pause this block's
@@ -162,7 +164,7 @@ impl AudioProcessor {
             // A CPAL stream always has at least one channel, but keep this method
             // total for tests and future non-CPAL hosts.
             output_buffer.fill(0.0);
-            return self.player.timing_status();
+            return self.player.process_status();
         }
 
         // Scratch buffers in AudioProcessor and Voice are preallocated to this
@@ -172,15 +174,20 @@ impl AudioProcessor {
         let complete_sample_count = (output_buffer.len() / self.channels) * self.channels;
         let (complete_frames, trailing_samples) = output_buffer.split_at_mut(complete_sample_count);
 
-        let mut timing_status = self.player.timing_status();
+        let had_complete_frames = !complete_frames.is_empty();
+        let mut process_status = PlayerProcessStatus::complete();
         for output_chunk in complete_frames.chunks_mut(samples_per_chunk) {
-            timing_status = self.process_chunk(output_chunk);
+            process_status = process_status.combine(self.process_chunk(output_chunk));
         }
 
         // Host buffers should contain complete frames. Silence any malformed
         // trailing samples rather than leaving stale output behind.
         trailing_samples.fill(0.0);
-        timing_status
+        if had_complete_frames {
+            process_status
+        } else {
+            self.player.process_status()
+        }
     }
 
     fn flush_retired(&mut self) {
@@ -198,7 +205,7 @@ impl AudioProcessor {
         }
     }
 
-    fn process_chunk(&mut self, output_buffer: &mut [f32]) -> TimingAdvanceStatus {
+    fn process_chunk(&mut self, output_buffer: &mut [f32]) -> PlayerProcessStatus {
         let frame_count = output_buffer.len() / self.channels;
         let (left, right) = (
             &mut self.left_buf[..frame_count],
@@ -209,9 +216,7 @@ impl AudioProcessor {
         right.fill(0.0);
 
         // Move the play-head by the frames in this bounded processing chunk.
-        let timing_status = self
-            .player
-            .process(left, right, self.sample_rate, frame_count);
+        let process_status = self.player.process(left, right, self.sample_rate);
 
         // Record the post-master stereo chunk for meter streaming.
         self.meter.record_block(left, right);
@@ -225,7 +230,7 @@ impl AudioProcessor {
                 frame[1] = right[i];
             }
         }
-        timing_status
+        process_status
     }
 }
 
@@ -381,7 +386,10 @@ mod tests {
 
         let status = processor.process(&mut [0.0; 16]);
 
-        assert_eq!(status, TimingAdvanceStatus::InvalidConfiguration);
+        assert_eq!(
+            status.timing,
+            sequencer::timing::TimingAdvanceStatus::InvalidConfiguration
+        );
         assert!(!processor.player.is_playing());
     }
 
@@ -785,11 +793,13 @@ mod tests {
         }
 
         // FIFO fairness leaves the final stop/recovery command queued until the
-        // next block; it is then applied before rendering that block.
+        // next block; it is then applied before rendering that block. Engine
+        // rendering is intentionally no longer transport-gated, so prepared
+        // voices/effect tails still receive the stopped block.
         assert_eq!(processor.command_rx.occupied_len(), 1);
         processor.process(&mut output);
         assert_eq!(processor.command_rx.occupied_len(), 0);
-        assert_eq!(renders.load(Ordering::Relaxed), 3);
-        assert!(output.iter().all(|sample| *sample == 0.0));
+        assert_eq!(renders.load(Ordering::Relaxed), 4);
+        assert!(output.iter().any(|sample| *sample != 0.0));
     }
 }
