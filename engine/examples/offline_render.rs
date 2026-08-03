@@ -1,4 +1,4 @@
-use dsp::InstrumentFactory;
+use dsp::{id::InstrumentId, InstrumentFactory};
 use engine::{Engine, InstrumentCmd};
 
 const SAMPLE_RATE: f32 = 48_000.0;
@@ -6,7 +6,7 @@ const BLOCK_SIZE: usize = 256;
 const BLOCK_COUNT: usize = 100;
 
 fn main() {
-    let instrument_id = 1;
+    let instrument_id = InstrumentId::from_raw(1);
     let factory = InstrumentFactory::new(SAMPLE_RATE);
     let mut engine = Engine::new();
     engine.handle_command(

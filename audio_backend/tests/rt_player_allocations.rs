@@ -7,8 +7,8 @@ use std::{
 };
 
 use audio_backend::{
-    AudioProcessor, Command, InstrumentCmd, InstrumentFactory, MeterState, PlayerProcessStatus,
-    TransportCmd,
+    id::InstrumentId, AudioProcessor, Command, InstrumentCmd, InstrumentFactory, MeterState,
+    PlayerProcessStatus, TransportCmd,
 };
 use engine::RetiredState;
 use ringbuf::{
@@ -20,6 +20,8 @@ use sequencer::models::{
     Chain, EffectType, Event, Phrase, Song, SongRow, DEFAULT_CHAIN_LENGTH, EMPTY_CHAIN_SLOT,
     MAX_TRACKS,
 };
+
+const INSTRUMENT_ID: InstrumentId = InstrumentId::from_raw(1);
 
 struct TrackingAllocator;
 
@@ -103,7 +105,8 @@ fn queued_live_attack_release_and_stopped_render_have_zero_heap_activity() {
     assert!(command_tx
         .try_push(
             InstrumentCmd::AddInstrument {
-                instrument: InstrumentFactory::new(48_000.0).create_simple_oscillator(1, 0.0),
+                instrument: InstrumentFactory::new(48_000.0)
+                    .create_simple_oscillator(INSTRUMENT_ID, 0.0),
             }
             .into(),
         )
@@ -114,7 +117,7 @@ fn queued_live_attack_release_and_stopped_render_have_zero_heap_activity() {
     assert!(command_tx
         .try_push(
             InstrumentCmd::NoteOn {
-                instrument_id: 1,
+                instrument_id: INSTRUMENT_ID,
                 note: 60,
                 velocity: 100,
             }
@@ -134,7 +137,12 @@ fn queued_live_attack_release_and_stopped_render_have_zero_heap_activity() {
     assert!(output.iter().any(|sample| *sample != 0.0));
 
     assert!(command_tx
-        .try_push(InstrumentCmd::NoteOff { instrument_id: 1 }.into())
+        .try_push(
+            InstrumentCmd::NoteOff {
+                instrument_id: INSTRUMENT_ID,
+            }
+            .into(),
+        )
         .is_ok());
     let (release_counts, release_status) = measure(|| processor.process(&mut output));
     assert_eq!(
@@ -194,7 +202,8 @@ fn playing_tracker_tick_event_admission_and_segmented_render_have_zero_heap_acti
     assert!(command_tx
         .try_push(
             InstrumentCmd::AddInstrument {
-                instrument: InstrumentFactory::new(48_000.0).create_simple_oscillator(1, 0.0),
+                instrument: InstrumentFactory::new(48_000.0)
+                    .create_simple_oscillator(INSTRUMENT_ID, 0.0),
             }
             .into(),
         )

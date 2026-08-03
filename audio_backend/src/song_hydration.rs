@@ -9,14 +9,14 @@ use std::{path::Path, sync::Arc};
 
 use crate::{
     effects::{DelayParameter as DP, ReverbParameter as RP},
-    id::{EffectId, InstrumentId},
+    id::{EffectId, EnvelopeId, InstrumentId},
     instruments::Waveform as BackendWaveform,
     Command, EffectFactory, EnvelopeCmd, InstrumentCmd, InstrumentFactory, MonoEffect, SynthCmd,
 };
 #[cfg(feature = "device-host")]
 use crate::{BlightAudio, CommandSubmissionErrorKind, SequencerCmd};
 
-const DEFAULT_INSTRUMENT_EFFECT_ID: EffectId = 1;
+const DEFAULT_INSTRUMENT_EFFECT_ID: EffectId = EffectId::from_raw(1);
 
 /// Load a JSON song file and install it into the audio backend without starting playback.
 ///
@@ -102,10 +102,10 @@ fn build_hydration_commands_with_factories(
     let mut commands = Vec::new();
 
     for instrument in &song.instrument_bank {
-        let instrument_id = instrument.id as InstrumentId;
+        let instrument_id = runtime_instrument_id(instrument.id)?;
         log::info!(
             "hydrating instrument {} ({})",
-            instrument_id,
+            instrument_id.raw(),
             instrument.name
         );
         match &instrument.data {
@@ -243,7 +243,7 @@ fn push_amp_envelope_commands(
             InstrumentCmd::PassOnSynthCmd {
                 instrument_id,
                 synth_cmd: SynthCmd::EnvelopeCommand {
-                    envelope_id: Some(0),
+                    envelope_id: Some(EnvelopeId::from_raw(0)),
                     command,
                 },
             }
@@ -305,6 +305,13 @@ fn push_effect_commands(
     }
 }
 
+fn runtime_instrument_id(model_id: usize) -> Result<InstrumentId> {
+    let raw = u32::try_from(model_id).map_err(|_| {
+        anyhow::anyhow!("project instrument ID {model_id} exceeds the runtime u32 range")
+    })?;
+    Ok(InstrumentId::from_raw(raw))
+}
+
 fn map_waveform_to_backend(waveform: Waveform) -> BackendWaveform {
     match waveform {
         Waveform::Sine => BackendWaveform::Sine,
@@ -312,5 +319,63 @@ fn map_waveform_to_backend(waveform: Waveform) -> BackendWaveform {
         Waveform::Sawtooth => BackendWaveform::Sawtooth,
         Waveform::Triangle => BackendWaveform::Triangle,
         Waveform::NesTriangle => BackendWaveform::NesTriangle,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sequencer::models::{EffectType, Event, HiHatParams, Instrument};
+
+    fn project_instrument(id: usize) -> Instrument {
+        Instrument {
+            id,
+            name: "typed ID fixture".to_owned(),
+            data: InstrumentData::HiHat(HiHatParams {
+                audio_effects: Vec::new(),
+                amp_envelope: AmpEnvelopeParams::default(),
+            }),
+        }
+    }
+
+    #[test]
+    fn project_numeric_ids_keep_their_json_shape_and_adapt_to_runtime_ids() {
+        let instrument = project_instrument(17);
+        let instrument_json = serde_json::to_value(&instrument).unwrap();
+        assert_eq!(instrument_json["id"], serde_json::json!(17));
+        let decoded: Instrument = serde_json::from_value(instrument_json).unwrap();
+        assert_eq!(decoded.id, 17);
+        assert_eq!(runtime_instrument_id(decoded.id).unwrap().raw(), 17);
+
+        let event = Event {
+            note: 60,
+            volume: 100,
+            instrument_id: 17,
+            effect: EffectType::Arpeggio,
+            effect_param: 0,
+        };
+        let event_json = serde_json::to_value(event).unwrap();
+        assert_eq!(event_json["instrument_id"], serde_json::json!(17));
+        let decoded: Event = serde_json::from_value(event_json).unwrap();
+        assert_eq!(decoded.instrument_id, 17);
+        assert_eq!(
+            InstrumentId::from_raw(u32::from(decoded.instrument_id)).raw(),
+            17
+        );
+    }
+
+    #[cfg(target_pointer_width = "64")]
+    #[test]
+    fn hydration_rejects_project_instrument_ids_wider_than_runtime_ids() {
+        let invalid = usize::try_from(u64::from(u32::MAX) + 1).unwrap();
+        assert!(runtime_instrument_id(invalid).is_err());
+
+        let mut song = Song::new("invalid runtime ID");
+        song.instrument_bank.push(project_instrument(invalid));
+        let error = match build_song_hydration_commands(&song, 48_000.0) {
+            Ok(_) => panic!("oversized project ID must be rejected"),
+            Err(error) => error,
+        };
+        assert!(error.to_string().contains("exceeds the runtime u32 range"));
     }
 }

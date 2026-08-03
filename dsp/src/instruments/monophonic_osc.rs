@@ -8,7 +8,7 @@ impl MonophonicOscillator {
     pub fn new(instrument_id: InstrumentId, pan: f32, sample_rate: f32) -> Self {
         let envelope = Envelope::new(sample_rate);
         let voice = Voice::new(
-            0,
+            crate::id::VoiceId::from_raw(0),
             OscillatorNode::new(),
             envelope,
             pan,
@@ -30,7 +30,7 @@ impl MonophonicOscillator {
     ) -> Self {
         let envelope = Envelope::new(sample_rate);
         let voice = Voice::new(
-            0,
+            crate::id::VoiceId::from_raw(0),
             OscillatorNode::new_with_waveform(waveform),
             envelope,
             pan,

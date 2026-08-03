@@ -2,7 +2,10 @@
 use std::thread;
 
 #[cfg(target_os = "macos")]
-use audio_backend::{BlightAudio, Result};
+use audio_backend::{
+    id::{InstrumentId, SampleId},
+    BlightAudio, Result,
+};
 
 #[cfg(target_os = "macos")]
 fn main() -> Result<()> {
@@ -14,9 +17,9 @@ fn main() -> Result<()> {
 
             println!("Loaded {} samples from macOS DLS file", samples_loaded);
 
-            let sample_data = resource_manager.get_sample_unsafe(0); // TOM__60
+            let sample_data = resource_manager.get_sample_unsafe(SampleId::from_raw(0)); // TOM__60
 
-            let instrument_id = 0;
+            let instrument_id = InstrumentId::from_raw(0);
             let _ = audio.send_command(
                 audio_backend::InstrumentCmd::AddInstrument {
                     instrument: audio.get_instrument_factory().create_loop_sample_player(

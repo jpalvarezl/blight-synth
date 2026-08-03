@@ -25,6 +25,8 @@ const PRODUCER_B: EventProducerId = EventProducerId::new(20);
 const PRODUCER_C: EventProducerId = EventProducerId::new(30);
 const RECOVERY: EventProducerId = EventProducerId::new(99);
 const FRAMES: usize = 64;
+const INSTRUMENT: InstrumentId = InstrumentId::from_raw(1);
+const MASTER_EFFECT: EffectId = EffectId::from_raw(99);
 
 fn note_on(
     offset: usize,
@@ -37,7 +39,7 @@ fn note_on(
         producer,
         sequence,
         EngineEvent::NoteOn {
-            instrument_id: 1,
+            instrument_id: INSTRUMENT,
             note: NoteEvent {
                 id: NoteId(note_id),
                 pitch: 60,
@@ -58,7 +60,7 @@ fn note_off(
         producer,
         sequence,
         EngineEvent::NoteOff {
-            instrument_id: 1,
+            instrument_id: INSTRUMENT,
             note_id: NoteId(note_id),
         },
     )
@@ -88,7 +90,9 @@ fn prepared_sample_binding() -> PreparedParameterBinding {
         .expect("stable id resolves");
     PreparedParameterBinding::new(
         *lookup.get(key).expect("runtime parameter is prepared"),
-        ParameterTarget::MasterEffect { effect_id: 99 },
+        ParameterTarget::MasterEffect {
+            effect_id: MASTER_EFFECT,
+        },
     )
     .expect("sample-event parameter binds")
 }
@@ -115,7 +119,7 @@ struct RecoveryProbe {
 
 impl InstrumentTrait for RecoveryProbe {
     fn id(&self) -> InstrumentId {
-        1
+        INSTRUMENT
     }
 
     fn note_on(&mut self, _event: NoteEvent) {}

@@ -17,7 +17,7 @@ impl SamplePlayer {
         pan: f32,
     ) -> Self {
         let voice = Voice::new_no_envelope(
-            0,
+            crate::id::VoiceId::from_raw(0),
             SamplePlayerNode::new(sample_data.clone(), sample_rate, None),
             pan,
             MonoEffectChain::new(10),
@@ -38,7 +38,7 @@ impl SamplePlayer {
     ) -> Self {
         let envelope = Envelope::new_adsr(sample_rate, 1.0, 1.0, 1.0, 1.0);
         let voice = Voice::new(
-            0,
+            crate::id::VoiceId::from_raw(0),
             SamplePlayerNode::new(sample_data.clone(), sample_rate, Some(loop_region)),
             envelope,
             pan,

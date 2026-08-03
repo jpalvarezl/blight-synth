@@ -15,7 +15,7 @@ issue: 209
 - Status: in-progress
 - Branch: `issue/209-typed-instance-ids`
 - Worktree: `/Users/jpalvarezl/code/blight-209`
-- Base branch/SHA: `main` / `2f251a3`
+- Base branch/SHA: `main` / `5ba3241`
 - Head: branch tip at handoff
 - Last handoff: 2026-08-03
 
@@ -57,26 +57,35 @@ Potential parallel conflicts: #179 and other ID consumers remain backlog until t
 
 ## Plan
 
-- [ ] Inventory aliases and persistence boundaries.
-- [ ] Add compact typed IDs with explicit conversion/serde behavior.
-- [ ] Migrate engine/DSP/audio-backend callers and tests.
-- [ ] Run full verification and independent review.
+- [x] Inventory aliases and persistence boundaries.
+- [x] Add compact typed IDs with explicit raw conversion and model-adapter behavior.
+- [x] Migrate engine/DSP/audio-backend callers and tests.
+- [x] Run full verification and independent review.
 
 ## Progress and decisions
 
 - 2026-08-03 — Split from #135 as the critical-path identity contract owner.
+- 2026-08-03 — Inventory complete before implementation: all six scoped IDs are interchangeable `u32` aliases in `dsp/src/id.rs`. `InstrumentId`, `EffectId`, `VoiceId`, and `EnvelopeId` cross DSP factories/traits/commands; engine commands/events/parameter targets use instrument/effect IDs; `SampleId` keys `audio_backend::ResourceManager`; `EffectChainId` currently has no consumers. Tracker GUI, examples, and tests construct IDs from literals/casts.
+- 2026-08-03 — Persistence inventory: project JSON/bincode stores `sequencer::models::Instrument::id` as `usize` and tracker `Event::instrument_id` as `u8`; hydration/player are the model-to-runtime adapter boundaries. No runtime effect, chain, envelope, sample, or voice ID is currently persisted. Project model field shapes remain unchanged, with checked `usize` narrowing during hydration and explicit infallible `u8` adaptation during playback; focused JSON/model-adapter tests lock the numeric shape. Runtime IDs deliberately do not gain serde until they directly cross a persistence boundary.
+- 2026-08-03 — ID contract decision: six distinct `#[repr(transparent)]` `u32` newtypes with `Copy`/equality/order/hash, explicit const `from_raw`/`raw`, and no cross-ID conversions. `NoteId` remains unchanged.
+- 2026-08-03 — End-to-end migration completed across DSP factories/nodes, engine commands/events/parameter targets, tracker hydration/playback, resources, device-host tests, GUI, and examples. Compile-fail docs prove cross-domain rejection; unit tests prove size/alignment/order/hash/copy behavior and project numeric JSON compatibility.
+- 2026-08-03 — Independent review verdict: APPROVE, with no critical findings or warnings. Addressed the optional observability suggestion by making the tracker UI's narrowing conversion fail explicitly instead of silently dropping updates.
 
 ## Verification
 
-- [ ] focused ID/serde/type-safety tests
-- [ ] `cargo test --workspace --all-targets`
-- [ ] strict all-feature and host-free Clippy/tests
-- [ ] golden, architecture, RT logging, fmt, reconciliation, and docs checks
+- [x] focused ID/model-adapter/type-safety tests and `cargo test -p dsp --doc`
+- [x] `cargo test --workspace --all-targets`
+- [x] `cargo clippy --workspace --all-targets --all-features -- -D warnings`
+- [x] `cargo clippy -p audio_backend --no-default-features --all-targets -- -D warnings`
+- [x] `cargo test -p audio_backend --no-default-features --all-targets`
+- [x] `cargo test -p audio_backend --no-default-features --test offline_golden`
+- [x] `cargo fmt --all -- --check` and `git diff --check`
+- [x] architecture, RT logging, docs, reconciliation, and reconciliation-unit checks
 
 ## Handoff
 
-- Completed: issue claimed and packet created.
-- Remaining: implementation through PR.
-- Known risks: broad compile-time API migration; preserve numeric JSON compatibility exactly.
-- Next smallest action: inventory every alias and persisted/raw conversion.
-- Files a new agent should read next: this packet and `dsp/src/id.rs`.
+- Completed: implementation, compatibility tests, full verification, generated burndown reconciliation, and independent review.
+- Remaining: none in the requested local implementation scope; GitHub metadata/PR work was intentionally not performed.
+- Known risks: tracker project events remain intentionally limited to `u8` IDs while runtime IDs are `u32`; example runtime-to-project adaptation rejects IDs above 255. Runtime IDs intentionally have no serde until a runtime ID directly crosses persistence.
+- Next smallest action: review the focused commit and decide external PR/issue workflow separately.
+- Files a new agent should read next: this packet, `dsp/src/id.rs`, and `audio_backend/src/song_hydration.rs`.

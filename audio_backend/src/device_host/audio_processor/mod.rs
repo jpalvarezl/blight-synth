@@ -245,6 +245,14 @@ mod tests {
     use ringbuf::{storage::Heap, traits::Split, HeapCons, HeapProd, SharedRb};
     use std::sync::atomic::{AtomicUsize, Ordering};
 
+    fn instrument_id(raw: usize) -> InstrumentId {
+        InstrumentId::from_raw(u32::try_from(raw).expect("test instrument ID fits u32"))
+    }
+
+    fn effect_id(raw: usize) -> EffectId {
+        EffectId::from_raw(u32::try_from(raw).expect("test effect ID fits u32"))
+    }
+
     struct NoopMonoEffect {
         id: EffectId,
     }
@@ -298,7 +306,7 @@ mod tests {
 
     impl InstrumentTrait for RenderCounterInstrument {
         fn id(&self) -> InstrumentId {
-            1
+            instrument_id(1)
         }
 
         fn note_on(&mut self, _event: dsp::NoteEvent) {}
@@ -448,7 +456,7 @@ mod tests {
             .try_push(
                 InstrumentCmd::AddInstrument {
                     instrument: Box::new(DropProbeInstrument {
-                        id: 7,
+                        id: instrument_id(7),
                         drops: drops.clone(),
                     }),
                 }
@@ -462,7 +470,7 @@ mod tests {
             .try_push(
                 InstrumentCmd::AddInstrument {
                     instrument: Box::new(DropProbeInstrument {
-                        id: 7,
+                        id: instrument_id(7),
                         drops: Arc::new(AtomicUsize::new(0)),
                     }),
                 }
@@ -483,7 +491,10 @@ mod tests {
             processor_with_retirement(2, 16, 1);
         let first_drops = Arc::new(AtomicUsize::new(0));
         let second_drops = Arc::new(AtomicUsize::new(0));
-        for (id, drops) in [(1, first_drops.clone()), (2, second_drops.clone())] {
+        for (id, drops) in [
+            (instrument_id(1), first_drops.clone()),
+            (instrument_id(2), second_drops.clone()),
+        ] {
             assert!(command_tx
                 .try_push(
                     InstrumentCmd::AddInstrument {
@@ -496,7 +507,7 @@ mod tests {
         let mut output = [0.0; 16];
         processor.process(&mut output);
 
-        for id in [1, 2] {
+        for id in [instrument_id(1), instrument_id(2)] {
             assert!(command_tx
                 .try_push(
                     InstrumentCmd::AddInstrument {
@@ -550,13 +561,13 @@ mod tests {
             let mut effects = VoiceEffects::new();
             for effect_index in 0..effects_per_command {
                 effects.push(Box::new(NoopMonoEffect {
-                    id: (command_index * effects_per_command + effect_index) as EffectId,
+                    id: effect_id(command_index * effects_per_command + effect_index),
                 }));
             }
             assert!(command_tx
                 .try_push(
                     InstrumentCmd::AddVoiceEffects {
-                        instrument_id: 999,
+                        instrument_id: instrument_id(999),
                         effects,
                     }
                     .into(),
@@ -594,7 +605,7 @@ mod tests {
                 .try_push(
                     InstrumentCmd::AddInstrument {
                         instrument: Box::new(DropProbeInstrument {
-                            id: (id + 1) as InstrumentId,
+                            id: instrument_id(id + 1),
                             drops: Arc::new(AtomicUsize::new(0)),
                         }),
                     }
@@ -698,7 +709,7 @@ mod tests {
                 .try_push(
                     InstrumentCmd::AddInstrument {
                         instrument: Box::new(DropProbeInstrument {
-                            id: 1,
+                            id: instrument_id(1),
                             drops: instrument_drops.clone(),
                         }),
                     }

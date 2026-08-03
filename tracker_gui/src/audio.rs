@@ -15,7 +15,7 @@ use std::{
 };
 
 // Tracker GUI reuses a single effect id until proper routing is needed.
-pub const TRACKER_EFFECT_ID: audio_backend::id::EffectId = 1;
+pub const TRACKER_EFFECT_ID: audio_backend::id::EffectId = audio_backend::id::EffectId::from_raw(1);
 #[cfg(test)]
 const WORKER_POLL_INTERVAL: Duration = Duration::from_millis(1);
 

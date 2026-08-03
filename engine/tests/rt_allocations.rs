@@ -5,7 +5,7 @@ use std::{
 };
 
 use dsp::{
-    id::{EffectId, InstrumentId, NoteEvent, NoteId},
+    id::{EffectId, InstrumentId, NoteEvent, NoteId, VoiceId},
     instruments::Waveform,
     EffectFactory, EffectInstallError, EffectInstallErrorKind, InstrumentFactory, InstrumentTrait,
     MonoEffect, SynthCmd,
@@ -19,6 +19,17 @@ use param_manifest::{
     builtin::{master_gain_descriptor, MASTER_GAIN_ID},
     AutomationRate, ParameterId, ParameterLookup, ParameterManifest,
 };
+
+const INSTRUMENT_ID: InstrumentId = InstrumentId::from_raw(1);
+const MASTER_EFFECT_ID: EffectId = EffectId::from_raw(99);
+
+const fn instrument_id(raw: u32) -> InstrumentId {
+    InstrumentId::from_raw(raw)
+}
+
+const fn effect_id(raw: u32) -> EffectId {
+    EffectId::from_raw(raw)
+}
 
 struct TrackingAllocator;
 
@@ -152,7 +163,7 @@ fn nested_measurements_restore_and_accumulate_outer_tracking_state() {
 #[test]
 fn prepared_engine_note_parameter_and_render_path_has_no_heap_activity() {
     const SAMPLE_RATE: f32 = 48_000.0;
-    let instrument_id = 1;
+    let instrument_id = INSTRUMENT_ID;
     let factory = InstrumentFactory::new(SAMPLE_RATE);
     let mut engine = Engine::new();
     engine.add_instrument(factory.create_simple_oscillator(instrument_id, 0.0));
@@ -179,7 +190,7 @@ fn prepared_engine_note_parameter_and_render_path_has_no_heap_activity() {
             InstrumentCmd::PassOnSynthCmd {
                 instrument_id,
                 synth_cmd: SynthCmd::SetWaveform {
-                    voice_id: 0,
+                    voice_id: VoiceId::from_raw(0),
                     waveform: Waveform::Triangle,
                 },
             }
@@ -241,12 +252,12 @@ impl RetireSink for CollectRetired {
 #[test]
 fn prepared_timestamped_event_application_and_segmented_render_has_no_heap_activity() {
     const SAMPLE_RATE: f32 = 48_000.0;
-    let instrument_id = 1;
+    let instrument_id = INSTRUMENT_ID;
     let factory = InstrumentFactory::new(SAMPLE_RATE);
     let mut engine = Engine::new();
     engine.add_instrument(factory.create_simple_oscillator(instrument_id, 0.0));
     engine.add_master_effect(
-        EffectFactory::new(SAMPLE_RATE).create_stereo_gain(99, 1.0),
+        EffectFactory::new(SAMPLE_RATE).create_stereo_gain(MASTER_EFFECT_ID, 1.0),
         &mut engine::DropRetireSink,
     );
 
@@ -262,7 +273,9 @@ fn prepared_timestamped_event_application_and_segmented_render_has_no_heap_activ
     let runtime_parameter = *lookup.get(key).expect("runtime parameter is prepared");
     let binding = PreparedParameterBinding::new(
         runtime_parameter,
-        ParameterTarget::MasterEffect { effect_id: 99 },
+        ParameterTarget::MasterEffect {
+            effect_id: MASTER_EFFECT_ID,
+        },
     )
     .expect("sample-event parameter binds");
     let engine_value = lookup
@@ -338,7 +351,7 @@ fn prepared_bounded_admission_reuse_rejection_and_reset_have_no_heap_activity() 
             producer_a,
             10,
             EngineEvent::NoteOn {
-                instrument_id: 1,
+                instrument_id: INSTRUMENT_ID,
                 note: NoteEvent {
                     id: NoteId(1),
                     pitch: 60,
@@ -351,7 +364,7 @@ fn prepared_bounded_admission_reuse_rejection_and_reset_have_no_heap_activity() 
             producer_a,
             11,
             EngineEvent::NoteOff {
-                instrument_id: 1,
+                instrument_id: INSTRUMENT_ID,
                 note_id: NoteId(1),
             },
         ),
@@ -362,7 +375,7 @@ fn prepared_bounded_admission_reuse_rejection_and_reset_have_no_heap_activity() 
             producer_b,
             20,
             EngineEvent::NoteOn {
-                instrument_id: 1,
+                instrument_id: INSTRUMENT_ID,
                 note: NoteEvent {
                     id: NoteId(2),
                     pitch: 64,
@@ -375,7 +388,7 @@ fn prepared_bounded_admission_reuse_rejection_and_reset_have_no_heap_activity() 
             producer_b,
             21,
             EngineEvent::NoteOff {
-                instrument_id: 1,
+                instrument_id: INSTRUMENT_ID,
                 note_id: NoteId(2),
             },
         ),
@@ -508,18 +521,18 @@ fn structural_clear_and_effect_rejection_move_owners_without_rt_heap_activity() 
     let effect_factory = EffectFactory::new(SAMPLE_RATE);
     let mut engine = Engine::new();
     let mut retired = CollectRetired(Vec::with_capacity(64));
-    for id in 1..=4 {
+    for raw in 1..=4 {
         engine.add_instrument_with_retirement(
-            instrument_factory.create_simple_oscillator(id, 0.0),
+            instrument_factory.create_simple_oscillator(instrument_id(raw), 0.0),
             &mut retired,
         );
     }
-    let rejected_effect = effect_factory.create_mono_gain(9, 1.0);
+    let rejected_effect = effect_factory.create_mono_gain(effect_id(9), 1.0);
 
     let counts = measure_allocations(|| {
         engine.handle_command_with_retirement(
             InstrumentCmd::AddEffect {
-                instrument_id: 99,
+                instrument_id: instrument_id(99),
                 effect: rejected_effect,
             }
             .into(),
@@ -540,16 +553,16 @@ fn master_effect_overflow_moves_rejected_owner_without_rt_heap_activity() {
     let effect_factory = EffectFactory::new(SAMPLE_RATE);
     let mut engine = Engine::new();
     let mut retired = CollectRetired(Vec::with_capacity(8));
-    for id in 0..8 {
+    for raw in 0..8 {
         engine.handle_command_with_retirement(
             MixerCmd::AddMasterEffect {
-                effect: effect_factory.create_stereo_gain(id, 1.0),
+                effect: effect_factory.create_stereo_gain(effect_id(raw), 1.0),
             }
             .into(),
             &mut retired,
         );
     }
-    let overflow = effect_factory.create_stereo_gain(99, 1.0);
+    let overflow = effect_factory.create_stereo_gain(MASTER_EFFECT_ID, 1.0);
 
     let counts = measure_allocations(|| {
         engine.handle_command_with_retirement(
@@ -567,7 +580,9 @@ fn master_effect_overflow_moves_rejected_owner_without_rt_heap_activity() {
 #[test]
 fn audit_harness_detects_an_intentional_allocation_and_drop() {
     let mut engine = Engine::new();
-    engine.add_instrument(Box::new(IntentionallyAllocatingInstrument { id: 1 }));
+    engine.add_instrument(Box::new(IntentionallyAllocatingInstrument {
+        id: INSTRUMENT_ID,
+    }));
     let mut left = [0.0; 16];
     let mut right = [0.0; 16];
 
@@ -586,7 +601,7 @@ fn audit_harness_detects_an_intentional_allocation_and_drop() {
 #[test]
 fn polyphonic_note_on_steal_and_render_has_no_heap_activity() {
     const SAMPLE_RATE: f32 = 48_000.0;
-    let instrument_id = 1;
+    let instrument_id = INSTRUMENT_ID;
     let factory = InstrumentFactory::new(SAMPLE_RATE);
     let mut engine = Engine::new();
     // A small fixed voice pool so distinct pitches exhaust polyphony and force
@@ -629,14 +644,14 @@ fn instrument_capacity_rejection_moves_owner_without_rt_heap_activity() {
     let factory = InstrumentFactory::new(SAMPLE_RATE);
     let mut engine = Engine::with_instrument_capacity(2);
     let mut retired = CollectRetired(Vec::with_capacity(4));
-    for id in 1..=2 {
+    for raw in 1..=2 {
         engine.add_instrument_with_retirement(
-            factory.create_simple_oscillator(id, 0.0),
+            factory.create_simple_oscillator(instrument_id(raw), 0.0),
             &mut retired,
         );
     }
     // Prepared off the audio thread; only the callback-side rejection is measured.
-    let over_cap = factory.create_simple_oscillator(3, 0.0);
+    let over_cap = factory.create_simple_oscillator(instrument_id(3), 0.0);
 
     let counts = measure_allocations(|| {
         engine.handle_command_with_retirement(

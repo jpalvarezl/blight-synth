@@ -12,6 +12,8 @@ use sequencer::models::{
 
 use super::*;
 
+const TEST_INSTRUMENT_ID: InstrumentId = InstrumentId::from_raw(1);
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum TraceEvent {
     On { frame: usize, pitch: u8 },
@@ -134,7 +136,7 @@ fn player_with_trace(song: Song, sample_rate: f64) -> (Player, Arc<Mutex<Vec<Tra
     player.handle_command(
         InstrumentCmd::AddInstrument {
             instrument: Box::new(TraceInstrument {
-                id: 1,
+                id: TEST_INSTRUMENT_ID,
                 frame: 0,
                 pitch: None,
                 tail_frames: 0,
@@ -283,7 +285,7 @@ fn stopped_transport_admits_live_attack_release_and_renders_tail() {
 
     player.handle_command(
         InstrumentCmd::NoteOn {
-            instrument_id: 1,
+            instrument_id: TEST_INSTRUMENT_ID,
             note: 72,
             velocity: 100,
         }
@@ -298,7 +300,10 @@ fn stopped_transport_admits_live_attack_release_and_renders_tail() {
     assert!(attack_left.iter().all(|sample| *sample > 0.0));
 
     player.handle_command(
-        InstrumentCmd::NoteOff { instrument_id: 1 }.into(),
+        InstrumentCmd::NoteOff {
+            instrument_id: TEST_INSTRUMENT_ID,
+        }
+        .into(),
         &mut engine::DropRetireSink,
     );
     let mut release_left = [0.0; 4];
@@ -330,7 +335,7 @@ fn same_block_live_attack_then_release_coalesces_without_a_stuck_attack() {
     let (mut player, trace) = player_with_trace(song, 10.0);
     player.handle_command(
         InstrumentCmd::NoteOn {
-            instrument_id: 1,
+            instrument_id: TEST_INSTRUMENT_ID,
             note: 72,
             velocity: 100,
         }
@@ -338,7 +343,10 @@ fn same_block_live_attack_then_release_coalesces_without_a_stuck_attack() {
         &mut engine::DropRetireSink,
     );
     player.handle_command(
-        InstrumentCmd::NoteOff { instrument_id: 1 }.into(),
+        InstrumentCmd::NoteOff {
+            instrument_id: TEST_INSTRUMENT_ID,
+        }
+        .into(),
         &mut engine::DropRetireSink,
     );
     let mut left = [0.0; 4];
@@ -418,7 +426,7 @@ fn admission_overflow_is_fail_closed_observable_and_recovery_is_reserved() {
     player.handle_command(
         InstrumentCmd::AddInstrument {
             instrument: Box::new(TraceInstrument {
-                id: 1,
+                id: TEST_INSTRUMENT_ID,
                 frame: 0,
                 pitch: None,
                 tail_frames: 0,
@@ -575,8 +583,5 @@ fn timing_failure_reanchors_for_play_last_song_recovery() {
 fn tracker_instrument_cache_is_exactly_max_tracks_and_directly_indexed() {
     let adapter = tracker_engine_adapter::TrackerEngineAdapter::new();
     assert_eq!(adapter.track_instruments().len(), MAX_TRACKS);
-    assert_eq!(
-        adapter.track_instruments(),
-        [NO_INSTRUMENT as InstrumentId; MAX_TRACKS]
-    );
+    assert_eq!(adapter.track_instruments(), [NO_INSTRUMENT_ID; MAX_TRACKS]);
 }

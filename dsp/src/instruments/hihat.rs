@@ -14,7 +14,7 @@ impl HiHat {
 
         // Note ID is unused in a monophonic instrument.
         let voice = VoiceSlot::new(Voice::new(
-            0,
+            crate::id::VoiceId::from_raw(0),
             NoiseGenerator::default(),
             envelope,
             pan,

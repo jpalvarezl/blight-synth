@@ -276,6 +276,11 @@ fn show_delay_section(
     }
 }
 
+fn runtime_instrument_id(raw: usize) -> audio_backend::id::InstrumentId {
+    let raw = u32::try_from(raw).expect("tracker UI instrument ID exceeds the runtime u32 range");
+    audio_backend::id::InstrumentId::from_raw(raw)
+}
+
 fn push_reverb_updates(
     audio_mgr: &mut AudioManager,
     instrument_id: usize,
@@ -285,7 +290,7 @@ fn push_reverb_updates(
     damping: f32,
     diffusion: f32,
 ) {
-    let id = audio_backend::id::InstrumentId::from(instrument_id as u32);
+    let id = runtime_instrument_id(instrument_id);
     for (param_index, value) in [
         (RP::Mix.as_index(), mix),
         (RP::Decay.as_index(), decay),
@@ -310,7 +315,7 @@ fn push_delay_updates(
     feedback: f32,
     mix: f32,
 ) {
-    let id = audio_backend::id::InstrumentId::from(instrument_id as u32);
+    let id = runtime_instrument_id(instrument_id);
     for (param_index, value) in [
         (DP::Time.as_index(), time),
         (DP::NumTaps.as_index(), num_taps as f32),

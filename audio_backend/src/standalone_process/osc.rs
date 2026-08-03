@@ -20,7 +20,7 @@ pub const OSC_SEND_ADDR: &str = "127.0.0.1:9001";
 /// the master `Gain` effect expects via [`normalized_gain_to_db`] and emits
 /// `MixerCmd::SetMasterEffectParameter`. [`StandaloneControlWorker::spawn`]
 /// installs this effect while initializing `BlightAudio` on its worker thread.
-pub const MASTER_GAIN_EFFECT_ID: EffectId = 0;
+pub const MASTER_GAIN_EFFECT_ID: EffectId = EffectId::from_raw(0);
 pub const MASTER_GAIN_PARAM_INDEX: u32 = 0;
 
 /// Target meter streaming rate (`/meter/level`) in Hz.

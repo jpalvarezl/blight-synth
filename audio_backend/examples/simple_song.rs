@@ -6,8 +6,8 @@ use sequencer::models::{
 };
 
 pub fn main() {
-    let lead_instrument_id: InstrumentId = 0;
-    let bass_instrument_id: InstrumentId = 1;
+    let lead_instrument_id = InstrumentId::from_raw(0);
+    let bass_instrument_id = InstrumentId::from_raw(1);
     match &mut BlightAudio::with_song(Arc::new(load_song(lead_instrument_id, bass_instrument_id))) {
         Ok(audio) => {
             let _ = audio.send_command(
@@ -41,32 +41,36 @@ pub fn main() {
 }
 
 pub fn load_song(lead_instrument_id: InstrumentId, bass_instrument_id: InstrumentId) -> Song {
+    let project_lead_id =
+        u8::try_from(lead_instrument_id.raw()).expect("example lead ID fits project u8");
+    let project_bass_id =
+        u8::try_from(bass_instrument_id.raw()).expect("example bass ID fits project u8");
     let phrase_1 = vec![
         Event {
             note: 60,
             volume: 100,
-            instrument_id: lead_instrument_id as u8,
+            instrument_id: project_lead_id,
             effect: EffectType::Arpeggio,
             effect_param: 0,
         },
         Event {
             note: 63,
             volume: 0,
-            instrument_id: lead_instrument_id as u8,
+            instrument_id: project_lead_id,
             effect: EffectType::Arpeggio,
             effect_param: 0,
         },
         Event {
             note: 66,
             volume: 127,
-            instrument_id: lead_instrument_id as u8,
+            instrument_id: project_lead_id,
             effect: EffectType::Arpeggio,
             effect_param: 1,
         },
         Event {
             note: NoteSentinelValues::NoteOff as u8,
             volume: 0,
-            instrument_id: lead_instrument_id as u8,
+            instrument_id: project_lead_id,
             effect: EffectType::Arpeggio,
             effect_param: 0,
         },
@@ -76,28 +80,28 @@ pub fn load_song(lead_instrument_id: InstrumentId, bass_instrument_id: Instrumen
         Event {
             note: 66,
             volume: 100,
-            instrument_id: lead_instrument_id as u8,
+            instrument_id: project_lead_id,
             effect: EffectType::Arpeggio,
             effect_param: 0,
         },
         Event {
             note: 64,
             volume: 0,
-            instrument_id: lead_instrument_id as u8,
+            instrument_id: project_lead_id,
             effect: EffectType::Arpeggio,
             effect_param: 0,
         },
         Event {
             note: 60,
             volume: 127,
-            instrument_id: lead_instrument_id as u8,
+            instrument_id: project_lead_id,
             effect: EffectType::Arpeggio,
             effect_param: 1,
         },
         Event {
             note: NoteSentinelValues::NoteOff as u8,
             volume: 0,
-            instrument_id: lead_instrument_id as u8,
+            instrument_id: project_lead_id,
             effect: EffectType::Arpeggio,
             effect_param: 0,
         },
@@ -106,14 +110,14 @@ pub fn load_song(lead_instrument_id: InstrumentId, bass_instrument_id: Instrumen
     let event_1 = Event {
         note: 40,
         volume: 100,
-        instrument_id: bass_instrument_id as u8,
+        instrument_id: project_bass_id,
         effect: EffectType::Arpeggio,
         effect_param: 0,
     };
     let event_2 = Event {
         note: 43,
         volume: 100,
-        instrument_id: bass_instrument_id as u8,
+        instrument_id: project_bass_id,
         effect: EffectType::Arpeggio,
         effect_param: 0,
     };

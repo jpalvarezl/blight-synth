@@ -22,7 +22,9 @@ use param_manifest::{
 };
 
 const SAMPLE_RATE: f32 = 48_000.0;
-const INSTRUMENT_ID: InstrumentId = 7;
+const INSTRUMENT_ID: InstrumentId = InstrumentId::from_raw(7);
+const INSTRUMENT_EFFECT_ID: EffectId = EffectId::from_raw(77);
+const MASTER_EFFECT_ID: EffectId = EffectId::from_raw(99);
 const PRODUCER: EventProducerId = EventProducerId::new(1);
 
 /// Minimal stateful DSP fixture: silence before note-on, `1.0` while a note is
@@ -76,7 +78,7 @@ impl InstrumentTrait for GateInstrument {
     }
 
     fn set_effect_parameter(&mut self, effect_id: EffectId, param_index: u32, value: f32) {
-        if effect_id == 77 && param_index == 0 {
+        if effect_id == INSTRUMENT_EFFECT_ID && param_index == 0 {
             self.effect_value.store(value.to_bits(), Ordering::Relaxed);
         }
     }
@@ -342,7 +344,12 @@ fn prepared_master_gain_binding(
         .normalized_to_engine(key, 0.5)
         .expect("normalized value maps through the prepared table");
     (
-        PreparedParameterBinding::new(parameter, ParameterTarget::MasterEffect { effect_id: 99 }),
+        PreparedParameterBinding::new(
+            parameter,
+            ParameterTarget::MasterEffect {
+                effect_id: MASTER_EFFECT_ID,
+            },
+        ),
         engine_value,
     )
 }
@@ -395,7 +402,7 @@ fn malformed_sample_parameter_values_reject_the_whole_block() {
 fn sample_parameter_changes_take_effect_at_their_exact_offset() {
     let mut fixture = Fixture::new();
     fixture.engine.add_master_effect(
-        dsp::EffectFactory::new(SAMPLE_RATE).create_stereo_gain(99, 1.0),
+        dsp::EffectFactory::new(SAMPLE_RATE).create_stereo_gain(MASTER_EFFECT_ID, 1.0),
         &mut engine::DropRetireSink,
     );
     let (binding, engine_value) = prepared_master_gain_binding(AutomationRate::SampleEvent);
@@ -432,7 +439,7 @@ fn sample_parameter_changes_take_effect_at_their_exact_offset() {
 fn same_offset_parameter_changes_precede_note_attacks() {
     let mut fixture = Fixture::new();
     fixture.engine.add_master_effect(
-        dsp::EffectFactory::new(SAMPLE_RATE).create_stereo_gain(99, 1.0),
+        dsp::EffectFactory::new(SAMPLE_RATE).create_stereo_gain(MASTER_EFFECT_ID, 1.0),
         &mut engine::DropRetireSink,
     );
     let (binding, engine_value) = prepared_master_gain_binding(AutomationRate::SampleEvent);
@@ -492,7 +499,7 @@ fn prepared_instrument_effect_binding_dispatches_to_its_concrete_target() {
         runtime_parameter,
         ParameterTarget::InstrumentEffect {
             instrument_id: INSTRUMENT_ID,
-            effect_id: 77,
+            effect_id: INSTRUMENT_EFFECT_ID,
         },
     )
     .expect("sample-event parameter binds");
