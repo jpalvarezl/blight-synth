@@ -2,7 +2,7 @@
 title: Generated Roadmap Burndown
 summary: Offline Obsidian snapshot generated from GitHub roadmap issue metadata.
 status: generated
-source-updated: 2026-08-03T20:56:15Z
+source-updated: 2026-08-03T21:22:34Z
 generator: scripts/docs/sync_roadmap.py
 ---
 
@@ -11,14 +11,14 @@ generator: scripts/docs/sync_roadmap.py
 > [!warning] Generated file
 > GitHub Issues are canonical. Do not edit this page manually. Run `python3 scripts/docs/sync_roadmap.py`.
 
-Data snapshot through `2026-08-03T20:56:15Z`.
+Data snapshot through `2026-08-03T21:22:34Z`.
 
 ## Summary
 
 | Milestone | Open | Done | Ready | In progress | Blocked | Backlog | Sized points done/total | Unsized |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | M0: Architecture & Repository Baseline | 0 | 14 | 0 | 0 | 0 | 0 | 27/27 | 3 |
-| M1: Host-Independent Engine & RT Contracts | 10 | 19 | 0 | 2 | 5 | 3 | 44/61 | 10 |
+| M1: Host-Independent Engine & RT Contracts | 14 | 19 | 1 | 2 | 8 | 3 | 44/71 | 10 |
 | M2: Standalone Host & Control Protocol | 6 | 2 | 0 | 0 | 1 | 5 | 4/7 | 5 |
 | M3: JS/TS Composition UI & Standalone App | 9 | 0 | 0 | 0 | 0 | 9 | 0/0 | 9 |
 | M4 (Optional): Desktop Plugins (VST3/AU) | 7 | 0 | 0 | 0 | 0 | 7 | 0/0 | 7 |
@@ -38,6 +38,10 @@ Data snapshot through `2026-08-03T20:56:15Z`.
 - [ ] [#210](https://github.com/jpalvarezl/blight-synth/issues/210) Define versioned node definitions and the built-in registry — `blocked`, `L`, unassigned
 - [ ] [#211](https://github.com/jpalvarezl/blight-synth/issues/211) Migrate tracker hydration to versioned node definitions — `blocked`, `M`, unassigned
 - [ ] [#212](https://github.com/jpalvarezl/blight-synth/issues/212) Decide the coalesced parameter ownership and lifecycle contract — `in-progress`, `S`, @jpalvarezl
+- [ ] [#213](https://github.com/jpalvarezl/blight-synth/issues/213) Implement the generation-bound coalesced parameter store — `ready`, `M`, unassigned
+- [ ] [#214](https://github.com/jpalvarezl/blight-synth/issues/214) Apply coalesced parameters with engine-owned smoothing — `blocked`, `M`, unassigned
+- [ ] [#215](https://github.com/jpalvarezl/blight-synth/issues/215) Integrate coalesced parameter generations with the device host — `blocked`, `M`, unassigned
+- [ ] [#216](https://github.com/jpalvarezl/blight-synth/issues/216) Migrate OSC parameters to applied-confirmed coalescing — `blocked`, `S`, unassigned
 
 ## All roadmap tasks
 
@@ -89,6 +93,10 @@ Data snapshot through `2026-08-03T20:56:15Z`.
 - [ ] [#210](https://github.com/jpalvarezl/blight-synth/issues/210) Define versioned node definitions and the built-in registry — `blocked`, `L`, unassigned
 - [ ] [#211](https://github.com/jpalvarezl/blight-synth/issues/211) Migrate tracker hydration to versioned node definitions — `blocked`, `M`, unassigned
 - [ ] [#212](https://github.com/jpalvarezl/blight-synth/issues/212) Decide the coalesced parameter ownership and lifecycle contract — `in-progress`, `S`, @jpalvarezl
+- [ ] [#213](https://github.com/jpalvarezl/blight-synth/issues/213) Implement the generation-bound coalesced parameter store — `ready`, `M`, unassigned
+- [ ] [#214](https://github.com/jpalvarezl/blight-synth/issues/214) Apply coalesced parameters with engine-owned smoothing — `blocked`, `M`, unassigned
+- [ ] [#215](https://github.com/jpalvarezl/blight-synth/issues/215) Integrate coalesced parameter generations with the device host — `blocked`, `M`, unassigned
+- [ ] [#216](https://github.com/jpalvarezl/blight-synth/issues/216) Migrate OSC parameters to applied-confirmed coalescing — `blocked`, `S`, unassigned
 
 ### M2: Standalone Host & Control Protocol
 

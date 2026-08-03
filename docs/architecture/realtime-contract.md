@@ -3,7 +3,7 @@ title: Real-Time Audio Contract
 summary: Enforced callback safety, bounded-work, ownership, overload, and verification rules for M1.
 status: accepted
 updated: 2026-08-02
-issues: [101, 132, 133, 134, 136, 137, 138, 145, 171, 172, 173, 174, 175, 201, 203]
+issues: [101, 132, 133, 134, 136, 137, 138, 145, 171, 172, 173, 174, 175, 201, 203, 212]
 ---
 
 # Real-Time Audio Contract
@@ -80,7 +80,17 @@ These classes have different overload semantics and must not be hidden in one un
 
 ### 1. Continuous parameters — latest value wins
 
-High-rate knob/automation values use coalesced fixed storage keyed by stable parameter ID. RT consumes dirty/latest values at a documented control rate. Intermediate values may coalesce; the final submitted value must be observable. Owned by #101/#121.
+High-rate knob/automation values use the generation-bound normalized MPSC atomic
+store defined by [ADR 0005](../decisions/0005-coalesced-parameter-publication.md).
+Adapters resolve stable `ParameterId` on NRT; RT storage uses a
+`(ParameterTableGeneration, RuntimeParamKey)` binding so a stale dense key cannot
+address a replacement table. At the start of each engine render block, RT scans
+at most 16 compact coalesced-slot dirty words and applies at most the prepared
+hard limit of 1,024 coalesced targets. Intermediate values may coalesce. Release
+dirty publication and acquire clearing guarantee eventual latest after
+publishers quiesce; mapped
+engine targets, smoothing, applied-target confirmation, reset, invalid writes,
+and pressure telemetry follow ADR 0005. Owned by #101/#121/#212.
 
 ### 2. Timestamped musical/control events — ordered and bounded
 
@@ -92,7 +102,7 @@ Instrument/effect/song/routing replacement uses infrequent prepared objects or s
 
 ## Work budget and fairness
 
-Queue capacity alone is not a callback budget. The RT loop processes at most a documented number of structural/control items per block, then renders. A producer burst cannot consume the complete callback deadline. Remaining work stays queued or is coalesced according to class.
+Queue capacity alone is not a callback budget. The RT loop processes at most a documented number of structural/control items per block, then renders. A producer burst cannot consume the complete callback deadline. Remaining structural/event work stays queued or is rejected according to its class; continuous controls use ADR 0005's fixed dirty-word scan and one-application-per-key bound rather than a drainable queue.
 
 The transitional standalone compatibility queue consumes at most **64 command items per host callback block**, in FIFO order, before rendering. A backlog remains queued for later blocks, including when one callback is split into multiple internal 4096-frame render chunks. This is an item-count bound; worst-case command cost still depends on the prepared-state, capacity, and deferred-reclamation work owned by #137/#174. The initial budget is intentionally independent of queue capacity and does not define the future timestamped-event budget. It will be retired with this mixed compatibility queue when #101/#134 introduce coalesced continuous values and bounded timestamped events with traffic-specific overload behavior.
 
@@ -104,7 +114,7 @@ The transitional standalone compatibility queue consumes at most **64 command it
 - Submission errors box their private kind/command payload only when returned to NRT, keeping results small. Reliable retry paths keep repeated full-queue attempts unboxed.
 - #181/#182 give both first-party hosts dedicated NRT control ownership. The tracker enqueues semantic requests without owning `BlightAudio`; the standalone Tokio loop enqueues bounded OSC requests. Each worker retains its FIFO front command across RT-ring `Full` responses, performs preparation off latency-sensitive threads, and preserves accepted-only state/protocol updates.
 - State-changing protocol acknowledgements are emitted only after `Ok(())`, never after a nonblocking `Full` or any `Disconnected` rejection.
-- Continuous values coalesce by contract rather than filling the structural queue. *(Contract target; the coalesced continuous-parameter path is deferred to open [#101](https://github.com/jpalvarezl/blight-synth/issues/101) — today `/param/set` still enqueues a structural command.)*
+- Continuous values coalesce by contract rather than filling the structural queue. Valid active-generation slots do not return `Full`; overwriting a dirty value is observable normal coalescing, while invalid/stale/closed/revision-exhausted writes are rejected and counted. Applied confirmation means RT latched the mapped smoothing target, not that a smoothing ramp settled. *(Contract target defined by ADR 0005 and deferred to open [#101](https://github.com/jpalvarezl/blight-synth/issues/101) — today `/param/set` still enqueues a structural command and its echo means queue acceptance.)*
 - Structural updates are not silently dropped: replaced/rejected owners are retired to NRT rather than discarded on RT. *(Observable NRT result reporting for effect remove/reorder is deferred to open [#136](https://github.com/jpalvarezl/blight-synth/issues/136); those commands currently succeed as no-ops.)*
 - Event overflow behavior is explicit and deterministic in `engine::BoundedEventAdmission`: fixed ordinary capacity rejects the complete block with compact producer identity/reason status, and deterministic final failure selection does not depend on which producer submits first. A separate one-event recovery slot keeps all-notes-off admissible at capacity or after rejection. Rejected ordinary events are cleared rather than queued into a later block, and their source-sequence baselines are not committed. #204 applies this policy in the first-party callback and exposes compact timing/event status to the host.
 - Capacity exhaustion must have a documented bounded signal. Command-queue submission exposes producer-visible `Full`; hard instrument-capacity rejection is not yet counted or typed and currently surfaces only by retiring the rejected new owner as `RetiredState::Instrument`, the same variant used for a displaced old owner. Developer diagnostic builds may additionally emit a compile-time-gated callback log where one is explicitly specified.
@@ -125,7 +135,7 @@ If the retirement handoff is full, RT follows a predeclared non-allocating polic
 
 ## Errors, panics, and telemetry
 
-RT methods do not build rich errors in strict builds. They return compact status codes/counters where action is possible; NRT formats/logs them. Developer diagnostic builds may use compile-time-gated direct logs for functional debugging, accepting that those builds are not RT-performance evidence. Missing IDs and malformed buffers use documented no-op/silence/truncation behavior. Capacity/configuration errors are rejected during preparation.
+RT methods do not build rich errors in strict builds. They return compact status codes/counters where action is possible; NRT formats/logs them. Developer diagnostic builds may use compile-time-gated direct logs for functional debugging, accepting that those builds are not RT-performance evidence. Missing IDs and malformed buffers use documented no-op/silence/truncation behavior. Capacity/configuration errors are rejected during preparation. Coalesced-parameter target-application failure leaves its applied confirmation unchanged and increments bounded NRT-readable diagnostics; generation reset/replacement is exposed as a transition and never clears dirty state concurrently in place.
 
 A future FFI wrapper catches panics outside the RT entry and must never permit unwinding into C/C++. Panic containment is a last boundary defense, not permission for callback panics.
 

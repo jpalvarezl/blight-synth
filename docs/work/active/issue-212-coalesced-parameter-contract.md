@@ -15,7 +15,7 @@ issue: 212
 - Status: in-progress
 - Branch: `issue/212-coalesced-parameter-contract`
 - Worktree: `/Users/jpalvarezl/code/blight-212`
-- Base branch/SHA: `main` / `2f251a3`
+- Base branch/SHA: `main` / `5ba3241`
 - Head: branch tip at handoff
 - Last handoff: 2026-08-03
 
@@ -50,7 +50,7 @@ Resolve the coalesced-parameter producer, value-ownership, dirty publication, pr
 
 ## Ownership and touch set
 
-Expected paths: `docs/decisions/0004-parameter-manifest.md` or a superseding/additive ADR, RT/event contract routing, #101/#144 GitHub issue metadata, this packet, and generated burndown.
+Touched paths: `docs/decisions/0004-parameter-manifest.md`, additive accepted ADR 0005, RT/architecture/domain/OSC routing, #101/#144/#212/#213–#216 GitHub metadata, this packet, and generated burndown.
 
 Shared contracts touched: coalesced parameter traffic class only; #212 is owner. #209 changes Rust ID APIs only.
 
@@ -58,26 +58,33 @@ Potential parallel conflicts: none with #209.
 
 ## Plan
 
-- [ ] Reconcile current ADR/code/host producer truth.
-- [ ] Decide publication and lifecycle semantics with explicit memory-order guarantees.
-- [ ] Define adapter-visible state and error/reset behavior.
-- [ ] Create/link sized child issues and promote the first safe leaf.
-- [ ] Run docs/reconciliation checks and review.
+- [x] Reconcile current ADR/code/host producer truth.
+- [x] Decide publication and lifecycle semantics with explicit memory-order guarantees.
+- [x] Define adapter-visible state and error/reset behavior.
+- [x] Create/link sized child issues and promote the first safe leaf.
+- [x] Run docs/reconciliation checks and independent decision review.
 
 ## Progress and decisions
 
-- 2026-08-03 — Split from #101 because ADR 0004 currently says NRT mapping while the issue language could imply engine mapping; implementation remains blocked until ownership is explicit.
+- 2026-08-03 — Split from #101 because ADR 0004 said NRT adapter mapping while engine-owned smoothing required one coherent application boundary.
+- 2026-08-03 — Accepted additive ADR 0005: the first-party host serializes one writer, the shared generation-bound store supports future NRT MPSC publishers, packed revision/value atomics publish normalized values, dirty Release RMW / Acquire swap guarantees eventual latest after quiescence, RT owns mapping and engine smoothing, and applied confirmation means target latched rather than ramp settled.
+- 2026-08-03 — Replacement/reset prepares a nonreused generation, rebinds by stable `ParameterId`, rejects/contains stale keys, seeds every coalesced target, and retires the complete old state to NRT. `SampleEvent` remains mapped on NRT and bypasses smoothing.
+- 2026-08-03 — Created #213–#216 with non-overlapping store, engine application, device-host lifecycle, and OSC/protocol ownership. Only dependency-free #213 is `status:ready`; #214–#216 remain blocked and all are unassigned.
+- 2026-08-03 — Independent review found replacement quiescence, superseded-pending termination, release-sequence wording, capacity, retirement fallback, and smoothing validation underspecified. ADR 0005 now uses nonwaiting close/recheck, packed per-slot revisions, an explicit 16,384-key/1,024-coalesced cap, preallocated retirement fallback, a model-test requirement, and a named manifest validation change.
+- 2026-08-03 — Independent re-review found no atomic/lifecycle blocker and requested two consistency fixes: compact coalesced slot indexing now makes the exact scan cap 16 dirty words, and implemented ADR 0004 is promoted from stale Proposed status to Accepted before accepted ADR 0005 amends it.
+- 2026-08-03 — Complete-diff review found one REVISE contradiction: ADR 0004 described ADR 0005's new smoothing/class validation as implemented. ADR 0004 now explicitly records current code behavior and defers that enforcement to #213; the ADR process/template now documents additive `amends` metadata.
 
 ## Verification
 
-- [ ] `python3 scripts/docs/reconcile_work.py --check`
-- [ ] `python3 scripts/docs/check_docs.py`
-- [ ] independent decision review
+- [x] `python3 scripts/docs/reconcile_work.py --check`
+- [x] `python3 scripts/docs/check_docs.py`
+- [x] independent decision review (REVISE findings addressed in ADR 0005)
+- [x] `python3 scripts/docs/sync_roadmap.py --check`
 
 ## Handoff
 
-- Completed: issue claimed and packet created.
-- Remaining: contract decision, child issues, review, PR.
-- Known risks: avoid speculative MPSC complexity while preserving future APVTS/MIDI adapter viability.
-- Next smallest action: map current producer threads and value conversions.
-- Files a new agent should read next: this packet, ADR 0004, RT contract, `param_manifest/src/runtime.rs`.
+- Completed: accepted decision and ADR 0004 reconciliation; docs routing; #101 split/link/status metadata; roadmap links; generated dashboard; independent review and checks.
+- Remaining: integrate this local commit through the repository's normal review path, then close #212. No push or PR was requested in this task.
+- Known risks: the packed `AtomicU64` protocol requires lock-free target support and a Loom/equivalent model test; the 1,024 active-coalesced callback cap needs measurement; applied confirmation is target-latched, not smoothing-settled; the `/param/echo` semantic migration is deliberately isolated in #216.
+- Next smallest action: review/merge this docs-focused commit, close #212, then claim unassigned ready leaf #213 separately if desired.
+- Files a new agent should read next: this packet, ADR 0005, ADR 0004, RT contract, and #213.

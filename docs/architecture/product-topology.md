@@ -51,7 +51,7 @@ The exact desktop shell remains open. Browser components never own UDP sockets, 
 | External MIDI/OSC/file side effects | Standalone host | Composition runtime emits abstract requests only |
 | Device configuration and process lifecycle | Standalone shell/host | UI connection state |
 
-The UI must distinguish desired, pending, and engine-confirmed state. It is not a second authoritative project model.
+The UI must distinguish desired, pending, and engine-confirmed state. For continuous parameters, [ADR 0005](../decisions/0005-coalesced-parameter-publication.md) defines pending publication revisions and applied-confirmed smoothing targets; confirmation does not mean a smoothing ramp has settled. The UI is not a second authoritative project model.
 
 ## Optional plugin topology
 
