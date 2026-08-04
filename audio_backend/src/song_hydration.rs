@@ -306,10 +306,13 @@ fn push_effect_commands(
 }
 
 fn runtime_instrument_id(model_id: usize) -> Result<InstrumentId> {
-    let raw = u32::try_from(model_id).map_err(|_| {
-        anyhow::anyhow!("project instrument ID {model_id} exceeds the runtime u32 range")
+    // Tracker events persist instrument references as u8. Reject a bank ID that
+    // events and the current UI cannot represent instead of hydrating a runtime
+    // instrument that no tracker cell can address consistently.
+    let project_id = u8::try_from(model_id).map_err(|_| {
+        anyhow::anyhow!("project instrument ID {model_id} exceeds the tracker event u8 range")
     })?;
-    Ok(InstrumentId::from_raw(raw))
+    Ok(InstrumentId::from_raw(u32::from(project_id)))
 }
 
 fn map_waveform_to_backend(waveform: Waveform) -> BackendWaveform {
@@ -364,18 +367,19 @@ mod tests {
         );
     }
 
-    #[cfg(target_pointer_width = "64")]
     #[test]
-    fn hydration_rejects_project_instrument_ids_wider_than_runtime_ids() {
-        let invalid = usize::try_from(u64::from(u32::MAX) + 1).unwrap();
+    fn hydration_rejects_instrument_ids_tracker_events_cannot_address() {
+        let invalid = usize::from(u8::MAX) + 1;
         assert!(runtime_instrument_id(invalid).is_err());
 
-        let mut song = Song::new("invalid runtime ID");
+        let mut song = Song::new("invalid tracker instrument ID");
         song.instrument_bank.push(project_instrument(invalid));
         let error = match build_song_hydration_commands(&song, 48_000.0) {
-            Ok(_) => panic!("oversized project ID must be rejected"),
+            Ok(_) => panic!("unaddressable project ID must be rejected"),
             Err(error) => error,
         };
-        assert!(error.to_string().contains("exceeds the runtime u32 range"));
+        assert!(error
+            .to_string()
+            .contains("exceeds the tracker event u8 range"));
     }
 }

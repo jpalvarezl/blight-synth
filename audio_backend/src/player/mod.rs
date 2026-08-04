@@ -36,7 +36,9 @@ const MAX_TRACKER_EVENTS_PER_SLICE: usize = MAX_TICKS_PER_RENDER_SLICE * MAX_TRA
 // same explicit bound.
 const MAX_LIVE_EVENTS_PER_BLOCK: usize = 64;
 const DEFAULT_EVENT_CAPACITY: usize = MAX_TRACKER_EVENTS_PER_SLICE + MAX_LIVE_EVENTS_PER_BLOCK;
-const NO_INSTRUMENT_ID: InstrumentId = InstrumentId::from_raw(NO_INSTRUMENT as u32);
+fn no_instrument_id() -> InstrumentId {
+    InstrumentId::from_raw(u32::from(NO_INSTRUMENT))
+}
 
 /// Compact callback-visible event-lane outcome.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -593,12 +595,12 @@ fn emit_current_row(
             continue;
         };
         let explicit_instrument = InstrumentId::from_raw(u32::from(event.instrument_id));
-        let instrument_id = if explicit_instrument == NO_INSTRUMENT_ID {
+        let instrument_id = if explicit_instrument == no_instrument_id() {
             *cached_instrument
         } else {
             let previous = *cached_instrument;
             *cached_instrument = explicit_instrument;
-            if previous != NO_INSTRUMENT_ID {
+            if previous != no_instrument_id() {
                 push_tracker_event(
                     sample_offset,
                     sequence,

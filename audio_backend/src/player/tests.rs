@@ -583,5 +583,8 @@ fn timing_failure_reanchors_for_play_last_song_recovery() {
 fn tracker_instrument_cache_is_exactly_max_tracks_and_directly_indexed() {
     let adapter = tracker_engine_adapter::TrackerEngineAdapter::new();
     assert_eq!(adapter.track_instruments().len(), MAX_TRACKS);
-    assert_eq!(adapter.track_instruments(), [NO_INSTRUMENT_ID; MAX_TRACKS]);
+    assert_eq!(
+        adapter.track_instruments(),
+        [no_instrument_id(); MAX_TRACKS]
+    );
 }

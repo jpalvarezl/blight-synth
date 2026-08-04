@@ -3,7 +3,9 @@ use sequencer::models::{MAX_TRACKS, NO_INSTRUMENT};
 
 use crate::id::InstrumentId;
 
-const NO_INSTRUMENT_ID: InstrumentId = InstrumentId::from_raw(NO_INSTRUMENT as u32);
+fn no_instrument_id() -> InstrumentId {
+    InstrumentId::from_raw(u32::from(NO_INSTRUMENT))
+}
 
 /// Tracker-specific adapter around the host-independent render engine.
 ///
@@ -19,7 +21,7 @@ impl TrackerEngineAdapter {
     pub fn new() -> Self {
         Self {
             engine: Engine::new(),
-            track_last_instrument: [NO_INSTRUMENT_ID; MAX_TRACKS],
+            track_last_instrument: [no_instrument_id(); MAX_TRACKS],
         }
     }
 
@@ -47,7 +49,7 @@ impl TrackerEngineAdapter {
 
     pub fn clear_instruments(&mut self, retired: &mut impl RetireSink) {
         self.engine.clear_instruments(retired);
-        self.track_last_instrument.fill(NO_INSTRUMENT_ID);
+        self.track_last_instrument.fill(no_instrument_id());
     }
 
     pub fn handle_engine_command(&mut self, command: EngineCommand, retired: &mut impl RetireSink) {
