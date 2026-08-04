@@ -1,9 +1,9 @@
 ---
 title: ADR 0004 — Canonical parameter manifest and host bindings
 summary: One serializable parameter manifest is the single source of truth for parameter metadata across the Rust DSP/engine, project state, OSC, JUCE/APVTS, and the Svelte UI; a bounded string-free runtime lookup serves the audio thread.
-status: proposed
-updated: 2026-07-24
-issues: [121, 101, 145, 137]
+status: accepted
+updated: 2026-08-03
+issues: [121, 101, 145, 137, 212]
 supersedes: []
 ---
 
@@ -11,7 +11,7 @@ supersedes: []
 
 ## Status
 
-Proposed
+Accepted
 
 Deciding issue: [#121](https://github.com/jpalvarezl/blight-synth/issues/121).
 
@@ -22,7 +22,10 @@ does not rewire every existing instrument/effect parameter (follow-up), and does
 not change engine voice code (owned by
 [#137](https://github.com/jpalvarezl/blight-synth/issues/137)). It provides the
 types plus one representative descriptor matching the standalone master gain.
-The existing OSC/engine path is not migrated by this issue.
+The existing OSC/engine path is not migrated by this issue. The accepted
+[ADR 0005](0005-coalesced-parameter-publication.md) adds the coalesced publication,
+generation, mapping-execution, smoothing, and confirmation contract and amends
+the narrower adapter-mapping description below.
 
 ## Context
 
@@ -111,8 +114,12 @@ requires an explicit migration.
 
 ### 3. Normalized ↔ engine mapping ownership
 
-`Mapping` is the sole owner of unit conversion and is `Copy`, so it lives in both
-the descriptor and the runtime tier:
+`Mapping`, exposed to runtime consumers only through
+`RuntimeParameterTable::normalized_to_engine`, is the sole owner of unit
+conversion and is `Copy`, so it lives in both the descriptor and the runtime
+tier. The conversion API is shared, while traffic class determines its execution
+site: NRT event preparation maps `SampleEvent` values; the RT consumer maps
+normalized `ControlCoalesced` values under ADR 0005:
 
 - `Linear { min, max }`
 - `Exponential { min, max }` (perceptual frequency/time controls; valid manifests
@@ -160,9 +167,9 @@ classification.
 ### 5. How host adapters bind without duplicating conversion/smoothing
 
 - **OSC** decodes `/param/set <id> <normalized>` and calls
-  `ParameterLookup::key_for(id)` (NRT) to reach the descriptor's `Mapping`, rather
-  than hard-coding `normalized_gain_to_db`. It submits the mapped engine value on
-  the coalesced continuous path (#101).
+  `ParameterLookup::key_for(id)` on NRT. It publishes the canonical normalized
+  value to ADR 0005's generation-bound coalesced store rather than hard-coding
+  `normalized_gain_to_db`; the RT consumer maps through the owning runtime table.
 - **JUCE/APVTS** builds `AudioParameterFloat`s from `display_name`/`short_name`,
   a normalized `0..1` range, the `default_normalized()` default, and the
   `automatable`/`read_only` flags; host automation arrives normalized and is
@@ -171,8 +178,12 @@ classification.
   usable as a TS contract) for labels, ranges, defaults, and step labels, and
   sends normalized values keyed by the stable ID.
 
-Smoothing lives in `SmoothingPolicy` on the descriptor, so de-zipper behavior is
-identical across every adapter for the same parameter.
+Smoothing policy lives in `SmoothingPolicy` on the descriptor and its prepared
+state is owned only by the engine parameter application layer, so de-zipper
+behavior is identical across every adapter. ADR 0005 adds the accepted target
+that `Smoothed` is valid only for `ControlCoalesced`; sample-event and structural
+descriptors use `None`. The validation enforcement is pending #213 rather than
+implemented by the current manifest crate.
 
 ### 6. Stable IDs and compatibility rules
 
@@ -185,7 +196,9 @@ identical across every adapter for the same parameter.
   ranges, variant-specific mapping invariants, exact mapping/range agreement,
   finite smoothing, `version_added` in `1..=schema_version`, non-contradictory
   automation/read-only visibility, and discrete values/defaults within range.
-  Discrete numeric values (including non-uniform sets) are copied into a flat
+  ADR 0005's additional automation-rate/smoothing cross-check is explicitly
+  deferred to #213; current code does not yet enforce it. Discrete numeric values
+  (including non-uniform sets) are copied into a flat
   string-free runtime arena rather than reconstructed from `step_count`;
   normalized discrete positions and `default_normalized()` use ordinal step indexes.
 - `ParameterManifest::compatibility_against(previous)` reports breaking changes:
@@ -273,9 +286,9 @@ The decision is validated when:
   allocations/deallocations around continuous and discrete RT lookup/conversion
   (including invalid keys and special float inputs); and
 - [#101](https://github.com/jpalvarezl/blight-synth/issues/101) consumes
-  `ParameterLookup`/`RuntimeParamKey` for coalesced continuous values without
-  needing transport-specific conversion, and the OSC adapter's `/param/set gain`
-  path binds to the `gain` descriptor instead of `normalized_gain_to_db`.
+  `ParameterLookup`/`RuntimeParamKey` under ADR 0005's generation-bound normalized
+  publication contract, and the OSC adapter's `/param/set gain` path binds to the
+  `gain` descriptor instead of `normalized_gain_to_db`.
 
 Revisit with a superseding ADR if: a parameter needs a mapping/kind that does not
 fit `Mapping`/`ParameterKind`; the RT lookup's dense-index model conflicts with
@@ -292,3 +305,4 @@ classes are insufficient to express real traffic.
   [ADR 0002](0002-device-host-osc-split.md)
 - Consumers/related: #101 (coalesced continuous parameters), #145/#134
   (timestamped events), #137 (polyphony/capacity)
+- Additive amendment: [ADR 0005 — Coalesced parameter publication and lifecycle](0005-coalesced-parameter-publication.md)

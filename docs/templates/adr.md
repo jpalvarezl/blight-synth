@@ -2,10 +2,17 @@
 title: ADR Template
 summary: Copyable structure for durable cross-domain architecture decisions.
 status: current
-updated: 2026-07-14
+updated: 2026-08-03
+issues: []
+supersedes: []
+amends: []
 ---
 
 # ADR NNNN — Decision title
+
+Frontmatter should include `issues: []` for deciding/owning issue numbers,
+`supersedes: []` for reversals, and `amends: []` for compatible additive
+decisions, populated when relevant.
 
 ## Status
 

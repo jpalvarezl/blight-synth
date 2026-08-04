@@ -2,8 +2,8 @@
 title: OSC Address Space
 summary: Implemented standalone OSC protocol snapshot and open protocol decisions.
 status: current
-updated: 2026-07-22
-issues: [104, 120, 122, 123]
+updated: 2026-08-03
+issues: [101, 104, 120, 122, 123, 212]
 ---
 
 # OSC Address Space — `blight-synth`
@@ -69,13 +69,16 @@ plugin). Both the Rust and TypeScript sides should reference this file.
 3. **`/preset/load` vs `/song/load`.** The scaffolding used `/preset/load`; the
    project uses `/song/load` against the existing `Song` model. Save/load
    protocol is #122.
-4. **Parameter transport: Commands vs atomics (#101).** `/param/set` currently
-   enters a bounded standalone control-worker queue and is then retained in FIFO
-   order until the RT command ring accepts it. A request rejected before worker
-   acceptance emits no `/param/echo`; accepted responses are emitted only after
-   ring enqueue. This is fine for low-rate control, but high-rate continuous
-   params (knob drags / automation in #111) still require the coalesced "latest
-   value wins" pipeline owned by #101 rather than structural queue growth.
+4. ~~**Parameter transport: Commands vs atomics (#101).**~~ **Contract resolved
+   by [ADR 0005](decisions/0005-coalesced-parameter-publication.md); migration
+   pending.** `/param/set` currently enters a bounded standalone control-worker
+   queue and is then retained in FIFO order until the RT command ring accepts it.
+   Its current `/param/echo` therefore means queue acceptance. The #101 migration
+   will publish normalized values to the generation-bound coalesced store and
+   change `/param/echo` to the RT applied-confirmed target (not smoothing-settled
+   audio); an immediate publication-acceptance response, if added, must have a
+   distinct protocol meaning. High-rate controls will no longer grow the
+   structural queue.
 
 ## Not yet implemented
 
