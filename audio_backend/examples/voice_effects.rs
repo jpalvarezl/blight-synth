@@ -1,13 +1,16 @@
 use std::thread;
 
-use audio_backend::{BlightAudio, EffectCmd, InstrumentCmd, SynthCmd, TransportCmd};
+use audio_backend::{
+    id::{EffectId, InstrumentId},
+    BlightAudio, EffectCmd, InstrumentCmd, SynthCmd, TransportCmd,
+};
 
 pub fn main() {
     match &mut BlightAudio::new() {
         Ok(audio) => {
             println!("BlightAudio initialized successfully!");
-            let instrument_id = 0;
-            let effect_id = 0;
+            let instrument_id = InstrumentId::from_raw(0);
+            let effect_id = EffectId::from_raw(0);
             let _ = audio.send_command(
                 InstrumentCmd::AddInstrument {
                     instrument: audio

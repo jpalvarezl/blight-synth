@@ -87,7 +87,12 @@ impl ResourceManager {
                 loop_start: sample.loop_info().map(|l| l.start),
                 loop_end: sample.loop_info().map(|l| l.end),
             };
-            let sample_id = index as SampleId;
+            let raw_sample_id = u32::try_from(index).map_err(|_| {
+                AudioBackendError(format!(
+                    "DLS sample index {index} exceeds the SampleId range"
+                ))
+            })?;
+            let sample_id = SampleId::from_raw(raw_sample_id);
             self.sample_names.insert(sample_id, name);
             self.add_sample(sample_id, sample_data);
         }
@@ -145,7 +150,7 @@ mod tests {
     fn stores_and_retrieves_decoded_sample_data() {
         let mut resources = ResourceManager::new();
         resources.add_sample(
-            7,
+            SampleId::from_raw(7),
             SampleData {
                 data: vec![0.25, -0.25],
                 sample_rate: 48_000.0,
@@ -155,10 +160,12 @@ mod tests {
             },
         );
 
-        let sample = resources.get_sample(7).expect("sample must exist");
+        let sample = resources
+            .get_sample(SampleId::from_raw(7))
+            .expect("sample must exist");
         assert_eq!(sample.data, [0.25, -0.25]);
         assert_eq!(sample.sample_rate, 48_000.0);
-        assert!(resources.get_sample(8).is_none());
+        assert!(resources.get_sample(SampleId::from_raw(8)).is_none());
     }
 
     #[test]
@@ -204,11 +211,13 @@ mod tests {
         writer.finalize().expect("finalize temporary WAV");
 
         let mut resources = ResourceManager::new();
-        let result = resources.add_sample_from_file(11, &path);
+        let result = resources.add_sample_from_file(SampleId::from_raw(11), &path);
         std::fs::remove_file(&path).expect("remove temporary WAV");
         result.expect("load temporary WAV");
 
-        let sample = resources.get_sample(11).expect("loaded sample must exist");
+        let sample = resources
+            .get_sample(SampleId::from_raw(11))
+            .expect("loaded sample must exist");
         assert_eq!(sample.sample_rate, 22_050.0);
         assert_eq!(sample.channels, 1);
         assert_eq!(sample.data.len(), 3);
@@ -216,7 +225,10 @@ mod tests {
         assert!((sample.data[1] - (i16::MAX as f32 / 32_768.0)).abs() < f32::EPSILON);
         assert_eq!(sample.data[2], -1.0);
         assert_eq!(
-            resources.get_sample_names().get(&11).map(String::as_str),
+            resources
+                .get_sample_names()
+                .get(&SampleId::from_raw(11))
+                .map(String::as_str),
             path.file_stem().and_then(|name| name.to_str())
         );
     }

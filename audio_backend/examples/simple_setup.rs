@@ -1,13 +1,13 @@
 use std::thread;
 
-use audio_backend::{BlightAudio, InstrumentCmd, TransportCmd};
+use audio_backend::{id::InstrumentId, BlightAudio, InstrumentCmd, TransportCmd};
 
 fn main() {
     // This is a placeholder for the main function.
     // The actual implementation will depend on how you want to use the BlightAudio API.
     match &mut BlightAudio::new() {
         Ok(audio) => {
-            let instrument_id = 0;
+            let instrument_id = InstrumentId::from_raw(0);
             let _ = audio.send_command(
                 InstrumentCmd::AddInstrument {
                     instrument: audio

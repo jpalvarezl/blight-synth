@@ -1,12 +1,15 @@
 use std::thread;
 
-use audio_backend::{id::InstrumentId, BlightAudio, InstrumentCmd, MixerCmd};
+use audio_backend::{
+    id::{EffectId, InstrumentId},
+    BlightAudio, InstrumentCmd, MixerCmd,
+};
 
 pub fn main() {
     match &mut BlightAudio::new() {
         Ok(audio) => {
             println!("BlightAudio initialized successfully!");
-            let stereo_gain_id = 0;
+            let stereo_gain_id = EffectId::from_raw(0);
             let _ = audio.send_command(
                 MixerCmd::AddMasterEffect {
                     effect: audio
@@ -16,7 +19,7 @@ pub fn main() {
                 .into(),
             );
 
-            let inst_id: InstrumentId = 1;
+            let inst_id = InstrumentId::from_raw(1);
             let _ = audio.send_command(
                 InstrumentCmd::AddInstrument {
                     instrument: audio
@@ -57,8 +60,8 @@ pub fn main() {
                 .into(),
             );
             // Play a chord
-            let inst2: InstrumentId = 2;
-            let inst3: InstrumentId = 3;
+            let inst2 = InstrumentId::from_raw(2);
+            let inst3 = InstrumentId::from_raw(3);
             let i2 = audio
                 .get_instrument_factory()
                 .create_simple_oscillator(inst2, 0.0);

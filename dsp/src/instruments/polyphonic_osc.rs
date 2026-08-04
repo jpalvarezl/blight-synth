@@ -14,7 +14,7 @@ impl PolyphonicOscillator {
         let voices: Vec<VoiceSlot<OscillatorNode>> = (0..max_polyphony)
             .map(|_| {
                 VoiceSlot::new(Voice::new(
-                    0,
+                    crate::id::VoiceId::from_raw(0),
                     OscillatorNode::new(),
                     envelope.clone(),
                     pan,

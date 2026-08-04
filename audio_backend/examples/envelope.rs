@@ -1,11 +1,13 @@
 use std::{thread, time::Duration};
 
-use audio_backend::{BlightAudio, EnvelopeCmd, InstrumentCmd, SynthCmd, TransportCmd};
+use audio_backend::{
+    id::InstrumentId, BlightAudio, EnvelopeCmd, InstrumentCmd, SynthCmd, TransportCmd,
+};
 
 fn main() {
     match &mut BlightAudio::new() {
         Ok(audio) => {
-            let instrument_id = 0;
+            let instrument_id = InstrumentId::from_raw(0);
             let _ = audio.send_command(
                 audio_backend::InstrumentCmd::AddInstrument {
                     instrument: audio

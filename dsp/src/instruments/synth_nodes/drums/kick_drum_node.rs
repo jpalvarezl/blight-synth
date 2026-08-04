@@ -59,9 +59,11 @@ impl SynthNode for KickDrumVoice {
                 envelope_id,
                 command,
             } => match envelope_id {
-                Some(0) => self.amp_env.handle_command(command),
-                Some(1) => self.pitch_env.handle_command(command),
-                Some(_) => false,
+                Some(id) => match id.raw() {
+                    0 => self.amp_env.handle_command(command),
+                    1 => self.pitch_env.handle_command(command),
+                    _ => false,
+                },
                 None => {
                     crate::rt_warn_log!("No Envelope ID defined; command ignored");
                     false
@@ -80,6 +82,6 @@ pub enum KickDrumEnvelope {
 
 impl From<KickDrumEnvelope> for EnvelopeId {
     fn from(env: KickDrumEnvelope) -> Self {
-        env as EnvelopeId
+        EnvelopeId::from_raw(env as u32)
     }
 }

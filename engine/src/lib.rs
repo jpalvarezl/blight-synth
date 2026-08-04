@@ -510,6 +510,14 @@ mod tests {
 
     use super::*;
 
+    const fn instrument_id(raw: u32) -> InstrumentId {
+        InstrumentId::from_raw(raw)
+    }
+
+    const fn effect_id(raw: u32) -> EffectId {
+        EffectId::from_raw(raw)
+    }
+
     struct TestInstrument {
         id: InstrumentId,
         note_ons: Arc<AtomicUsize>,
@@ -675,7 +683,7 @@ mod tests {
         engine.handle_command(
             InstrumentCmd::AddInstrument {
                 instrument: Box::new(TestInstrument {
-                    id: 3,
+                    id: instrument_id(3),
                     note_ons: note_ons.clone(),
                     note_offs: note_offs.clone(),
                     effect_value: effect_value.clone(),
@@ -685,14 +693,17 @@ mod tests {
         );
         engine.handle_command(
             MixerCmd::AddMasterEffect {
-                effect: Box::new(ScaleEffect { id: 9, scale: 2.0 }),
+                effect: Box::new(ScaleEffect {
+                    id: effect_id(9),
+                    scale: 2.0,
+                }),
             }
             .into(),
         );
 
         engine.handle_command(
             InstrumentCmd::NoteOn {
-                instrument_id: 3,
+                instrument_id: instrument_id(3),
                 note: 60,
                 velocity: 127,
             }
@@ -700,8 +711,8 @@ mod tests {
         );
         engine.handle_command(
             InstrumentCmd::SetEffectParameter {
-                instrument_id: 3,
-                effect_id: 4,
+                instrument_id: instrument_id(3),
+                effect_id: effect_id(4),
                 param_index: 0,
                 value: 0.75,
             }
@@ -710,7 +721,12 @@ mod tests {
         let mut left = [0.0; 4];
         let mut right = [0.0; 4];
         engine.process(&mut left, &mut right, 48_000.0);
-        engine.handle_command(InstrumentCmd::NoteOff { instrument_id: 3 }.into());
+        engine.handle_command(
+            InstrumentCmd::NoteOff {
+                instrument_id: instrument_id(3),
+            }
+            .into(),
+        );
 
         assert_eq!(left, [0.5; 4]);
         assert_eq!(right, [1.0; 4]);
@@ -729,7 +745,12 @@ mod tests {
             )
         };
         let mut engine = Engine::new();
-        for id in [3, 1, 2, 2] {
+        for id in [
+            instrument_id(3),
+            instrument_id(1),
+            instrument_id(2),
+            instrument_id(2),
+        ] {
             let (note_ons, note_offs, effect_value) = counters();
             engine.add_instrument(Box::new(TestInstrument {
                 id,
@@ -745,7 +766,7 @@ mod tests {
                 .iter()
                 .map(|slot| slot.id)
                 .collect::<Vec<_>>(),
-            [1, 2, 3]
+            [instrument_id(1), instrument_id(2), instrument_id(3)]
         );
     }
 
@@ -781,7 +802,7 @@ mod tests {
         let mut retired = CollectRetired(Vec::new());
         engine.add_instrument_with_retirement(
             Box::new(DropProbeInstrument {
-                id: 7,
+                id: instrument_id(7),
                 drop_thread: drop_thread.clone(),
             }),
             &mut retired,
@@ -790,7 +811,7 @@ mod tests {
 
         engine.add_instrument_with_retirement(
             Box::new(TestInstrument {
-                id: 7,
+                id: instrument_id(7),
                 note_ons: Arc::new(AtomicUsize::new(0)),
                 note_offs: Arc::new(AtomicUsize::new(0)),
                 effect_value: Arc::new(AtomicU32::new(0)),
@@ -814,7 +835,7 @@ mod tests {
         let mut engine = Engine::new();
         let mut retired = CollectRetired(Vec::with_capacity(16));
 
-        for id in [1, 2, 3] {
+        for id in [instrument_id(1), instrument_id(2), instrument_id(3)] {
             engine.add_instrument_with_retirement(
                 Box::new(DropProbeInstrument {
                     id,
@@ -827,25 +848,28 @@ mod tests {
         assert_eq!(retired.0.len(), 3);
 
         engine.add_effect_to_instrument(
-            99,
+            instrument_id(99),
             Box::new(DropMonoEffect {
-                id: 1,
+                id: effect_id(1),
                 drops: mono_drops.clone(),
             }),
             &mut retired,
         );
         let mut voice_effects = VoiceEffects::new();
         voice_effects.push(Box::new(DropMonoEffect {
-            id: 2,
+            id: effect_id(2),
             drops: mono_drops.clone(),
         }));
         voice_effects.push(Box::new(DropMonoEffect {
-            id: 3,
+            id: effect_id(3),
             drops: mono_drops.clone(),
         }));
-        engine.add_voice_effects_to_instrument(99, voice_effects, &mut retired);
+        engine.add_voice_effects_to_instrument(instrument_id(99), voice_effects, &mut retired);
 
-        for id in 0..=DEFAULT_MASTER_EFFECT_CAPACITY as EffectId {
+        let maximum_effect_id = u32::try_from(DEFAULT_MASTER_EFFECT_CAPACITY)
+            .expect("test master-effect capacity must fit the EffectId raw representation");
+        for raw in 0..=maximum_effect_id {
+            let id = effect_id(raw);
             engine.add_master_effect(
                 Box::new(DropStereoEffect {
                     id,
@@ -866,8 +890,8 @@ mod tests {
     #[test]
     fn polyphonic_single_effect_rejection_reports_typed_reason_and_returns_effect() {
         let mut instrument =
-            InstrumentFactory::new(48_000.0).create_polyphonic_oscillator(4, 0.0, 2);
-        let effect = EffectFactory::new(48_000.0).create_mono_gain(9, 1.0);
+            InstrumentFactory::new(48_000.0).create_polyphonic_oscillator(instrument_id(4), 0.0, 2);
+        let effect = EffectFactory::new(48_000.0).create_mono_gain(effect_id(9), 1.0);
 
         let error = instrument
             .add_effect(effect)
@@ -884,7 +908,7 @@ mod tests {
     fn renders_only_complete_frames_when_channel_lengths_differ() {
         let mut engine = Engine::new();
         engine.add_instrument(Box::new(TestInstrument {
-            id: 3,
+            id: instrument_id(3),
             note_ons: Arc::new(AtomicUsize::new(0)),
             note_offs: Arc::new(AtomicUsize::new(0)),
             effect_value: Arc::new(AtomicU32::new(0)),
@@ -901,10 +925,10 @@ mod tests {
     #[test]
     fn missing_instrument_ids_are_no_ops() {
         let mut engine = Engine::new();
-        engine.note_on(99, 60, 127);
-        engine.note_off(99, 60);
-        engine.set_instrument_pan(99, 0.5);
-        engine.set_instrument_effect_parameter(99, 1, 0, 0.5);
+        engine.note_on(instrument_id(99), 60, 127);
+        engine.note_off(instrument_id(99), 60);
+        engine.set_instrument_pan(instrument_id(99), 0.5);
+        engine.set_instrument_effect_parameter(instrument_id(99), effect_id(1), 0, 0.5);
 
         let mut left = [0.0; 2];
         let mut right = [0.0; 2];
@@ -930,7 +954,7 @@ mod tests {
         };
 
         // Fill both hard slots with distinct ids.
-        for id in [1, 2] {
+        for id in [instrument_id(1), instrument_id(2)] {
             engine.add_instrument_with_retirement(make(id), &mut retired);
         }
         assert!(retired.0.is_empty(), "in-capacity inserts must not retire");
@@ -939,7 +963,7 @@ mod tests {
         // A distinct third id exceeds the hard cap: it is rejected and its owner
         // is retired rather than growing the preallocated slot vector.
         let capacity_before = engine.instruments.capacity();
-        engine.add_instrument_with_retirement(make(3), &mut retired);
+        engine.add_instrument_with_retirement(make(instrument_id(3)), &mut retired);
         assert_eq!(retired.0.len(), 1, "over-cap instrument must be retired");
         assert_eq!(
             engine.instruments.len(),
@@ -957,12 +981,12 @@ mod tests {
                 .iter()
                 .map(|slot| slot.id)
                 .collect::<Vec<_>>(),
-            [1, 2]
+            [instrument_id(1), instrument_id(2)]
         );
 
         // Replacing an existing id still succeeds at capacity and retires the
         // displaced owner (does not count against the cap).
-        engine.add_instrument_with_retirement(make(1), &mut retired);
+        engine.add_instrument_with_retirement(make(instrument_id(1)), &mut retired);
         assert_eq!(retired.0.len(), 2);
         assert_eq!(engine.instruments.len(), 2);
     }

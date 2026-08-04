@@ -8,6 +8,10 @@ use sequencer::models::{
 };
 use std::sync::atomic::AtomicBool;
 
+fn runtime_instrument_id(raw: u8) -> audio_backend::id::InstrumentId {
+    audio_backend::id::InstrumentId::from_raw(u32::from(raw))
+}
+
 pub fn ensure_backend_instrument(audio_mgr: &mut AudioManager, id_u8: u8, data: &InstrumentData) {
     audio_mgr.hydrate_instrument(id_u8, data.clone());
 }
@@ -48,7 +52,7 @@ pub(crate) fn send_amp_envelope_on_worker(
     env: &AmpEnvelopeParams,
     shutdown: &AtomicBool,
 ) -> bool {
-    let id = audio_backend::id::InstrumentId::from(instrument_id as u32);
+    let id = runtime_instrument_id(instrument_id);
     for command in [
         EnvelopeCmd::SetAttack { attack: env.attack },
         EnvelopeCmd::SetDecay { decay: env.decay },
@@ -64,7 +68,7 @@ pub(crate) fn send_amp_envelope_on_worker(
             audio_backend::InstrumentCmd::PassOnSynthCmd {
                 instrument_id: id,
                 synth_cmd: audio_backend::SynthCmd::EnvelopeCommand {
-                    envelope_id: Some(0),
+                    envelope_id: Some(audio_backend::id::EnvelopeId::from_raw(0)),
                     command,
                 },
             }
@@ -84,7 +88,7 @@ fn hydrate_osc_with_params(
     shutdown: &AtomicBool,
 ) -> bool {
     let backend_wave = map_waveform_to_backend(params.waveform);
-    let id = audio_backend::id::InstrumentId::from(id_u8 as u32);
+    let id = runtime_instrument_id(id_u8);
     let instrument = audio
         .get_instrument_factory()
         .create_oscillator_with_waveform(id, 0.0, backend_wave);
@@ -108,7 +112,7 @@ fn hydrate_hihat_with_params(
     params: &HiHatParams,
     shutdown: &AtomicBool,
 ) -> bool {
-    let id = audio_backend::id::InstrumentId::from(id_u8 as u32);
+    let id = runtime_instrument_id(id_u8);
     let instrument = audio.get_instrument_factory().create_hihat(id, 0.0);
     if !submit_command(
         audio,
@@ -130,7 +134,7 @@ fn hydrate_kick_with_params(
     params: &KickDrumParams,
     shutdown: &AtomicBool,
 ) -> bool {
-    let id = audio_backend::id::InstrumentId::from(id_u8 as u32);
+    let id = runtime_instrument_id(id_u8);
     let instrument = audio.get_instrument_factory().create_kick_drum(id, 0.0);
     if !submit_command(
         audio,
@@ -169,7 +173,7 @@ fn hydrate_snare_with_params(
     params: &SnareDrumParams,
     shutdown: &AtomicBool,
 ) -> bool {
-    let id = audio_backend::id::InstrumentId::from(id_u8 as u32);
+    let id = runtime_instrument_id(id_u8);
     let instrument = audio.get_instrument_factory().create_snare_drum(id, 0.0);
     if !submit_command(
         audio,
@@ -191,7 +195,7 @@ fn hydrate_dfam_with_params(
     params: &sequencer::models::DFAMParams,
     shutdown: &AtomicBool,
 ) -> bool {
-    let id = audio_backend::id::InstrumentId::from(id_u8 as u32);
+    let id = runtime_instrument_id(id_u8);
     let instrument = audio.get_instrument_factory().create_dfam(id, 0.0);
     if !submit_command(
         audio,

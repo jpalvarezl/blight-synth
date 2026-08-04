@@ -63,7 +63,7 @@ impl SynthNode for SnareDrumVoice {
                 envelope_id,
                 command,
             } => match envelope_id {
-                Some(id) => match *id {
+                Some(id) => match id.raw() {
                     0 => self.osc_env.handle_command(command),
                     1 => self.noise_env.handle_command(command),
                     _ => false,
@@ -86,6 +86,6 @@ pub enum SnareDrumEnvelope {
 
 impl From<SnareDrumEnvelope> for EnvelopeId {
     fn from(env: SnareDrumEnvelope) -> Self {
-        env as EnvelopeId
+        EnvelopeId::from_raw(env as u32)
     }
 }

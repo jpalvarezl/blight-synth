@@ -10,7 +10,7 @@ impl MoogDFAM {
     pub fn new(instrument_id: InstrumentId, pan: f32, sample_rate: f32) -> Self {
         let envelope = Envelope::new(sample_rate);
         let voice = Voice::new(
-            0,
+            crate::id::VoiceId::from_raw(0),
             MoogNode::new(
                 OscillatorNode::new_with_waveform(Waveform::Square),
                 OscillatorNode::new_with_waveform(Waveform::Square),

@@ -285,7 +285,7 @@ impl<S: SynthNode> InstrumentTrait for PolyphonicInstrument<S> {
 #[cfg(test)]
 mod polyphony_tests {
     use super::*;
-    use crate::id::{NoteEvent, NoteId};
+    use crate::id::{InstrumentId, NoteEvent, NoteId, VoiceId};
     use crate::{Envelope, MonoEffectChain, SynthNode, Voice};
 
     /// Builds a note-on event for tests.
@@ -330,7 +330,7 @@ mod polyphony_tests {
         let voices: Vec<_> = (0..max_polyphony)
             .map(|_| {
                 VoiceSlot::new(Voice::new_no_envelope(
-                    0,
+                    VoiceId::from_raw(0),
                     TestNode::default(),
                     0.0,
                     MonoEffectChain::new(1),
@@ -338,7 +338,7 @@ mod polyphony_tests {
             })
             .collect();
         PolyphonicInstrument {
-            instrument_id: 1,
+            instrument_id: InstrumentId::from_raw(1),
             age_scratch: vec![0; voices.len()],
             voices,
             next_age: 0,
@@ -369,7 +369,7 @@ mod polyphony_tests {
         let voices = (0..max_polyphony)
             .map(|_| {
                 VoiceSlot::new(Voice::new(
-                    0,
+                    VoiceId::from_raw(0),
                     EnvelopeTestNode::default(),
                     Envelope::new_adsr(SAMPLE_RATE, 0.0, 0.0, 1.0, 0.01),
                     0.0,
@@ -378,7 +378,7 @@ mod polyphony_tests {
             })
             .collect::<Vec<_>>();
         PolyphonicInstrument {
-            instrument_id: 1,
+            instrument_id: InstrumentId::from_raw(1),
             age_scratch: vec![0; voices.len()],
             voices,
             next_age: 0,

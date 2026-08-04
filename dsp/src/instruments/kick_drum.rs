@@ -13,7 +13,7 @@ pub type KickDrum = MonophonicInstrument<KickDrumVoice>;
 impl KickDrum {
     pub fn new(instrument_id: InstrumentId, pan: f32, sample_rate: f32) -> Self {
         let voice = Voice::new_no_envelope(
-            0,
+            crate::id::VoiceId::from_raw(0),
             KickDrumVoice::new(sample_rate),
             pan,
             crate::MonoEffectChain::new(10),

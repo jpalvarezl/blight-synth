@@ -1,6 +1,10 @@
 use std::thread;
 
-use audio_backend::{instruments::Waveform, BlightAudio, InstrumentCmd, SynthCmd, TransportCmd};
+use audio_backend::{
+    id::{InstrumentId, VoiceId},
+    instruments::Waveform,
+    BlightAudio, InstrumentCmd, SynthCmd, TransportCmd,
+};
 
 fn main() {
     // This is a placeholder for the main function.
@@ -10,7 +14,8 @@ fn main() {
             println!("BlightAudio initialized successfully!");
             // You can now use `audio` to send commands, etc.
 
-            let instrument_id = 0;
+            let instrument_id = InstrumentId::from_raw(0);
+            let voice_id = VoiceId::from_raw(0);
             let _ = audio.send_command(
                 audio_backend::InstrumentCmd::AddInstrument {
                     instrument: audio
@@ -33,7 +38,7 @@ fn main() {
                 InstrumentCmd::PassOnSynthCmd {
                     instrument_id,
                     synth_cmd: SynthCmd::SetWaveform {
-                        voice_id: 0,
+                        voice_id,
                         waveform: Waveform::Sawtooth,
                     },
                 }
@@ -44,7 +49,7 @@ fn main() {
                 InstrumentCmd::PassOnSynthCmd {
                     instrument_id,
                     synth_cmd: SynthCmd::SetWaveform {
-                        voice_id: 0,
+                        voice_id,
                         waveform: Waveform::Square,
                     },
                 }
@@ -55,7 +60,7 @@ fn main() {
                 InstrumentCmd::PassOnSynthCmd {
                     instrument_id,
                     synth_cmd: SynthCmd::SetWaveform {
-                        voice_id: 0,
+                        voice_id,
                         waveform: Waveform::Triangle,
                     },
                 }
@@ -66,7 +71,7 @@ fn main() {
                 InstrumentCmd::PassOnSynthCmd {
                     instrument_id,
                     synth_cmd: SynthCmd::SetWaveform {
-                        voice_id: 0,
+                        voice_id,
                         waveform: Waveform::NesTriangle,
                     },
                 }
