@@ -2,7 +2,7 @@
 title: Real-Time Audio Contract
 summary: Enforced callback safety, bounded-work, ownership, overload, and verification rules for M1.
 status: accepted
-updated: 2026-08-02
+updated: 2026-08-03
 issues: [101, 132, 133, 134, 136, 137, 138, 145, 171, 172, 173, 174, 175, 201, 203, 212]
 ---
 

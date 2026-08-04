@@ -2,8 +2,8 @@
 title: Product and Host Topology
 summary: Accepted standalone-first product topology, optional host matrix, and state/parameter authority.
 status: accepted
-updated: 2026-07-19
-issues: [129, 144, 145]
+updated: 2026-08-03
+issues: [101, 129, 144, 145, 212]
 ---
 
 # Product and Host Topology
