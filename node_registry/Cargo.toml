@@ -1,0 +1,10 @@
+[package]
+name = "node_registry"
+version = "0.1.0"
+edition = "2021"
+description = "Versioned node definitions and the statically compiled NRT built-in DSP registry."
+
+[dependencies]
+dsp = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }

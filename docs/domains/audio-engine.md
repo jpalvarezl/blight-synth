@@ -2,8 +2,8 @@
 title: Audio Engine Domain
 summary: Focused context for DSP, instruments, effects, rendering, and RT contracts.
 status: current
-updated: 2026-08-03
-issues: [101, 132, 133, 134, 135, 136, 137, 174, 186, 187, 188, 201, 203, 204, 212]
+updated: 2026-08-04
+issues: [101, 132, 133, 134, 135, 136, 137, 174, 186, 187, 188, 201, 203, 204, 210, 212]
 ---
 
 # Audio Engine Domain
@@ -39,6 +39,7 @@ Read parameter/state/composition pages only when the issue changes those contrac
 - `dsp/src/synth_infra/`
 - `dsp/src/instruments/`
 - `dsp/src/effects/`
+- `node_registry/src/` (versioned definitions and NRT-only built-in preparation)
 - `audio_backend/src/standalone/audio_processor/mod.rs` (standalone callback adapter)
 - `audio_backend/src/offline.rs`
 - `audio_backend/src/player/tracker_engine_adapter.rs` (tracker-only adapter)

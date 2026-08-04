@@ -2497,6 +2497,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "node_registry"
+version = "0.1.0"
+dependencies = [
+ "dsp",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "nohash-hasher"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
