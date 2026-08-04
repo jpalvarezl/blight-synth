@@ -13,4 +13,4 @@ A packet is a handoff cache, not a second specification. It links to the issue a
 
 ## Active
 
-- [Issue #209 — Introduce typed DSP and engine instance IDs](issue-209-typed-instance-ids.md)
+_No active packets. Create one when an issue moves to `status:in-progress`._
