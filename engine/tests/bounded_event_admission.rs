@@ -83,6 +83,7 @@ fn rejected_block_error(status: OrdinaryEventBlockStatus) -> EventAdmissionError
 fn prepared_sample_binding() -> PreparedParameterBinding {
     let mut descriptor = master_gain_descriptor();
     descriptor.automation_rate = AutomationRate::SampleEvent;
+    descriptor.smoothing = param_manifest::SmoothingPolicy::None;
     let lookup = ParameterLookup::from_manifest(&ParameterManifest::new(vec![descriptor]))
         .expect("valid sample-event descriptor");
     let key = lookup

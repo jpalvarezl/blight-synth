@@ -65,10 +65,11 @@ pub struct RuntimeParameter {
     kind: RuntimeKind,
     automation_rate: AutomationRate,
     smoothing: SmoothingPolicy,
+    read_only: bool,
     default_engine: f32,
     min_engine: f32,
     max_engine: f32,
-    discrete_values_offset: usize,
+    discrete_values_offset: u32,
 }
 
 impl RuntimeParameter {
@@ -98,6 +99,11 @@ impl RuntimeParameter {
     }
 
     #[must_use]
+    pub fn read_only(self) -> bool {
+        self.read_only
+    }
+
+    #[must_use]
     pub fn default_engine(self) -> f32 {
         self.default_engine
     }
@@ -118,6 +124,8 @@ impl RuntimeParameter {
         kind: RuntimeKind,
         discrete_values_offset: usize,
     ) -> Self {
+        let discrete_values_offset = u32::try_from(discrete_values_offset)
+            .expect("validated total discrete-value capacity fits u32");
         Self {
             key,
             engine_param_index: descriptor.owner.engine_param_index,
@@ -125,11 +133,37 @@ impl RuntimeParameter {
             kind,
             automation_rate: descriptor.automation_rate,
             smoothing: descriptor.smoothing,
+            read_only: descriptor.visibility.read_only,
             default_engine: descriptor.range.default,
             min_engine: descriptor.range.min,
             max_engine: descriptor.range.max,
             discrete_values_offset,
         }
+    }
+
+    fn default_normalized(self, discrete_values: &[f32]) -> f32 {
+        if let RuntimeKind::Discrete { step_count } = self.kind {
+            let Some(offset) = usize::try_from(self.discrete_values_offset).ok() else {
+                return 0.0;
+            };
+            let Some(count) = usize::try_from(step_count).ok() else {
+                return 0.0;
+            };
+            let Some(end) = offset.checked_add(count) else {
+                return 0.0;
+            };
+            if let Some(values) = discrete_values.get(offset..end) {
+                if values.len() >= 2 {
+                    if let Some(index) = values
+                        .iter()
+                        .position(|value| *value == self.default_engine)
+                    {
+                        return (index as f64 / (values.len() - 1) as f64) as f32;
+                    }
+                }
+            }
+        }
+        self.mapping.to_normalized(self.default_engine)
     }
 
     fn normalized_to_engine(self, normalized: f32, discrete_values: &[f32]) -> f32 {
@@ -146,10 +180,13 @@ impl RuntimeParameter {
         let Some(count) = usize::try_from(step_count).ok() else {
             return self.sanitized_bounds().0;
         };
-        let Some(end) = self.discrete_values_offset.checked_add(count) else {
+        let Some(offset) = usize::try_from(self.discrete_values_offset).ok() else {
             return self.sanitized_bounds().0;
         };
-        let Some(values) = discrete_values.get(self.discrete_values_offset..end) else {
+        let Some(end) = offset.checked_add(count) else {
+            return self.sanitized_bounds().0;
+        };
+        let Some(values) = discrete_values.get(offset..end) else {
             return self.sanitized_bounds().0;
         };
         if values.is_empty() {
@@ -223,6 +260,13 @@ impl RuntimeParameterTable {
     pub fn normalized_to_engine(&self, key: RuntimeParamKey, normalized: f32) -> Option<f32> {
         self.get(key)
             .map(|entry| entry.normalized_to_engine(normalized, &self.discrete_values))
+    }
+
+    /// Return a parameter's descriptor default in normalized host units.
+    #[must_use]
+    pub fn default_normalized(&self, key: RuntimeParamKey) -> Option<f32> {
+        self.get(key)
+            .map(|entry| entry.default_normalized(&self.discrete_values))
     }
 
     /// Number of parameters in the table (RT-safe).
@@ -390,10 +434,11 @@ mod tests {
                 duration_ms: f32::NAN,
                 curve: SmoothingCurve::Linear,
             },
+            read_only: false,
             default_engine: f32::NAN,
             min_engine: f32::NAN,
             max_engine: -1.0,
-            discrete_values_offset: usize::MAX,
+            discrete_values_offset: u32::MAX,
         };
 
         let output = malformed.normalized_to_engine(f32::NAN, &[]);

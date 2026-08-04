@@ -334,6 +334,9 @@ fn prepared_master_gain_binding(
 ) -> (Result<PreparedParameterBinding, ParameterBindingError>, f32) {
     let mut descriptor = master_gain_descriptor();
     descriptor.automation_rate = automation_rate;
+    if automation_rate != AutomationRate::ControlCoalesced {
+        descriptor.smoothing = param_manifest::SmoothingPolicy::None;
+    }
     let lookup = ParameterLookup::from_manifest(&ParameterManifest::new(vec![descriptor]))
         .expect("test parameter manifest is valid");
     let key = lookup
@@ -489,6 +492,7 @@ fn prepared_instrument_effect_binding_dispatches_to_its_concrete_target() {
     descriptor.owner.node_type = NodeType::InstrumentEffect;
     descriptor.owner.path = "instrument/effect:gain".to_string();
     descriptor.automation_rate = AutomationRate::SampleEvent;
+    descriptor.smoothing = param_manifest::SmoothingPolicy::None;
     let lookup = ParameterLookup::from_manifest(&ParameterManifest::new(vec![descriptor]))
         .expect("instrument-effect descriptor is valid");
     let key = lookup

@@ -3,8 +3,8 @@
 use param_manifest::{
     builtin::{builtin_manifest, master_gain_descriptor, MASTER_GAIN_FLOOR_DB, MASTER_GAIN_ID},
     AutomationRate, CompatibilityBreak, Mapping, ParameterDescriptor, ParameterId, ParameterLookup,
-    ParameterManifest, RuntimeKind, RuntimeParameter, ValueRange, MANIFEST_SCHEMA_VERSION,
-    MAX_DISCRETE_STEP_COUNT, MAX_PARAMETER_COUNT, MAX_SKEW, MIN_SKEW,
+    ParameterManifest, RuntimeKind, RuntimeParameter, SmoothingCurve, SmoothingPolicy, ValueRange,
+    MANIFEST_SCHEMA_VERSION, MAX_DISCRETE_STEP_COUNT, MAX_PARAMETER_COUNT, MAX_SKEW, MIN_SKEW,
 };
 
 #[test]
@@ -88,6 +88,7 @@ fn changing_automation_rate_is_a_breaking_change() {
     let previous = builtin_manifest();
     let mut changed = master_gain_descriptor();
     changed.automation_rate = AutomationRate::Structural;
+    changed.smoothing = SmoothingPolicy::None;
     let new = ParameterManifest::new(vec![changed]);
 
     let report = new.compatibility_against(&previous);
@@ -97,6 +98,47 @@ fn changing_automation_rate_is_a_breaking_change() {
             ParameterId::from(MASTER_GAIN_ID)
         )]
     );
+}
+
+#[test]
+fn smoothing_is_valid_only_for_control_coalesced_parameters() {
+    for automation_rate in [AutomationRate::SampleEvent, AutomationRate::Structural] {
+        let mut descriptor = master_gain_descriptor();
+        descriptor.automation_rate = automation_rate;
+        descriptor.smoothing = SmoothingPolicy::Smoothed {
+            duration_ms: 10.0,
+            curve: SmoothingCurve::Linear,
+        };
+        let error = ParameterManifest::new(vec![descriptor])
+            .validate()
+            .expect_err("non-coalesced smoothing must be rejected");
+        assert!(matches!(
+            error,
+            param_manifest::ManifestError::ContradictorySmoothingClass(_)
+        ));
+    }
+
+    let mut coalesced = master_gain_descriptor();
+    coalesced.smoothing = SmoothingPolicy::Smoothed {
+        duration_ms: 10.0,
+        curve: SmoothingCurve::Exponential,
+    };
+    ParameterManifest::new(vec![coalesced])
+        .validate()
+        .expect("ControlCoalesced retains ADR 0004 smoothing compatibility");
+
+    for automation_rate in [
+        AutomationRate::SampleEvent,
+        AutomationRate::ControlCoalesced,
+        AutomationRate::Structural,
+    ] {
+        let mut descriptor = master_gain_descriptor();
+        descriptor.automation_rate = automation_rate;
+        descriptor.smoothing = SmoothingPolicy::None;
+        ParameterManifest::new(vec![descriptor])
+            .validate()
+            .expect("ADR 0004 None fixtures remain valid for every traffic class");
+    }
 }
 
 #[test]

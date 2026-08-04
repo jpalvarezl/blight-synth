@@ -75,7 +75,8 @@ ALLOWED = {
     # explicit architecture change rather than a way to route around the
     # known-forbidden list above.
     "dsp": {"arrayvec", "log", "utils"},
-    "engine": {"dsp", "param_manifest"},
+    # `loom` is test-only and deterministically models ADR 0005's atomic handoff.
+    "engine": {"dsp", "loom", "param_manifest"},
     "param_manifest": {"serde", "serde_json"},
     "sequencer": {"anyhow", "bincode", "clap", "serde", "serde_json", "serde_with"},
     "utils": {"serde", "serde_json"},

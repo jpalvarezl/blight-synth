@@ -174,8 +174,9 @@ implemented sample-event binding, which contains no smoother.
 
 ### 4. Exact publication and dirty-bit memory ordering
 
-This is the implementation target for #213–#215, not a claim about the current
-transitional command path. The initial implementation uses one lock-free
+#213 implements the store portion of this target; engine target application and
+host lifecycle remain #214/#215, and the transitional command path remains until
+#216. The store uses one lock-free
 `AtomicU64 publication_word` per coalesced slot, one lock-free
 `AtomicU64 applied_word` per slot, and a fixed array
 of `AtomicU64` dirty words. Packing revision and value makes both publication and

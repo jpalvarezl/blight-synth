@@ -1,7 +1,15 @@
+#[cfg(not(target_has_atomic = "64"))]
+compile_error!(
+    "engine strict-RT parameter publication requires target_has_atomic=\"64\"; software-emulated or locked AtomicU64 is unsupported"
+);
+
+mod coalesced_parameters;
 mod commands;
 mod event_admission;
 mod events;
+mod parameter_atomic_protocol;
 
+pub use coalesced_parameters::*;
 pub use commands::*;
 use dsp::{
     id::{EffectId, InstrumentId, NoteEvent, NoteId},

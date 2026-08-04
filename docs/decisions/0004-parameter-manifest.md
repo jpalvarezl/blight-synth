@@ -182,8 +182,7 @@ Smoothing policy lives in `SmoothingPolicy` on the descriptor and its prepared
 state is owned only by the engine parameter application layer, so de-zipper
 behavior is identical across every adapter. ADR 0005 adds the accepted target
 that `Smoothed` is valid only for `ControlCoalesced`; sample-event and structural
-descriptors use `None`. The validation enforcement is pending #213 rather than
-implemented by the current manifest crate.
+descriptors use `None`. The manifest crate enforces this cross-class constraint as implemented by #213.
 
 ### 6. Stable IDs and compatibility rules
 
@@ -196,8 +195,8 @@ implemented by the current manifest crate.
   ranges, variant-specific mapping invariants, exact mapping/range agreement,
   finite smoothing, `version_added` in `1..=schema_version`, non-contradictory
   automation/read-only visibility, and discrete values/defaults within range.
-  ADR 0005's additional automation-rate/smoothing cross-check is explicitly
-  deferred to #213; current code does not yet enforce it. Discrete numeric values
+  ADR 0005's additional automation-rate/smoothing cross-check is enforced: a
+  `Smoothed` descriptor is valid only when its rate is `ControlCoalesced`. Discrete numeric values
   (including non-uniform sets) are copied into a flat
   string-free runtime arena rather than reconstructed from `step_count`;
   normalized discrete positions and `default_normalized()` use ordinal step indexes.
