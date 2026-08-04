@@ -398,7 +398,7 @@ cases where intermediate order is meaningful.
 ### Reuse bare dense keys across table replacement
 
 Rejected. Descriptor order may change, so stale writes could control a different
-parameter. Pairing keys with nonreused generations and replacing the complete
+parameter. Pairing keys with non-reused generations and replacing the complete
 prepared state makes stale behavior explicit.
 
 ### Use only relaxed atomics
