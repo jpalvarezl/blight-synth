@@ -14,4 +14,3 @@ A packet is a handoff cache, not a second specification. It links to the issue a
 ## Active
 
 - [Issue #209 — Introduce typed DSP and engine instance IDs](issue-209-typed-instance-ids.md)
-- [Issue #212 — Decide the coalesced parameter ownership and lifecycle contract](issue-212-coalesced-parameter-contract.md)
