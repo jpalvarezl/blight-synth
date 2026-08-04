@@ -5,7 +5,7 @@ status: accepted
 updated: 2026-08-03
 issues: [101, 121, 201, 212]
 supersedes: []
-amends: [4]
+amends: ["0004"]
 ---
 
 # ADR 0005 — Coalesced parameter publication and lifecycle

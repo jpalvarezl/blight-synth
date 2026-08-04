@@ -27,7 +27,7 @@ updated: 2026-08-03
 |---|---|---|
 | Workspace and host-independent engine boundary | [#130](https://github.com/jpalvarezl/blight-synth/issues/130) | Draft |
 | Engine lifecycle | [#132](https://github.com/jpalvarezl/blight-synth/issues/132) | Draft |
-| Real-time safety | [#133](https://github.com/jpalvarezl/blight-synth/issues/133) | Draft |
+| Real-time safety | [#133](https://github.com/jpalvarezl/blight-synth/issues/133) | Accepted |
 | Sample-accurate events | [#134](https://github.com/jpalvarezl/blight-synth/issues/134) | Draft |
 | Composition event sources | [#145](https://github.com/jpalvarezl/blight-synth/issues/145) | Proposed (ADR 0003) |
 | Parameter manifest | [#121](https://github.com/jpalvarezl/blight-synth/issues/121) | Accepted (ADR 0004) |
