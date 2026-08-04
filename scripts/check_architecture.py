@@ -25,6 +25,7 @@ FORBIDDEN = {
         "rfd",
         "hound",
         "os_dls",
+        "node_registry",
     },
     "engine": {
         "audio_backend",
@@ -37,6 +38,7 @@ FORBIDDEN = {
         "rfd",
         "hound",
         "os_dls",
+        "node_registry",
     },
     "sequencer": {
         "audio_backend",
@@ -50,6 +52,7 @@ FORBIDDEN = {
         "rfd",
         "hound",
         "os_dls",
+        "node_registry",
     },
     "utils": {
         "audio_backend",
@@ -64,6 +67,7 @@ FORBIDDEN = {
         "rfd",
         "hound",
         "os_dls",
+        "node_registry",
     },
 }
 REQUIRED = {
@@ -78,6 +82,7 @@ ALLOWED = {
     # `loom` is test-only and deterministically models ADR 0005's atomic handoff.
     "engine": {"dsp", "loom", "param_manifest"},
     "param_manifest": {"serde", "serde_json"},
+    "node_registry": {"dsp", "serde", "serde_json"},
     "sequencer": {"anyhow", "bincode", "clap", "serde", "serde_json", "serde_with"},
     "utils": {"serde", "serde_json"},
     "os_dls": {"riff"},

@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "instance_id": 7,
+  "kind": "blight.instrument.oscillator.mono",
+  "parameters": {
+    "pan": 0.25,
+    "waveform": "sawtooth"
+  },
+  "effects": [
+    {
+      "schema_version": 1,
+      "instance_id": 41,
+      "kind": "blight.effect.gain.mono",
+      "parameters": {
+        "gain": 0.5
+      }
+    },
+    {
+      "schema_version": 1,
+      "instance_id": 42,
+      "kind": "blight.effect.gain.mono",
+      "parameters": {
+        "gain": 1.25
+      }
+    }
+  ]
+}

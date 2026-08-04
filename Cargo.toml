@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["dsp", "engine", "audio_backend", "utils", "sequencer", "tracker_gui", "os_dls", "param_manifest"]
+members = ["dsp", "engine", "audio_backend", "utils", "sequencer", "tracker_gui", "os_dls", "param_manifest", "node_registry"]
 default-members = ["tracker_gui"]
 
 [workspace.dependencies]
@@ -31,3 +31,4 @@ utils = { path = "utils" }
 audio_backend = { path = "audio_backend", default-features = false }
 os_dls = { path = "os_dls" }
 param_manifest = { path = "param_manifest" }
+node_registry = { path = "node_registry" }
