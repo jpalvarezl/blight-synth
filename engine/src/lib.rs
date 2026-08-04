@@ -866,7 +866,9 @@ mod tests {
         }));
         engine.add_voice_effects_to_instrument(instrument_id(99), voice_effects, &mut retired);
 
-        for raw in 0..=DEFAULT_MASTER_EFFECT_CAPACITY as u32 {
+        let maximum_effect_id = u32::try_from(DEFAULT_MASTER_EFFECT_CAPACITY)
+            .expect("test master-effect capacity must fit the EffectId raw representation");
+        for raw in 0..=maximum_effect_id {
             let id = effect_id(raw);
             engine.add_master_effect(
                 Box::new(DropStereoEffect {
