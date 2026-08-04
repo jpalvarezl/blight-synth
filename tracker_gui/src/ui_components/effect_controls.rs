@@ -85,7 +85,7 @@ fn show_reverb_section(
     audio_mgr: &mut AudioManager,
     sync: &mut dyn EffectSync,
 ) {
-    let inst_id_u8 = config.instrument_id as u8;
+    let inst_id_u8 = project_instrument_id(config.instrument_id);
     let reverb_idx = effects
         .iter()
         .position(|eff| matches!(eff, AudioEffect::Reverb { .. }));
@@ -188,7 +188,7 @@ fn show_delay_section(
     audio_mgr: &mut AudioManager,
     sync: &mut dyn EffectSync,
 ) {
-    let inst_id_u8 = config.instrument_id as u8;
+    let inst_id_u8 = project_instrument_id(config.instrument_id);
     let delay_idx = effects
         .iter()
         .position(|eff| matches!(eff, AudioEffect::Delay { .. }));
@@ -276,9 +276,12 @@ fn show_delay_section(
     }
 }
 
+fn project_instrument_id(raw: usize) -> u8 {
+    u8::try_from(raw).expect("tracker UI instrument ID exceeds the project u8 range")
+}
+
 fn runtime_instrument_id(raw: usize) -> audio_backend::id::InstrumentId {
-    let raw = u32::try_from(raw).expect("tracker UI instrument ID exceeds the runtime u32 range");
-    audio_backend::id::InstrumentId::from_raw(raw)
+    audio_backend::id::InstrumentId::from_raw(u32::from(project_instrument_id(raw)))
 }
 
 fn push_reverb_updates(
@@ -328,5 +331,25 @@ fn push_delay_updates(
             param_index,
             value,
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn runtime_id_uses_the_same_checked_project_id_as_rehydration() {
+        assert_eq!(project_instrument_id(u8::MAX as usize), u8::MAX);
+        assert_eq!(
+            runtime_instrument_id(u8::MAX as usize).raw(),
+            u32::from(u8::MAX),
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "tracker UI instrument ID exceeds the project u8 range")]
+    fn runtime_id_rejects_values_that_project_rehydration_cannot_represent() {
+        let _ = runtime_instrument_id(u8::MAX as usize + 1);
     }
 }
