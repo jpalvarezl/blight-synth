@@ -338,6 +338,45 @@ fn sample_resolution_and_owner_construction_run_on_an_explicit_nrt_thread() {
     assert_eq!(prepared.effects[0].id(), EffectId::from_raw(51));
 }
 
+struct FixedSample(Arc<dsp::SampleData>);
+
+impl SampleResolver for FixedSample {
+    fn resolve_sample(&self, id: SampleId) -> Option<Arc<dsp::SampleData>> {
+        (id == SampleId::from_raw(23)).then(|| self.0.clone())
+    }
+}
+
+#[test]
+fn sample_resources_require_supported_channels_and_aligned_data() {
+    for (channels, sample_count) in [(0, 16), (3, 18), (2, 15)] {
+        let resolver = FixedSample(Arc::new(dsp::SampleData {
+            data: vec![0.0; sample_count],
+            sample_rate: 48_000.0,
+            channels,
+            loop_start: None,
+            loop_end: None,
+        }));
+        let context = NrtPreparationContext::new(48_000.0).with_sample_resolver(&resolver);
+        let definition = InstrumentDefinition::new(
+            InstrumentId::from_raw(32),
+            kind::ONE_SHOT_SAMPLE_PLAYER,
+            payload(json!({ "pan": 0.0, "sample_id": 23 })),
+            Vec::new(),
+        );
+
+        let error = BuiltInRegistry::new()
+            .prepare_instrument(&definition, &context)
+            .err()
+            .unwrap();
+        assert!(matches!(
+            error,
+            PreparationError::InvalidDefinition { diagnostic, .. }
+                if diagnostic.code == InvalidDefinitionCode::InvalidResource
+                    && diagnostic.field.as_deref() == Some("sample_id")
+        ));
+    }
+}
+
 #[test]
 fn missing_sample_resource_is_an_invalid_definition_not_a_panic() {
     let definition = InstrumentDefinition::new(

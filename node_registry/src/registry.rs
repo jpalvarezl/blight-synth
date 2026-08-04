@@ -707,11 +707,18 @@ fn resolve_sample(
                 format!("sample resource {} was not found", parameters.sample_id),
             )
         })?;
-    if !sample.sample_rate.is_finite() || sample.sample_rate <= 0.0 || sample.channels == 0 {
+    if !sample.sample_rate.is_finite() || sample.sample_rate <= 0.0 {
         return Err(InvalidDefinitionDiagnostic::new(
             InvalidDefinitionCode::InvalidResource,
             Some("sample_id"),
-            "sample must have a positive finite sample rate and at least one channel",
+            "sample must have a positive finite sample rate",
+        ));
+    }
+    if !matches!(sample.channels, 1 | 2) || sample.data.len() % usize::from(sample.channels) != 0 {
+        return Err(InvalidDefinitionDiagnostic::new(
+            InvalidDefinitionCode::InvalidResource,
+            Some("sample_id"),
+            "sample must be mono or stereo with channel-aligned interleaved data",
         ));
     }
     Ok(sample)
