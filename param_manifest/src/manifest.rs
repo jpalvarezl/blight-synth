@@ -3,7 +3,9 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
-use crate::descriptor::{ParameterDescriptor, ParameterId, ParameterKind, SmoothingPolicy};
+use crate::descriptor::{
+    AutomationRate, ParameterDescriptor, ParameterId, ParameterKind, SmoothingPolicy,
+};
 use crate::mapping::{Mapping, MAX_SKEW, MIN_SKEW};
 
 /// Current manifest schema version.
@@ -41,6 +43,8 @@ pub enum ManifestError {
     },
     /// A descriptor is simultaneously writable by automation and read-only.
     ContradictoryVisibility(ParameterId),
+    /// Smoothing is requested for a traffic class with no prepared smoother.
+    ContradictorySmoothingClass(ParameterId),
     /// A descriptor carries non-finite or inconsistent numeric fields.
     InvalidNumericDescriptor {
         id: ParameterId,
@@ -70,6 +74,10 @@ impl std::fmt::Display for ManifestError {
             ManifestError::ContradictoryVisibility(id) => write!(
                 f,
                 "descriptor `{id}` cannot be both automatable and read-only"
+            ),
+            ManifestError::ContradictorySmoothingClass(id) => write!(
+                f,
+                "descriptor `{id}` may be smoothed only when automation_rate is control-coalesced"
             ),
             ManifestError::InvalidNumericDescriptor { id, reason } => {
                 write!(f, "descriptor `{id}` has invalid numeric fields: {reason}")
@@ -135,6 +143,13 @@ impl ParameterManifest {
             }
             if descriptor.visibility.automatable && descriptor.visibility.read_only {
                 return Err(ManifestError::ContradictoryVisibility(
+                    descriptor.id.clone(),
+                ));
+            }
+            if matches!(descriptor.smoothing, SmoothingPolicy::Smoothed { .. })
+                && descriptor.automation_rate != AutomationRate::ControlCoalesced
+            {
+                return Err(ManifestError::ContradictorySmoothingClass(
                     descriptor.id.clone(),
                 ));
             }

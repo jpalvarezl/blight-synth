@@ -15,7 +15,7 @@ issue: 213
 - Status: in-progress
 - Branch: `issue/213-coalesced-parameter-store`
 - Worktree: `/Users/jpalvarezl/code/blight-213`
-- Base branch/SHA: `main` / `072ade3`
+- Base branch/SHA: `main` / `fb67163`
 - Head: branch tip at handoff
 - Last handoff: 2026-08-04
 
@@ -43,25 +43,26 @@ Out of scope: engine mapping/smoothing (#214), device-host lifecycle (#215), OSC
 
 ## Ownership and touch set
 
-Expected: `param_manifest` runtime/store/validation modules and focused tests/docs. #210 owns node definitions/registry only.
+Expected: `engine/src/coalesced_parameters.rs`, `engine/src/lib.rs`, focused `engine/tests/` store/model/allocation tests, `param_manifest/src/manifest.rs` validation/tests, `param_manifest/tests/`, the test-only Loom architecture allowlist, and narrow architecture/task-packet docs. #210 owns node definitions/registry only.
 
 ## Plan
 
-- [ ] Translate ADR invariants into compact public types.
-- [ ] Implement publication, bounded drain, generation close/reset.
-- [ ] Add manifest class/smoothing validation.
-- [ ] Add concurrency/eventual-latest/model and RT allocation tests.
-- [ ] Run full gates and review.
+- [x] Translate ADR invariants into compact public types.
+- [x] Implement publication, bounded drain, generation close/reset.
+- [x] Add manifest class/smoothing validation.
+- [x] Add concurrency/eventual-latest/model and RT allocation tests.
+- [x] Run full gates and review.
 
 ## Verification
 
-- [ ] param_manifest focused/model/allocation tests
-- [ ] workspace/strict Clippy/host-free tests
-- [ ] fmt, architecture, RT logging, docs/reconcile checks
+- [x] param_manifest focused/model/allocation tests
+- [x] workspace/strict all-feature Clippy/tests and host-free tests
+- [x] fmt, architecture, RT logging, docs/reconcile checks
 
 ## Handoff
 
-- Completed: claimed and packet created.
-- Remaining: implementation through PR.
-- Known risks: lock-free target support and revision exhaustion semantics must match ADR exactly.
-- Next: encode ADR store state machine in tests/types.
+- Completed: implemented and independently reviewed the generation-bound packed atomic store, fixed 16-word/1,024-slot RT drain, compact statuses/counters/confirmation, close/reset/exhaustion behavior, lock-free target policy, manifest smoothing-class validation, Loom plus stress/capacity/zero-heap coverage, and narrow implemented-truth docs.
+- Verification: `cargo test -p param_manifest`; `cargo test --workspace --all-targets`; strict `RUSTFLAGS='-D warnings' cargo test --workspace --all-targets --all-features`; all-feature workspace Clippy; host-free `audio_backend` tests/Clippy; release diagnostic compile-out; fmt, architecture, RT logging, docs, and live reconciliation checks.
+- Remaining: no implementation work; PR creation/merge and #214–#216 integration are intentionally out of scope.
+- Known risks: target mapping/smoothing and host installation are not yet wired; all `CoalescedParameterStore`/publisher owners must be retired and finally released on NRT as documented.
+- Next: hand off the clean committed branch for PR creation by the coordinating agent.

@@ -11,9 +11,10 @@ use dsp::{
     MonoEffect, SynthCmd,
 };
 use engine::{
-    BoundedEventAdmission, Engine, EngineEvent, EventAdmissionErrorKind, EventProducerId,
-    InstrumentCmd, MixerCmd, OrdinaryEventBlockStatus, ParameterTarget, PreparedParameterBinding,
-    ProducerAdmissionStatus, RecoveryAdmissionStatus, RetireSink, RetiredState, TimestampedEvent,
+    BoundedEventAdmission, CoalescedParameterStore, Engine, EngineEvent, EventAdmissionErrorKind,
+    EventProducerId, InstrumentCmd, MixerCmd, OrdinaryEventBlockStatus, ParameterApplicationResult,
+    ParameterTableGenerations, ParameterTarget, PreparedParameterBinding, ProducerAdmissionStatus,
+    PublicationResult, RecoveryAdmissionStatus, RetireSink, RetiredState, TimestampedEvent,
 };
 use param_manifest::{
     builtin::{master_gain_descriptor, MASTER_GAIN_ID},
@@ -265,6 +266,7 @@ fn prepared_timestamped_event_application_and_segmented_render_has_no_heap_activ
     // binding all happen on NRT before the measured callback operation.
     let mut descriptor = master_gain_descriptor();
     descriptor.automation_rate = AutomationRate::SampleEvent;
+    descriptor.smoothing = param_manifest::SmoothingPolicy::None;
     let lookup = ParameterLookup::from_manifest(&ParameterManifest::new(vec![descriptor]))
         .expect("valid sample-event descriptor");
     let key = lookup
@@ -512,6 +514,49 @@ fn prepared_bounded_admission_reuse_rejection_and_reset_have_no_heap_activity() 
     assert_eq!(counts.allocations, 0, "unexpected RT allocations");
     assert_eq!(counts.deallocations, 0, "unexpected RT deallocations");
     assert_eq!(counts.reallocations, 0, "unexpected RT reallocations");
+}
+
+#[test]
+fn coalesced_publication_and_fixed_rt_drain_have_no_heap_activity() {
+    let lookup =
+        ParameterLookup::from_manifest(&ParameterManifest::new(vec![master_gain_descriptor()]))
+            .expect("valid coalesced descriptor");
+    let key = lookup
+        .key_for(&ParameterId::from(MASTER_GAIN_ID))
+        .expect("stable id resolves");
+    let mut generations = ParameterTableGenerations::new();
+    let store = CoalescedParameterStore::prepare(&mut generations, lookup.table(), 1)
+        .expect("store prepares on NRT");
+    let publisher = store.publisher();
+    store.drain(|_| ParameterApplicationResult::Applied);
+
+    let publication = Cell::new(None);
+    let drain_summary = Cell::new(None);
+    let counts = measure_allocations(|| {
+        publication.set(Some(publisher.publish(key, 0.25)));
+        drain_summary.set(Some(store.drain(|drained| {
+            black_box(drained);
+            ParameterApplicationResult::Applied
+        })));
+    });
+
+    assert!(matches!(
+        publication.get(),
+        Some(PublicationResult::Accepted(_))
+    ));
+    assert_eq!(drain_summary.get().unwrap().applied, 1);
+    assert_eq!(
+        counts.allocations, 0,
+        "unexpected publication/drain allocations"
+    );
+    assert_eq!(
+        counts.deallocations, 0,
+        "unexpected publication/drain deallocations"
+    );
+    assert_eq!(
+        counts.reallocations, 0,
+        "unexpected publication/drain reallocations"
+    );
 }
 
 #[test]
