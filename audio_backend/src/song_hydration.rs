@@ -301,6 +301,8 @@ mod tests {
         EffectType, Event, HiHatParams, Instrument, SampleParams, SynthParams,
     };
 
+    use crate::{EffectFactory, InstrumentFactory};
+
     fn project_instrument(id: usize) -> Instrument {
         Instrument {
             id,
@@ -400,6 +402,31 @@ mod tests {
                 }
             ));
         }
+    }
+
+    #[test]
+    fn unsupported_prepared_effect_layout_is_structured() {
+        let project_id = 7_usize;
+        let instrument_id = InstrumentId::from_raw(u32::try_from(project_id).unwrap());
+        let effect_id = EffectId::from_raw(9);
+        let prepared = PreparedInstrumentDefinition {
+            instrument: InstrumentFactory::new(48_000.0).create_hihat(instrument_id, 0.0),
+            effects: vec![PreparedEffect::Stereo(
+                EffectFactory::new(48_000.0).create_stereo_gain(effect_id, 1.0),
+            )],
+        };
+        let mut commands = Vec::new();
+
+        let error = push_prepared_owner_commands(&mut commands, project_id, prepared).unwrap_err();
+
+        assert!(matches!(
+            error,
+            SongHydrationError::UnsupportedPreparedEffectLayout {
+                project_id: 7,
+                effect_id: rejected_id,
+                layout: EffectLayout::Stereo,
+            } if rejected_id == effect_id
+        ));
     }
 
     #[test]
