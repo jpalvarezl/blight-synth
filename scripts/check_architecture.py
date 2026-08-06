@@ -72,7 +72,8 @@ FORBIDDEN = {
 }
 REQUIRED = {
     "engine": {"dsp"},
-    "audio_backend": {"dsp", "engine", "sequencer"},
+    # Registry-backed tracker hydration is a deliberate NRT control-plane edge.
+    "audio_backend": {"dsp", "engine", "node_registry", "sequencer"},
 }
 ALLOWED = {
     # These exact allowlists make dependency growth in portable crates an
