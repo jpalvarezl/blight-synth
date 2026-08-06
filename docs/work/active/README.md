@@ -13,4 +13,5 @@ A packet is a handoff cache, not a second specification. It links to the issue a
 
 ## Active
 
-_No active packets. Create one when an issue moves to `status:in-progress`._
+- [Issue #221 — Adapt legacy tracker models to versioned node definitions](issue-221-legacy-definition-adapter.md)
+- [Issue #223 — Decide coalesced smoothing delivery to block-oriented DSP](issue-223-smoothing-delivery-contract.md)

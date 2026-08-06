@@ -2,7 +2,7 @@
 title: Generated Roadmap Burndown
 summary: Offline Obsidian snapshot generated from GitHub roadmap issue metadata.
 status: generated
-source-updated: 2026-08-06T12:15:11Z
+source-updated: 2026-08-06T12:17:18Z
 generator: scripts/docs/sync_roadmap.py
 ---
 
@@ -11,14 +11,14 @@ generator: scripts/docs/sync_roadmap.py
 > [!warning] Generated file
 > GitHub Issues are canonical. Do not edit this page manually. Run `python3 scripts/docs/sync_roadmap.py`.
 
-Data snapshot through `2026-08-06T12:15:11Z`.
+Data snapshot through `2026-08-06T12:17:18Z`.
 
 ## Summary
 
 | Milestone | Open | Done | Ready | In progress | Blocked | Backlog | Sized points done/total | Unsized |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | M0: Architecture & Repository Baseline | 0 | 14 | 0 | 0 | 0 | 0 | 27/27 | 3 |
-| M1: Host-Independent Engine & RT Contracts | 14 | 23 | 2 | 0 | 9 | 3 | 58/75 | 12 |
+| M1: Host-Independent Engine & RT Contracts | 14 | 23 | 0 | 2 | 9 | 3 | 58/75 | 12 |
 | M2: Standalone Host & Control Protocol | 6 | 2 | 0 | 0 | 1 | 5 | 4/7 | 5 |
 | M3: JS/TS Composition UI & Standalone App | 9 | 0 | 0 | 0 | 0 | 9 | 0/0 | 9 |
 | M4 (Optional): Desktop Plugins (VST3/AU) | 7 | 0 | 0 | 0 | 0 | 7 | 0/0 | 7 |
@@ -38,9 +38,9 @@ Data snapshot through `2026-08-06T12:15:11Z`.
 - [ ] [#214](https://github.com/jpalvarezl/blight-synth/issues/214) Apply coalesced parameters with engine-owned smoothing — `blocked`, `epic`, unassigned
 - [ ] [#215](https://github.com/jpalvarezl/blight-synth/issues/215) Integrate coalesced parameter generations with the device host — `blocked`, `M`, unassigned
 - [ ] [#216](https://github.com/jpalvarezl/blight-synth/issues/216) Migrate OSC parameters to applied-confirmed coalescing — `blocked`, `S`, unassigned
-- [ ] [#221](https://github.com/jpalvarezl/blight-synth/issues/221) Adapt legacy tracker models to versioned node definitions — `ready`, `M`, unassigned
+- [ ] [#221](https://github.com/jpalvarezl/blight-synth/issues/221) Adapt legacy tracker models to versioned node definitions — `in-progress`, `M`, @jpalvarezl
 - [ ] [#222](https://github.com/jpalvarezl/blight-synth/issues/222) Switch tracker hydration to the built-in node registry — `blocked`, `M`, unassigned
-- [ ] [#223](https://github.com/jpalvarezl/blight-synth/issues/223) Decide coalesced smoothing delivery to block-oriented DSP — `ready`, `S`, unassigned
+- [ ] [#223](https://github.com/jpalvarezl/blight-synth/issues/223) Decide coalesced smoothing delivery to block-oriented DSP — `in-progress`, `S`, @jpalvarezl
 - [ ] [#224](https://github.com/jpalvarezl/blight-synth/issues/224) Implement the deterministic engine smoother primitive — `blocked`, `M`, unassigned
 
 ## All roadmap tasks
@@ -97,9 +97,9 @@ Data snapshot through `2026-08-06T12:15:11Z`.
 - [ ] [#214](https://github.com/jpalvarezl/blight-synth/issues/214) Apply coalesced parameters with engine-owned smoothing — `blocked`, `epic`, unassigned
 - [ ] [#215](https://github.com/jpalvarezl/blight-synth/issues/215) Integrate coalesced parameter generations with the device host — `blocked`, `M`, unassigned
 - [ ] [#216](https://github.com/jpalvarezl/blight-synth/issues/216) Migrate OSC parameters to applied-confirmed coalescing — `blocked`, `S`, unassigned
-- [ ] [#221](https://github.com/jpalvarezl/blight-synth/issues/221) Adapt legacy tracker models to versioned node definitions — `ready`, `M`, unassigned
+- [ ] [#221](https://github.com/jpalvarezl/blight-synth/issues/221) Adapt legacy tracker models to versioned node definitions — `in-progress`, `M`, @jpalvarezl
 - [ ] [#222](https://github.com/jpalvarezl/blight-synth/issues/222) Switch tracker hydration to the built-in node registry — `blocked`, `M`, unassigned
-- [ ] [#223](https://github.com/jpalvarezl/blight-synth/issues/223) Decide coalesced smoothing delivery to block-oriented DSP — `ready`, `S`, unassigned
+- [ ] [#223](https://github.com/jpalvarezl/blight-synth/issues/223) Decide coalesced smoothing delivery to block-oriented DSP — `in-progress`, `S`, @jpalvarezl
 - [ ] [#224](https://github.com/jpalvarezl/blight-synth/issues/224) Implement the deterministic engine smoother primitive — `blocked`, `M`, unassigned
 
 ### M2: Standalone Host & Control Protocol
