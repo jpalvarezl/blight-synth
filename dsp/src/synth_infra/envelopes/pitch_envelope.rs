@@ -49,6 +49,7 @@ impl PitchEnvelope {
                 self.set_freq_delta(*freq_delta);
                 true
             }
+            EnvelopeCmd::SetDecay { .. } => self.adsr.handle_command(command),
             _ => false,
         }
     }

@@ -7,7 +7,9 @@
 use std::fmt;
 
 use node_registry::{kind, EffectDefinition, InstrumentDefinition, ParameterPayload};
-use sequencer::models::{AudioEffect, InstrumentData, Waveform};
+use sequencer::models::{
+    AmpEnvelopeParams, AudioEffect, InstrumentData, PitchEnvelopeParams, Waveform,
+};
 use serde_json::Value;
 
 use crate::{
@@ -48,8 +50,8 @@ impl std::error::Error for LegacyDefinitionAdapterError {}
 
 /// Adapt one current tracker instrument into a definition without preparing or installing it.
 ///
-/// Registry constructor payloads do not contain legacy amplitude/pitch envelopes. Those remain
-/// explicit hydration commands for #222 rather than being silently invented as unknown fields.
+/// Amplitude and kick pitch envelopes are emitted into the current instrument payload version,
+/// so registry preparation can configure the complete owner before it crosses to RT.
 pub fn adapt_legacy_instrument(
     instance_id: InstrumentId,
     data: &InstrumentData,
@@ -60,31 +62,45 @@ pub fn adapt_legacy_instrument(
             payload([
                 ("pan", Value::from(0.0)),
                 ("waveform", Value::from(waveform_name(parameters.waveform))),
+                (
+                    "amplitude_envelope",
+                    amplitude_envelope_payload(&parameters.amp_envelope)?,
+                ),
             ]),
             parameters.audio_effects.as_slice(),
             false,
         ),
         InstrumentData::HiHat(parameters) => (
             kind::HI_HAT,
-            pan_payload(),
+            pan_payload(&parameters.amp_envelope)?,
             parameters.audio_effects.as_slice(),
             false,
         ),
         InstrumentData::KickDrum(parameters) => (
             kind::KICK_DRUM,
-            pan_payload(),
+            payload([
+                ("pan", Value::from(0.0)),
+                (
+                    "amplitude_envelope",
+                    amplitude_envelope_payload(&parameters.amp_envelope)?,
+                ),
+                (
+                    "pitch_envelope",
+                    pitch_envelope_payload(&parameters.pitch_envelope)?,
+                ),
+            ]),
             parameters.audio_effects.as_slice(),
             false,
         ),
         InstrumentData::SnareDrum(parameters) => (
             kind::SNARE_DRUM,
-            pan_payload(),
+            pan_payload(&parameters.amp_envelope)?,
             parameters.audio_effects.as_slice(),
             false,
         ),
         InstrumentData::DFAM(parameters) => (
             kind::MOOG_DFAM,
-            pan_payload(),
+            pan_payload(&parameters.amp_envelope)?,
             parameters.audio_effects.as_slice(),
             true,
         ),
@@ -191,8 +207,59 @@ fn finite(field: &'static str, value: f32) -> Result<f32, LegacyDefinitionAdapte
     }
 }
 
-fn pan_payload() -> ParameterPayload {
-    payload([("pan", Value::from(0.0))])
+fn pan_payload(
+    envelope: &AmpEnvelopeParams,
+) -> Result<ParameterPayload, LegacyDefinitionAdapterError> {
+    Ok(payload([
+        ("pan", Value::from(0.0)),
+        ("amplitude_envelope", amplitude_envelope_payload(envelope)?),
+    ]))
+}
+
+fn amplitude_envelope_payload(
+    envelope: &AmpEnvelopeParams,
+) -> Result<Value, LegacyDefinitionAdapterError> {
+    Ok(object(payload([
+        (
+            "attack_seconds",
+            non_negative("amp_envelope.attack", envelope.attack)?,
+        ),
+        (
+            "decay_seconds",
+            non_negative("amp_envelope.decay", envelope.decay)?,
+        ),
+        (
+            "sustain_level",
+            normalized("amp_envelope.sustain", envelope.sustain, 0.0, 1.0)?,
+        ),
+        (
+            "release_seconds",
+            non_negative("amp_envelope.release", envelope.release)?,
+        ),
+    ])))
+}
+
+fn pitch_envelope_payload(
+    envelope: &PitchEnvelopeParams,
+) -> Result<Value, LegacyDefinitionAdapterError> {
+    Ok(object(payload([
+        (
+            "frequency_delta_hz",
+            Value::from(finite("pitch_envelope.freq_delta", envelope.freq_delta)?),
+        ),
+        (
+            "decay_seconds",
+            non_negative("pitch_envelope.decay_time", envelope.decay_time)?,
+        ),
+    ])))
+}
+
+fn non_negative(field: &'static str, value: f32) -> Result<Value, LegacyDefinitionAdapterError> {
+    finite(field, value).map(|value| Value::from(value.max(0.0)))
+}
+
+fn object(payload: ParameterPayload) -> Value {
+    Value::Object(payload.into_iter().collect())
 }
 
 fn payload<const N: usize>(entries: [(&str, Value); N]) -> ParameterPayload {

@@ -10,7 +10,8 @@ use serde_json::Value;
 /// interpret. Adding a kind does not bump this value; changing the meaning or
 /// shape of an existing kind's payload requires a new version and migration on
 /// NRT before preparation.
-pub const NODE_DEFINITION_SCHEMA_VERSION: u32 = 1;
+pub const LEGACY_NODE_DEFINITION_SCHEMA_VERSION: u32 = 1;
+pub const NODE_DEFINITION_SCHEMA_VERSION: u32 = 2;
 
 /// An opaque, kind-versioned constructor payload.
 ///
@@ -127,7 +128,7 @@ pub struct EffectDefinition {
 }
 
 impl EffectDefinition {
-    /// Creates a definition at the current envelope version.
+    /// Creates an effect definition at its unchanged v1 payload version.
     #[must_use]
     pub fn new(
         instance_id: EffectId,
@@ -135,7 +136,7 @@ impl EffectDefinition {
         parameters: ParameterPayload,
     ) -> Self {
         Self {
-            schema_version: NODE_DEFINITION_SCHEMA_VERSION,
+            schema_version: LEGACY_NODE_DEFINITION_SCHEMA_VERSION,
             instance_id,
             kind: kind.into(),
             parameters,

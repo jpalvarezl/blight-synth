@@ -4,17 +4,28 @@ use dsp::id::{EffectId, InstrumentId, SampleId};
 use node_registry::{
     kind, BuiltInRegistry, EffectDefinition, EffectKindId, EffectLayout, InstrumentDefinition,
     InstrumentKindId, InvalidDefinitionCode, NodeCategory, NrtPreparationContext, ParameterPayload,
-    PreparationError, SampleResolver, NODE_DEFINITION_SCHEMA_VERSION,
+    PreparationError, SampleResolver, LEGACY_NODE_DEFINITION_SCHEMA_VERSION,
+    NODE_DEFINITION_SCHEMA_VERSION,
 };
 use serde_json::{json, Value};
 
 const V1_FIXTURE: &str = include_str!("fixtures/instrument-definition-v1.json");
+const V2_FIXTURE: &str = include_str!("fixtures/instrument-definition-v2.json");
 
 fn payload(value: Value) -> ParameterPayload {
     let Value::Object(object) = value else {
         panic!("test payload must be a JSON object");
     };
     object.into_iter().collect::<BTreeMap<_, _>>()
+}
+
+fn amplitude_envelope() -> Value {
+    json!({
+        "attack_seconds": 0.1,
+        "decay_seconds": 0.1,
+        "sustain_level": 0.8,
+        "release_seconds": 0.5
+    })
 }
 
 fn mono_gain(instance_id: u32, gain: f32) -> EffectDefinition {
@@ -29,16 +40,23 @@ fn oscillator(effects: Vec<EffectDefinition>) -> InstrumentDefinition {
     InstrumentDefinition::new(
         InstrumentId::from_raw(7),
         kind::MONO_OSCILLATOR,
-        payload(json!({ "pan": 0.25, "waveform": "sawtooth" })),
+        payload(json!({
+            "pan": 0.25,
+            "waveform": "sawtooth",
+            "amplitude_envelope": amplitude_envelope()
+        })),
         effects,
     )
 }
 
 #[test]
-fn v1_json_fixture_round_trips_deterministically() {
+fn v1_json_fixture_migrates_to_canonical_v2_deterministically() {
     let definition: InstrumentDefinition = serde_json::from_str(V1_FIXTURE).unwrap();
 
-    assert_eq!(definition.schema_version, NODE_DEFINITION_SCHEMA_VERSION);
+    assert_eq!(
+        definition.schema_version,
+        LEGACY_NODE_DEFINITION_SCHEMA_VERSION
+    );
     assert_eq!(definition.instance_id, InstrumentId::from_raw(7));
     assert_eq!(definition.kind.as_str(), kind::MONO_OSCILLATOR);
     assert_eq!(definition.effects.len(), 2);
@@ -46,10 +64,22 @@ fn v1_json_fixture_round_trips_deterministically() {
     assert_eq!(definition.effects[1].instance_id, EffectId::from_raw(42));
     assert_eq!(definition.effects[0].kind, definition.effects[1].kind);
 
-    let encoded = format!("{}\n", serde_json::to_string_pretty(&definition).unwrap());
-    assert_eq!(encoded, V1_FIXTURE);
+    let migrated = BuiltInRegistry::new()
+        .migrate_instrument_definition(&definition)
+        .unwrap();
+    assert_eq!(migrated.schema_version, NODE_DEFINITION_SCHEMA_VERSION);
+    assert_eq!(migrated.effects, definition.effects);
+    let encoded = format!("{}\n", serde_json::to_string_pretty(&migrated).unwrap());
+    assert_eq!(encoded, V2_FIXTURE);
     let decoded_again: InstrumentDefinition = serde_json::from_str(&encoded).unwrap();
-    assert_eq!(decoded_again, definition);
+    assert_eq!(decoded_again, migrated);
+    assert_eq!(
+        BuiltInRegistry::new()
+            .migrate_instrument_definition(&migrated)
+            .unwrap(),
+        migrated,
+        "migration must be idempotent at the supported version"
+    );
 }
 
 #[test]
@@ -71,12 +101,52 @@ fn unknown_definition_data_is_retained_for_diagnostics_and_migration() {
         InstrumentKindId::from("vendor.instrument.future")
     );
     assert_eq!(definition.schema_version, 77);
-    assert_eq!(serde_json::to_value(definition).unwrap(), unknown_json);
+    assert_eq!(serde_json::to_value(&definition).unwrap(), unknown_json);
+
+    let before = serde_json::to_value(&definition).unwrap();
+    let error = BuiltInRegistry::new()
+        .migrate_instrument_definition(&definition)
+        .unwrap_err();
+    assert!(matches!(
+        error,
+        PreparationError::UnknownKind {
+            category: NodeCategory::Instrument,
+            instance_id: 99,
+            ..
+        }
+    ));
+    assert_eq!(serde_json::to_value(definition).unwrap(), before);
+}
+
+#[test]
+fn migration_preserves_unrecognized_payload_data_for_preparation_diagnostics() {
+    let mut definition: InstrumentDefinition = serde_json::from_str(V1_FIXTURE).unwrap();
+    definition.parameters.insert(
+        "vendor_extension".to_owned(),
+        json!({ "opaque": [3, 2, 1] }),
+    );
+
+    let migrated = BuiltInRegistry::new()
+        .migrate_instrument_definition(&definition)
+        .unwrap();
+    assert_eq!(
+        migrated.parameters["vendor_extension"],
+        definition.parameters["vendor_extension"]
+    );
+    let error = BuiltInRegistry::new()
+        .prepare_instrument(&migrated, &NrtPreparationContext::new(48_000.0))
+        .err()
+        .unwrap();
+    assert!(matches!(
+        error,
+        PreparationError::InvalidDefinition { diagnostic, .. }
+            if diagnostic.code == InvalidDefinitionCode::InvalidParameterPayload
+    ));
 }
 
 #[test]
 fn same_kind_effects_keep_order_and_independent_typed_identity() {
-    let definition: InstrumentDefinition = serde_json::from_str(V1_FIXTURE).unwrap();
+    let definition: InstrumentDefinition = serde_json::from_str(V2_FIXTURE).unwrap();
     let prepared = BuiltInRegistry::new()
         .prepare_definition(&definition, &NrtPreparationContext::new(48_000.0))
         .unwrap();
@@ -163,7 +233,7 @@ fn unknown_instrument_and_effect_kinds_are_structured() {
 #[test]
 fn unsupported_instrument_and_effect_versions_report_supported_versions() {
     let mut instrument = oscillator(Vec::new());
-    instrument.schema_version = 2;
+    instrument.schema_version = 3;
     let error = BuiltInRegistry::new()
         .prepare_instrument(&instrument, &NrtPreparationContext::new(48_000.0))
         .err()
@@ -172,8 +242,8 @@ fn unsupported_instrument_and_effect_versions_report_supported_versions() {
         error,
         PreparationError::UnsupportedSchemaVersion {
             category: NodeCategory::Instrument,
-            requested: 2,
-            supported: &[1],
+            requested: 3,
+            supported: &[2],
             ..
         }
     ));
@@ -215,7 +285,10 @@ fn malformed_and_out_of_range_payloads_have_machine_readable_diagnostics() {
     let invalid_pan = InstrumentDefinition::new(
         InstrumentId::from_raw(6),
         kind::HI_HAT,
-        payload(json!({ "pan": 2.0 })),
+        payload(json!({
+            "pan": 2.0,
+            "amplitude_envelope": amplitude_envelope()
+        })),
         Vec::new(),
     );
     let error = BuiltInRegistry::new()
@@ -252,7 +325,7 @@ fn built_in_inventory_is_static_complete_and_distinguishes_effect_layout() {
     assert!(instruments.iter().all(|descriptor| {
         descriptor.category == NodeCategory::Instrument
             && descriptor.effect_layout.is_none()
-            && descriptor.supported_schema_versions == [1]
+            && descriptor.supported_schema_versions == [2]
     }));
 
     let effects: Vec<_> = BuiltInRegistry::effect_kinds().collect();
@@ -321,7 +394,11 @@ fn sample_resolution_and_owner_construction_run_on_an_explicit_nrt_thread() {
             let definition = InstrumentDefinition::new(
                 InstrumentId::from_raw(31),
                 kind::LOOP_SAMPLE_PLAYER,
-                payload(json!({ "pan": 0.0, "sample_id": 23 })),
+                payload(json!({
+                    "pan": 0.0,
+                    "sample_id": 23,
+                    "amplitude_envelope": amplitude_envelope()
+                })),
                 vec![mono_gain(51, 1.0)],
             );
             BuiltInRegistry::new()
@@ -360,7 +437,11 @@ fn sample_resources_require_supported_channels_and_aligned_data() {
         let definition = InstrumentDefinition::new(
             InstrumentId::from_raw(32),
             kind::ONE_SHOT_SAMPLE_PLAYER,
-            payload(json!({ "pan": 0.0, "sample_id": 23 })),
+            payload(json!({
+                "pan": 0.0,
+                "sample_id": 23,
+                "amplitude_envelope": amplitude_envelope()
+            })),
             Vec::new(),
         );
 
@@ -382,7 +463,11 @@ fn missing_sample_resource_is_an_invalid_definition_not_a_panic() {
     let definition = InstrumentDefinition::new(
         InstrumentId::from_raw(32),
         kind::LOOP_SAMPLE_PLAYER,
-        payload(json!({ "pan": 0.0, "sample_id": 404 })),
+        payload(json!({
+            "pan": 0.0,
+            "sample_id": 404,
+            "amplitude_envelope": amplitude_envelope()
+        })),
         Vec::new(),
     );
     let error = BuiltInRegistry::new()
