@@ -53,11 +53,12 @@ required by #214.
 
 ### Exact smoother semantics
 
-Preparation requires finite positive sample rate and finite seed/targets. For a
-positive `duration_ms`, let
-`N = max(1, ceil(duration_ms * sample_rate / 1000))`; preparation rejects an
-unrepresentable frame count. Zero duration and `SmoothingPolicy::None` jump and
-deliver at the latch cursor.
+Preparation requires finite positive sample rate, finite seed/targets, and a
+finite non-negative `duration_ms`. Negative or non-finite durations are rejected
+with a compact preparation error and never reach callback processing. For a
+positive duration, let `N = max(1, ceil(duration_ms * sample_rate / 1000))`;
+preparation rejects an unrepresentable frame count. Zero duration and
+`SmoothingPolicy::None` jump and deliver at the latch cursor.
 
 A new target starts from current value `s` at its latch cursor, sets elapsed
 `e = 0`, and uses the full `N` frames. Republishing the already-latched target
@@ -68,8 +69,10 @@ For `0 <= e < N`:
 - exponential: `x(e) = target + (s - target) * 10^(-5 * e / N)`.
 
 At `e >= N`, both return exactly `target` and settle. Thus linear duration is
-exactly `N` elapsed rendered frames. Exponential's pre-snap residual is at most
-`1e-5` of the initial step (−100 dB); snapping at `N` is its settle criterion.
+exactly `N` elapsed rendered frames. The underlying exponential curve reaches a
+`1e-5` residual of the initial step (−100 dB) at `e = N`; every pre-snap point
+`e < N` has a larger residual, and snapping exactly at `N` is the settle
+criterion.
 Implementations derive values from integer total elapsed frames, not repeated
 per-call accumulation, so advancing `a + b` frames equals advances of `a` then
 `b` for a fixed latch. Scalar DSP delivery is piecewise constant: if settlement
