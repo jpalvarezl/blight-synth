@@ -2,7 +2,7 @@
 title: Architecture Decision Index
 summary: Durable decisions with status, rationale, and supersession history.
 status: current
-updated: 2026-08-03
+updated: 2026-08-06
 ---
 
 # Architecture Decision Records
@@ -26,3 +26,4 @@ ADRs record decisions that affect multiple domains or constrain future work. The
 | [0003](0003-event-source-contract.md) | Proposed | Host/producer-side clock adapters fill bounded, already-offset event blocks for the engine; current pull, NRT lookahead, ordering, and fail-closed recovery are explicit. |
 | [0004](0004-parameter-manifest.md) | Accepted | One serializable parameter manifest is the single source of truth for parameter metadata across Rust DSP/engine, project state, OSC, JUCE/APVTS, and Svelte; a bounded string-free runtime lookup keyed by stable ID serves the audio thread. |
 | [0005](0005-coalesced-parameter-publication.md) | Accepted | Continuous parameters use a generation-bound normalized MPSC atomic store; RT maps and latches engine-owned smoothing targets once per render block with eventual-latest and applied-target confirmation semantics. |
+| [0006](0006-fixed-quantum-smoothing-delivery.md) | Accepted | Engine-owned coalesced smoothers use an absolute 16-frame control phase and existing scalar DSP setters. |
