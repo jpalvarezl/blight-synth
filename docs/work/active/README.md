@@ -14,4 +14,3 @@ A packet is a handoff cache, not a second specification. It links to the issue a
 ## Active
 
 - [Issue #229 — Move legacy envelopes into versioned node definitions](issue-229-versioned-envelope-migration.md)
-- [Issue #230 — Prepare coalesced target bindings and confirmation](issue-230-coalesced-target-bindings.md)
