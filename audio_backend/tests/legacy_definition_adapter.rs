@@ -1,7 +1,8 @@
 use audio_backend::{
     adapt_legacy_audio_effect, adapt_legacy_instrument, build_song_hydration_commands,
     id::{EffectId, InstrumentId},
-    Command, InstrumentCmd, LegacyDefinitionAdapterError,
+    Command, Engine, EngineCommand, EnvelopeCmd, InstrumentCmd, LegacyDefinitionAdapterError,
+    RetireSink, RetiredState, SynthCmd,
 };
 use node_registry::{kind, InstrumentDefinition};
 use sequencer::models::{
@@ -204,21 +205,231 @@ fn legacy_clamps_are_explicit_and_unrepresentable_values_are_errors() {
     assert_eq!(definition.parameters["damping"], json!(1.0));
 }
 
-#[test]
-fn active_hydration_keeps_its_legacy_effect_identity() {
-    let mut song = Song::new("hydration remains independent");
-    song.instrument_bank.push(Instrument {
-        id: 1,
-        name: "effects".to_owned(),
-        data: instrument(Fixture::HiHat, vec![reverb(), delay()]),
-    });
-    let commands = build_song_hydration_commands(&song, 100.0).unwrap();
-    let hydrated_ids: Vec<_> = commands
+#[derive(Debug, PartialEq)]
+enum HydrationStep {
+    Instrument(u32),
+    Effect { instrument: u32, effect: u32 },
+    Pitch { instrument: u32, delta: f32 },
+    Attack { instrument: u32, value: f32 },
+    Decay { instrument: u32, value: f32 },
+    Sustain { instrument: u32, value: f32 },
+    Release { instrument: u32, value: f32 },
+}
+
+fn hydration_steps(commands: &[Command]) -> Vec<HydrationStep> {
+    commands
         .iter()
-        .filter_map(|command| match command {
-            Command::Instrument(InstrumentCmd::AddEffect { effect, .. }) => Some(effect.id().raw()),
+        .map(|command| match command {
+            Command::Instrument(InstrumentCmd::AddInstrument { instrument }) => {
+                HydrationStep::Instrument(instrument.id().raw())
+            }
+            Command::Instrument(InstrumentCmd::AddEffect {
+                instrument_id,
+                effect,
+            }) => HydrationStep::Effect {
+                instrument: instrument_id.raw(),
+                effect: effect.id().raw(),
+            },
+            Command::Instrument(InstrumentCmd::PassOnSynthCmd {
+                instrument_id,
+                synth_cmd:
+                    SynthCmd::EnvelopeCommand {
+                        envelope_id: None,
+                        command: EnvelopeCmd::SetPitchEnvFreqDelta { freq_delta },
+                    },
+            }) => HydrationStep::Pitch {
+                instrument: instrument_id.raw(),
+                delta: *freq_delta,
+            },
+            Command::Instrument(InstrumentCmd::PassOnSynthCmd {
+                instrument_id,
+                synth_cmd:
+                    SynthCmd::EnvelopeCommand {
+                        envelope_id: Some(envelope_id),
+                        command,
+                    },
+            }) => {
+                assert_eq!(envelope_id.raw(), 0);
+                match command {
+                    EnvelopeCmd::SetAttack { attack } => HydrationStep::Attack {
+                        instrument: instrument_id.raw(),
+                        value: *attack,
+                    },
+                    EnvelopeCmd::SetDecay { decay } => HydrationStep::Decay {
+                        instrument: instrument_id.raw(),
+                        value: *decay,
+                    },
+                    EnvelopeCmd::SetSustain { sustain } => HydrationStep::Sustain {
+                        instrument: instrument_id.raw(),
+                        value: *sustain,
+                    },
+                    EnvelopeCmd::SetRelease { release } => HydrationStep::Release {
+                        instrument: instrument_id.raw(),
+                        value: *release,
+                    },
+                    EnvelopeCmd::SetPitchEnvFreqDelta { .. } => {
+                        panic!("pitch envelope must use the implicit envelope target")
+                    }
+                }
+            }
+            _ => panic!("unexpected hydration command"),
+        })
+        .collect()
+}
+
+fn amp_steps(instrument: u32, envelope: &AmpEnvelopeParams) -> Vec<HydrationStep> {
+    vec![
+        HydrationStep::Attack {
+            instrument,
+            value: envelope.attack,
+        },
+        HydrationStep::Decay {
+            instrument,
+            value: envelope.decay,
+        },
+        HydrationStep::Sustain {
+            instrument,
+            value: envelope.sustain,
+        },
+        HydrationStep::Release {
+            instrument,
+            value: envelope.release,
+        },
+    ]
+}
+
+#[test]
+fn registry_hydration_preserves_repeated_effect_owner_and_command_order() {
+    let envelope = AmpEnvelopeParams::default();
+    let mut song = Song::new("same-kind effects");
+    song.instrument_bank.push(Instrument {
+        id: 3,
+        name: "effects".to_owned(),
+        data: InstrumentData::HiHat(HiHatParams {
+            audio_effects: vec![reverb(), reverb(), delay()],
+            amp_envelope: envelope.clone(),
+        }),
+    });
+
+    let commands = build_song_hydration_commands(&song, 48_000.0).unwrap();
+    let mut expected = vec![
+        HydrationStep::Instrument(3),
+        HydrationStep::Effect {
+            instrument: 3,
+            effect: 1,
+        },
+        HydrationStep::Effect {
+            instrument: 3,
+            effect: 2,
+        },
+        HydrationStep::Effect {
+            instrument: 3,
+            effect: 3,
+        },
+    ];
+    expected.extend(amp_steps(3, &envelope));
+    assert_eq!(hydration_steps(&commands), expected);
+}
+
+#[test]
+fn registry_hydration_installs_dfam_ladder_before_distinct_user_effect() {
+    let envelope = AmpEnvelopeParams::default();
+    let mut song = Song::new("DFAM effect slots");
+    song.instrument_bank.push(Instrument {
+        id: 4,
+        name: "dfam".to_owned(),
+        data: InstrumentData::DFAM(DFAMParams {
+            audio_effects: vec![delay()],
+            amp_envelope: envelope.clone(),
+        }),
+    });
+
+    let commands = build_song_hydration_commands(&song, 48_000.0).unwrap();
+    let mut expected = vec![
+        HydrationStep::Instrument(4),
+        HydrationStep::Effect {
+            instrument: 4,
+            effect: 1,
+        },
+        HydrationStep::Effect {
+            instrument: 4,
+            effect: 2,
+        },
+    ];
+    expected.extend(amp_steps(4, &envelope));
+    assert_eq!(hydration_steps(&commands), expected);
+}
+
+#[test]
+fn registry_hydration_keeps_explicit_pitch_then_amplitude_envelope_commands() {
+    let envelope = AmpEnvelopeParams {
+        attack: 0.11,
+        decay: 0.22,
+        sustain: 0.33,
+        release: 0.44,
+    };
+    let mut song = Song::new("legacy envelopes");
+    song.instrument_bank.push(Instrument {
+        id: 7,
+        name: "kick".to_owned(),
+        data: InstrumentData::KickDrum(KickDrumParams {
+            audio_effects: vec![reverb()],
+            amp_envelope: envelope.clone(),
+            pitch_envelope: PitchEnvelopeParams {
+                freq_delta: 123.0,
+                decay_time: 0.75,
+            },
+        }),
+    });
+
+    let commands = build_song_hydration_commands(&song, 48_000.0).unwrap();
+    let mut expected = vec![
+        HydrationStep::Instrument(7),
+        HydrationStep::Effect {
+            instrument: 7,
+            effect: 1,
+        },
+        HydrationStep::Pitch {
+            instrument: 7,
+            delta: 123.0,
+        },
+    ];
+    expected.extend(amp_steps(7, &envelope));
+    assert_eq!(hydration_steps(&commands), expected);
+}
+
+struct CollectRetired(Vec<RetiredState>);
+
+impl RetireSink for CollectRetired {
+    fn retire(&mut self, state: RetiredState) {
+        self.0.push(state);
+    }
+}
+
+#[test]
+fn prepared_effect_command_rejection_keeps_the_existing_rt_retirement_path() {
+    let mut song = Song::new("retired prepared owner");
+    song.instrument_bank.push(Instrument {
+        id: 8,
+        name: "effect without installed instrument".to_owned(),
+        data: instrument(Fixture::HiHat, vec![delay()]),
+    });
+    let effect_command = build_song_hydration_commands(&song, 48_000.0)
+        .unwrap()
+        .into_iter()
+        .find_map(|command| match command {
+            Command::Instrument(command @ InstrumentCmd::AddEffect { .. }) => Some(command),
             _ => None,
         })
-        .collect();
-    assert_eq!(hydrated_ids, [1, 1]);
+        .unwrap();
+
+    let mut engine = Engine::new();
+    let mut retired = CollectRetired(Vec::with_capacity(1));
+    engine.handle_command_with_retirement(EngineCommand::Instrument(effect_command), &mut retired);
+
+    assert_eq!(retired.0.len(), 1);
+    match &retired.0[0] {
+        RetiredState::MonoEffect(effect) => assert_eq!(effect.id().raw(), 1),
+        _ => panic!("rejected prepared mono effect must retire as a mono owner"),
+    }
 }

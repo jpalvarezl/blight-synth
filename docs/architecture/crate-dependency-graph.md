@@ -2,8 +2,8 @@
 title: M0 Crate Dependency Graph
 summary: Current enforced workspace dependency direction after the M0 boundary refactor.
 status: current
-updated: 2026-08-04
-issues: [130, 157, 201, 210]
+updated: 2026-08-06
+issues: [130, 157, 201, 210, 222]
 ---
 
 # M0 Crate Dependency Graph
@@ -59,7 +59,7 @@ sequencer -> anyhow, bincode, clap, serde, serde_json, serde_with
 os_dls   -> riff
 ```
 
-Any new portable-crate dependency is an architecture change and must update both this page and `scripts/check_architecture.py` deliberately. The checker also forbids `dsp`, `engine`, `sequencer`, and `utils` from depending on `node_registry`: node parsing, validation, resource resolution, and factory allocation stay in an NRT control-plane layer and cannot become callback-reachable through the reusable render core. Host-free `audio_backend` deliberately depends on `node_registry` to adapt tracker models on NRT; active registry-backed hydration remains issue #222.
+Any new portable-crate dependency is an architecture change and must update both this page and `scripts/check_architecture.py` deliberately. The checker also forbids `dsp`, `engine`, `sequencer`, and `utils` from depending on `node_registry`: node parsing, validation, resource resolution, and factory allocation stay in an NRT control-plane layer and cannot become callback-reachable through the reusable render core. The required host-free `audio_backend -> node_registry` edge is deliberate: tracker models are adapted and registry owners are prepared on NRT before entering the existing structural command and retirement path.
 
 ## Standalone target boundary
 

@@ -18,6 +18,12 @@ impl InstrumentFactory {
         InstrumentFactory { sample_rate }
     }
 
+    /// Returns the sample rate used by this factory.
+    #[must_use]
+    pub const fn sample_rate(&self) -> f32 {
+        self.sample_rate
+    }
+
     pub fn create_simple_oscillator(
         &self,
         instrument_id: InstrumentId,

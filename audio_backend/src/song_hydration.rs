@@ -1,22 +1,83 @@
 #[cfg(feature = "device-host")]
-use anyhow::Context;
-use anyhow::{bail, Result};
-use sequencer::models::{AmpEnvelopeParams, AudioEffect, InstrumentData, Song, Waveform};
+use anyhow::{bail, Context, Result};
+use node_registry::{
+    BuiltInRegistry, EffectLayout, InstrumentDefinition, NrtPreparationContext, PreparationError,
+    PreparedEffect, PreparedInstrumentDefinition,
+};
+use sequencer::models::{AmpEnvelopeParams, InstrumentData, Song};
 #[cfg(feature = "device-host")]
 use sequencer::{cli::FileFormat, project::open_song_from_file};
+use std::{error::Error, fmt};
 #[cfg(feature = "device-host")]
 use std::{path::Path, sync::Arc};
 
 use crate::{
-    effects::{DelayParameter as DP, ReverbParameter as RP},
+    adapt_legacy_instrument,
     id::{EffectId, EnvelopeId, InstrumentId},
-    instruments::Waveform as BackendWaveform,
-    Command, EffectFactory, EnvelopeCmd, InstrumentCmd, InstrumentFactory, MonoEffect, SynthCmd,
+    Command, EnvelopeCmd, InstrumentCmd, LegacyDefinitionAdapterError, SynthCmd,
 };
 #[cfg(feature = "device-host")]
 use crate::{BlightAudio, CommandSubmissionErrorKind, SequencerCmd};
 
-const DEFAULT_INSTRUMENT_EFFECT_ID: EffectId = EffectId::from_raw(1);
+/// Structured NRT failure while adapting or preparing a legacy song instrument.
+#[derive(Debug)]
+pub enum SongHydrationError {
+    UnaddressableInstrumentId {
+        project_id: usize,
+    },
+    LegacyDefinition {
+        project_id: usize,
+        source: LegacyDefinitionAdapterError,
+    },
+    RegistryPreparation {
+        project_id: usize,
+        source: PreparationError,
+    },
+    UnsupportedPreparedEffectLayout {
+        project_id: usize,
+        effect_id: EffectId,
+        layout: EffectLayout,
+    },
+}
+
+impl fmt::Display for SongHydrationError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::UnaddressableInstrumentId { project_id } => write!(
+                formatter,
+                "project instrument ID {project_id} exceeds the tracker event u8 range"
+            ),
+            Self::LegacyDefinition { project_id, source } => write!(
+                formatter,
+                "could not adapt project instrument {project_id}: {source}"
+            ),
+            Self::RegistryPreparation { project_id, source } => write!(
+                formatter,
+                "could not prepare project instrument {project_id}: {source}"
+            ),
+            Self::UnsupportedPreparedEffectLayout {
+                project_id,
+                effect_id,
+                layout,
+            } => write!(
+                formatter,
+                "project instrument {project_id} effect {} prepared as unsupported {layout:?} owner",
+                effect_id.raw()
+            ),
+        }
+    }
+}
+
+impl Error for SongHydrationError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::LegacyDefinition { source, .. } => Some(source),
+            Self::RegistryPreparation { source, .. } => Some(source),
+            Self::UnaddressableInstrumentId { .. }
+            | Self::UnsupportedPreparedEffectLayout { .. } => None,
+        }
+    }
+}
 
 /// Load a JSON song file and install it into the audio backend without starting playback.
 ///
@@ -41,11 +102,8 @@ pub(crate) fn prepare_song_file_for_audio(
     log::info!("loading song from {}", path.display());
     let song = open_song_from_file(&path.to_path_buf(), &FileFormat::Json)
         .with_context(|| format!("failed to load song from {}", path.display()))?;
-    let hydration = build_hydration_commands_with_factories(
-        &song,
-        audio.get_instrument_factory(),
-        audio.get_effect_factory(),
-    )?;
+    let hydration =
+        build_song_hydration_commands(&song, audio.get_instrument_factory().sample_rate())?;
     let mut commands = Vec::with_capacity(hydration.len() + 1);
     commands.push(
         SequencerCmd::LoadSong {
@@ -60,11 +118,8 @@ pub(crate) fn prepare_song_file_for_audio(
 /// Queue commands that create backend instruments/effects from a serialized song.
 #[cfg(feature = "device-host")]
 pub fn hydrate_song(audio: &mut BlightAudio, song: &Song) -> Result<()> {
-    let commands = build_hydration_commands_with_factories(
-        song,
-        audio.get_instrument_factory(),
-        audio.get_effect_factory(),
-    )?;
+    let commands =
+        build_song_hydration_commands(song, audio.get_instrument_factory().sample_rate())?;
     for command in commands {
         submit_command(audio, command)?;
     }
@@ -86,19 +141,15 @@ fn submit_command(audio: &mut BlightAudio, command: Command) -> Result<()> {
 
 /// Build the same non-real-time hydration command sequence used by standalone playback.
 ///
-/// Offline hosts use this entry point so they do not need to construct a CPAL-backed
-/// [`BlightAudio`] instance merely to hydrate instruments and effects.
-pub fn build_song_hydration_commands(song: &Song, sample_rate: f32) -> Result<Vec<Command>> {
-    let instrument_factory = InstrumentFactory::new(sample_rate);
-    let effect_factory = EffectFactory::new(sample_rate);
-    build_hydration_commands_with_factories(song, &instrument_factory, &effect_factory)
-}
-
-fn build_hydration_commands_with_factories(
+/// Legacy models are first adapted into versioned definitions, then the built-in registry
+/// validates and allocates every owner on NRT. The returned structural commands retain the
+/// existing RT installation and deferred-retirement path.
+pub fn build_song_hydration_commands(
     song: &Song,
-    instrument_factory: &InstrumentFactory,
-    effect_factory: &EffectFactory,
-) -> Result<Vec<Command>> {
+    sample_rate: f32,
+) -> std::result::Result<Vec<Command>, SongHydrationError> {
+    let registry = BuiltInRegistry::new();
+    let context = NrtPreparationContext::new(sample_rate);
     let mut commands = Vec::new();
 
     for instrument in &song.instrument_bank {
@@ -108,116 +159,95 @@ fn build_hydration_commands_with_factories(
             instrument_id.raw(),
             instrument.name
         );
-        match &instrument.data {
-            InstrumentData::SimpleOscillator(params) => {
-                commands.push(
-                    InstrumentCmd::AddInstrument {
-                        instrument: instrument_factory.create_oscillator_with_waveform(
-                            instrument_id,
-                            0.0,
-                            map_waveform_to_backend(params.waveform),
-                        ),
-                    }
-                    .into(),
-                );
-                push_effect_commands(
-                    &mut commands,
-                    effect_factory,
-                    instrument_id,
-                    &params.audio_effects,
-                );
-                push_amp_envelope_commands(&mut commands, instrument_id, &params.amp_envelope);
-            }
-            InstrumentData::HiHat(params) => {
-                commands.push(
-                    InstrumentCmd::AddInstrument {
-                        instrument: instrument_factory.create_hihat(instrument_id, 0.0),
-                    }
-                    .into(),
-                );
-                push_effect_commands(
-                    &mut commands,
-                    effect_factory,
-                    instrument_id,
-                    &params.audio_effects,
-                );
-                push_amp_envelope_commands(&mut commands, instrument_id, &params.amp_envelope);
-            }
-            InstrumentData::KickDrum(params) => {
-                commands.push(
-                    InstrumentCmd::AddInstrument {
-                        instrument: instrument_factory.create_kick_drum(instrument_id, 0.0),
-                    }
-                    .into(),
-                );
-                push_effect_commands(
-                    &mut commands,
-                    effect_factory,
-                    instrument_id,
-                    &params.audio_effects,
-                );
-                commands.push(
-                    InstrumentCmd::PassOnSynthCmd {
-                        instrument_id,
-                        synth_cmd: SynthCmd::EnvelopeCommand {
-                            envelope_id: None,
-                            command: EnvelopeCmd::SetPitchEnvFreqDelta {
-                                freq_delta: params.pitch_envelope.freq_delta,
-                            },
-                        },
-                    }
-                    .into(),
-                );
-                push_amp_envelope_commands(&mut commands, instrument_id, &params.amp_envelope);
-            }
-            InstrumentData::SnareDrum(params) => {
-                commands.push(
-                    InstrumentCmd::AddInstrument {
-                        instrument: instrument_factory.create_snare_drum(instrument_id, 0.0),
-                    }
-                    .into(),
-                );
-                push_effect_commands(
-                    &mut commands,
-                    effect_factory,
-                    instrument_id,
-                    &params.audio_effects,
-                );
-                push_amp_envelope_commands(&mut commands, instrument_id, &params.amp_envelope);
-            }
-            InstrumentData::DFAM(params) => {
-                commands.push(
-                    InstrumentCmd::AddInstrument {
-                        instrument: instrument_factory.create_dfam(instrument_id, 0.0),
-                    }
-                    .into(),
-                );
-                commands.push(
-                    InstrumentCmd::AddEffect {
-                        instrument_id,
-                        effect: effect_factory.create_moog_ladder(
-                            DEFAULT_INSTRUMENT_EFFECT_ID,
-                            500.0,
-                            0.5,
-                        ),
-                    }
-                    .into(),
-                );
-                push_effect_commands(
-                    &mut commands,
-                    effect_factory,
-                    instrument_id,
-                    &params.audio_effects,
-                );
-                push_amp_envelope_commands(&mut commands, instrument_id, &params.amp_envelope);
-            }
-            unsupported => {
-                bail!("unsupported instrument type in song hydration: {unsupported:?}");
-            }
-        }
+        let definition =
+            adapt_legacy_instrument(instrument_id, &instrument.data).map_err(|source| {
+                SongHydrationError::LegacyDefinition {
+                    project_id: instrument.id,
+                    source,
+                }
+            })?;
+        let prepared = prepare_definition(&registry, &context, instrument.id, &definition)?;
+        push_prepared_owner_commands(&mut commands, instrument.id, prepared)?;
+        push_legacy_envelope_commands(&mut commands, instrument_id, &instrument.data);
     }
 
     Ok(commands)
+}
+
+fn prepare_definition(
+    registry: &BuiltInRegistry,
+    context: &NrtPreparationContext<'_>,
+    project_id: usize,
+    definition: &InstrumentDefinition,
+) -> std::result::Result<PreparedInstrumentDefinition, SongHydrationError> {
+    registry
+        .prepare_definition(definition, context)
+        .map_err(|source| SongHydrationError::RegistryPreparation { project_id, source })
+}
+
+fn push_prepared_owner_commands(
+    commands: &mut Vec<Command>,
+    project_id: usize,
+    prepared: PreparedInstrumentDefinition,
+) -> std::result::Result<(), SongHydrationError> {
+    let instrument_id = prepared.instrument.id();
+    commands.push(
+        InstrumentCmd::AddInstrument {
+            instrument: prepared.instrument,
+        }
+        .into(),
+    );
+    for effect in prepared.effects {
+        let effect_id = effect.id();
+        match effect {
+            PreparedEffect::Mono(effect) => commands.push(
+                InstrumentCmd::AddEffect {
+                    instrument_id,
+                    effect,
+                }
+                .into(),
+            ),
+            PreparedEffect::Stereo(_) => {
+                return Err(SongHydrationError::UnsupportedPreparedEffectLayout {
+                    project_id,
+                    effect_id,
+                    layout: EffectLayout::Stereo,
+                });
+            }
+        }
+    }
+    Ok(())
+}
+
+fn push_legacy_envelope_commands(
+    commands: &mut Vec<Command>,
+    instrument_id: InstrumentId,
+    data: &InstrumentData,
+) {
+    let amp_envelope = match data {
+        InstrumentData::SimpleOscillator(params) => &params.amp_envelope,
+        InstrumentData::HiHat(params) => &params.amp_envelope,
+        InstrumentData::KickDrum(params) => {
+            commands.push(
+                InstrumentCmd::PassOnSynthCmd {
+                    instrument_id,
+                    synth_cmd: SynthCmd::EnvelopeCommand {
+                        envelope_id: None,
+                        command: EnvelopeCmd::SetPitchEnvFreqDelta {
+                            freq_delta: params.pitch_envelope.freq_delta,
+                        },
+                    },
+                }
+                .into(),
+            );
+            &params.amp_envelope
+        }
+        InstrumentData::SnareDrum(params) => &params.amp_envelope,
+        InstrumentData::DFAM(params) => &params.amp_envelope,
+        // The adapter rejects these variants before this compatibility-only step.
+        InstrumentData::Sample(_) | InstrumentData::Synth(_) => return,
+    };
+    push_amp_envelope_commands(commands, instrument_id, amp_envelope);
 }
 
 fn push_amp_envelope_commands(
@@ -252,83 +282,26 @@ fn push_amp_envelope_commands(
     }
 }
 
-fn push_effect_commands(
-    commands: &mut Vec<Command>,
-    effect_factory: &EffectFactory,
-    instrument_id: InstrumentId,
-    effects: &[AudioEffect],
-) {
-    for effect in effects {
-        let effect = match effect {
-            AudioEffect::Reverb {
-                mix,
-                decay_time,
-                room_size,
-                diffusion,
-                damping,
-            } => {
-                let mut reverb = effect_factory.create_mono_reverb(DEFAULT_INSTRUMENT_EFFECT_ID);
-                MonoEffect::set_parameter(&mut *reverb, RP::Mix.as_index(), (*mix).clamp(0.0, 1.0));
-                MonoEffect::set_parameter(&mut *reverb, RP::Decay.as_index(), *decay_time);
-                MonoEffect::set_parameter(&mut *reverb, RP::RoomSize.as_index(), *room_size);
-                MonoEffect::set_parameter(&mut *reverb, RP::Damping.as_index(), *damping);
-                MonoEffect::set_parameter(&mut *reverb, RP::Diffusion.as_index(), *diffusion);
-                reverb
-            }
-            AudioEffect::Delay {
-                time,
-                num_taps,
-                feedback,
-                mix,
-            } => {
-                let mut delay = effect_factory.create_mono_delay(
-                    DEFAULT_INSTRUMENT_EFFECT_ID,
-                    *time,
-                    *num_taps as usize,
-                    *feedback,
-                    *mix,
-                );
-                MonoEffect::set_parameter(&mut *delay, DP::Time.as_index(), *time);
-                MonoEffect::set_parameter(&mut *delay, DP::NumTaps.as_index(), *num_taps as f32);
-                MonoEffect::set_parameter(&mut *delay, DP::Feedback.as_index(), *feedback);
-                MonoEffect::set_parameter(&mut *delay, DP::Mix.as_index(), *mix);
-                delay
-            }
-        };
-        commands.push(
-            InstrumentCmd::AddEffect {
-                instrument_id,
-                effect,
-            }
-            .into(),
-        );
-    }
-}
-
-fn runtime_instrument_id(model_id: usize) -> Result<InstrumentId> {
+fn runtime_instrument_id(model_id: usize) -> std::result::Result<InstrumentId, SongHydrationError> {
     // Tracker events persist instrument references as u8. Reject a bank ID that
     // events and the current UI cannot represent instead of hydrating a runtime
     // instrument that no tracker cell can address consistently.
-    let project_id = u8::try_from(model_id).map_err(|_| {
-        anyhow::anyhow!("project instrument ID {model_id} exceeds the tracker event u8 range")
-    })?;
+    let project_id =
+        u8::try_from(model_id).map_err(|_| SongHydrationError::UnaddressableInstrumentId {
+            project_id: model_id,
+        })?;
     Ok(InstrumentId::from_raw(u32::from(project_id)))
-}
-
-fn map_waveform_to_backend(waveform: Waveform) -> BackendWaveform {
-    match waveform {
-        Waveform::Sine => BackendWaveform::Sine,
-        Waveform::Square => BackendWaveform::Square,
-        Waveform::Sawtooth => BackendWaveform::Sawtooth,
-        Waveform::Triangle => BackendWaveform::Triangle,
-        Waveform::NesTriangle => BackendWaveform::NesTriangle,
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sequencer::models::{EffectType, Event, HiHatParams, Instrument};
+    use node_registry::{kind, InstrumentKindId, InvalidDefinitionCode, NodeCategory};
+    use sequencer::models::{
+        EffectType, Event, HiHatParams, Instrument, SampleParams, SynthParams,
+    };
+
+    use crate::{EffectFactory, InstrumentFactory};
 
     fn project_instrument(id: usize) -> Instrument {
         Instrument {
@@ -370,7 +343,11 @@ mod tests {
     #[test]
     fn hydration_rejects_instrument_ids_tracker_events_cannot_address() {
         let invalid = usize::from(u8::MAX) + 1;
-        assert!(runtime_instrument_id(invalid).is_err());
+        assert!(matches!(
+            runtime_instrument_id(invalid),
+            Err(SongHydrationError::UnaddressableInstrumentId { project_id })
+                if project_id == invalid
+        ));
 
         let mut song = Song::new("invalid tracker instrument ID");
         song.instrument_bank.push(project_instrument(invalid));
@@ -378,8 +355,119 @@ mod tests {
             Ok(_) => panic!("unaddressable project ID must be rejected"),
             Err(error) => error,
         };
-        assert!(error
-            .to_string()
-            .contains("exceeds the tracker event u8 range"));
+        assert!(matches!(
+            error,
+            SongHydrationError::UnaddressableInstrumentId { project_id }
+                if project_id == invalid
+        ));
+    }
+
+    #[test]
+    fn unsupported_legacy_owners_return_structured_adapter_diagnostics() {
+        let envelope = sequencer::models::Envelope {
+            points: vec![],
+            sustain_point: 0,
+            loop_start_point: 0,
+            loop_end_point: 0,
+            enabled: false,
+        };
+        let unsupported = [
+            InstrumentData::Sample(SampleParams {
+                note_to_sample_map: [0; 96],
+                volume_envelope: envelope.clone(),
+                panning_envelope: envelope.clone(),
+            }),
+            InstrumentData::Synth(SynthParams {
+                amp_envelope: envelope.clone(),
+                filter_envelope: envelope,
+            }),
+        ];
+
+        for data in unsupported {
+            let mut song = Song::new("unsupported legacy owner");
+            song.instrument_bank.push(Instrument {
+                id: 9,
+                name: "unsupported".to_owned(),
+                data,
+            });
+            let error = match build_song_hydration_commands(&song, 48_000.0) {
+                Ok(_) => panic!("unsupported legacy owner must be rejected"),
+                Err(error) => error,
+            };
+            assert!(matches!(
+                error,
+                SongHydrationError::LegacyDefinition {
+                    project_id: 9,
+                    source: LegacyDefinitionAdapterError::UnsupportedInstrument { .. },
+                }
+            ));
+        }
+    }
+
+    #[test]
+    fn unsupported_prepared_effect_layout_is_structured() {
+        let project_id = 7_usize;
+        let instrument_id = InstrumentId::from_raw(u32::try_from(project_id).unwrap());
+        let effect_id = EffectId::from_raw(9);
+        let prepared = PreparedInstrumentDefinition {
+            instrument: InstrumentFactory::new(48_000.0).create_hihat(instrument_id, 0.0),
+            effects: vec![PreparedEffect::Stereo(
+                EffectFactory::new(48_000.0).create_stereo_gain(effect_id, 1.0),
+            )],
+        };
+        let mut commands = Vec::new();
+
+        let error = push_prepared_owner_commands(&mut commands, project_id, prepared).unwrap_err();
+
+        assert!(matches!(
+            error,
+            SongHydrationError::UnsupportedPreparedEffectLayout {
+                project_id: 7,
+                effect_id: rejected_id,
+                layout: EffectLayout::Stereo,
+            } if rejected_id == effect_id
+        ));
+    }
+
+    #[test]
+    fn registry_unknown_and_invalid_definitions_remain_structured() {
+        let instrument = project_instrument(5);
+        let mut definition =
+            adapt_legacy_instrument(InstrumentId::from_raw(5), &instrument.data).unwrap();
+        definition.kind = InstrumentKindId::new("blight.instrument.unknown");
+        let registry = BuiltInRegistry::new();
+        let context = NrtPreparationContext::new(48_000.0);
+        let error = match prepare_definition(&registry, &context, 5, &definition) {
+            Ok(_) => panic!("unknown registry kind must be rejected"),
+            Err(error) => error,
+        };
+        assert!(matches!(
+            error,
+            SongHydrationError::RegistryPreparation {
+                project_id: 5,
+                source: PreparationError::UnknownKind {
+                    category: NodeCategory::Instrument,
+                    instance_id: 5,
+                    ..
+                },
+            }
+        ));
+
+        definition.kind = InstrumentKindId::new(kind::HI_HAT);
+        definition.parameters.remove("pan");
+        let error = match prepare_definition(&registry, &context, 5, &definition) {
+            Ok(_) => panic!("invalid registry payload must be rejected"),
+            Err(error) => error,
+        };
+        assert!(matches!(
+            error,
+            SongHydrationError::RegistryPreparation {
+                project_id: 5,
+                source: PreparationError::InvalidDefinition {
+                    diagnostic,
+                    ..
+                },
+            } if diagnostic.code == InvalidDefinitionCode::InvalidParameterPayload
+        ));
     }
 }
