@@ -45,4 +45,5 @@ pub use manifest::{
 pub use mapping::{Mapping, MAX_SKEW, MIN_SKEW};
 pub use runtime::{
     ParameterLookup, RuntimeKind, RuntimeParamKey, RuntimeParameter, RuntimeParameterTable,
+    RuntimeParameterTableIdentity,
 };

@@ -11,9 +11,10 @@ use dsp::{
     MonoEffect, SynthCmd,
 };
 use engine::{
-    BoundedEventAdmission, CoalescedParameterStore, Engine, EngineEvent, EventAdmissionErrorKind,
-    EventProducerId, InstrumentCmd, MixerCmd, OrdinaryEventBlockStatus, ParameterApplicationResult,
-    ParameterTableGenerations, ParameterTarget, PreparedParameterBinding, PreparedSmoother,
+    BoundedEventAdmission, CoalescedParameterStore, CoalescedTargetBinding, Engine, EngineEvent,
+    EventAdmissionErrorKind, EventProducerId, InstrumentCmd, MixerCmd, OrdinaryEventBlockStatus,
+    ParameterApplicationResult, ParameterTableGenerations, ParameterTarget,
+    PreparedCoalescedBindingTable, PreparedParameterBinding, PreparedSmoother,
     ProducerAdmissionStatus, PublicationResult, RecoveryAdmissionStatus, RetireSink, RetiredState,
     TimestampedEvent,
 };
@@ -583,6 +584,54 @@ fn coalesced_publication_and_fixed_rt_drain_have_no_heap_activity() {
     assert_eq!(
         counts.reallocations, 0,
         "unexpected publication/drain reallocations"
+    );
+}
+
+#[test]
+fn prepared_coalesced_map_latch_and_confirmation_have_no_heap_activity() {
+    let lookup =
+        ParameterLookup::from_manifest(&ParameterManifest::new(vec![master_gain_descriptor()]))
+            .expect("valid coalesced descriptor");
+    let key = lookup
+        .key_for(&ParameterId::from(MASTER_GAIN_ID))
+        .expect("stable id resolves");
+    let mut generations = ParameterTableGenerations::new();
+    let store = CoalescedParameterStore::prepare(&mut generations, lookup.table(), 1)
+        .expect("store prepares on NRT");
+    let mut bindings = PreparedCoalescedBindingTable::prepare(
+        &store,
+        lookup.table(),
+        48_000.0,
+        &[CoalescedTargetBinding {
+            key,
+            target: ParameterTarget::MasterEffect {
+                effect_id: MASTER_EFFECT_ID,
+            },
+        }],
+    )
+    .expect("binding and smoother prepare on NRT");
+    bindings.drain(lookup.table(), &store);
+    let publisher = store.publisher();
+
+    let counts = measure_allocations(|| {
+        assert!(matches!(
+            publisher.publish(key, 0.25),
+            PublicationResult::Accepted(_)
+        ));
+        let summary = bindings.drain(lookup.table(), &store);
+        assert_eq!(summary.applied, 1);
+        assert_eq!(summary.failed, 0);
+        black_box(bindings.binding(key).unwrap().smoother().target());
+    });
+
+    assert_eq!(counts.allocations, 0, "unexpected map/latch allocations");
+    assert_eq!(
+        counts.deallocations, 0,
+        "unexpected map/latch deallocations"
+    );
+    assert_eq!(
+        counts.reallocations, 0,
+        "unexpected map/latch reallocations"
     );
 }
 
