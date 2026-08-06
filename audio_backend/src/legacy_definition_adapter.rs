@@ -4,6 +4,8 @@
 //! hydration. Effect identity is derived from one-based ordered legacy slots. For DFAM,
 //! the implicit ladder occupies slot 1 and user-authored effects follow it.
 
+use std::fmt;
+
 use node_registry::{kind, EffectDefinition, InstrumentDefinition, ParameterPayload};
 use sequencer::models::{AudioEffect, InstrumentData, Waveform};
 use serde_json::Value;
@@ -22,6 +24,27 @@ pub enum LegacyDefinitionAdapterError {
     NonFiniteParameter { field: &'static str },
     EffectSlotOverflow,
 }
+
+impl fmt::Display for LegacyDefinitionAdapterError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::UnsupportedInstrument { kind } => {
+                write!(
+                    formatter,
+                    "legacy instrument kind `{kind}` has no faithful node definition"
+                )
+            }
+            Self::NonFiniteParameter { field } => {
+                write!(formatter, "legacy parameter `{field}` must be finite")
+            }
+            Self::EffectSlotOverflow => {
+                formatter.write_str("legacy effect slot exceeds the EffectId representation")
+            }
+        }
+    }
+}
+
+impl std::error::Error for LegacyDefinitionAdapterError {}
 
 /// Adapt one current tracker instrument into a definition without preparing or installing it.
 ///

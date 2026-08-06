@@ -189,10 +189,12 @@ fn legacy_clamps_are_explicit_and_unrepresentable_values_are_errors() {
     if let AudioEffect::Reverb { mix, .. } = &mut invalid {
         *mix = f32::NAN;
     }
+    let error = adapt_legacy_audio_effect(EffectId::from_raw(1), &invalid).unwrap_err();
     assert!(matches!(
-        adapt_legacy_audio_effect(EffectId::from_raw(1), &invalid),
-        Err(LegacyDefinitionAdapterError::NonFiniteParameter { field: "mix" })
+        error,
+        LegacyDefinitionAdapterError::NonFiniteParameter { field: "mix" }
     ));
+    assert_eq!(error.to_string(), "legacy parameter `mix` must be finite");
 
     if let AudioEffect::Reverb { mix, damping, .. } = &mut invalid {
         *mix = 0.5;
