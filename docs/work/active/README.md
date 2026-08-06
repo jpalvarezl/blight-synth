@@ -13,4 +13,4 @@ A packet is a handoff cache, not a second specification. It links to the issue a
 
 ## Active
 
-_No active packets. Create one when an issue moves to `status:in-progress`._
+- [Issue #231 — Integrate fixed-quantum smoothing into engine rendering](issue-231-fixed-quantum-render-integration.md)
