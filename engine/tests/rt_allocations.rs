@@ -13,12 +13,14 @@ use dsp::{
 use engine::{
     BoundedEventAdmission, CoalescedParameterStore, Engine, EngineEvent, EventAdmissionErrorKind,
     EventProducerId, InstrumentCmd, MixerCmd, OrdinaryEventBlockStatus, ParameterApplicationResult,
-    ParameterTableGenerations, ParameterTarget, PreparedParameterBinding, ProducerAdmissionStatus,
-    PublicationResult, RecoveryAdmissionStatus, RetireSink, RetiredState, TimestampedEvent,
+    ParameterTableGenerations, ParameterTarget, PreparedParameterBinding, PreparedSmoother,
+    ProducerAdmissionStatus, PublicationResult, RecoveryAdmissionStatus, RetireSink, RetiredState,
+    TimestampedEvent,
 };
 use param_manifest::{
     builtin::{master_gain_descriptor, MASTER_GAIN_ID},
-    AutomationRate, ParameterId, ParameterLookup, ParameterManifest,
+    AutomationRate, ParameterId, ParameterLookup, ParameterManifest, SmoothingCurve,
+    SmoothingPolicy,
 };
 
 const INSTRUMENT_ID: InstrumentId = InstrumentId::from_raw(1);
@@ -159,6 +161,31 @@ fn nested_measurements_restore_and_accumulate_outer_tracking_state() {
     assert!(inner_counts.deallocations > 0);
     assert!(outer_counts.allocations >= inner_counts.allocations + 2);
     assert!(outer_counts.deallocations >= inner_counts.deallocations + 2);
+}
+
+#[test]
+fn smoother_prepare_latch_advance_and_reset_have_no_heap_activity() {
+    let counts = measure_allocations(|| {
+        let mut smoother = PreparedSmoother::prepare(
+            SmoothingPolicy::Smoothed {
+                duration_ms: 15.0,
+                curve: SmoothingCurve::Exponential,
+            },
+            48_000.0,
+            -1.0,
+        )
+        .unwrap();
+        smoother.latch_target(1.0).unwrap();
+        black_box(smoother.value_at(127));
+        black_box(smoother.advance(127));
+        black_box(smoother.advance(u32::MAX));
+        smoother.reset(0.25).unwrap();
+        black_box(smoother);
+    });
+
+    assert_eq!(counts.allocations, 0, "unexpected smoother allocations");
+    assert_eq!(counts.deallocations, 0, "unexpected smoother deallocations");
+    assert_eq!(counts.reallocations, 0, "unexpected smoother reallocations");
 }
 
 #[test]
