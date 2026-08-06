@@ -2,7 +2,7 @@
 title: Generated Roadmap Burndown
 summary: Offline Obsidian snapshot generated from GitHub roadmap issue metadata.
 status: generated
-source-updated: 2026-08-06T16:59:06Z
+source-updated: 2026-08-06T19:49:20Z
 generator: scripts/docs/sync_roadmap.py
 ---
 
@@ -11,14 +11,14 @@ generator: scripts/docs/sync_roadmap.py
 > [!warning] Generated file
 > GitHub Issues are canonical. Do not edit this page manually. Run `python3 scripts/docs/sync_roadmap.py`.
 
-Data snapshot through `2026-08-06T16:59:06Z`.
+Data snapshot through `2026-08-06T19:49:20Z`.
 
 ## Summary
 
 | Milestone | Open | Done | Ready | In progress | Blocked | Backlog | Sized points done/total | Unsized |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | M0: Architecture & Repository Baseline | 0 | 14 | 0 | 0 | 0 | 0 | 27/27 | 3 |
-| M1: Host-Independent Engine & RT Contracts | 12 | 25 | 0 | 2 | 7 | 3 | 62/75 | 12 |
+| M1: Host-Independent Engine & RT Contracts | 11 | 26 | 1 | 1 | 6 | 3 | 65/75 | 12 |
 | M2: Standalone Host & Control Protocol | 6 | 2 | 0 | 0 | 1 | 5 | 4/7 | 5 |
 | M3: JS/TS Composition UI & Standalone App | 9 | 0 | 0 | 0 | 0 | 9 | 0/0 | 9 |
 | M4 (Optional): Desktop Plugins (VST3/AU) | 7 | 0 | 0 | 0 | 0 | 7 | 0/0 | 7 |
@@ -35,11 +35,10 @@ Data snapshot through `2026-08-06T16:59:06Z`.
 - [ ] [#138](https://github.com/jpalvarezl/blight-synth/issues/138) Define versioned engine state snapshots and migrations — `backlog`, `unsized`, unassigned
 - [ ] [#179](https://github.com/jpalvarezl/blight-synth/issues/179) Expand RT allocation audit across existing instrument and effect paths — `backlog`, `M`, unassigned
 - [ ] [#211](https://github.com/jpalvarezl/blight-synth/issues/211) Migrate tracker hydration to versioned node definitions — `blocked`, `epic`, unassigned
-- [ ] [#214](https://github.com/jpalvarezl/blight-synth/issues/214) Apply coalesced parameters with engine-owned smoothing — `blocked`, `epic`, unassigned
+- [ ] [#214](https://github.com/jpalvarezl/blight-synth/issues/214) Apply coalesced parameters with engine-owned smoothing — `ready`, `epic`, unassigned
 - [ ] [#215](https://github.com/jpalvarezl/blight-synth/issues/215) Integrate coalesced parameter generations with the device host — `blocked`, `M`, unassigned
 - [ ] [#216](https://github.com/jpalvarezl/blight-synth/issues/216) Migrate OSC parameters to applied-confirmed coalescing — `blocked`, `S`, unassigned
 - [ ] [#222](https://github.com/jpalvarezl/blight-synth/issues/222) Switch tracker hydration to the built-in node registry — `in-progress`, `M`, @jpalvarezl
-- [ ] [#224](https://github.com/jpalvarezl/blight-synth/issues/224) Implement the deterministic engine smoother primitive — `in-progress`, `M`, @jpalvarezl
 
 ## All roadmap tasks
 
@@ -92,13 +91,13 @@ Data snapshot through `2026-08-06T16:59:06Z`.
 - [ ] [#211](https://github.com/jpalvarezl/blight-synth/issues/211) Migrate tracker hydration to versioned node definitions — `blocked`, `epic`, unassigned
 - [x] [#212](https://github.com/jpalvarezl/blight-synth/issues/212) Decide the coalesced parameter ownership and lifecycle contract — `done`, `S`, @jpalvarezl
 - [x] [#213](https://github.com/jpalvarezl/blight-synth/issues/213) Implement the generation-bound coalesced parameter store — `done`, `M`, @jpalvarezl
-- [ ] [#214](https://github.com/jpalvarezl/blight-synth/issues/214) Apply coalesced parameters with engine-owned smoothing — `blocked`, `epic`, unassigned
+- [ ] [#214](https://github.com/jpalvarezl/blight-synth/issues/214) Apply coalesced parameters with engine-owned smoothing — `ready`, `epic`, unassigned
 - [ ] [#215](https://github.com/jpalvarezl/blight-synth/issues/215) Integrate coalesced parameter generations with the device host — `blocked`, `M`, unassigned
 - [ ] [#216](https://github.com/jpalvarezl/blight-synth/issues/216) Migrate OSC parameters to applied-confirmed coalescing — `blocked`, `S`, unassigned
 - [x] [#221](https://github.com/jpalvarezl/blight-synth/issues/221) Adapt legacy tracker models to versioned node definitions — `done`, `M`, @jpalvarezl
 - [ ] [#222](https://github.com/jpalvarezl/blight-synth/issues/222) Switch tracker hydration to the built-in node registry — `in-progress`, `M`, @jpalvarezl
 - [x] [#223](https://github.com/jpalvarezl/blight-synth/issues/223) Decide coalesced smoothing delivery to block-oriented DSP — `done`, `S`, @jpalvarezl
-- [ ] [#224](https://github.com/jpalvarezl/blight-synth/issues/224) Implement the deterministic engine smoother primitive — `in-progress`, `M`, @jpalvarezl
+- [x] [#224](https://github.com/jpalvarezl/blight-synth/issues/224) Implement the deterministic engine smoother primitive — `done`, `M`, @jpalvarezl
 
 ### M2: Standalone Host & Control Protocol
 
