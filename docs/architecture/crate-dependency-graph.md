@@ -17,6 +17,7 @@ flowchart TD
     AB --> ENG[engine render runtime]
     AB --> SEQ
     AB --> DSP
+    AB --> REG
     AB --> IO[non-RT file/resource dependencies]
     AB -. standalone feature .-> HOST[CPAL / ringbuf / rosc / Tokio]
 
@@ -40,7 +41,7 @@ flowchart TD
 | `sequencer` | Current tracker `Song -> Chain -> Phrase` document/timing runtime and project serialization | DSP/engine/device/network/UI dependencies |
 | `utils` | Small music-theory/data helpers | DSP/engine/sequencer/host/UI/file-decoder dependencies |
 | `os_dls` | DLS/RIFF parsing | Engine/DSP/host orchestration |
-| `audio_backend` host-free | Tracker adapter, shared hydration, resources, deterministic offline rendering | A duplicate DSP/engine implementation |
+| `audio_backend` host-free | Tracker adapter, legacy tracker-to-node-definition adaptation, shared hydration, resources, deterministic offline rendering | A duplicate DSP/engine implementation |
 | `audio_backend` `standalone` feature | CPAL callback/queue adaptation, metering, OSC, process entry point, temporary current-thread Tokio runtime | Composition or DSP semantics duplicated from reusable layers |
 | `tracker_gui` | Current egui debug/reference workflow | Production frontend architecture |
 
@@ -58,7 +59,7 @@ sequencer -> anyhow, bincode, clap, serde, serde_json, serde_with
 os_dls   -> riff
 ```
 
-Any new portable-crate dependency is an architecture change and must update both this page and `scripts/check_architecture.py` deliberately. The checker also forbids `dsp`, `engine`, `sequencer`, and `utils` from depending on `node_registry`: node parsing, validation, resource resolution, and factory allocation stay in an NRT control-plane layer and cannot become callback-reachable through the reusable render core.
+Any new portable-crate dependency is an architecture change and must update both this page and `scripts/check_architecture.py` deliberately. The checker also forbids `dsp`, `engine`, `sequencer`, and `utils` from depending on `node_registry`: node parsing, validation, resource resolution, and factory allocation stay in an NRT control-plane layer and cannot become callback-reachable through the reusable render core. Host-free `audio_backend` deliberately depends on `node_registry` to adapt tracker models on NRT; active registry-backed hydration remains issue #222.
 
 ## Standalone target boundary
 

@@ -1,4 +1,5 @@
 mod commands;
+mod legacy_definition_adapter;
 
 /// Maximum frame count of one prepared render slice. Device callbacks larger
 /// than this are chunked, and offline configuration rejects larger blocks.
@@ -20,6 +21,7 @@ pub use engine::*;
 pub use commands::*;
 #[cfg(feature = "device-host")]
 pub use device_host::*;
+pub use legacy_definition_adapter::*;
 pub use offline::*;
 pub(crate) use player::Player;
 pub use player::{EventLaneStatus, PlayerProcessStatus};
