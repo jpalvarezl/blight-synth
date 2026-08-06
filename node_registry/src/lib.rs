@@ -23,7 +23,8 @@ mod registry;
 
 pub use definitions::{
     EffectDefinition, EffectKindId, InstrumentDefinition, InstrumentKindId, ParameterPayload,
-    NODE_DEFINITION_SCHEMA_VERSION,
+    EFFECT_DEFINITION_SCHEMA_VERSION, INSTRUMENT_DEFINITION_SCHEMA_VERSION,
+    LEGACY_INSTRUMENT_DEFINITION_SCHEMA_VERSION,
 };
 pub use diagnostics::{
     InvalidDefinitionCode, InvalidDefinitionDiagnostic, NodeCategory, PreparationError,

@@ -13,7 +13,7 @@ issue: 229
 - Issue: [#229](https://github.com/jpalvarezl/blight-synth/issues/229)
 - Owner/status: jpalvarezl / in-progress
 - Branch/worktree: `issue/229-versioned-envelope-migration` / `/Users/jpalvarezl/code/blight-229`
-- Base: `main` / `d6fe65d`
+- Base: `main` / `654b4ea`
 
 ## Goal
 
@@ -27,13 +27,25 @@ Expected paths: node_registry definitions/registry/migration fixtures, legacy ad
 
 ## Plan
 
-- [ ] Add versioned envelope payload/migration.
-- [ ] Prepare configured envelopes via registry.
-- [ ] Adapt legacy values and remove compatibility commands/type switch.
-- [ ] Verify behavior/goldens/NRT/RT and review.
+- [x] Add versioned envelope payload/migration.
+- [x] Prepare configured envelopes via registry.
+- [x] Adapt legacy values and remove compatibility commands/type switch.
+- [x] Verify behavior/goldens/NRT/RT and review.
+
+## Acceptance
+
+- [x] Tracker amplitude settings survive adapter → definition JSON → NRT registry preparation.
+- [x] Kick frequency delta and pitch decay survive the same path.
+- [x] The committed v1 fixture migrates deterministically to canonical v2 while retaining effects and unknown payload data.
+- [x] Compatibility envelope commands and the hydration `InstrumentData` switch are deleted.
+- [x] Focused behavior tests and regenerated canonical references cover the semantic change.
+- [x] Factories/preparation remain NRT; structural owner handoff, order, and RT retirement are unchanged.
 
 ## Handoff
 
-- Completed: claimed/packet.
-- Remaining: implementation/PR.
-- Risk: preserve current envelope sonic behavior exactly.
+- Completed: implementation, focused/full verification, golden regeneration, and independent review.
+- Remaining: PR review/merge only.
+- Verification: `cargo test --workspace --all-targets --all-features`; strict all-feature and host-free Clippy/tests; release RT diagnostic check; offline golden; fmt; architecture; RT logging; docs; work reconciliation.
+- Intentional behavior correction: legacy kick pitch commands targeted `None` and were ignored, and pitch decay was never emitted. Registry preparation now applies both authored values to pitch envelope 1. This changes only `ending_theme_no_effect.json`'s reviewed reference; amplitude behavior and owner order remain unchanged.
+- 2026-08-06 — @jpalvarezl auditioned the regenerated canonical WAVs from this branch and confirmed they sound normal.
+- Risk: the migration API is public and tested but has no persisted node-definition loader caller yet.

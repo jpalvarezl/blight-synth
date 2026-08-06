@@ -4,7 +4,7 @@ use node_registry::{
     BuiltInRegistry, EffectLayout, InstrumentDefinition, NrtPreparationContext, PreparationError,
     PreparedEffect, PreparedInstrumentDefinition,
 };
-use sequencer::models::{AmpEnvelopeParams, InstrumentData, Song};
+use sequencer::models::Song;
 #[cfg(feature = "device-host")]
 use sequencer::{cli::FileFormat, project::open_song_from_file};
 use std::{error::Error, fmt};
@@ -13,8 +13,8 @@ use std::{path::Path, sync::Arc};
 
 use crate::{
     adapt_legacy_instrument,
-    id::{EffectId, EnvelopeId, InstrumentId},
-    Command, EnvelopeCmd, InstrumentCmd, LegacyDefinitionAdapterError, SynthCmd,
+    id::{EffectId, InstrumentId},
+    Command, InstrumentCmd, LegacyDefinitionAdapterError,
 };
 #[cfg(feature = "device-host")]
 use crate::{BlightAudio, CommandSubmissionErrorKind, SequencerCmd};
@@ -168,7 +168,6 @@ pub fn build_song_hydration_commands(
             })?;
         let prepared = prepare_definition(&registry, &context, instrument.id, &definition)?;
         push_prepared_owner_commands(&mut commands, instrument.id, prepared)?;
-        push_legacy_envelope_commands(&mut commands, instrument_id, &instrument.data);
     }
 
     Ok(commands)
@@ -219,69 +218,6 @@ fn push_prepared_owner_commands(
     Ok(())
 }
 
-fn push_legacy_envelope_commands(
-    commands: &mut Vec<Command>,
-    instrument_id: InstrumentId,
-    data: &InstrumentData,
-) {
-    let amp_envelope = match data {
-        InstrumentData::SimpleOscillator(params) => &params.amp_envelope,
-        InstrumentData::HiHat(params) => &params.amp_envelope,
-        InstrumentData::KickDrum(params) => {
-            commands.push(
-                InstrumentCmd::PassOnSynthCmd {
-                    instrument_id,
-                    synth_cmd: SynthCmd::EnvelopeCommand {
-                        envelope_id: None,
-                        command: EnvelopeCmd::SetPitchEnvFreqDelta {
-                            freq_delta: params.pitch_envelope.freq_delta,
-                        },
-                    },
-                }
-                .into(),
-            );
-            &params.amp_envelope
-        }
-        InstrumentData::SnareDrum(params) => &params.amp_envelope,
-        InstrumentData::DFAM(params) => &params.amp_envelope,
-        // The adapter rejects these variants before this compatibility-only step.
-        InstrumentData::Sample(_) | InstrumentData::Synth(_) => return,
-    };
-    push_amp_envelope_commands(commands, instrument_id, amp_envelope);
-}
-
-fn push_amp_envelope_commands(
-    commands: &mut Vec<Command>,
-    instrument_id: InstrumentId,
-    envelope: &AmpEnvelopeParams,
-) {
-    for command in [
-        EnvelopeCmd::SetAttack {
-            attack: envelope.attack,
-        },
-        EnvelopeCmd::SetDecay {
-            decay: envelope.decay,
-        },
-        EnvelopeCmd::SetSustain {
-            sustain: envelope.sustain,
-        },
-        EnvelopeCmd::SetRelease {
-            release: envelope.release,
-        },
-    ] {
-        commands.push(
-            InstrumentCmd::PassOnSynthCmd {
-                instrument_id,
-                synth_cmd: SynthCmd::EnvelopeCommand {
-                    envelope_id: Some(EnvelopeId::from_raw(0)),
-                    command,
-                },
-            }
-            .into(),
-        );
-    }
-}
-
 fn runtime_instrument_id(model_id: usize) -> std::result::Result<InstrumentId, SongHydrationError> {
     // Tracker events persist instrument references as u8. Reject a bank ID that
     // events and the current UI cannot represent instead of hydrating a runtime
@@ -298,7 +234,8 @@ mod tests {
     use super::*;
     use node_registry::{kind, InstrumentKindId, InvalidDefinitionCode, NodeCategory};
     use sequencer::models::{
-        EffectType, Event, HiHatParams, Instrument, SampleParams, SynthParams,
+        AmpEnvelopeParams, EffectType, Event, HiHatParams, Instrument, InstrumentData,
+        SampleParams, SynthParams,
     };
 
     use crate::{EffectFactory, InstrumentFactory};

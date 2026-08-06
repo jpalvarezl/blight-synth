@@ -1,10 +1,10 @@
 use audio_backend::{
     adapt_legacy_audio_effect, adapt_legacy_instrument, build_song_hydration_commands,
     id::{EffectId, InstrumentId},
-    Command, Engine, EngineCommand, EnvelopeCmd, InstrumentCmd, LegacyDefinitionAdapterError,
-    RetireSink, RetiredState, SynthCmd,
+    Command, Engine, EngineCommand, InstrumentCmd, LegacyDefinitionAdapterError, NoteEvent, NoteId,
+    RetireSink, RetiredState,
 };
-use node_registry::{kind, InstrumentDefinition};
+use node_registry::{kind, BuiltInRegistry, InstrumentDefinition, NrtPreparationContext};
 use sequencer::models::{
     AmpEnvelopeParams, AudioEffect, DFAMParams, Envelope, HiHatParams, Instrument, InstrumentData,
     KickDrumParams, PitchEnvelopeParams, SampleParams, SimpleOscillatorParams, SnareDrumParams,
@@ -84,9 +84,25 @@ fn current_legacy_instrument_and_effect_inventory_maps_or_reports_no_faithful_ki
         let data = instrument(fixture, vec![]);
         let definition = adapt_legacy_instrument(InstrumentId::from_raw(7), &data).unwrap();
         assert_eq!(definition.kind.as_str(), expected_kind);
+        assert_eq!(definition.schema_version, 2);
         assert_eq!(definition.parameters["pan"], json!(0.0));
+        assert_eq!(
+            definition.parameters["amplitude_envelope"],
+            json!({
+                "attack_seconds": 0.01_f32,
+                "decay_seconds": 0.1_f32,
+                "sustain_level": 0.8_f32,
+                "release_seconds": 0.2_f32
+            })
+        );
         if matches!(fixture, Fixture::Oscillator) {
             assert_eq!(definition.parameters["waveform"], json!("nes_triangle"));
+        }
+        if matches!(fixture, Fixture::Kick) {
+            assert_eq!(
+                definition.parameters["pitch_envelope"],
+                json!({ "frequency_delta_hz": 100.0_f32, "decay_seconds": 0.1_f32 })
+            );
         }
     }
 
@@ -158,6 +174,82 @@ fn definition_json_roundtrip_is_deterministic() {
     assert_eq!(first, serde_json::to_string_pretty(&decoded).unwrap());
 }
 
+fn render_adapted_instrument(data: &InstrumentData) -> (InstrumentDefinition, Vec<f32>) {
+    let definition = adapt_legacy_instrument(InstrumentId::from_raw(11), data).unwrap();
+    let json = serde_json::to_string(&definition).unwrap();
+    let decoded: InstrumentDefinition = serde_json::from_str(&json).unwrap();
+    let mut instrument = BuiltInRegistry::new()
+        .prepare_instrument(&decoded, &NrtPreparationContext::new(48_000.0))
+        .unwrap();
+    instrument.note_on(NoteEvent {
+        id: NoteId::from_pitch(36),
+        pitch: 36,
+        velocity: u8::MAX,
+    });
+    let mut left = vec![0.0; 4_096];
+    let mut right = vec![0.0; left.len()];
+    instrument.process(&mut left, &mut right, 48_000.0);
+    (decoded, left)
+}
+
+#[test]
+fn adapter_json_and_registry_apply_amplitude_and_kick_pitch_values() {
+    let kick = |frequency_delta_hz, pitch_decay_seconds| {
+        InstrumentData::KickDrum(KickDrumParams {
+            audio_effects: Vec::new(),
+            amp_envelope: AmpEnvelopeParams {
+                attack: 0.0,
+                decay: 0.22,
+                sustain: 0.33,
+                release: 0.44,
+            },
+            pitch_envelope: PitchEnvelopeParams {
+                freq_delta: frequency_delta_hz,
+                decay_time: pitch_decay_seconds,
+            },
+        })
+    };
+
+    let (definition, baseline) = render_adapted_instrument(&kick(123.0, 0.05));
+    assert_eq!(
+        definition.parameters["amplitude_envelope"],
+        json!({
+            "attack_seconds": 0.0_f32,
+            "decay_seconds": 0.22_f32,
+            "sustain_level": 0.33_f32,
+            "release_seconds": 0.44_f32
+        })
+    );
+    assert_eq!(
+        definition.parameters["pitch_envelope"],
+        json!({ "frequency_delta_hz": 123.0_f32, "decay_seconds": 0.05_f32 })
+    );
+
+    let (_, different_delta) = render_adapted_instrument(&kick(-123.0, 0.05));
+    let (_, different_decay) = render_adapted_instrument(&kick(123.0, 0.5));
+    assert_ne!(baseline, different_delta, "frequency delta must reach DSP");
+    assert_ne!(baseline, different_decay, "pitch decay must reach DSP");
+
+    let oscillator = |attack| {
+        InstrumentData::SimpleOscillator(SimpleOscillatorParams {
+            waveform: Waveform::Sine,
+            audio_effects: Vec::new(),
+            amp_envelope: AmpEnvelopeParams {
+                attack,
+                decay: 0.1,
+                sustain: 0.8,
+                release: 0.2,
+            },
+        })
+    };
+    let (_, immediate_attack) = render_adapted_instrument(&oscillator(0.0));
+    let (_, slow_attack) = render_adapted_instrument(&oscillator(1.0));
+    assert_ne!(
+        immediate_attack, slow_attack,
+        "amplitude ADSR must reach DSP"
+    );
+}
+
 #[test]
 fn legacy_clamps_are_explicit_and_unrepresentable_values_are_errors() {
     let clamped_reverb = AudioEffect::Reverb {
@@ -209,11 +301,6 @@ fn legacy_clamps_are_explicit_and_unrepresentable_values_are_errors() {
 enum HydrationStep {
     Instrument(u32),
     Effect { instrument: u32, effect: u32 },
-    Pitch { instrument: u32, delta: f32 },
-    Attack { instrument: u32, value: f32 },
-    Decay { instrument: u32, value: f32 },
-    Sustain { instrument: u32, value: f32 },
-    Release { instrument: u32, value: f32 },
 }
 
 fn hydration_steps(commands: &[Command]) -> Vec<HydrationStep> {
@@ -230,72 +317,9 @@ fn hydration_steps(commands: &[Command]) -> Vec<HydrationStep> {
                 instrument: instrument_id.raw(),
                 effect: effect.id().raw(),
             },
-            Command::Instrument(InstrumentCmd::PassOnSynthCmd {
-                instrument_id,
-                synth_cmd:
-                    SynthCmd::EnvelopeCommand {
-                        envelope_id: None,
-                        command: EnvelopeCmd::SetPitchEnvFreqDelta { freq_delta },
-                    },
-            }) => HydrationStep::Pitch {
-                instrument: instrument_id.raw(),
-                delta: *freq_delta,
-            },
-            Command::Instrument(InstrumentCmd::PassOnSynthCmd {
-                instrument_id,
-                synth_cmd:
-                    SynthCmd::EnvelopeCommand {
-                        envelope_id: Some(envelope_id),
-                        command,
-                    },
-            }) => {
-                assert_eq!(envelope_id.raw(), 0);
-                match command {
-                    EnvelopeCmd::SetAttack { attack } => HydrationStep::Attack {
-                        instrument: instrument_id.raw(),
-                        value: *attack,
-                    },
-                    EnvelopeCmd::SetDecay { decay } => HydrationStep::Decay {
-                        instrument: instrument_id.raw(),
-                        value: *decay,
-                    },
-                    EnvelopeCmd::SetSustain { sustain } => HydrationStep::Sustain {
-                        instrument: instrument_id.raw(),
-                        value: *sustain,
-                    },
-                    EnvelopeCmd::SetRelease { release } => HydrationStep::Release {
-                        instrument: instrument_id.raw(),
-                        value: *release,
-                    },
-                    EnvelopeCmd::SetPitchEnvFreqDelta { .. } => {
-                        panic!("pitch envelope must use the implicit envelope target")
-                    }
-                }
-            }
-            _ => panic!("unexpected hydration command"),
+            _ => panic!("envelopes must be configured before owner handoff"),
         })
         .collect()
-}
-
-fn amp_steps(instrument: u32, envelope: &AmpEnvelopeParams) -> Vec<HydrationStep> {
-    vec![
-        HydrationStep::Attack {
-            instrument,
-            value: envelope.attack,
-        },
-        HydrationStep::Decay {
-            instrument,
-            value: envelope.decay,
-        },
-        HydrationStep::Sustain {
-            instrument,
-            value: envelope.sustain,
-        },
-        HydrationStep::Release {
-            instrument,
-            value: envelope.release,
-        },
-    ]
 }
 
 #[test]
@@ -312,7 +336,7 @@ fn registry_hydration_preserves_repeated_effect_owner_and_command_order() {
     });
 
     let commands = build_song_hydration_commands(&song, 48_000.0).unwrap();
-    let mut expected = vec![
+    let expected = vec![
         HydrationStep::Instrument(3),
         HydrationStep::Effect {
             instrument: 3,
@@ -327,7 +351,6 @@ fn registry_hydration_preserves_repeated_effect_owner_and_command_order() {
             effect: 3,
         },
     ];
-    expected.extend(amp_steps(3, &envelope));
     assert_eq!(hydration_steps(&commands), expected);
 }
 
@@ -345,7 +368,7 @@ fn registry_hydration_installs_dfam_ladder_before_distinct_user_effect() {
     });
 
     let commands = build_song_hydration_commands(&song, 48_000.0).unwrap();
-    let mut expected = vec![
+    let expected = vec![
         HydrationStep::Instrument(4),
         HydrationStep::Effect {
             instrument: 4,
@@ -356,12 +379,11 @@ fn registry_hydration_installs_dfam_ladder_before_distinct_user_effect() {
             effect: 2,
         },
     ];
-    expected.extend(amp_steps(4, &envelope));
     assert_eq!(hydration_steps(&commands), expected);
 }
 
 #[test]
-fn registry_hydration_keeps_explicit_pitch_then_amplitude_envelope_commands() {
+fn registry_hydration_hands_off_only_fully_configured_owners() {
     let envelope = AmpEnvelopeParams {
         attack: 0.11,
         decay: 0.22,
@@ -383,19 +405,16 @@ fn registry_hydration_keeps_explicit_pitch_then_amplitude_envelope_commands() {
     });
 
     let commands = build_song_hydration_commands(&song, 48_000.0).unwrap();
-    let mut expected = vec![
-        HydrationStep::Instrument(7),
-        HydrationStep::Effect {
-            instrument: 7,
-            effect: 1,
-        },
-        HydrationStep::Pitch {
-            instrument: 7,
-            delta: 123.0,
-        },
-    ];
-    expected.extend(amp_steps(7, &envelope));
-    assert_eq!(hydration_steps(&commands), expected);
+    assert_eq!(
+        hydration_steps(&commands),
+        [
+            HydrationStep::Instrument(7),
+            HydrationStep::Effect {
+                instrument: 7,
+                effect: 1,
+            },
+        ]
+    );
 }
 
 struct CollectRetired(Vec<RetiredState>);

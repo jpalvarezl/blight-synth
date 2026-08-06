@@ -27,12 +27,12 @@
       "sample_rate": 48000,
       "channels": 2,
       "frames": 1024256,
-      "pcm_sha256": "5aecfff4a09366bb70631502cbb867a1e782f2feb73e5431d73b72ec16d1b0e8",
-      "peak_left": 2.009869,
-      "peak_right": 2.009869,
-      "rms_left": 0.33943203,
-      "rms_right": 0.33943203,
-      "clipped_samples": 17922
+      "pcm_sha256": "3dceaa6862036bbe813b610441face3d5c01a0b87f660df728c4343aaccf570f",
+      "peak_left": 1.7807317,
+      "peak_right": 1.7807317,
+      "rms_left": 0.33899957,
+      "rms_right": 0.33899957,
+      "clipped_samples": 17170
     }
   }
 }
