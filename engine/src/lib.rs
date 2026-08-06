@@ -3,6 +3,7 @@ compile_error!(
     "engine strict-RT parameter publication requires target_has_atomic=\"64\"; software-emulated or locked AtomicU64 is unsupported"
 );
 
+mod coalesced_bindings;
 mod coalesced_parameters;
 mod commands;
 mod event_admission;
@@ -10,6 +11,7 @@ mod events;
 mod parameter_atomic_protocol;
 mod smoother;
 
+pub use coalesced_bindings::*;
 pub use coalesced_parameters::*;
 pub use commands::*;
 use dsp::{

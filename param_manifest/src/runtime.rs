@@ -14,7 +14,7 @@
 //! replacement, and destruction of a table are prepared-state operations, so an
 //! old table must be retired to NRT rather than dropped on the audio thread.
 
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use crate::descriptor::{
     AutomationRate, ParameterDescriptor, ParameterId, ParameterKind, SmoothingPolicy,
@@ -60,6 +60,7 @@ pub enum RuntimeKind {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RuntimeParameter {
     key: RuntimeParamKey,
+    node_type: crate::NodeType,
     engine_param_index: u32,
     mapping: Mapping,
     kind: RuntimeKind,
@@ -76,6 +77,11 @@ impl RuntimeParameter {
     #[must_use]
     pub fn key(self) -> RuntimeParamKey {
         self.key
+    }
+
+    #[must_use]
+    pub fn node_type(self) -> crate::NodeType {
+        self.node_type
     }
 
     #[must_use]
@@ -128,6 +134,7 @@ impl RuntimeParameter {
             .expect("validated total discrete-value capacity fits u32");
         Self {
             key,
+            node_type: descriptor.owner.node_type,
             engine_param_index: descriptor.owner.engine_param_index,
             mapping: descriptor.mapping,
             kind,
@@ -236,17 +243,46 @@ const fn require_copy<T: Copy>() {}
 const _: () = require_copy::<RuntimeParameter>();
 const _: () = assert!(std::mem::size_of::<RuntimeParameter>() <= 64);
 
+/// Opaque identity of one exact prepared runtime table allocation.
+///
+/// Identity clones are prepared-state owners: release the last clone on NRT.
+/// Equality is allocation identity, not structural equality, so even two tables
+/// compiled from the same manifest remain distinct.
+#[derive(Debug, Clone)]
+pub struct RuntimeParameterTableIdentity(Arc<()>);
+
+impl PartialEq for RuntimeParameterTableIdentity {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+}
+
+impl Eq for RuntimeParameterTableIdentity {}
+
 /// A bounded, string-free table of runtime parameters (the RT handle).
 ///
 /// Read/conversion methods are RT-safe. Moving, replacing, or dropping this owner
 /// is an NRT prepared-state lifecycle operation because its boxed slices deallocate.
 #[derive(Debug)]
 pub struct RuntimeParameterTable {
+    identity: RuntimeParameterTableIdentity,
     entries: Box<[RuntimeParameter]>,
     discrete_values: Box<[f32]>,
 }
 
 impl RuntimeParameterTable {
+    /// Clone this exact table's opaque identity during NRT preparation.
+    #[must_use]
+    pub fn identity(&self) -> RuntimeParameterTableIdentity {
+        self.identity.clone()
+    }
+
+    /// Compare an already prepared identity without allocation.
+    #[must_use]
+    pub fn has_identity(&self, identity: &RuntimeParameterTableIdentity) -> bool {
+        self.identity == *identity
+    }
+
     /// Fetch a runtime parameter by key (RT-safe, bounded O(1) slice index).
     #[must_use]
     pub fn get(&self, key: RuntimeParamKey) -> Option<&RuntimeParameter> {
@@ -350,6 +386,7 @@ impl ParameterLookup {
 
         Ok(Self {
             table: RuntimeParameterTable {
+                identity: RuntimeParameterTableIdentity(Arc::new(())),
                 entries: entries.into_boxed_slice(),
                 discrete_values: discrete_values.into_boxed_slice(),
             },
@@ -421,6 +458,7 @@ mod tests {
         // keeps the final RT defense honest if internal preparation is refactored.
         let malformed = RuntimeParameter {
             key: RuntimeParamKey(0),
+            node_type: crate::NodeType::MasterEffect,
             engine_param_index: 0,
             mapping: Mapping::Linear {
                 min: f32::NAN,

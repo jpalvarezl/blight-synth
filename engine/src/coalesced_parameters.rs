@@ -12,7 +12,9 @@ use std::{
     },
 };
 
-use param_manifest::{AutomationRate, RuntimeParamKey, RuntimeParameterTable};
+use param_manifest::{
+    AutomationRate, RuntimeParamKey, RuntimeParameterTable, RuntimeParameterTableIdentity,
+};
 
 use crate::parameter_atomic_protocol::{
     APPLIED_OBSERVE, APPLIED_PUBLISH, DIRTY_CONSUME, DIRTY_PUBLISH, GENERATION_CLOSE,
@@ -261,6 +263,7 @@ struct Slot {
 #[derive(Debug)]
 struct Shared {
     generation: ParameterTableGeneration,
+    table_identity: RuntimeParameterTableIdentity,
     accepting: AtomicBool,
     disconnected: AtomicBool,
     bindings: Box<[KeyBinding]>,
@@ -686,6 +689,7 @@ impl CoalescedParameterStore {
         Ok(Self {
             shared: Arc::new(Shared {
                 generation,
+                table_identity: table.identity(),
                 accepting: AtomicBool::new(true),
                 disconnected: AtomicBool::new(false),
                 bindings: bindings.into_boxed_slice(),
@@ -717,6 +721,13 @@ impl CoalescedParameterStore {
     #[must_use]
     pub fn generation(&self) -> ParameterTableGeneration {
         self.shared.generation
+    }
+
+    /// Whether `table` is the exact runtime table used to prepare this store,
+    /// rather than a structurally equal table from another generation.
+    #[must_use]
+    pub fn is_for_table(&self, table: &RuntimeParameterTable) -> bool {
+        table.has_identity(&self.shared.table_identity)
     }
 
     #[must_use]
