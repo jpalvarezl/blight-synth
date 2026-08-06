@@ -13,4 +13,4 @@ A packet is a handoff cache, not a second specification. It links to the issue a
 
 ## Active
 
-- [Issue #229 — Move legacy envelopes into versioned node definitions](issue-229-versioned-envelope-migration.md)
+_No active packets. Create one when an issue moves to `status:in-progress`._
