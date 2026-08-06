@@ -13,4 +13,5 @@ A packet is a handoff cache, not a second specification. It links to the issue a
 
 ## Active
 
-_No active packets. Create one when an issue moves to `status:in-progress`._
+- [Issue #222 — Switch tracker hydration to the built-in node registry](issue-222-registry-backed-hydration.md)
+- [Issue #224 — Implement the deterministic engine smoother primitive](issue-224-smoother-primitive.md)
