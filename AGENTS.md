@@ -55,6 +55,16 @@ When sources disagree: tests/code describe current behavior; accepted ADRs descr
 - Rebase/update from the agreed base before handoff. Never overwrite another task's uncommitted work.
 - Finish with focused tests, packet status, unresolved questions, and exact verification commands.
 
+## Reviewability and PR slicing
+
+- Prefer one coherent, independently explainable concept per PR over a rigid line limit.
+- As a planning signal, aim for roughly 500–800 meaningful changed lines including tests; 800–1,000 is acceptable when implementation and tests are tightly coupled.
+- Generated files, lockfiles, fixtures, and mechanical call-site migration count less than architectural or behavioral logic.
+- Above roughly 1,000 meaningful lines, pause and actively look for a clean stacked split before continuing.
+- Avoid combining schema/contract design, core implementation, host integration, and data migration in one PR unless separating them would make a PR untestable or unsafe.
+- Use stacked dependent PRs/issues when necessary. Each PR description must state its single primary behavior, explicit non-goals, and the next deferred slice.
+- If review reveals that a nominal leaf still contains several concepts, split the issue again rather than optimizing only for delivery velocity.
+
 ## Documentation rules
 
 - Use standard relative Markdown links; they work in GitHub and Obsidian.
