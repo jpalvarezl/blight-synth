@@ -539,6 +539,7 @@ dependencies = [
  "env_logger",
  "hound",
  "log",
+ "node_registry",
  "os_dls",
  "ringbuf",
  "rosc",
