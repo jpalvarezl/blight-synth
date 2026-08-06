@@ -44,7 +44,8 @@ Expected paths: node_registry definitions/registry/migration fixtures, legacy ad
 ## Handoff
 
 - Completed: implementation, focused/full verification, golden regeneration, and independent review.
-- Remaining: handoff only; no push, PR, merge, issue close, or GitHub status mutation in this task.
+- Remaining: PR review/merge only.
 - Verification: `cargo test --workspace --all-targets --all-features`; strict all-feature and host-free Clippy/tests; release RT diagnostic check; offline golden; fmt; architecture; RT logging; docs; work reconciliation.
 - Intentional behavior correction: legacy kick pitch commands targeted `None` and were ignored, and pitch decay was never emitted. Registry preparation now applies both authored values to pitch envelope 1. This changes only `ending_theme_no_effect.json`'s reviewed reference; amplitude behavior and owner order remain unchanged.
-- Risk: the regenerated macOS-arm64 WAVs under `target/offline-renders/` were not human-auditioned in this non-interactive run. The migration API is public and tested but has no persisted node-definition loader caller yet.
+- 2026-08-06 — @jpalvarezl auditioned the regenerated canonical WAVs from this branch and confirmed they sound normal.
+- Risk: the migration API is public and tested but has no persisted node-definition loader caller yet.

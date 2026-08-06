@@ -10,8 +10,9 @@ use serde_json::Value;
 /// interpret. Adding a kind does not bump this value; changing the meaning or
 /// shape of an existing kind's payload requires a new version and migration on
 /// NRT before preparation.
-pub const LEGACY_NODE_DEFINITION_SCHEMA_VERSION: u32 = 1;
-pub const NODE_DEFINITION_SCHEMA_VERSION: u32 = 2;
+pub const LEGACY_INSTRUMENT_DEFINITION_SCHEMA_VERSION: u32 = 1;
+pub const INSTRUMENT_DEFINITION_SCHEMA_VERSION: u32 = 2;
+pub const EFFECT_DEFINITION_SCHEMA_VERSION: u32 = 1;
 
 /// An opaque, kind-versioned constructor payload.
 ///
@@ -101,7 +102,7 @@ impl InstrumentDefinition {
         effects: Vec<EffectDefinition>,
     ) -> Self {
         Self {
-            schema_version: NODE_DEFINITION_SCHEMA_VERSION,
+            schema_version: INSTRUMENT_DEFINITION_SCHEMA_VERSION,
             instance_id,
             kind: kind.into(),
             parameters,
@@ -136,7 +137,7 @@ impl EffectDefinition {
         parameters: ParameterPayload,
     ) -> Self {
         Self {
-            schema_version: LEGACY_NODE_DEFINITION_SCHEMA_VERSION,
+            schema_version: EFFECT_DEFINITION_SCHEMA_VERSION,
             instance_id,
             kind: kind.into(),
             parameters,

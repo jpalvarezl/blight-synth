@@ -4,8 +4,8 @@ use dsp::id::{EffectId, InstrumentId, SampleId};
 use node_registry::{
     kind, BuiltInRegistry, EffectDefinition, EffectKindId, EffectLayout, InstrumentDefinition,
     InstrumentKindId, InvalidDefinitionCode, NodeCategory, NrtPreparationContext, ParameterPayload,
-    PreparationError, SampleResolver, LEGACY_NODE_DEFINITION_SCHEMA_VERSION,
-    NODE_DEFINITION_SCHEMA_VERSION,
+    PreparationError, SampleResolver, INSTRUMENT_DEFINITION_SCHEMA_VERSION,
+    LEGACY_INSTRUMENT_DEFINITION_SCHEMA_VERSION,
 };
 use serde_json::{json, Value};
 
@@ -23,8 +23,8 @@ fn amplitude_envelope() -> Value {
     json!({
         "attack_seconds": 0.1,
         "decay_seconds": 0.1,
-        "sustain_level": 0.8,
-        "release_seconds": 0.5
+        "release_seconds": 0.5,
+        "sustain_level": 0.8
     })
 }
 
@@ -55,7 +55,7 @@ fn v1_json_fixture_migrates_to_canonical_v2_deterministically() {
 
     assert_eq!(
         definition.schema_version,
-        LEGACY_NODE_DEFINITION_SCHEMA_VERSION
+        LEGACY_INSTRUMENT_DEFINITION_SCHEMA_VERSION
     );
     assert_eq!(definition.instance_id, InstrumentId::from_raw(7));
     assert_eq!(definition.kind.as_str(), kind::MONO_OSCILLATOR);
@@ -67,7 +67,10 @@ fn v1_json_fixture_migrates_to_canonical_v2_deterministically() {
     let migrated = BuiltInRegistry::new()
         .migrate_instrument_definition(&definition)
         .unwrap();
-    assert_eq!(migrated.schema_version, NODE_DEFINITION_SCHEMA_VERSION);
+    assert_eq!(
+        migrated.schema_version,
+        INSTRUMENT_DEFINITION_SCHEMA_VERSION
+    );
     assert_eq!(migrated.effects, definition.effects);
     let encoded = format!("{}\n", serde_json::to_string_pretty(&migrated).unwrap());
     assert_eq!(encoded, V2_FIXTURE);

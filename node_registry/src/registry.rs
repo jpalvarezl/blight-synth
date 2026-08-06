@@ -18,8 +18,8 @@ use serde_json::{json, Map, Value};
 
 use crate::{
     EffectDefinition, InstrumentDefinition, InvalidDefinitionCode, InvalidDefinitionDiagnostic,
-    NodeCategory, PreparationError, LEGACY_NODE_DEFINITION_SCHEMA_VERSION,
-    NODE_DEFINITION_SCHEMA_VERSION,
+    NodeCategory, PreparationError, EFFECT_DEFINITION_SCHEMA_VERSION,
+    INSTRUMENT_DEFINITION_SCHEMA_VERSION, LEGACY_INSTRUMENT_DEFINITION_SCHEMA_VERSION,
 };
 
 /// Stable built-in kind IDs. These strings are persistence/protocol identities:
@@ -44,8 +44,8 @@ pub mod kind {
     pub const MONO_MOOG_LADDER: &str = "blight.effect.moog_ladder.mono";
 }
 
-const V1: &[u32] = &[LEGACY_NODE_DEFINITION_SCHEMA_VERSION];
-const V2: &[u32] = &[NODE_DEFINITION_SCHEMA_VERSION];
+const EFFECT_VERSIONS: &[u32] = &[EFFECT_DEFINITION_SCHEMA_VERSION];
+const INSTRUMENT_VERSIONS: &[u32] = &[INSTRUMENT_DEFINITION_SCHEMA_VERSION];
 
 /// Resolves a typed sample resource ID to already decoded immutable sample data.
 /// Implementations and all calls are NRT-only.
@@ -167,49 +167,49 @@ struct EffectRegistration {
 static INSTRUMENTS: &[InstrumentRegistration] = &[
     InstrumentRegistration {
         kind: kind::MONO_OSCILLATOR,
-        versions: V2,
+        versions: INSTRUMENT_VERSIONS,
         deprecated: false,
         builder: build_mono_oscillator,
     },
     InstrumentRegistration {
         kind: kind::POLYPHONIC_OSCILLATOR,
-        versions: V2,
+        versions: INSTRUMENT_VERSIONS,
         deprecated: false,
         builder: build_polyphonic_oscillator,
     },
     InstrumentRegistration {
         kind: kind::HI_HAT,
-        versions: V2,
+        versions: INSTRUMENT_VERSIONS,
         deprecated: false,
         builder: build_hi_hat,
     },
     InstrumentRegistration {
         kind: kind::KICK_DRUM,
-        versions: V2,
+        versions: INSTRUMENT_VERSIONS,
         deprecated: false,
         builder: build_kick_drum,
     },
     InstrumentRegistration {
         kind: kind::SNARE_DRUM,
-        versions: V2,
+        versions: INSTRUMENT_VERSIONS,
         deprecated: false,
         builder: build_snare_drum,
     },
     InstrumentRegistration {
         kind: kind::MOOG_DFAM,
-        versions: V2,
+        versions: INSTRUMENT_VERSIONS,
         deprecated: false,
         builder: build_moog_dfam,
     },
     InstrumentRegistration {
         kind: kind::ONE_SHOT_SAMPLE_PLAYER,
-        versions: V2,
+        versions: INSTRUMENT_VERSIONS,
         deprecated: false,
         builder: build_one_shot_sample_player,
     },
     InstrumentRegistration {
         kind: kind::LOOP_SAMPLE_PLAYER,
-        versions: V2,
+        versions: INSTRUMENT_VERSIONS,
         deprecated: false,
         builder: build_loop_sample_player,
     },
@@ -218,56 +218,56 @@ static INSTRUMENTS: &[InstrumentRegistration] = &[
 static EFFECTS: &[EffectRegistration] = &[
     EffectRegistration {
         kind: kind::MONO_REVERB,
-        versions: V1,
+        versions: EFFECT_VERSIONS,
         layout: EffectLayout::Mono,
         deprecated: false,
         builder: build_mono_reverb,
     },
     EffectRegistration {
         kind: kind::STEREO_REVERB,
-        versions: V1,
+        versions: EFFECT_VERSIONS,
         layout: EffectLayout::Stereo,
         deprecated: false,
         builder: build_stereo_reverb,
     },
     EffectRegistration {
         kind: kind::MONO_DELAY,
-        versions: V1,
+        versions: EFFECT_VERSIONS,
         layout: EffectLayout::Mono,
         deprecated: false,
         builder: build_mono_delay,
     },
     EffectRegistration {
         kind: kind::MONO_DISTORTION,
-        versions: V1,
+        versions: EFFECT_VERSIONS,
         layout: EffectLayout::Mono,
         deprecated: true,
         builder: build_mono_distortion,
     },
     EffectRegistration {
         kind: kind::MONO_FILTER,
-        versions: V1,
+        versions: EFFECT_VERSIONS,
         layout: EffectLayout::Mono,
         deprecated: true,
         builder: build_mono_filter,
     },
     EffectRegistration {
         kind: kind::MONO_GAIN,
-        versions: V1,
+        versions: EFFECT_VERSIONS,
         layout: EffectLayout::Mono,
         deprecated: false,
         builder: build_mono_gain,
     },
     EffectRegistration {
         kind: kind::STEREO_GAIN,
-        versions: V1,
+        versions: EFFECT_VERSIONS,
         layout: EffectLayout::Stereo,
         deprecated: false,
         builder: build_stereo_gain,
     },
     EffectRegistration {
         kind: kind::MONO_MOOG_LADDER,
-        versions: V1,
+        versions: EFFECT_VERSIONS,
         layout: EffectLayout::Mono,
         deprecated: false,
         builder: build_moog_ladder,
@@ -337,7 +337,7 @@ impl BuiltInRegistry {
         if registration.versions.contains(&definition.schema_version) {
             return Ok(definition.clone());
         }
-        if definition.schema_version != LEGACY_NODE_DEFINITION_SCHEMA_VERSION {
+        if definition.schema_version != LEGACY_INSTRUMENT_DEFINITION_SCHEMA_VERSION {
             return Err(PreparationError::UnsupportedSchemaVersion {
                 category: NodeCategory::Instrument,
                 kind: definition.kind.to_string(),
@@ -348,8 +348,20 @@ impl BuiltInRegistry {
         }
 
         let mut migrated = definition.clone();
-        migrated.schema_version = NODE_DEFINITION_SCHEMA_VERSION;
-        let (amplitude, pitch) = legacy_envelope_defaults(registration.kind);
+        migrated.schema_version = INSTRUMENT_DEFINITION_SCHEMA_VERSION;
+        let (amplitude, pitch) = legacy_envelope_defaults(registration.kind).ok_or_else(|| {
+            invalid_error(
+                NodeCategory::Instrument,
+                definition.kind.as_str(),
+                definition.instance_id.raw(),
+                definition.schema_version,
+                InvalidDefinitionDiagnostic::new(
+                    InvalidDefinitionCode::InvalidParameterPayload,
+                    Some("schema_version"),
+                    "registered instrument kind has no v1 envelope migration defaults",
+                ),
+            )
+        })?;
         migrated
             .parameters
             .entry("amplitude_envelope".to_owned())
@@ -504,7 +516,7 @@ impl BuiltInRegistry {
     }
 }
 
-fn legacy_envelope_defaults(kind: &str) -> (Value, Option<Value>) {
+fn legacy_envelope_defaults(kind: &str) -> Option<(Value, Option<Value>)> {
     let adsr = |attack, decay, sustain, release| {
         json!({
             "attack_seconds": attack,
@@ -514,18 +526,20 @@ fn legacy_envelope_defaults(kind: &str) -> (Value, Option<Value>) {
         })
     };
     match kind {
-        kind::MONO_OSCILLATOR | kind::MOOG_DFAM => (adsr(0.1, 0.1, 0.8, 0.5), None),
-        kind::POLYPHONIC_OSCILLATOR => (adsr(0.1, 0.1, 1.0, 1.0), None),
-        kind::HI_HAT | kind::SNARE_DRUM => (adsr(0.01, 0.05, 0.0, 0.1), None),
-        kind::KICK_DRUM => (
+        kind::MONO_OSCILLATOR | kind::MOOG_DFAM => Some((adsr(0.1, 0.1, 0.8, 0.5), None)),
+        kind::POLYPHONIC_OSCILLATOR => Some((adsr(0.1, 0.1, 1.0, 1.0), None)),
+        kind::HI_HAT | kind::SNARE_DRUM => Some((adsr(0.01, 0.05, 0.0, 0.1), None)),
+        kind::KICK_DRUM => Some((
             adsr(0.01, 0.1, 0.0, 0.1),
             Some(json!({
                 "frequency_delta_hz": 50.0,
                 "decay_seconds": 0.1,
             })),
-        ),
-        kind::ONE_SHOT_SAMPLE_PLAYER | kind::LOOP_SAMPLE_PLAYER => (adsr(1.0, 1.0, 1.0, 1.0), None),
-        _ => unreachable!("migration is called only for a registered built-in instrument"),
+        )),
+        kind::ONE_SHOT_SAMPLE_PLAYER | kind::LOOP_SAMPLE_PLAYER => {
+            Some((adsr(1.0, 1.0, 1.0, 1.0), None))
+        }
+        _ => None,
     }
 }
 
@@ -769,23 +783,36 @@ fn validate_amplitude_envelope(
 }
 
 fn apply_amplitude_envelope(
+    definition: &InstrumentDefinition,
     instrument: &mut dyn InstrumentTrait,
     envelope: &AmplitudeEnvelopeParameters,
 ) -> Result<(), InvalidDefinitionDiagnostic> {
     validate_amplitude_envelope(envelope)?;
-    for command in [
-        EnvelopeCmd::SetAttack {
-            attack: envelope.attack_seconds,
-        },
-        EnvelopeCmd::SetDecay {
-            decay: envelope.decay_seconds,
-        },
-        EnvelopeCmd::SetSustain {
-            sustain: envelope.sustain_level,
-        },
-        EnvelopeCmd::SetRelease {
-            release: envelope.release_seconds,
-        },
+    for (field, command) in [
+        (
+            "amplitude_envelope.attack_seconds",
+            EnvelopeCmd::SetAttack {
+                attack: envelope.attack_seconds,
+            },
+        ),
+        (
+            "amplitude_envelope.decay_seconds",
+            EnvelopeCmd::SetDecay {
+                decay: envelope.decay_seconds,
+            },
+        ),
+        (
+            "amplitude_envelope.sustain_level",
+            EnvelopeCmd::SetSustain {
+                sustain: envelope.sustain_level,
+            },
+        ),
+        (
+            "amplitude_envelope.release_seconds",
+            EnvelopeCmd::SetRelease {
+                release: envelope.release_seconds,
+            },
+        ),
     ] {
         if !instrument.try_handle_command(&SynthCmd::EnvelopeCommand {
             envelope_id: Some(EnvelopeId::from_raw(0)),
@@ -793,8 +820,12 @@ fn apply_amplitude_envelope(
         }) {
             return Err(InvalidDefinitionDiagnostic::new(
                 InvalidDefinitionCode::InvalidParameterPayload,
-                Some("amplitude_envelope"),
-                "built-in instrument cannot apply its amplitude envelope",
+                Some(field),
+                format!(
+                    "instrument `{}` instance {} cannot apply amplitude envelope field `{field}`",
+                    definition.kind,
+                    definition.instance_id.raw()
+                ),
             ));
         }
     }
@@ -802,6 +833,7 @@ fn apply_amplitude_envelope(
 }
 
 fn apply_pitch_envelope(
+    definition: &InstrumentDefinition,
     instrument: &mut dyn InstrumentTrait,
     envelope: &PitchEnvelopeParameters,
 ) -> Result<(), InvalidDefinitionDiagnostic> {
@@ -815,13 +847,19 @@ fn apply_pitch_envelope(
             "must be finite and non-negative",
         ));
     }
-    for command in [
-        EnvelopeCmd::SetPitchEnvFreqDelta {
-            freq_delta: envelope.frequency_delta_hz,
-        },
-        EnvelopeCmd::SetDecay {
-            decay: envelope.decay_seconds,
-        },
+    for (field, command) in [
+        (
+            "pitch_envelope.frequency_delta_hz",
+            EnvelopeCmd::SetPitchEnvFreqDelta {
+                freq_delta: envelope.frequency_delta_hz,
+            },
+        ),
+        (
+            "pitch_envelope.decay_seconds",
+            EnvelopeCmd::SetDecay {
+                decay: envelope.decay_seconds,
+            },
+        ),
     ] {
         if !instrument.try_handle_command(&SynthCmd::EnvelopeCommand {
             envelope_id: Some(EnvelopeId::from_raw(1)),
@@ -829,8 +867,12 @@ fn apply_pitch_envelope(
         }) {
             return Err(InvalidDefinitionDiagnostic::new(
                 InvalidDefinitionCode::InvalidParameterPayload,
-                Some("pitch_envelope"),
-                "kick drum cannot apply its pitch envelope",
+                Some(field),
+                format!(
+                    "instrument `{}` instance {} cannot apply pitch envelope field `{field}`",
+                    definition.kind,
+                    definition.instance_id.raw()
+                ),
             ));
         }
     }
@@ -845,7 +887,7 @@ fn build_mono_oscillator(
     let pan = validated_pan(parameters.pan)?;
     let mut instrument = InstrumentFactory::new(context.sample_rate)
         .create_oscillator_with_waveform(definition.instance_id, pan, parameters.waveform.into());
-    apply_amplitude_envelope(&mut *instrument, &parameters.amplitude_envelope)?;
+    apply_amplitude_envelope(definition, &mut *instrument, &parameters.amplitude_envelope)?;
     Ok(instrument)
 }
 
@@ -863,7 +905,7 @@ fn build_polyphonic_oscillator(
         pan,
         parameters.max_polyphony,
     );
-    apply_amplitude_envelope(&mut *instrument, &parameters.amplitude_envelope)?;
+    apply_amplitude_envelope(definition, &mut *instrument, &parameters.amplitude_envelope)?;
     Ok(instrument)
 }
 
@@ -877,7 +919,7 @@ fn build_envelope_pan_instrument(
         &InstrumentFactory::new(context.sample_rate),
         validated_pan(parameters.pan)?,
     );
-    apply_amplitude_envelope(&mut *instrument, &parameters.amplitude_envelope)?;
+    apply_amplitude_envelope(definition, &mut *instrument, &parameters.amplitude_envelope)?;
     Ok(instrument)
 }
 
@@ -897,8 +939,8 @@ fn build_kick_drum(
     let parameters: KickParameters = parse_payload(&definition.parameters)?;
     let mut instrument = InstrumentFactory::new(context.sample_rate)
         .create_kick_drum(definition.instance_id, validated_pan(parameters.pan)?);
-    apply_amplitude_envelope(&mut *instrument, &parameters.amplitude_envelope)?;
-    apply_pitch_envelope(&mut *instrument, &parameters.pitch_envelope)?;
+    apply_amplitude_envelope(definition, &mut *instrument, &parameters.amplitude_envelope)?;
+    apply_pitch_envelope(definition, &mut *instrument, &parameters.pitch_envelope)?;
     Ok(instrument)
 }
 
@@ -969,7 +1011,7 @@ fn build_one_shot_sample_player(
         pan,
         sample,
     );
-    apply_amplitude_envelope(&mut *instrument, &parameters.amplitude_envelope)?;
+    apply_amplitude_envelope(definition, &mut *instrument, &parameters.amplitude_envelope)?;
     Ok(instrument)
 }
 
@@ -1000,7 +1042,7 @@ fn build_loop_sample_player(
         pan,
         sample,
     );
-    apply_amplitude_envelope(&mut *instrument, &parameters.amplitude_envelope)?;
+    apply_amplitude_envelope(definition, &mut *instrument, &parameters.amplitude_envelope)?;
     Ok(instrument)
 }
 
