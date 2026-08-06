@@ -8,6 +8,7 @@ mod commands;
 mod event_admission;
 mod events;
 mod parameter_atomic_protocol;
+mod smoother;
 
 pub use coalesced_parameters::*;
 pub use commands::*;
@@ -17,6 +18,7 @@ use dsp::{
 };
 pub use event_admission::*;
 pub use events::*;
+pub use smoother::{PreparedSmoother, SmootherPrepareError, SmootherValueError};
 use std::{any::Any, sync::Arc};
 
 /// Hard, fixed instrument-slot capacity. The backing vector is preallocated to
