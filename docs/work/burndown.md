@@ -2,7 +2,7 @@
 title: Generated Roadmap Burndown
 summary: Offline Obsidian snapshot generated from GitHub roadmap issue metadata.
 status: generated
-source-updated: 2026-08-06T21:38:44Z
+source-updated: 2026-08-06T21:40:14Z
 generator: scripts/docs/sync_roadmap.py
 ---
 
@@ -11,14 +11,14 @@ generator: scripts/docs/sync_roadmap.py
 > [!warning] Generated file
 > GitHub Issues are canonical. Do not edit this page manually. Run `python3 scripts/docs/sync_roadmap.py`.
 
-Data snapshot through `2026-08-06T21:38:44Z`.
+Data snapshot through `2026-08-06T21:40:14Z`.
 
 ## Summary
 
 | Milestone | Open | Done | Ready | In progress | Blocked | Backlog | Sized points done/total | Unsized |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | M0: Architecture & Repository Baseline | 0 | 14 | 0 | 0 | 0 | 0 | 27/27 | 3 |
-| M1: Host-Independent Engine & RT Contracts | 11 | 29 | 2 | 0 | 6 | 3 | 74/84 | 12 |
+| M1: Host-Independent Engine & RT Contracts | 9 | 31 | 1 | 0 | 5 | 3 | 74/84 | 12 |
 | M2: Standalone Host & Control Protocol | 6 | 2 | 0 | 0 | 1 | 5 | 4/7 | 5 |
 | M3: JS/TS Composition UI & Standalone App | 9 | 0 | 0 | 0 | 0 | 9 | 0/0 | 9 |
 | M4 (Optional): Desktop Plugins (VST3/AU) | 7 | 0 | 0 | 0 | 0 | 7 | 0/0 | 7 |
@@ -30,11 +30,9 @@ Data snapshot through `2026-08-06T21:38:44Z`.
 
 - [ ] [#101](https://github.com/jpalvarezl/blight-synth/issues/101) Implement the coalesced real-time parameter pipeline — `blocked`, `epic`, unassigned
 - [ ] [#132](https://github.com/jpalvarezl/blight-synth/issues/132) Define the host-independent `Engine` lifecycle and offline render harness — `blocked`, `epic`, unassigned
-- [ ] [#135](https://github.com/jpalvarezl/blight-synth/issues/135) Introduce typed instance IDs and versioned instrument/effect definitions — `blocked`, `epic`, unassigned
 - [ ] [#136](https://github.com/jpalvarezl/blight-synth/issues/136) Define and implement the scalable audio routing graph — `backlog`, `unsized`, unassigned
 - [ ] [#138](https://github.com/jpalvarezl/blight-synth/issues/138) Define versioned engine state snapshots and migrations — `backlog`, `unsized`, unassigned
 - [ ] [#179](https://github.com/jpalvarezl/blight-synth/issues/179) Expand RT allocation audit across existing instrument and effect paths — `backlog`, `M`, unassigned
-- [ ] [#211](https://github.com/jpalvarezl/blight-synth/issues/211) Migrate tracker hydration to versioned node definitions — `ready`, `epic`, unassigned
 - [ ] [#214](https://github.com/jpalvarezl/blight-synth/issues/214) Apply coalesced parameters with engine-owned smoothing — `blocked`, `epic`, unassigned
 - [ ] [#215](https://github.com/jpalvarezl/blight-synth/issues/215) Integrate coalesced parameter generations with the device host — `blocked`, `M`, unassigned
 - [ ] [#216](https://github.com/jpalvarezl/blight-synth/issues/216) Migrate OSC parameters to applied-confirmed coalescing — `blocked`, `S`, unassigned
@@ -66,7 +64,7 @@ Data snapshot through `2026-08-06T21:38:44Z`.
 - [ ] [#132](https://github.com/jpalvarezl/blight-synth/issues/132) Define the host-independent `Engine` lifecycle and offline render harness — `blocked`, `epic`, unassigned
 - [x] [#133](https://github.com/jpalvarezl/blight-synth/issues/133) Enforce and test the real-time safety contract — `done`, `epic`, @jpalvarezl
 - [x] [#134](https://github.com/jpalvarezl/blight-synth/issues/134) Implement sample-accurate event scheduling across block sizes — `done`, `epic`, unassigned
-- [ ] [#135](https://github.com/jpalvarezl/blight-synth/issues/135) Introduce typed instance IDs and versioned instrument/effect definitions — `blocked`, `epic`, unassigned
+- [x] [#135](https://github.com/jpalvarezl/blight-synth/issues/135) Introduce typed instance IDs and versioned instrument/effect definitions — `done`, `epic`, unassigned
 - [ ] [#136](https://github.com/jpalvarezl/blight-synth/issues/136) Define and implement the scalable audio routing graph — `backlog`, `unsized`, unassigned
 - [x] [#137](https://github.com/jpalvarezl/blight-synth/issues/137) Complete polyphony, note identity, and voice-allocation semantics — `done`, `unsized`, @jpalvarezl
 - [ ] [#138](https://github.com/jpalvarezl/blight-synth/issues/138) Define versioned engine state snapshots and migrations — `backlog`, `unsized`, unassigned
@@ -88,7 +86,7 @@ Data snapshot through `2026-08-06T21:38:44Z`.
 - [x] [#204](https://github.com/jpalvarezl/blight-synth/issues/204) Adapt tracker and live playback to the timestamped event path — `done`, `L`, @jpalvarezl
 - [x] [#209](https://github.com/jpalvarezl/blight-synth/issues/209) Introduce typed DSP and engine instance IDs — `done`, `L`, @jpalvarezl
 - [x] [#210](https://github.com/jpalvarezl/blight-synth/issues/210) Define versioned node definitions and the built-in registry — `done`, `L`, @jpalvarezl
-- [ ] [#211](https://github.com/jpalvarezl/blight-synth/issues/211) Migrate tracker hydration to versioned node definitions — `ready`, `epic`, unassigned
+- [x] [#211](https://github.com/jpalvarezl/blight-synth/issues/211) Migrate tracker hydration to versioned node definitions — `done`, `epic`, unassigned
 - [x] [#212](https://github.com/jpalvarezl/blight-synth/issues/212) Decide the coalesced parameter ownership and lifecycle contract — `done`, `S`, @jpalvarezl
 - [x] [#213](https://github.com/jpalvarezl/blight-synth/issues/213) Implement the generation-bound coalesced parameter store — `done`, `M`, @jpalvarezl
 - [ ] [#214](https://github.com/jpalvarezl/blight-synth/issues/214) Apply coalesced parameters with engine-owned smoothing — `blocked`, `epic`, unassigned
