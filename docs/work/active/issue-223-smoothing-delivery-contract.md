@@ -15,7 +15,7 @@ issue: 223
 - Status: in-progress
 - Branch: `issue/223-smoothing-delivery-contract`
 - Worktree: `/Users/jpalvarezl/code/blight-223`
-- Base: `main` / `6b0916b`
+- Base: `main` / `dcfd9fb`
 
 ## Goal
 
@@ -33,22 +33,24 @@ Select one bounded deterministic smoother-to-DSP delivery mechanism and define p
 - Decide delivery quantum/API, partition phase, curve semantics, reset, duplicate DSP smoothing migration, and both engine process entries.
 - No target binding/store integration or node migration.
 
-Expected paths: ADR 0005 amendment/routing and this packet. #221 code is disjoint.
+Expected paths: additive ADR 0006, decision/audio routing, and this packet. #221 code is disjoint.
 
 ## Plan
 
-- [ ] Inventory current DSP setter/smoother constraints.
-- [ ] Compare block-rate, fixed quantum, and ramp-aware alternatives.
-- [ ] Record accepted precise semantics and update #224 if necessary.
-- [ ] Run docs checks and decision review.
+- [x] Inventory current scalar effect setters, reverb's per-sample mix smoother, and both public engine process paths.
+- [x] Compare block-rate, fixed quantum, and ramp-aware alternatives.
+- [x] Accept ADR 0006's absolute 16-frame scalar quantum and exact curve/reset/migration semantics.
+- [x] Make #224's primitive API and acceptance executable.
+- [x] Run docs checks and independent decision review.
 
 ## Verification
 
-- [ ] docs/reconciliation checks
-- [ ] independent decision review
+- [x] `python3 scripts/docs/check_docs.py`
+- [x] `python3 scripts/docs/reconcile_work.py --check`
+- [x] independent decision review (fixed-quantum timing, quality, cost, and ADR-history challenge)
 
 ## Handoff
 
-- Completed: claimed and packet created.
-- Remaining: decision/PR.
-- Risk: avoid designing a smoother primitive with no viable DSP delivery path.
+- Completed: ADR 0006 selects a fixed 16-frame scalar quantum; #224 now names the closed-form primitive API.
+- Remaining: #224 implementation and #214 binding/render integration.
+- Risk: #214 must measure worst-case setter cost and staircase quality; ramp-aware delivery is the explicit fallback.
