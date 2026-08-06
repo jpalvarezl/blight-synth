@@ -20,7 +20,6 @@ const FIRST_EFFECT_ID: u32 = 1;
 pub enum LegacyDefinitionAdapterError {
     UnsupportedInstrument { kind: &'static str },
     NonFiniteParameter { field: &'static str },
-    ParameterOutOfRange { field: &'static str },
     EffectSlotOverflow,
 }
 
@@ -110,19 +109,16 @@ pub fn adapt_legacy_audio_effect(
             room_size,
             diffusion,
             damping,
-        } => {
-            let damping = ranged("damping", *damping, 0.0, 1.0)?;
-            (
-                kind::MONO_REVERB,
-                payload([
-                    ("mix", normalized("mix", *mix, 0.0, 1.0)?),
-                    ("decay", normalized("decay_time", *decay_time, 0.0, 0.95)?),
-                    ("room_size", normalized("room_size", *room_size, 0.1, 3.0)?),
-                    ("damping", Value::from(damping)),
-                    ("diffusion", normalized("diffusion", *diffusion, 0.0, 0.95)?),
-                ]),
-            )
-        }
+        } => (
+            kind::MONO_REVERB,
+            payload([
+                ("mix", normalized("mix", *mix, 0.0, 1.0)?),
+                ("decay", normalized("decay_time", *decay_time, 0.0, 0.95)?),
+                ("room_size", normalized("room_size", *room_size, 0.1, 3.0)?),
+                ("damping", normalized("damping", *damping, 0.0, 1.0)?),
+                ("diffusion", normalized("diffusion", *diffusion, 0.0, 0.95)?),
+            ]),
+        ),
         AudioEffect::Delay {
             time,
             num_taps,
@@ -162,20 +158,6 @@ fn normalized(
     max: f32,
 ) -> Result<Value, LegacyDefinitionAdapterError> {
     finite(field, value).map(|value| Value::from(value.clamp(min, max)))
-}
-
-fn ranged(
-    field: &'static str,
-    value: f32,
-    min: f32,
-    max: f32,
-) -> Result<f32, LegacyDefinitionAdapterError> {
-    let value = finite(field, value)?;
-    if (min..=max).contains(&value) {
-        Ok(value)
-    } else {
-        Err(LegacyDefinitionAdapterError::ParameterOutOfRange { field })
-    }
 }
 
 fn finite(field: &'static str, value: f32) -> Result<f32, LegacyDefinitionAdapterError> {

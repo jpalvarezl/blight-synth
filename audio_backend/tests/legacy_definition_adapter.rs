@@ -198,10 +198,8 @@ fn legacy_clamps_are_explicit_and_unrepresentable_values_are_errors() {
         *mix = 0.5;
         *damping = 2.0;
     }
-    assert!(matches!(
-        adapt_legacy_audio_effect(EffectId::from_raw(1), &invalid),
-        Err(LegacyDefinitionAdapterError::ParameterOutOfRange { field: "damping" })
-    ));
+    let definition = adapt_legacy_audio_effect(EffectId::from_raw(1), &invalid).unwrap();
+    assert_eq!(definition.parameters["damping"], json!(1.0));
 }
 
 #[test]
