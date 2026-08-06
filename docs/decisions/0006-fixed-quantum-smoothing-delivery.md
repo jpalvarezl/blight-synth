@@ -53,12 +53,13 @@ required by #214.
 
 ### Exact smoother semantics
 
-Preparation requires finite positive sample rate, finite seed/targets, and a
-finite non-negative `duration_ms`. Negative or non-finite durations are rejected
+Preparation requires a finite positive sample rate, finite sign-unconstrained
+seed/target values, and a finite non-negative `duration_ms`. Negative or non-finite durations are rejected
 with a compact preparation error and never reach callback processing. For a
 positive duration, let `N = max(1, ceil(duration_ms * sample_rate / 1000))`;
-preparation rejects an unrepresentable frame count. Zero duration and
-`SmoothingPolicy::None` jump and deliver at the latch cursor.
+preparation rejects an unrepresentable frame count. Either zero duration or
+`SmoothingPolicy::None` independently causes an immediate jump and delivery at
+the latch cursor.
 
 A new target starts from current value `s` at its latch cursor, sets elapsed
 `e = 0`, and uses the full `N` frames. Republishing the already-latched target
