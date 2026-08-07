@@ -12,10 +12,15 @@ use param_manifest::{
 };
 
 use crate::{
-    ApplicationFailureCode, CoalescedDrainSummary, CoalescedParameterStore, DrainedPublication,
-    ParameterApplicationResult, ParameterSnapshotStatus, ParameterTableGeneration, ParameterTarget,
-    PreparedSmoother, SmootherPrepareError,
+    ApplicationFailureCode, CoalescedDrainSummary, CoalescedParameterPublisher,
+    CoalescedParameterStore, DrainedPublication, ParameterApplicationResult,
+    ParameterSnapshotStatus, ParameterTableGeneration, ParameterTarget, PreparedSmoother,
+    SmootherPrepareError, COALESCED_DIRTY_WORD_COUNT,
 };
+
+/// Absolute scalar-delivery quantum fixed by ADR 0006.
+pub const COALESCED_CONTROL_QUANTUM_FRAMES: usize = 16;
+const BITS_PER_WORKSET_WORD: usize = u64::BITS as usize;
 
 /// NRT-resolved concrete target for one runtime key.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -128,6 +133,8 @@ pub struct PreparedCoalescedBindingTable {
     generation: ParameterTableGeneration,
     table_identity: RuntimeParameterTableIdentity,
     bindings: Box<[PreparedCoalescedBinding]>,
+    pending: [u64; COALESCED_DIRTY_WORD_COUNT],
+    active: [u64; COALESCED_DIRTY_WORD_COUNT],
 }
 
 impl PreparedCoalescedBindingTable {
@@ -209,12 +216,19 @@ impl PreparedCoalescedBindingTable {
             generation: store.generation(),
             table_identity: table.identity(),
             bindings: bindings.into_boxed_slice(),
+            pending: [0; COALESCED_DIRTY_WORD_COUNT],
+            active: [0; COALESCED_DIRTY_WORD_COUNT],
         })
     }
 
     #[must_use]
     pub const fn generation(&self) -> ParameterTableGeneration {
         self.generation
+    }
+
+    #[must_use]
+    pub fn is_for_table(&self, table: &RuntimeParameterTable) -> bool {
+        table.has_identity(&self.table_identity)
     }
 
     #[must_use]
@@ -276,7 +290,77 @@ impl PreparedCoalescedBindingTable {
         {
             return CoalescedApplicationFailure::SmootherRejected.failed();
         }
+        set_work_bit(&mut self.pending, index);
+        if !self.bindings[index].smoother.is_settled() {
+            set_work_bit(&mut self.active, index);
+        }
         ParameterApplicationResult::Applied
+    }
+
+    /// Deliver pending values and, at an absolute quantum boundary, every active
+    /// trajectory. Pending values survive zero-frame calls until this helper is
+    /// reached. Settled active trajectories remain active until their exact
+    /// target has been delivered at a quantum boundary.
+    pub(crate) fn deliver(
+        &mut self,
+        include_active: bool,
+        mut set: impl FnMut(ParameterTarget, u32, f32),
+    ) -> BindingDeliveryWork {
+        let mut work = BindingDeliveryWork {
+            scanned_workset_words: COALESCED_DIRTY_WORD_COUNT as u8,
+            ..BindingDeliveryWork::default()
+        };
+        for word_index in 0..COALESCED_DIRTY_WORD_COUNT {
+            let active = if include_active {
+                self.active[word_index]
+            } else {
+                0
+            };
+            let mut delivery = self.pending[word_index] | active;
+            self.pending[word_index] &= !delivery;
+            while delivery != 0 {
+                let bit = delivery.trailing_zeros() as usize;
+                let mask = 1_u64 << bit;
+                delivery &= !mask;
+                let index = word_index * BITS_PER_WORKSET_WORD + bit;
+                let Some(binding) = self.bindings.get(index) else {
+                    continue;
+                };
+                set(
+                    binding.target,
+                    binding.engine_param_index,
+                    binding.smoother.current(),
+                );
+                work.setter_calls += 1;
+                if include_active && binding.smoother.is_settled() {
+                    self.active[word_index] &= !mask;
+                }
+            }
+        }
+        work
+    }
+
+    /// Advance each active trajectory by one rendered segment. Work is bounded
+    /// by the fixed 16-word active set, independent of the frame count.
+    pub(crate) fn advance(&mut self, frames: usize) -> BindingAdvanceWork {
+        let mut work = BindingAdvanceWork {
+            scanned_workset_words: COALESCED_DIRTY_WORD_COUNT as u8,
+            ..BindingAdvanceWork::default()
+        };
+        let frames = u32::try_from(frames).unwrap_or(u32::MAX);
+        for (word_index, active) in self.active.iter().copied().enumerate() {
+            let mut active = active;
+            while active != 0 {
+                let bit = active.trailing_zeros() as usize;
+                active &= !(1_u64 << bit);
+                let index = word_index * BITS_PER_WORKSET_WORD + bit;
+                if let Some(binding) = self.bindings.get_mut(index) {
+                    binding.smoother.advance(frames);
+                    work.smoother_advances += 1;
+                }
+            }
+        }
+        work
     }
 
     /// Directly drain a store through this table's application closure.
@@ -290,6 +374,99 @@ impl PreparedCoalescedBindingTable {
         store: &CoalescedParameterStore,
     ) -> CoalescedDrainSummary {
         store.drain(|publication| self.apply(table, publication))
+    }
+}
+
+fn set_work_bit(words: &mut [u64; COALESCED_DIRTY_WORD_COUNT], index: usize) {
+    words[index / BITS_PER_WORKSET_WORD] |= 1_u64 << (index % BITS_PER_WORKSET_WORD);
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) struct BindingDeliveryWork {
+    pub scanned_workset_words: u8,
+    pub setter_calls: u16,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) struct BindingAdvanceWork {
+    pub scanned_workset_words: u8,
+    pub smoother_advances: u16,
+}
+
+/// Bounded callback work performed by the most recent successful top-level
+/// process call for one prepared coalesced generation.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct CoalescedRenderWorkSummary {
+    pub drain: CoalescedDrainSummary,
+    pub delivery_sweeps: usize,
+    pub delivery_workset_words: usize,
+    pub setter_calls: usize,
+    pub smoother_advance_segments: usize,
+    pub smoother_workset_words: usize,
+    pub smoother_advances: usize,
+}
+
+/// Constructor-time ownership validation failure for indivisible parameter
+/// state. No partial state is installed in an engine.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PreparedCoalescedParameterStateError {
+    StoreRuntimeTableMismatch,
+    BindingRuntimeTableMismatch,
+    GenerationMismatch,
+}
+
+/// Indivisible exact-table, exact-generation coalesced render state.
+///
+/// Construct and validate this owner on NRT, obtain publisher handles with
+/// [`Self::publisher`], then move it into an [`crate::Engine`] constructor.
+/// Replacement, retirement, and host lifecycle are deliberately not exposed by
+/// this issue slice.
+#[derive(Debug)]
+pub struct PreparedCoalescedParameterState {
+    pub(crate) table: RuntimeParameterTable,
+    pub(crate) store: CoalescedParameterStore,
+    pub(crate) bindings: PreparedCoalescedBindingTable,
+    pub(crate) phase: u8,
+    pub(crate) last_work: CoalescedRenderWorkSummary,
+}
+
+impl PreparedCoalescedParameterState {
+    pub fn new(
+        table: RuntimeParameterTable,
+        store: CoalescedParameterStore,
+        bindings: PreparedCoalescedBindingTable,
+    ) -> Result<Self, PreparedCoalescedParameterStateError> {
+        if !store.is_for_table(&table) {
+            return Err(PreparedCoalescedParameterStateError::StoreRuntimeTableMismatch);
+        }
+        if !bindings.is_for_table(&table) {
+            return Err(PreparedCoalescedParameterStateError::BindingRuntimeTableMismatch);
+        }
+        if store.generation() != bindings.generation() {
+            return Err(PreparedCoalescedParameterStateError::GenerationMismatch);
+        }
+        Ok(Self {
+            table,
+            store,
+            bindings,
+            phase: 0,
+            last_work: CoalescedRenderWorkSummary::default(),
+        })
+    }
+
+    #[must_use]
+    pub fn publisher(&self) -> CoalescedParameterPublisher {
+        self.store.publisher()
+    }
+
+    #[must_use]
+    pub const fn phase(&self) -> u8 {
+        self.phase
+    }
+
+    #[must_use]
+    pub const fn last_render_work(&self) -> CoalescedRenderWorkSummary {
+        self.last_work
     }
 }
 

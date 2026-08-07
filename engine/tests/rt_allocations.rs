@@ -14,9 +14,9 @@ use engine::{
     BoundedEventAdmission, CoalescedParameterStore, CoalescedTargetBinding, Engine, EngineEvent,
     EventAdmissionErrorKind, EventProducerId, InstrumentCmd, MixerCmd, OrdinaryEventBlockStatus,
     ParameterApplicationResult, ParameterTableGenerations, ParameterTarget,
-    PreparedCoalescedBindingTable, PreparedParameterBinding, PreparedSmoother,
-    ProducerAdmissionStatus, PublicationResult, RecoveryAdmissionStatus, RetireSink, RetiredState,
-    TimestampedEvent,
+    PreparedCoalescedBindingTable, PreparedCoalescedParameterState, PreparedParameterBinding,
+    PreparedSmoother, ProducerAdmissionStatus, PublicationResult, RecoveryAdmissionStatus,
+    RetireSink, RetiredState, TimestampedEvent,
 };
 use param_manifest::{
     builtin::{master_gain_descriptor, MASTER_GAIN_ID},
@@ -633,6 +633,60 @@ fn prepared_coalesced_map_latch_and_confirmation_have_no_heap_activity() {
         counts.reallocations, 0,
         "unexpected map/latch reallocations"
     );
+}
+
+#[test]
+fn integrated_coalesced_fixed_quantum_event_render_has_no_heap_activity() {
+    const SAMPLE_RATE: f32 = 48_000.0;
+    let lookup =
+        ParameterLookup::from_manifest(&ParameterManifest::new(vec![master_gain_descriptor()]))
+            .unwrap();
+    let key = lookup.key_for(&ParameterId::from(MASTER_GAIN_ID)).unwrap();
+    let mut generations = ParameterTableGenerations::new();
+    let store = CoalescedParameterStore::prepare(&mut generations, lookup.table(), 1).unwrap();
+    let bindings = PreparedCoalescedBindingTable::prepare(
+        &store,
+        lookup.table(),
+        SAMPLE_RATE,
+        &[CoalescedTargetBinding {
+            key,
+            target: ParameterTarget::MasterEffect {
+                effect_id: MASTER_EFFECT_ID,
+            },
+        }],
+    )
+    .unwrap();
+    let state = PreparedCoalescedParameterState::new(lookup.into_table(), store, bindings).unwrap();
+    let publisher = state.publisher();
+    let mut engine = Engine::with_prepared_parameter_state(state);
+    engine.add_master_effect(
+        EffectFactory::new(SAMPLE_RATE).create_stereo_gain(MASTER_EFFECT_ID, 1.0),
+        &mut engine::DropRetireSink,
+    );
+    let events = [TimestampedEvent::new(
+        17,
+        EventProducerId::new(1),
+        0,
+        EngineEvent::AllNotesOff,
+    )];
+    let mut left = [1.0; 64];
+    let mut right = [1.0; 64];
+    engine.process(&mut left[..1], &mut right[..1], SAMPLE_RATE);
+    assert!(matches!(
+        publisher.publish(key, 0.25),
+        PublicationResult::Accepted(_)
+    ));
+
+    let counts = measure_allocations(|| {
+        assert_eq!(
+            engine.process_with_events(&mut left, &mut right, SAMPLE_RATE, &events),
+            Ok(())
+        );
+    });
+
+    assert_eq!(counts.allocations, 0, "unexpected RT allocations");
+    assert_eq!(counts.deallocations, 0, "unexpected RT deallocations");
+    assert_eq!(counts.reallocations, 0, "unexpected RT reallocations");
 }
 
 #[test]

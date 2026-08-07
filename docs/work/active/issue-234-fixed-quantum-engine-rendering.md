@@ -13,7 +13,7 @@ issue: 234
 - Issue: [#234](https://github.com/jpalvarezl/blight-synth/issues/234)
 - Owner/status: jpalvarezl / in-progress
 - Branch/worktree: `issue/234-fixed-quantum-engine-rendering` / `/Users/jpalvarezl/code/blight-234`
-- Base: `main` / pending task-packet commit
+- Base: `main` / `1dc3b01`
 
 ## Goal
 
@@ -29,21 +29,25 @@ Out of scope: reverb migration (#235), device-host lifecycle (#215), OSC (#216),
 
 ## Checkpoint plan
 
-1. Planner-only worker: exact state/renderer/API plan, no edits.
-2. Review plan and touched paths.
-3. Implementation worker: core renderer + focused tests only.
-4. Inspect diff/line count before full verification.
-5. Separate review/fix pass, then PR.
+1. [x] Planner-only worker: exact state/renderer/API plan, no edits.
+2. [x] Review plan and touched paths.
+3. [x] Implementation worker: core renderer + focused tests only.
+4. [x] Inspect diff/line count before full verification.
+5. [x] Separate independent review/fix pass (APPROVE).
+6. [x] Full verification and commit.
+7. [ ] Open PR and request Copilot review.
 
 ## Verification
 
-- [ ] focused process/phase/order tests
-- [ ] engine/workspace strict gates and host-free tests
-- [ ] RT allocation/setter-bound measurements
-- [ ] fmt, architecture, RT logging, docs/reconcile checks
+- [x] focused process/phase/order tests (46 passing across four targets)
+- [x] engine/workspace strict gates and host-free tests
+- [x] RT allocation/setter-bound measurements
+- [x] fmt and diff checks
+- [x] architecture, RT logging, docs/reconcile checks
 
 ## Handoff
 
-- Completed: split/claim/packet.
-- Remaining: checkpointed planning and implementation.
-- Risk: public process_with_events must validate before latch and never recursively relatch.
+- Completed: planner checkpoint, implementation checkpoint, independent REVISE review, bounded-work fixes, and focused re-review (APPROVE).
+- Remaining: PR and Copilot review.
+- Reviewability: about 431 production additions and 659 tightly coupled test additions. The total exceeds the soft 1,000-line signal because of 12 focused contract tests, not multiple production concepts; review found no clean split.
+- Risk: device-host state replacement/retirement remains #215; representative reverb duplicate-smoother removal remains #235.

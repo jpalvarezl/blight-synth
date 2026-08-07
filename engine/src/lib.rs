@@ -88,6 +88,7 @@ pub struct Engine {
     instruments: Vec<InstrumentSlot>,
     instrument_capacity: usize,
     master_effects: StereoEffectChain,
+    prepared_parameter_state: Option<PreparedCoalescedParameterState>,
 }
 
 impl Default for Engine {
@@ -104,11 +105,41 @@ impl Engine {
     /// Creates an engine with an explicit hard instrument capacity. The slot
     /// vector is preallocated to `capacity` and never grows.
     pub fn with_instrument_capacity(capacity: usize) -> Self {
+        Self::from_prepared_parts(capacity, None)
+    }
+
+    /// Constructs an engine around one indivisible NRT-prepared coalesced state.
+    /// Publisher handles must be obtained from the state before this move.
+    pub fn with_prepared_parameter_state(state: PreparedCoalescedParameterState) -> Self {
+        Self::from_prepared_parts(DEFAULT_INSTRUMENT_CAPACITY, Some(state))
+    }
+
+    fn from_prepared_parts(
+        instrument_capacity: usize,
+        prepared_parameter_state: Option<PreparedCoalescedParameterState>,
+    ) -> Self {
         Self {
-            instruments: Vec::with_capacity(capacity),
-            instrument_capacity: capacity,
+            instruments: Vec::with_capacity(instrument_capacity),
+            instrument_capacity,
             master_effects: StereoEffectChain::new(DEFAULT_MASTER_EFFECT_CAPACITY),
+            prepared_parameter_state,
         }
+    }
+
+    /// Absolute fixed-quantum phase of the optional prepared parameter state.
+    #[must_use]
+    pub fn coalesced_parameter_phase(&self) -> Option<u8> {
+        self.prepared_parameter_state
+            .as_ref()
+            .map(PreparedCoalescedParameterState::phase)
+    }
+
+    /// Bounded coalesced work from the last successful top-level process call.
+    #[must_use]
+    pub fn last_coalesced_render_work(&self) -> Option<CoalescedRenderWorkSummary> {
+        self.prepared_parameter_state
+            .as_ref()
+            .map(PreparedCoalescedParameterState::last_render_work)
     }
 
     /// The hard maximum number of distinct instruments this engine will hold.
@@ -240,14 +271,7 @@ impl Engine {
     /// adapters should still provide equal lengths, but malformed input must
     /// not panic in an audio callback.
     pub fn process(&mut self, left: &mut [f32], right: &mut [f32], sample_rate: f32) {
-        let frame_count = left.len().min(right.len());
-        let left = &mut left[..frame_count];
-        let right = &mut right[..frame_count];
-
-        for slot in &mut self.instruments {
-            slot.instrument.process(left, right, sample_rate);
-        }
-        self.master_effects.process(left, right, sample_rate);
+        self.render_validated(left, right, sample_rate, &[]);
     }
 
     /// Applies an already ordered current-block event slice at exact sample
@@ -277,30 +301,7 @@ impl Engine {
     ) -> Result<(), EventProcessError> {
         let frame_count = left.len().min(right.len());
         Self::validate_events(events, frame_count)?;
-
-        let left = &mut left[..frame_count];
-        let right = &mut right[..frame_count];
-        let mut rendered_until = 0;
-
-        for event in events {
-            if rendered_until < event.sample_offset {
-                self.process(
-                    &mut left[rendered_until..event.sample_offset],
-                    &mut right[rendered_until..event.sample_offset],
-                    sample_rate,
-                );
-                rendered_until = event.sample_offset;
-            }
-            self.apply_event(event.event);
-        }
-
-        if rendered_until < frame_count {
-            self.process(
-                &mut left[rendered_until..],
-                &mut right[rendered_until..],
-                sample_rate,
-            );
-        }
+        self.render_validated(left, right, sample_rate, events);
         Ok(())
     }
 
@@ -329,40 +330,235 @@ impl Engine {
         Ok(())
     }
 
-    fn apply_event(&mut self, event: EngineEvent) {
+    /// Shared renderer for already-validated event input. Coalesced values latch
+    /// exactly once here, never through a recursive public process call.
+    fn render_validated(
+        &mut self,
+        left: &mut [f32],
+        right: &mut [f32],
+        sample_rate: f32,
+        events: &[TimestampedEvent],
+    ) {
+        let frame_count = left.len().min(right.len());
+        let left = &mut left[..frame_count];
+        let right = &mut right[..frame_count];
+        let Self {
+            instruments,
+            master_effects,
+            prepared_parameter_state,
+            ..
+        } = self;
+
+        if let Some(state) = prepared_parameter_state.as_mut() {
+            state.last_work = CoalescedRenderWorkSummary::default();
+            state.last_work.drain = state.bindings.drain(&state.table, &state.store);
+        }
+        if frame_count == 0 {
+            return;
+        }
+
+        let mut cursor = 0;
+        let mut event_index = 0;
+        let mut rendered_since_smoother_advance = 0_usize;
+        if let Some(state) = prepared_parameter_state.as_mut() {
+            Self::deliver_coalesced(state, state.phase == 0, instruments, master_effects);
+        }
+        while events
+            .get(event_index)
+            .is_some_and(|event| event.sample_offset == 0)
+        {
+            Self::apply_event_to_parts(instruments, master_effects, events[event_index].event);
+            event_index += 1;
+        }
+
+        while cursor < frame_count {
+            let next_event = events
+                .get(event_index)
+                .map_or(frame_count, |event| event.sample_offset);
+            let next_quantum = prepared_parameter_state
+                .as_ref()
+                .map_or(frame_count, |state| {
+                    let frames = if state.phase == 0 {
+                        COALESCED_CONTROL_QUANTUM_FRAMES
+                    } else {
+                        COALESCED_CONTROL_QUANTUM_FRAMES - usize::from(state.phase)
+                    };
+                    cursor.saturating_add(frames).min(frame_count)
+                });
+            let next = next_event.min(next_quantum).min(frame_count);
+            debug_assert!(next > cursor);
+
+            Self::render_segment(
+                instruments,
+                master_effects,
+                &mut left[cursor..next],
+                &mut right[cursor..next],
+                sample_rate,
+            );
+            let rendered = next - cursor;
+            if let Some(state) = prepared_parameter_state.as_mut() {
+                rendered_since_smoother_advance =
+                    rendered_since_smoother_advance.saturating_add(rendered);
+                let rendered_phase = rendered % COALESCED_CONTROL_QUANTUM_FRAMES;
+                state.phase = ((usize::from(state.phase) + rendered_phase)
+                    % COALESCED_CONTROL_QUANTUM_FRAMES) as u8;
+            }
+            cursor = next;
+            if cursor == frame_count {
+                break;
+            }
+
+            if let Some(state) = prepared_parameter_state.as_mut() {
+                if state.phase == 0 {
+                    Self::advance_coalesced(state, rendered_since_smoother_advance);
+                    rendered_since_smoother_advance = 0;
+                    Self::deliver_coalesced(state, true, instruments, master_effects);
+                }
+            }
+            while events
+                .get(event_index)
+                .is_some_and(|event| event.sample_offset == cursor)
+            {
+                Self::apply_event_to_parts(instruments, master_effects, events[event_index].event);
+                event_index += 1;
+            }
+        }
+
+        if rendered_since_smoother_advance != 0 {
+            if let Some(state) = prepared_parameter_state.as_mut() {
+                Self::advance_coalesced(state, rendered_since_smoother_advance);
+            }
+        }
+    }
+
+    fn advance_coalesced(state: &mut PreparedCoalescedParameterState, frames: usize) {
+        let advance = state.bindings.advance(frames);
+        state.last_work.smoother_advance_segments =
+            state.last_work.smoother_advance_segments.saturating_add(1);
+        state.last_work.smoother_workset_words = state
+            .last_work
+            .smoother_workset_words
+            .saturating_add(usize::from(advance.scanned_workset_words));
+        state.last_work.smoother_advances = state
+            .last_work
+            .smoother_advances
+            .saturating_add(usize::from(advance.smoother_advances));
+    }
+
+    fn deliver_coalesced(
+        state: &mut PreparedCoalescedParameterState,
+        include_active: bool,
+        instruments: &mut [InstrumentSlot],
+        master_effects: &mut StereoEffectChain,
+    ) {
+        let delivery = state
+            .bindings
+            .deliver(include_active, |target, index, value| {
+                Self::set_parameter_on_parts(instruments, master_effects, target, index, value);
+            });
+        state.last_work.delivery_sweeps = state.last_work.delivery_sweeps.saturating_add(1);
+        state.last_work.delivery_workset_words = state
+            .last_work
+            .delivery_workset_words
+            .saturating_add(usize::from(delivery.scanned_workset_words));
+        state.last_work.setter_calls = state
+            .last_work
+            .setter_calls
+            .saturating_add(usize::from(delivery.setter_calls));
+    }
+
+    fn render_segment(
+        instruments: &mut [InstrumentSlot],
+        master_effects: &mut StereoEffectChain,
+        left: &mut [f32],
+        right: &mut [f32],
+        sample_rate: f32,
+    ) {
+        for slot in instruments {
+            slot.instrument.process(left, right, sample_rate);
+        }
+        master_effects.process(left, right, sample_rate);
+    }
+
+    fn apply_event_to_parts(
+        instruments: &mut [InstrumentSlot],
+        master_effects: &mut StereoEffectChain,
+        event: EngineEvent,
+    ) {
         match event {
-            EngineEvent::AllNotesOff => self.stop_all_notes(),
+            EngineEvent::AllNotesOff => {
+                for slot in instruments {
+                    slot.instrument.all_notes_off();
+                }
+            }
             EngineEvent::NoteOff {
                 instrument_id,
                 note_id,
-            } => self.note_off_id(instrument_id, note_id),
+            } => {
+                if let Some(instrument) = Self::instrument_from_parts(instruments, instrument_id) {
+                    instrument.note_off(note_id);
+                }
+            }
             EngineEvent::InstrumentAllNotesOff { instrument_id } => {
-                self.all_notes_off(instrument_id)
+                if let Some(instrument) = Self::instrument_from_parts(instruments, instrument_id) {
+                    instrument.all_notes_off();
+                }
             }
             EngineEvent::SampleParameter {
                 binding,
                 engine_value,
-            } => match binding.target() {
-                ParameterTarget::MasterEffect { effect_id } => self.set_master_effect_parameter(
-                    effect_id,
-                    binding.engine_param_index(),
-                    engine_value,
-                ),
-                ParameterTarget::InstrumentEffect {
-                    instrument_id,
-                    effect_id,
-                } => self.set_instrument_effect_parameter(
-                    instrument_id,
-                    effect_id,
-                    binding.engine_param_index(),
-                    engine_value,
-                ),
-            },
+            } => Self::set_parameter_on_parts(
+                instruments,
+                master_effects,
+                binding.target(),
+                binding.engine_param_index(),
+                engine_value,
+            ),
             EngineEvent::NoteOn {
                 instrument_id,
                 note,
-            } => self.note_on_with_id(instrument_id, note.id, note.pitch, note.velocity),
+            } => {
+                if let Some(instrument) = Self::instrument_from_parts(instruments, instrument_id) {
+                    instrument.note_on(NoteEvent {
+                        id: note.id,
+                        pitch: note.pitch,
+                        velocity: note.velocity,
+                    });
+                }
+            }
         }
+    }
+
+    fn set_parameter_on_parts(
+        instruments: &mut [InstrumentSlot],
+        master_effects: &mut StereoEffectChain,
+        target: ParameterTarget,
+        index: u32,
+        value: f32,
+    ) {
+        match target {
+            ParameterTarget::MasterEffect { effect_id } => {
+                master_effects.set_effect_parameter(effect_id, index, value);
+            }
+            ParameterTarget::InstrumentEffect {
+                instrument_id,
+                effect_id,
+            } => {
+                if let Some(instrument) = Self::instrument_from_parts(instruments, instrument_id) {
+                    instrument.set_effect_parameter(effect_id, index, value);
+                }
+            }
+        }
+    }
+
+    fn instrument_from_parts(
+        instruments: &mut [InstrumentSlot],
+        instrument_id: InstrumentId,
+    ) -> Option<&mut (dyn InstrumentTrait + '_)> {
+        let index = instruments
+            .binary_search_by_key(&instrument_id, |slot| slot.id)
+            .ok()?;
+        Some(instruments[index].instrument.as_mut())
     }
 
     /// Adds an instrument on a caller known to be outside RT.

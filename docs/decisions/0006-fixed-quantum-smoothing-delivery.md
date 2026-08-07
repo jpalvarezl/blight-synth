@@ -3,7 +3,7 @@ title: ADR 0006 — Fixed-quantum smoothing delivery
 summary: Engine-owned coalesced smoothers use an absolute 16-frame control phase and existing scalar DSP setters.
 status: accepted
 updated: 2026-08-06
-issues: [223, 224, 214]
+issues: [214, 223, 224, 234]
 supersedes: []
 amends: ["0005"]
 ---
@@ -115,8 +115,8 @@ independent of host/event partitioning. Costs are staircase delivery and up to a
 ## Validation and revisit triggers
 
 #224 tests the closed-form primitive, retarget/reset, finite edges, and partition
-equivalence. #214 must test both process entries, offset-zero ordering, coincident
-event/quantum ordering, exact phase across arbitrary partitions, duplicate
-smoother removal, zero allocation, worst-case callback work, and representative
-15 ms gain/reverb audio. Supersede this ADR if those measurements require a
-ramp-aware API or a different fixed quantum.
+equivalence. #234 integrates the absolute phase into both process entries and
+tests offset-zero ordering, coincident event/quantum ordering, arbitrary event
+and callback partitions, bounded setter work, gain delivery, and zero heap work.
+#235 owns representative duplicate reverb-smoother removal. Supersede this ADR
+if those measurements require a ramp-aware API or a different fixed quantum.
