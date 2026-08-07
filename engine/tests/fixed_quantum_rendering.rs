@@ -1,6 +1,6 @@
 use std::sync::{
-    atomic::{AtomicUsize, Ordering},
-    Arc, Mutex,
+    atomic::{AtomicU32, AtomicUsize, Ordering},
+    Arc,
 };
 
 use dsp::{id::EffectId, StereoEffect};
@@ -20,12 +20,41 @@ use param_manifest::{
 const SAMPLE_RATE: f32 = 1_000.0;
 const EFFECT_ID: EffectId = EffectId::from_raw(91);
 const PRODUCER: EventProducerId = EventProducerId::new(1);
+const MAX_RECORDED_SETTER_VALUES: usize = 64;
+
+type DeferredPublication = (CoalescedParameterPublisher, RuntimeParamKey, f32);
+
+struct SetterTrace {
+    values: [AtomicU32; MAX_RECORDED_SETTER_VALUES],
+}
+
+impl SetterTrace {
+    fn new() -> Self {
+        Self {
+            values: std::array::from_fn(|_| AtomicU32::new(0)),
+        }
+    }
+
+    fn record(&self, index: usize, value: f32) {
+        if let Some(slot) = self.values.get(index) {
+            slot.store(value.to_bits(), Ordering::Relaxed);
+        }
+    }
+
+    fn snapshot(&self, count: usize) -> Vec<f32> {
+        assert!(count <= MAX_RECORDED_SETTER_VALUES);
+        self.values[..count]
+            .iter()
+            .map(|value| f32::from_bits(value.load(Ordering::Relaxed)))
+            .collect()
+    }
+}
 
 struct ProbeGain {
     value: f32,
     setter_calls: Arc<AtomicUsize>,
-    setter_values: Arc<Mutex<Vec<f32>>>,
-    publish_once: Option<(CoalescedParameterPublisher, RuntimeParamKey, f32)>,
+    setter_values: Arc<SetterTrace>,
+    publish_once: Option<DeferredPublication>,
 }
 
 impl StereoEffect for ProbeGain {
@@ -45,8 +74,8 @@ impl StereoEffect for ProbeGain {
             return;
         }
         self.value = value;
-        self.setter_values.lock().unwrap().push(value);
-        self.setter_calls.fetch_add(1, Ordering::Relaxed);
+        let call_index = self.setter_calls.fetch_add(1, Ordering::Relaxed);
+        self.setter_values.record(call_index, value);
         if let Some((publisher, key, normalized)) = self.publish_once.take() {
             assert!(matches!(
                 publisher.publish(key, normalized),
@@ -61,7 +90,7 @@ struct Fixture {
     publisher: CoalescedParameterPublisher,
     key: RuntimeParamKey,
     setter_calls: Arc<AtomicUsize>,
-    setter_values: Arc<Mutex<Vec<f32>>>,
+    setter_values: Arc<SetterTrace>,
 }
 
 fn descriptor(id: &str, smoothing: SmoothingPolicy) -> ParameterDescriptor {
@@ -110,7 +139,7 @@ fn fixture(smoothing: SmoothingPolicy, publish_once: Option<f32>) -> Fixture {
     let state = PreparedCoalescedParameterState::new(lookup.into_table(), store, bindings).unwrap();
     let publisher = state.publisher();
     let setter_calls = Arc::new(AtomicUsize::new(0));
-    let setter_values = Arc::new(Mutex::new(Vec::new()));
+    let setter_values = Arc::new(SetterTrace::new());
     let mut engine = Engine::with_prepared_parameter_state(state);
     engine.add_master_effect(
         Box::new(ProbeGain {
@@ -208,7 +237,12 @@ fn initial_coalesced_delivery_precedes_an_offset_zero_parameter_event() {
         )
         .unwrap();
 
-    assert_eq!(*fixture.setter_values.lock().unwrap(), [0.75, 0.25]);
+    assert_eq!(
+        fixture
+            .setter_values
+            .snapshot(fixture.setter_calls.load(Ordering::Relaxed)),
+        [0.75, 0.25]
+    );
     assert_eq!(left, [0.25], "the offset-zero event wins before rendering");
     assert_eq!(right, left);
 }
@@ -453,7 +487,12 @@ fn a_smoother_settled_between_boundaries_delivers_exact_target_at_the_next_bound
         .iter()
         .all(|value| (*value - 0.8).abs() < f32::EPSILON));
     assert_eq!(left[32], 1.0);
-    assert_eq!(*fixture.setter_values.lock().unwrap(), [0.0, 0.8, 1.0]);
+    assert_eq!(
+        fixture
+            .setter_values
+            .snapshot(fixture.setter_calls.load(Ordering::Relaxed)),
+        [0.0, 0.8, 1.0]
+    );
 }
 
 #[test]
@@ -576,7 +615,7 @@ fn maximum_binding_set_and_sweep_work_remain_fixed_and_observable() {
         Box::new(ProbeGain {
             value: 0.0,
             setter_calls: setter_calls.clone(),
-            setter_values: Arc::new(Mutex::new(Vec::new())),
+            setter_values: Arc::new(SetterTrace::new()),
             publish_once: None,
         }),
         &mut engine::DropRetireSink,
