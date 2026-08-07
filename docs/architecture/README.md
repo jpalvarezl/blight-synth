@@ -2,7 +2,7 @@
 title: Architecture Index
 summary: Routing page for cross-domain contracts and target architecture.
 status: current
-updated: 2026-08-03
+updated: 2026-08-07
 ---
 
 # Architecture
@@ -14,7 +14,7 @@ updated: 2026-08-03
 - [M0 crate dependency graph](crate-dependency-graph.md) — current enforced crate/feature dependencies and compatibility shims.
 - [Offline render contract](offline-render-contract.md) — canonical PCM, golden regression policy, and reference updates.
 - [Real-time audio contract](realtime-contract.md) — accepted callback rules, ownership, overload, reclamation, and current violations.
-- [ADR 0005](../decisions/0005-coalesced-parameter-publication.md) — accepted continuous-parameter producer, atomic publication, lifecycle, mapping/smoothing, and confirmation contract.
+- [ADR 0005](../decisions/0005-coalesced-parameter-publication.md) + [ADR 0007](../decisions/0007-simplified-coalesced-application.md) — accepted latest-value publication/lifecycle plus simplified block-start target application; generic Engine smoothing is deferred.
 - [Device host boundary (draft)](device-host-boundary.md) — reusable in-process device host vs OSC standalone transport adapter (ADR 0002).
 - [Event-source contract (draft)](event-source-contract.md) — producer-side clock mapping, bounded current-block events, and separate NRT lookahead (ADR 0003).
 - [RT allocation audit](rt-allocation-audit.md) — test-only heap allocation/deallocation instrumentation for prepared Engine processing.
@@ -31,7 +31,7 @@ updated: 2026-08-03
 | Sample-accurate events | [#134](https://github.com/jpalvarezl/blight-synth/issues/134) | Draft |
 | Composition event sources | [#145](https://github.com/jpalvarezl/blight-synth/issues/145) | Proposed (ADR 0003) |
 | Parameter manifest | [#121](https://github.com/jpalvarezl/blight-synth/issues/121) | Accepted (ADR 0004) |
-| Coalesced parameter publication/lifecycle | [#212](https://github.com/jpalvarezl/blight-synth/issues/212) | Accepted (ADR 0005) |
+| Coalesced parameter publication/lifecycle | [#212/#237](https://github.com/jpalvarezl/blight-synth/issues/237) | Accepted (ADRs 0005/0007) |
 | Routing graph | [#136](https://github.com/jpalvarezl/blight-synth/issues/136) | Draft |
 | Versioned state | [#138](https://github.com/jpalvarezl/blight-synth/issues/138) | Draft |
 | Device host vs OSC standalone split | [#185](https://github.com/jpalvarezl/blight-synth/issues/185) | Proposed (ADR 0002) |

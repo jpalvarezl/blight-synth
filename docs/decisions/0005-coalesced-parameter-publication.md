@@ -1,20 +1,24 @@
 ---
 title: ADR 0005 — Coalesced parameter publication and lifecycle
-summary: Continuous parameters use a generation-bound, normalized MPSC atomic store; RT maps and latches engine-owned smoothing targets once per render block with eventual-latest and applied-target confirmation semantics.
+summary: Continuous parameters use a generation-bound normalized MPSC atomic store with bounded RT mapping/application, eventual-latest, and applied-target confirmation semantics.
 status: accepted
-updated: 2026-08-03
-issues: [101, 121, 201, 212]
+updated: 2026-08-07
+issues: [101, 121, 201, 212, 237, 238]
 supersedes: []
 amends: ["0004"]
+amended-by: ["0007"]
 ---
 
 # ADR 0005 — Coalesced parameter publication and lifecycle
 
 ## Status
 
-Accepted
+Accepted, as amended by [ADR 0007](0007-simplified-coalesced-application.md).
 
 Deciding issue: [#212](https://github.com/jpalvarezl/blight-synth/issues/212).
+ADR 0007 retains this ADR's store, generation, atomic ordering, mapping, and
+confirmation decisions, but supersedes its generic Engine-owned smoothing target
+with immediate block-start application and deferred DSP-local smoothing.
 
 This decision adds the publication, replacement, application, and host-state
 contract intentionally left open by [ADR 0004](0004-parameter-manifest.md). Where

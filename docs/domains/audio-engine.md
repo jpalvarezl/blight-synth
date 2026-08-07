@@ -2,8 +2,8 @@
 title: Audio Engine Domain
 summary: Focused context for DSP, instruments, effects, rendering, and RT contracts.
 status: current
-updated: 2026-08-06
-issues: [101, 132, 133, 134, 135, 136, 137, 174, 186, 187, 188, 201, 203, 204, 210, 212, 223]
+updated: 2026-08-07
+issues: [101, 132, 133, 134, 135, 136, 137, 174, 186, 187, 188, 201, 203, 204, 210, 212, 223, 237, 238]
 ---
 
 # Audio Engine Domain
@@ -53,7 +53,7 @@ Do not read every effect/instrument implementation unless the issue targets it. 
 - `audio_backend::SequencerCmd` owns song loading/playback; `TransportCmd` owns adapter transport.
 - `audio_backend::Command` remains the compatibility queue envelope and re-exports engine command types.
 
-These are transitional control-plane commands. The canonical engine-facing current-block API is `engine::TimestampedEvent` plus `Engine::process_with_events`, implemented by #201. `engine::BoundedEventAdmission` provides #203's NRT-prepared fixed-capacity multi-producer admission, canonical merge, fail-closed status, and reserved recovery slot. #204 routes first-party tracker rows and queued live note/release commands through that shared bounded lane. Continuous parameters follow [ADR 0005](../decisions/0005-coalesced-parameter-publication.md); [ADR 0006](../decisions/0006-fixed-quantum-smoothing-delivery.md) fixes engine-owned smoothing delivery at an absolute 16-frame scalar control quantum. #213 implements the host-independent generation-bound normalized atomic store, fixed RT drain, confirmation/failure status, and manifest class validation through the `engine` coalesced-parameter API; target binding, RT mapping, and engine-owned smoothing remain #214, with host lifecycle and OSC integration remaining #215/#216. Other structural and continuous commands remain transitional until their owning migration lands.
+These are transitional control-plane commands. The canonical engine-facing current-block API is `engine::TimestampedEvent` plus `Engine::process_with_events`, implemented by #201. `engine::BoundedEventAdmission` provides #203's NRT-prepared fixed-capacity multi-producer admission, canonical merge, fail-closed status, and reserved recovery slot. #204 routes first-party tracker rows and queued live note/release commands through that shared bounded lane. Continuous parameters follow [ADR 0005](../decisions/0005-coalesced-parameter-publication.md) as amended by [ADR 0007](../decisions/0007-simplified-coalesced-application.md); [ADR 0006](../decisions/0006-fixed-quantum-smoothing-delivery.md) is superseded and its Engine smoothing scheduler was not merged. #213 implements the generation-bound normalized atomic store and fixed RT drain; #230 implements target binding/mapping/confirmation; #238 owns one block-start mapped target application while retaining existing DSP-local smoothing. Host lifecycle and OSC integration remain #215/#216. Other structural and continuous commands remain transitional until their owning migration lands.
 
 ## Current hazards already tracked
 

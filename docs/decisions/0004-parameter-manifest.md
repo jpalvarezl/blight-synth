@@ -2,9 +2,10 @@
 title: ADR 0004 — Canonical parameter manifest and host bindings
 summary: One serializable parameter manifest is the single source of truth for parameter metadata across the Rust DSP/engine, project state, OSC, JUCE/APVTS, and the Svelte UI; a bounded string-free runtime lookup serves the audio thread.
 status: accepted
-updated: 2026-08-03
-issues: [121, 101, 145, 137, 212]
+updated: 2026-08-07
+issues: [121, 101, 145, 137, 212, 237]
 supersedes: []
+amended-by: ["0005", "0007"]
 ---
 
 # ADR 0004 — Canonical parameter manifest and host bindings
@@ -22,10 +23,12 @@ does not rewire every existing instrument/effect parameter (follow-up), and does
 not change engine voice code (owned by
 [#137](https://github.com/jpalvarezl/blight-synth/issues/137)). It provides the
 types plus one representative descriptor matching the standalone master gain.
-The existing OSC/engine path is not migrated by this issue. The accepted
-[ADR 0005](0005-coalesced-parameter-publication.md) adds the coalesced publication,
-generation, mapping-execution, smoothing, and confirmation contract and amends
-the narrower adapter-mapping description below.
+The existing OSC/engine path is not migrated by this issue. Accepted
+[ADR 0005](0005-coalesced-parameter-publication.md) adds coalesced publication,
+generation, mapping execution, and confirmation. [ADR 0007](0007-simplified-coalesced-application.md)
+amends smoothing ownership: the generic coalesced path applies `None` targets
+immediately, while smoothing is an explicit DSP-local capability added only when
+needed.
 
 ## Context
 
@@ -178,11 +181,14 @@ classification.
   usable as a TS contract) for labels, ranges, defaults, and step labels, and
   sends normalized values keyed by the stable ID.
 
-Smoothing policy lives in `SmoothingPolicy` on the descriptor and its prepared
-state is owned only by the engine parameter application layer, so de-zipper
-behavior is identical across every adapter. ADR 0005 adds the accepted target
-that `Smoothed` is valid only for `ControlCoalesced`; sample-event and structural
-descriptors use `None`. The manifest crate enforces this cross-class constraint as implemented by #213.
+Smoothing intent lives in `SmoothingPolicy` on the descriptor. ADR 0007 removes
+the unimplemented generic Engine smoother: the current generic binding supports
+`None`, while `Smoothed` requires an explicitly reviewed DSP-local capability
+using shared policy/utility where practical. Adapters never smooth. `Smoothed`
+remains valid only for `ControlCoalesced`; sample-event and structural descriptors
+use `None`, and the manifest crate enforces that cross-class constraint (#213).
+A manifest may therefore validate before a target-specific binding rejects an
+unsupported `Smoothed` capability; that rejection is intentional and observable.
 
 ### 6. Stable IDs and compatibility rules
 
@@ -204,9 +210,9 @@ descriptors use `None`. The manifest crate enforces this cross-class constraint 
   removing a live ID; changing automation rate; changing mapping/range/unit/kind
   or the full owner identity (`node_type`, `path`, and engine slot); and changing
   host visibility/automatable/read-only capabilities. Adding or deprecating an ID
-  is compatible. Smoothing changes are explicitly compatible tuning events: they
-  change de-zipper behavior but do not reinterpret saved values or invalidate a
-  host binding. A CI/review step can diff manifests against the accepted one.
+  is compatible. Smoothing changes are compatible metadata tuning events: they do not
+  reinterpret saved values. They may change DSP-local de-zipper behavior when a
+  target supports it, or require rebinding when target capability changes. A CI/review step can diff manifests against the accepted one.
 
 ### Non-goals
 
