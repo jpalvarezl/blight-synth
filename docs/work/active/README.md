@@ -13,4 +13,4 @@ A packet is a handoff cache, not a second specification. It links to the issue a
 
 ## Active
 
-- [Issue #231 — Integrate fixed-quantum smoothing into engine rendering](issue-231-fixed-quantum-render-integration.md)
+- [Issue #234 — Integrate coalesced bindings into fixed-quantum engine rendering](issue-234-fixed-quantum-engine-rendering.md)
