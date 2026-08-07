@@ -2,7 +2,7 @@
 title: Generated Roadmap Burndown
 summary: Offline Obsidian snapshot generated from GitHub roadmap issue metadata.
 status: generated
-source-updated: 2026-08-07T15:21:14Z
+source-updated: 2026-08-07T21:22:37Z
 generator: scripts/docs/sync_roadmap.py
 ---
 
@@ -11,14 +11,14 @@ generator: scripts/docs/sync_roadmap.py
 > [!warning] Generated file
 > GitHub Issues are canonical. Do not edit this page manually. Run `python3 scripts/docs/sync_roadmap.py`.
 
-Data snapshot through `2026-08-07T15:21:14Z`.
+Data snapshot through `2026-08-07T21:22:37Z`.
 
 ## Summary
 
 | Milestone | Open | Done | Ready | In progress | Blocked | Backlog | Sized points done/total | Unsized |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | M0: Architecture & Repository Baseline | 0 | 14 | 0 | 0 | 0 | 0 | 27/27 | 3 |
-| M1: Host-Independent Engine & RT Contracts | 11 | 31 | 0 | 1 | 7 | 3 | 74/85 | 13 |
+| M1: Host-Independent Engine & RT Contracts | 9 | 35 | 0 | 1 | 5 | 3 | 78/89 | 13 |
 | M2: Standalone Host & Control Protocol | 6 | 2 | 0 | 0 | 1 | 5 | 4/7 | 5 |
 | M3: JS/TS Composition UI & Standalone App | 9 | 0 | 0 | 0 | 0 | 9 | 0/0 | 9 |
 | M4 (Optional): Desktop Plugins (VST3/AU) | 7 | 0 | 0 | 0 | 0 | 7 | 0/0 | 7 |
@@ -33,12 +33,10 @@ Data snapshot through `2026-08-07T15:21:14Z`.
 - [ ] [#136](https://github.com/jpalvarezl/blight-synth/issues/136) Define and implement the scalable audio routing graph — `backlog`, `unsized`, unassigned
 - [ ] [#138](https://github.com/jpalvarezl/blight-synth/issues/138) Define versioned engine state snapshots and migrations — `backlog`, `unsized`, unassigned
 - [ ] [#179](https://github.com/jpalvarezl/blight-synth/issues/179) Expand RT allocation audit across existing instrument and effect paths — `backlog`, `M`, unassigned
-- [ ] [#214](https://github.com/jpalvarezl/blight-synth/issues/214) Apply coalesced parameters with engine-owned smoothing — `blocked`, `epic`, unassigned
 - [ ] [#215](https://github.com/jpalvarezl/blight-synth/issues/215) Integrate coalesced parameter generations with the device host — `blocked`, `M`, unassigned
 - [ ] [#216](https://github.com/jpalvarezl/blight-synth/issues/216) Migrate OSC parameters to applied-confirmed coalescing — `blocked`, `S`, unassigned
-- [ ] [#231](https://github.com/jpalvarezl/blight-synth/issues/231) Integrate fixed-quantum smoothing into engine rendering — `blocked`, `epic`, unassigned
-- [ ] [#234](https://github.com/jpalvarezl/blight-synth/issues/234) Integrate coalesced bindings into fixed-quantum engine rendering — `in-progress`, `M`, @jpalvarezl
-- [ ] [#235](https://github.com/jpalvarezl/blight-synth/issues/235) Remove duplicate reverb mix smoothing — `blocked`, `S`, unassigned
+- [ ] [#237](https://github.com/jpalvarezl/blight-synth/issues/237) Simplify coalesced application and defer Engine smoothing — `in-progress`, `S`, @jpalvarezl
+- [ ] [#238](https://github.com/jpalvarezl/blight-synth/issues/238) Apply coalesced targets once per block and remove quantum smoothing — `blocked`, `M`, unassigned
 
 ## All roadmap tasks
 
@@ -91,7 +89,7 @@ Data snapshot through `2026-08-07T15:21:14Z`.
 - [x] [#211](https://github.com/jpalvarezl/blight-synth/issues/211) Migrate tracker hydration to versioned node definitions — `done`, `epic`, unassigned
 - [x] [#212](https://github.com/jpalvarezl/blight-synth/issues/212) Decide the coalesced parameter ownership and lifecycle contract — `done`, `S`, @jpalvarezl
 - [x] [#213](https://github.com/jpalvarezl/blight-synth/issues/213) Implement the generation-bound coalesced parameter store — `done`, `M`, @jpalvarezl
-- [ ] [#214](https://github.com/jpalvarezl/blight-synth/issues/214) Apply coalesced parameters with engine-owned smoothing — `blocked`, `epic`, unassigned
+- [x] [#214](https://github.com/jpalvarezl/blight-synth/issues/214) Apply coalesced parameters with engine-owned smoothing — `done`, `epic`, unassigned
 - [ ] [#215](https://github.com/jpalvarezl/blight-synth/issues/215) Integrate coalesced parameter generations with the device host — `blocked`, `M`, unassigned
 - [ ] [#216](https://github.com/jpalvarezl/blight-synth/issues/216) Migrate OSC parameters to applied-confirmed coalescing — `blocked`, `S`, unassigned
 - [x] [#221](https://github.com/jpalvarezl/blight-synth/issues/221) Adapt legacy tracker models to versioned node definitions — `done`, `M`, @jpalvarezl
@@ -100,9 +98,11 @@ Data snapshot through `2026-08-07T15:21:14Z`.
 - [x] [#224](https://github.com/jpalvarezl/blight-synth/issues/224) Implement the deterministic engine smoother primitive — `done`, `M`, @jpalvarezl
 - [x] [#229](https://github.com/jpalvarezl/blight-synth/issues/229) Move legacy envelopes into versioned node definitions — `done`, `M`, @jpalvarezl
 - [x] [#230](https://github.com/jpalvarezl/blight-synth/issues/230) Prepare coalesced target bindings and confirmation — `done`, `M`, @jpalvarezl
-- [ ] [#231](https://github.com/jpalvarezl/blight-synth/issues/231) Integrate fixed-quantum smoothing into engine rendering — `blocked`, `epic`, unassigned
-- [ ] [#234](https://github.com/jpalvarezl/blight-synth/issues/234) Integrate coalesced bindings into fixed-quantum engine rendering — `in-progress`, `M`, @jpalvarezl
-- [ ] [#235](https://github.com/jpalvarezl/blight-synth/issues/235) Remove duplicate reverb mix smoothing — `blocked`, `S`, unassigned
+- [x] [#231](https://github.com/jpalvarezl/blight-synth/issues/231) Integrate fixed-quantum smoothing into engine rendering — `done`, `epic`, unassigned
+- [x] [#234](https://github.com/jpalvarezl/blight-synth/issues/234) Integrate coalesced bindings into fixed-quantum engine rendering — `done`, `M`, @jpalvarezl
+- [x] [#235](https://github.com/jpalvarezl/blight-synth/issues/235) Remove duplicate reverb mix smoothing — `done`, `S`, unassigned
+- [ ] [#237](https://github.com/jpalvarezl/blight-synth/issues/237) Simplify coalesced application and defer Engine smoothing — `in-progress`, `S`, @jpalvarezl
+- [ ] [#238](https://github.com/jpalvarezl/blight-synth/issues/238) Apply coalesced targets once per block and remove quantum smoothing — `blocked`, `M`, unassigned
 
 ### M2: Standalone Host & Control Protocol
 
