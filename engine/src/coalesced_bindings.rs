@@ -320,7 +320,7 @@ fn validate_target(
 ) -> Result<(), CoalescedBindingPrepareError> {
     match parameter.node_type() {
         NodeType::MasterEffect => match target {
-            ParameterTarget::MasterEffect { .. } => Ok(()),
+            ParameterTarget::MasterGain | ParameterTarget::MasterEffect { .. } => Ok(()),
             ParameterTarget::InstrumentEffect { .. } => {
                 Err(CoalescedBindingPrepareError::TargetClassMismatch {
                     key: parameter.key(),
@@ -330,7 +330,7 @@ fn validate_target(
         },
         NodeType::InstrumentEffect => match target {
             ParameterTarget::InstrumentEffect { .. } => Ok(()),
-            ParameterTarget::MasterEffect { .. } => {
+            ParameterTarget::MasterGain | ParameterTarget::MasterEffect { .. } => {
                 Err(CoalescedBindingPrepareError::TargetClassMismatch {
                     key: parameter.key(),
                     node_type: parameter.node_type(),

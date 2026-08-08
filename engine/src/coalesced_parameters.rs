@@ -462,6 +462,25 @@ impl CoalescedParameterPublisher {
         self.shared.publish(key, normalized)
     }
 
+    /// Stop accepting writes for this generation. This lifecycle operation is
+    /// NRT-only; it does not replace or retire the prepared generation.
+    pub fn close(&self) {
+        self.shared.accepting.store(false, GENERATION_CLOSE);
+    }
+
+    /// Mark the owning engine instance disconnected. Existing snapshots remain
+    /// queryable, while every later publication is rejected as disconnected.
+    /// This lifecycle operation is NRT-only.
+    pub fn disconnect(&self) {
+        self.shared.disconnected.store(true, GENERATION_CLOSE);
+        self.shared.accepting.store(false, GENERATION_CLOSE);
+    }
+
+    #[must_use]
+    pub fn is_disconnected(&self) -> bool {
+        self.shared.disconnected.load(GENERATION_OBSERVE)
+    }
+
     #[must_use]
     pub fn latest(&self, key: RuntimeParamKey) -> ParameterSnapshotStatus {
         self.shared.latest(key)

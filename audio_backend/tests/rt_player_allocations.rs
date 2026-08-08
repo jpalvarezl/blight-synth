@@ -7,13 +7,15 @@ use std::{
 };
 
 use audio_backend::{
-    id::InstrumentId, AudioProcessor, Command, InstrumentCmd, InstrumentFactory, MeterState,
-    PlayerProcessStatus, TransportCmd,
+    id::InstrumentId, prepare_initial_parameter_generation, AppliedTargetStatus, AudioProcessor,
+    Command, InstrumentCmd, InstrumentFactory, MeterState, PlayerProcessStatus,
+    StableParameterPublication, StableParameterQuery, TransportCmd,
 };
 use engine::RetiredState;
+use param_manifest::{builtin::MASTER_GAIN_ID, ParameterId};
 use ringbuf::{
     storage::Heap,
-    traits::{Producer, Split},
+    traits::{Observer, Producer, Split},
     SharedRb,
 };
 use sequencer::models::{
@@ -95,12 +97,16 @@ fn queued_live_attack_release_and_stopped_render_have_zero_heap_activity() {
     let (mut command_tx, command_rx) = commands.split();
     let retirement = SharedRb::<Heap<RetiredState>>::new(8);
     let (retirement_tx, _retirement_rx) = retirement.split();
+    let (parameter_state, _parameters) = prepare_initial_parameter_generation()
+        .expect("built-in parameters prepare")
+        .into_parts();
     let mut processor = AudioProcessor::new(
         command_rx,
         retirement_tx,
         48_000.0,
         2,
         Arc::new(MeterState::new()),
+        parameter_state,
     );
     assert!(command_tx
         .try_push(
@@ -168,6 +174,74 @@ fn queued_live_attack_release_and_stopped_render_have_zero_heap_activity() {
 }
 
 #[test]
+fn stable_id_publication_reaches_confirmation_without_queue_or_heap_activity() {
+    let commands = SharedRb::<Heap<Command>>::new(8);
+    let (command_tx, command_rx) = commands.split();
+    let retirement = SharedRb::<Heap<RetiredState>>::new(8);
+    let (retirement_tx, _retirement_rx) = retirement.split();
+    let (parameter_state, parameters) = prepare_initial_parameter_generation()
+        .expect("built-in parameters prepare")
+        .into_parts();
+    let mut processor = AudioProcessor::new(
+        command_rx,
+        retirement_tx,
+        48_000.0,
+        2,
+        Arc::new(MeterState::new()),
+        parameter_state,
+    );
+    let gain = ParameterId::from(MASTER_GAIN_ID);
+    let mut output = [0.0; 128];
+
+    let (initial_counts, _) = measure(|| processor.process(&mut output));
+    assert_eq!(
+        initial_counts,
+        Counts {
+            allocations: 0,
+            deallocations: 0,
+            reallocations: 0
+        }
+    );
+    assert!(matches!(
+        parameters.applied(&gain),
+        StableParameterQuery::Value(AppliedTargetStatus::Applied(snapshot))
+            if snapshot.normalized == 1.0
+    ));
+
+    let accepted = match parameters.publish(&gain, 0.5) {
+        StableParameterPublication::Accepted(accepted) => accepted,
+        other => panic!("unexpected publication result: {other:?}"),
+    };
+    assert_eq!(
+        command_tx.occupied_len(),
+        0,
+        "coalesced publication must not consume structural queue capacity"
+    );
+
+    let (counts, status) = measure(|| processor.process(&mut output));
+    assert_eq!(
+        counts,
+        Counts {
+            allocations: 0,
+            deallocations: 0,
+            reallocations: 0
+        }
+    );
+    assert!(status.is_complete());
+    assert_eq!(command_tx.occupied_len(), 0);
+    assert!(matches!(
+        parameters.applied(&gain),
+        StableParameterQuery::Value(AppliedTargetStatus::Applied(snapshot))
+            if snapshot.revision == accepted.revision && snapshot.normalized == 0.5
+    ));
+
+    // Current static lifecycle destroys both callback owner and final publisher
+    // owner here on this NRT test thread, never from `AudioProcessor::process`.
+    drop(processor);
+    drop(parameters);
+}
+
+#[test]
 fn playing_tracker_tick_event_admission_and_segmented_render_have_zero_heap_activity() {
     let event = Event {
         note: 60,
@@ -191,6 +265,9 @@ fn playing_tracker_tick_event_admission_and_segmented_render_have_zero_heap_acti
     let (mut command_tx, command_rx) = commands.split();
     let retirement = SharedRb::<Heap<RetiredState>>::new(8);
     let (retirement_tx, _retirement_rx) = retirement.split();
+    let (parameter_state, _parameters) = prepare_initial_parameter_generation()
+        .expect("built-in parameters prepare")
+        .into_parts();
     let mut processor = AudioProcessor::new_with_song(
         Arc::new(song),
         command_rx,
@@ -198,6 +275,7 @@ fn playing_tracker_tick_event_admission_and_segmented_render_have_zero_heap_acti
         48_000.0,
         2,
         Arc::new(MeterState::new()),
+        parameter_state,
     );
     assert!(command_tx
         .try_push(

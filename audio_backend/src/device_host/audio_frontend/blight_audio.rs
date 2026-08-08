@@ -1,7 +1,7 @@
 use super::{BlightAudio, CommandSender, CommandSubmissionResult};
 use crate::{
-    AudioProcessor, Command, EffectFactory, InstrumentFactory, MeterState, ResourceManager,
-    RetiredState, VoiceFactory,
+    prepare_initial_parameter_generation, AudioProcessor, Command, DeviceHostParameterFacade,
+    EffectFactory, InstrumentFactory, MeterState, ResourceManager, RetiredState, VoiceFactory,
 };
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use log::{info, warn};
@@ -32,7 +32,9 @@ impl BlightAudio {
 
         let command_sender = CommandSender::new(command_tx);
 
-        // Create the real-time processor and move it into the audio thread.
+        // Prepare the complete initial parameter generation before the
+        // real-time processor can enter the audio callback.
+        let (parameter_state, parameters) = prepare_initial_parameter_generation()?.into_parts();
         let meter = Arc::new(MeterState::new());
         let mut audio_processor = AudioProcessor::new(
             command_rx,
@@ -40,6 +42,7 @@ impl BlightAudio {
             sample_rate as f32,
             channels,
             meter.clone(),
+            parameter_state,
         );
 
         let stream = device.build_output_stream(
@@ -68,6 +71,7 @@ impl BlightAudio {
             meter,
             _stream: stream,
             retirement_rx,
+            parameters,
         })
     }
 
@@ -93,7 +97,9 @@ impl BlightAudio {
 
         let command_sender = CommandSender::new(command_tx);
 
-        // Create the real-time processor seeded with a Song.
+        // Prepare the complete initial parameter generation before the
+        // real-time processor seeded with a Song can enter the callback.
+        let (parameter_state, parameters) = prepare_initial_parameter_generation()?.into_parts();
         let meter = Arc::new(MeterState::new());
         let mut audio_processor = AudioProcessor::new_with_song(
             song,
@@ -102,6 +108,7 @@ impl BlightAudio {
             sample_rate as f32,
             channels,
             meter.clone(),
+            parameter_state,
         );
 
         let stream = device.build_output_stream(
@@ -129,6 +136,7 @@ impl BlightAudio {
             meter,
             _stream: stream,
             retirement_rx,
+            parameters,
         })
     }
 
@@ -218,6 +226,12 @@ impl BlightAudio {
     pub fn meter_state(&self) -> Arc<MeterState> {
         self.meter.clone()
     }
+
+    /// Clone the NRT stable-ID facade for this static parameter generation.
+    /// The clone and its final drop must remain off the audio callback.
+    pub fn parameter_facade(&self) -> DeviceHostParameterFacade {
+        self.parameters.clone()
+    }
 }
 
 impl Drop for BlightAudio {
@@ -231,5 +245,6 @@ impl Drop for BlightAudio {
         // destroying their owners exactly once. A future field reorder cannot
         // reintroduce an RT-thread drop or a double-drop.
         self.stop_and_reclaim();
+        self.parameters.disconnect();
     }
 }

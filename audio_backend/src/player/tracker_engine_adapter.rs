@@ -19,8 +19,19 @@ pub struct TrackerEngineAdapter {
 
 impl TrackerEngineAdapter {
     pub fn new() -> Self {
+        Self::with_engine(Engine::new())
+    }
+
+    #[cfg(feature = "device-host")]
+    pub fn with_prepared_coalesced_parameters(
+        state: engine::PreparedCoalescedParameterState,
+    ) -> Self {
+        Self::with_engine(Engine::with_prepared_coalesced_parameters(state))
+    }
+
+    fn with_engine(engine: Engine) -> Self {
         Self {
-            engine: Engine::new(),
+            engine,
             track_last_instrument: [no_instrument_id(); MAX_TRACKS],
         }
     }

@@ -86,6 +86,8 @@ pub struct Engine {
     instruments: Vec<InstrumentSlot>,
     instrument_capacity: usize,
     master_effects: StereoEffectChain,
+    /// Engine-owned final output gain, kept outside the user effect-ID namespace.
+    master_gain_factor: f32,
     coalesced_parameters: Option<PreparedCoalescedParameterState>,
 }
 
@@ -121,6 +123,7 @@ impl Engine {
             instruments: Vec::with_capacity(capacity),
             instrument_capacity: capacity,
             master_effects: StereoEffectChain::new(DEFAULT_MASTER_EFFECT_CAPACITY),
+            master_gain_factor: 1.0,
             coalesced_parameters,
         }
     }
@@ -185,6 +188,7 @@ impl Engine {
 
     fn handle_mixer_command(&mut self, command: MixerCmd, retired: &mut impl RetireSink) {
         match command {
+            MixerCmd::SetMasterGain { value_db } => self.set_master_gain_db(value_db),
             MixerCmd::AddMasterEffect { effect } => self.add_master_effect(effect, retired),
             MixerCmd::SetMasterEffectParameter {
                 effect_id,
@@ -323,12 +327,17 @@ impl Engine {
             slot.instrument.process(left, right, sample_rate);
         }
         self.master_effects.process(left, right, sample_rate);
+        for (left_sample, right_sample) in left.iter_mut().zip(right) {
+            *left_sample *= self.master_gain_factor;
+            *right_sample *= self.master_gain_factor;
+        }
     }
 
     fn apply_coalesced_parameters(&mut self) {
         let Self {
             instruments,
             master_effects,
+            master_gain_factor,
             coalesced_parameters,
             ..
         } = self;
@@ -336,6 +345,10 @@ impl Engine {
             return;
         };
         state.drain(|binding, value| match binding.target() {
+            ParameterTarget::MasterGain => {
+                *master_gain_factor = decibels_to_linear_gain(value);
+                true
+            }
             ParameterTarget::MasterEffect { effect_id } => master_effects.try_set_effect_parameter(
                 effect_id,
                 binding.engine_param_index(),
@@ -393,6 +406,7 @@ impl Engine {
                 binding,
                 engine_value,
             } => match binding.target() {
+                ParameterTarget::MasterGain => self.set_master_gain_db(engine_value),
                 ParameterTarget::MasterEffect { effect_id } => self.set_master_effect_parameter(
                     effect_id,
                     binding.engine_param_index(),
@@ -556,6 +570,11 @@ impl Engine {
         Some(self.instruments[index].instrument.as_mut())
     }
 
+    /// Set the Engine-owned final output gain in decibels.
+    pub fn set_master_gain_db(&mut self, value_db: f32) {
+        self.master_gain_factor = decibels_to_linear_gain(value_db);
+    }
+
     pub fn add_master_effect(
         &mut self,
         effect: Box<dyn StereoEffect>,
@@ -576,6 +595,10 @@ impl Engine {
             .master_effects
             .try_set_effect_parameter(effect_id, param_index, value);
     }
+}
+
+fn decibels_to_linear_gain(value_db: f32) -> f32 {
+    10.0_f32.powf(value_db / 20.0)
 }
 
 #[cfg(test)]
@@ -811,6 +834,41 @@ mod tests {
         assert_eq!(note_ons.load(Ordering::Relaxed), 1);
         assert_eq!(note_offs.load(Ordering::Relaxed), 1);
         assert_eq!(f32::from_bits(effect_value.load(Ordering::Relaxed)), 0.75);
+    }
+
+    #[test]
+    fn engine_master_gain_does_not_reserve_a_user_effect_id() {
+        let mut engine = Engine::new();
+        engine.add_instrument(Box::new(TestInstrument {
+            id: instrument_id(1),
+            note_ons: Arc::new(AtomicUsize::new(0)),
+            note_offs: Arc::new(AtomicUsize::new(0)),
+            effect_value: Arc::new(AtomicU32::new(0)),
+        }));
+        engine.add_master_effect(
+            Box::new(ScaleEffect {
+                id: effect_id(0),
+                scale: 2.0,
+            }),
+            &mut DropRetireSink,
+        );
+        engine.handle_command(
+            MixerCmd::SetMasterGain {
+                value_db: -6.020_600_3,
+            }
+            .into(),
+        );
+        let mut left = [0.0; 2];
+        let mut right = [0.0; 2];
+
+        engine.process(&mut left, &mut right, 48_000.0);
+
+        for sample in left {
+            assert!((sample - 0.25).abs() < 1.0e-6);
+        }
+        for sample in right {
+            assert!((sample - 0.5).abs() < 1.0e-6);
+        }
     }
 
     #[test]
