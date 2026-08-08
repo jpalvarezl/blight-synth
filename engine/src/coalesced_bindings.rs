@@ -1,20 +1,20 @@
-//! Prepared coalesced target bindings and direct map/latch application.
+//! Prepared coalesced target bindings and direct block-start application.
 //!
-//! This module owns the bounded application between ADR 0005's normalized store
-//! and ADR 0006's scalar smoothers. It deliberately does not own render phase,
-//! DSP setter delivery, engine process integration, or host lifecycle.
+//! This module joins ADR 0005's normalized store to concrete Engine targets.
+//! It owns no render phase or smoother: the exact runtime table maps each dirty
+//! value once, then Engine invokes the prepared scalar target once.
 
 use std::num::NonZeroU32;
 
 use param_manifest::{
     AutomationRate, NodeType, RuntimeParamKey, RuntimeParameter, RuntimeParameterTable,
-    RuntimeParameterTableIdentity,
+    RuntimeParameterTableIdentity, SmoothingPolicy,
 };
 
 use crate::{
-    ApplicationFailureCode, CoalescedDrainSummary, CoalescedParameterStore, DrainedPublication,
-    ParameterApplicationResult, ParameterSnapshotStatus, ParameterTableGeneration, ParameterTarget,
-    PreparedSmoother, SmootherPrepareError,
+    ApplicationFailureCode, CoalescedDrainSummary, CoalescedParameterPublisher,
+    CoalescedParameterStore, DrainedPublication, ParameterApplicationResult,
+    ParameterTableGeneration, ParameterTarget,
 };
 
 /// NRT-resolved concrete target for one runtime key.
@@ -32,6 +32,8 @@ pub enum CoalescedBindingPrepareError {
     InvalidKey(RuntimeParamKey),
     NotControlCoalesced(RuntimeParamKey),
     ReadOnly(RuntimeParamKey),
+    /// Generic Engine bindings currently support only immediate application.
+    UnsupportedSmoothingPolicy(RuntimeParamKey),
     DuplicateBinding(RuntimeParamKey),
     MissingWritableBinding(RuntimeParamKey),
     /// The manifest node class has no concrete coalesced target in this slice.
@@ -44,12 +46,13 @@ pub enum CoalescedBindingPrepareError {
         key: RuntimeParamKey,
         node_type: NodeType,
     },
-    InitialSnapshotUnavailable(RuntimeParamKey),
-    InitialMappingFailed(RuntimeParamKey),
-    Smoother {
-        key: RuntimeParamKey,
-        error: SmootherPrepareError,
-    },
+}
+
+/// Why exact table/store/binding owners could not become one prepared state.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PreparedCoalescedParameterStateError {
+    RuntimeTableMismatch,
+    GenerationMismatch,
 }
 
 /// Compact RT application defect recorded by the coalesced store.
@@ -66,8 +69,7 @@ pub enum CoalescedApplicationFailure {
     ReadOnly = 5,
     MissingBinding = 6,
     MappingFailed = 7,
-    UnsupportedTarget = 8,
-    SmootherRejected = 9,
+    TargetUnavailable = 8,
 }
 
 impl CoalescedApplicationFailure {
@@ -83,46 +85,37 @@ impl CoalescedApplicationFailure {
     }
 }
 
-/// One concrete target and its exclusively owned prepared smoother.
-#[derive(Debug, Clone, Copy)]
+/// One concrete immediate-application target.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PreparedCoalescedBinding {
     key: RuntimeParamKey,
     target: ParameterTarget,
     engine_param_index: u32,
-    smoother: PreparedSmoother,
 }
 
 impl PreparedCoalescedBinding {
     #[must_use]
-    pub const fn key(&self) -> RuntimeParamKey {
+    pub const fn key(self) -> RuntimeParamKey {
         self.key
     }
 
     #[must_use]
-    pub const fn target(&self) -> ParameterTarget {
+    pub const fn target(self) -> ParameterTarget {
         self.target
     }
 
     #[must_use]
-    pub const fn engine_param_index(&self) -> u32 {
+    pub const fn engine_param_index(self) -> u32 {
         self.engine_param_index
-    }
-
-    #[must_use]
-    pub const fn smoother(&self) -> &PreparedSmoother {
-        &self.smoother
     }
 }
 
-/// Exact-table, exact-generation prepared coalesced application state.
+/// Exact-table, exact-generation prepared coalesced binding state.
 ///
 /// Bindings are sorted by dense runtime key and contain only writable
 /// `ControlCoalesced` parameters. Preparation requires exactly one supported
-/// concrete target for every such table entry and seeds one smoother from the
-/// store's authoritative normalized snapshot mapped by that same table.
-///
-/// This owner allocates during preparation and must be retired/dropped on NRT.
-/// [`Self::apply`] and [`Self::drain`] are bounded and allocation-free.
+/// concrete target for every such table entry. Generic preparation accepts only
+/// `SmoothingPolicy::None`; reviewed DSP-local capability can be added later.
 #[derive(Debug)]
 pub struct PreparedCoalescedBindingTable {
     generation: ParameterTableGeneration,
@@ -134,7 +127,6 @@ impl PreparedCoalescedBindingTable {
     pub fn prepare(
         store: &CoalescedParameterStore,
         table: &RuntimeParameterTable,
-        sample_rate: f32,
         targets: &[CoalescedTargetBinding],
     ) -> Result<Self, CoalescedBindingPrepareError> {
         if !store.is_for_table(table) {
@@ -157,37 +149,10 @@ impl PreparedCoalescedBindingTable {
                 .ok_or(CoalescedBindingPrepareError::InvalidKey(target.key))?;
             validate_parameter(parameter)?;
             validate_target(parameter, target.target)?;
-
-            let snapshot = match store.latest(target.key) {
-                ParameterSnapshotStatus::Available(snapshot)
-                    if snapshot.generation == store.generation() =>
-                {
-                    snapshot
-                }
-                ParameterSnapshotStatus::InvalidKey
-                | ParameterSnapshotStatus::NotControlCoalesced
-                | ParameterSnapshotStatus::Available(_) => {
-                    return Err(CoalescedBindingPrepareError::InitialSnapshotUnavailable(
-                        target.key,
-                    ));
-                }
-            };
-            let seed = table
-                .normalized_to_engine(target.key, snapshot.normalized)
-                .filter(|value| parameter_accepts(parameter, *value))
-                .ok_or(CoalescedBindingPrepareError::InitialMappingFailed(
-                    target.key,
-                ))?;
-            let smoother = PreparedSmoother::prepare(parameter.smoothing(), sample_rate, seed)
-                .map_err(|error| CoalescedBindingPrepareError::Smoother {
-                    key: target.key,
-                    error,
-                })?;
             bindings.push(PreparedCoalescedBinding {
                 key: target.key,
                 target: target.target,
                 engine_param_index: parameter.engine_param_index(),
-                smoother,
             });
         }
 
@@ -196,7 +161,7 @@ impl PreparedCoalescedBindingTable {
                 && !parameter.read_only()
         }) {
             if bindings
-                .binary_search_by_key(&parameter.key(), PreparedCoalescedBinding::key)
+                .binary_search_by_key(&parameter.key(), |binding| binding.key())
                 .is_err()
             {
                 return Err(CoalescedBindingPrepareError::MissingWritableBinding(
@@ -218,26 +183,32 @@ impl PreparedCoalescedBindingTable {
     }
 
     #[must_use]
+    pub fn is_for_table(&self, table: &RuntimeParameterTable) -> bool {
+        table.has_identity(&self.table_identity)
+    }
+
+    #[must_use]
     pub fn entries(&self) -> &[PreparedCoalescedBinding] {
         &self.bindings
     }
 
     #[must_use]
-    pub fn binding(&self, key: RuntimeParamKey) -> Option<&PreparedCoalescedBinding> {
+    pub fn binding(&self, key: RuntimeParamKey) -> Option<PreparedCoalescedBinding> {
         self.bindings
-            .binary_search_by_key(&key, PreparedCoalescedBinding::key)
+            .binary_search_by_key(&key, |binding| binding.key())
             .ok()
-            .map(|index| &self.bindings[index])
+            .map(|index| self.bindings[index])
     }
 
-    /// Apply one drained normalized publication by exact-table mapping followed
-    /// by a successful smoother target latch. `Applied` is returned only after
-    /// both operations succeed; it means target-latched, not DSP-delivered or
-    /// ramp-settled.
+    /// Map one drained publication and invoke its concrete scalar target.
+    ///
+    /// `Applied` means the target resolver found the concrete target and invoked
+    /// its existing infallible setter. A missing target is never confirmed.
     pub fn apply(
-        &mut self,
+        &self,
         table: &RuntimeParameterTable,
         publication: DrainedPublication,
+        mut apply_target: impl FnMut(PreparedCoalescedBinding, f32) -> bool,
     ) -> ParameterApplicationResult {
         if publication.generation != self.generation {
             return CoalescedApplicationFailure::GenerationMismatch.failed();
@@ -254,14 +225,11 @@ impl PreparedCoalescedBindingTable {
         if parameter.read_only() {
             return CoalescedApplicationFailure::ReadOnly.failed();
         }
-        let Ok(index) = self
-            .bindings
-            .binary_search_by_key(&publication.key, PreparedCoalescedBinding::key)
-        else {
+        let Some(binding) = self.binding(publication.key) else {
             return CoalescedApplicationFailure::MissingBinding.failed();
         };
-        if validate_target(parameter, self.bindings[index].target).is_err() {
-            return CoalescedApplicationFailure::UnsupportedTarget.failed();
+        if validate_target(parameter, binding.target).is_err() {
+            return CoalescedApplicationFailure::TargetUnavailable.failed();
         }
         let Some(engine_target) = table
             .normalized_to_engine(publication.key, publication.normalized)
@@ -269,27 +237,63 @@ impl PreparedCoalescedBindingTable {
         else {
             return CoalescedApplicationFailure::MappingFailed.failed();
         };
-        if self.bindings[index]
-            .smoother
-            .latch_target(engine_target)
-            .is_err()
-        {
-            return CoalescedApplicationFailure::SmootherRejected.failed();
+        if !apply_target(binding, engine_target) {
+            return CoalescedApplicationFailure::TargetUnavailable.failed();
         }
         ParameterApplicationResult::Applied
     }
 
-    /// Directly drain a store through this table's application closure.
-    ///
-    /// Store confirmation remains owned by `CoalescedParameterStore::drain` and
-    /// therefore advances only for publications for which [`Self::apply`]
-    /// returns `Applied`.
+    /// Drain the store exactly once through mapping and concrete application.
     pub fn drain(
-        &mut self,
+        &self,
         table: &RuntimeParameterTable,
         store: &CoalescedParameterStore,
+        mut apply_target: impl FnMut(PreparedCoalescedBinding, f32) -> bool,
     ) -> CoalescedDrainSummary {
-        store.drain(|publication| self.apply(table, publication))
+        store.drain(|publication| self.apply(table, publication, &mut apply_target))
+    }
+}
+
+/// Minimal constructor-time owner moved into one Engine.
+///
+/// This type intentionally has no live swap or retirement API. Create the NRT
+/// publisher before moving the state into Engine; #215 owns replacement.
+#[derive(Debug)]
+pub struct PreparedCoalescedParameterState {
+    table: RuntimeParameterTable,
+    store: CoalescedParameterStore,
+    bindings: PreparedCoalescedBindingTable,
+}
+
+impl PreparedCoalescedParameterState {
+    pub fn new(
+        table: RuntimeParameterTable,
+        store: CoalescedParameterStore,
+        bindings: PreparedCoalescedBindingTable,
+    ) -> Result<Self, PreparedCoalescedParameterStateError> {
+        if !store.is_for_table(&table) || !bindings.is_for_table(&table) {
+            return Err(PreparedCoalescedParameterStateError::RuntimeTableMismatch);
+        }
+        if store.generation() != bindings.generation() {
+            return Err(PreparedCoalescedParameterStateError::GenerationMismatch);
+        }
+        Ok(Self {
+            table,
+            store,
+            bindings,
+        })
+    }
+
+    #[must_use]
+    pub fn publisher(&self) -> CoalescedParameterPublisher {
+        self.store.publisher()
+    }
+
+    pub(crate) fn drain(
+        &self,
+        apply_target: impl FnMut(PreparedCoalescedBinding, f32) -> bool,
+    ) -> CoalescedDrainSummary {
+        self.bindings.drain(&self.table, &self.store, apply_target)
     }
 }
 
@@ -301,6 +305,11 @@ fn validate_parameter(parameter: RuntimeParameter) -> Result<(), CoalescedBindin
     }
     if parameter.read_only() {
         return Err(CoalescedBindingPrepareError::ReadOnly(parameter.key()));
+    }
+    if parameter.smoothing() != SmoothingPolicy::None {
+        return Err(CoalescedBindingPrepareError::UnsupportedSmoothingPolicy(
+            parameter.key(),
+        ));
     }
     Ok(())
 }

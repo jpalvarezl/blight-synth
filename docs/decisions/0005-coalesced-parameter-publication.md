@@ -178,9 +178,10 @@ implemented sample-event binding, which contains no smoother.
 
 ### 4. Exact publication and dirty-bit memory ordering
 
-#213 implements the store portion of this target; engine target application and
-host lifecycle remain #214/#215, and the transitional command path remains until
-#216. The store uses one lock-free
+#213 implements the store portion of this target, and #238 implements ADR 0007's
+simplified Engine target application at valid top-level block start. Device-host
+lifecycle remains #215, and the transitional command path remains until #216.
+The store uses one lock-free
 `AtomicU64 publication_word` per coalesced slot, one lock-free
 `AtomicU64 applied_word` per slot, and a fixed array
 of `AtomicU64` dirty words. Packing revision and value makes both publication and
@@ -420,7 +421,11 @@ retirement.
 
 ## Validation and revisit triggers
 
-The implementation is accepted when hardware-free tests prove:
+Implementation status: #213 proves the store/atomic protocol and #238 proves the
+ADR 0007 immediate-application subset below. Generic Engine smoothing clauses in
+this original validation list are superseded by ADR 0007 and retained only as
+accepted-history context. The implementation is accepted when hardware-free
+tests prove:
 
 - single- and multi-producer publication, same-slot races, already-dirty
   coalescing, and eventual latest after quiescence under the exact atomic orders;

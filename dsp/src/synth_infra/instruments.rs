@@ -91,5 +91,17 @@ pub trait InstrumentTrait: Send + Sync {
     /// Set a parameter on one of the instrument's effects.
     fn set_effect_parameter(&mut self, effect_id: EffectId, param_index: u32, value: f32);
 
+    /// Resolve a concrete effect and invoke its existing infallible scalar setter.
+    /// Generic/custom instruments support coalesced confirmation by overriding
+    /// this method; absence is the conservative default.
+    fn try_set_effect_parameter(
+        &mut self,
+        _effect_id: EffectId,
+        _param_index: u32,
+        _value: f32,
+    ) -> bool {
+        false
+    }
+
     fn try_handle_command(&mut self, cmd: &crate::SynthCmd) -> bool;
 }

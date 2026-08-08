@@ -36,8 +36,18 @@ pub trait VoiceTrait: Send + Sync {
     /// Add a mono effect to this voice's effect chain.
     fn add_effect(&mut self, effect: Box<dyn MonoEffect>) -> Result<(), Box<dyn MonoEffect>>;
 
-    /// Set effect parameter
+    /// Set effect parameter.
     fn set_effect_parameter(&mut self, effect_id: EffectId, param_index: u32, value: f32);
+
+    /// Resolve an exact effect and invoke its scalar setter.
+    fn try_set_effect_parameter(
+        &mut self,
+        _effect_id: EffectId,
+        _param_index: u32,
+        _value: f32,
+    ) -> bool {
+        false
+    }
 }
 
 /// A `Voice` represents a single, monophonic musical event. It bundles a sound
@@ -203,5 +213,15 @@ impl<S: SynthNode> VoiceTrait for Voice<S> {
     fn set_effect_parameter(&mut self, effect_id: EffectId, param_index: u32, value: f32) {
         self.effect_chain
             .set_effect_parameter(effect_id, param_index, value);
+    }
+
+    fn try_set_effect_parameter(
+        &mut self,
+        effect_id: EffectId,
+        param_index: u32,
+        value: f32,
+    ) -> bool {
+        self.effect_chain
+            .try_set_effect_parameter(effect_id, param_index, value)
     }
 }

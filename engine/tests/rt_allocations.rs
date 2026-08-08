@@ -14,14 +14,13 @@ use engine::{
     BoundedEventAdmission, CoalescedParameterStore, CoalescedTargetBinding, Engine, EngineEvent,
     EventAdmissionErrorKind, EventProducerId, InstrumentCmd, MixerCmd, OrdinaryEventBlockStatus,
     ParameterApplicationResult, ParameterTableGenerations, ParameterTarget,
-    PreparedCoalescedBindingTable, PreparedParameterBinding, PreparedSmoother,
+    PreparedCoalescedBindingTable, PreparedCoalescedParameterState, PreparedParameterBinding,
     ProducerAdmissionStatus, PublicationResult, RecoveryAdmissionStatus, RetireSink, RetiredState,
     TimestampedEvent,
 };
 use param_manifest::{
     builtin::{master_gain_descriptor, MASTER_GAIN_ID},
-    AutomationRate, ParameterId, ParameterLookup, ParameterManifest, SmoothingCurve,
-    SmoothingPolicy,
+    AutomationRate, ParameterId, ParameterLookup, ParameterManifest,
 };
 
 const INSTRUMENT_ID: InstrumentId = InstrumentId::from_raw(1);
@@ -162,31 +161,6 @@ fn nested_measurements_restore_and_accumulate_outer_tracking_state() {
     assert!(inner_counts.deallocations > 0);
     assert!(outer_counts.allocations >= inner_counts.allocations + 2);
     assert!(outer_counts.deallocations >= inner_counts.deallocations + 2);
-}
-
-#[test]
-fn smoother_prepare_latch_advance_and_reset_have_no_heap_activity() {
-    let counts = measure_allocations(|| {
-        let mut smoother = PreparedSmoother::prepare(
-            SmoothingPolicy::Smoothed {
-                duration_ms: 15.0,
-                curve: SmoothingCurve::Exponential,
-            },
-            48_000.0,
-            -1.0,
-        )
-        .unwrap();
-        smoother.latch_target(1.0).unwrap();
-        black_box(smoother.value_at(127));
-        black_box(smoother.advance(127));
-        black_box(smoother.advance(u32::MAX));
-        smoother.reset(0.25).unwrap();
-        black_box(smoother);
-    });
-
-    assert_eq!(counts.allocations, 0, "unexpected smoother allocations");
-    assert_eq!(counts.deallocations, 0, "unexpected smoother deallocations");
-    assert_eq!(counts.reallocations, 0, "unexpected smoother reallocations");
 }
 
 #[test]
@@ -588,7 +562,7 @@ fn coalesced_publication_and_fixed_rt_drain_have_no_heap_activity() {
 }
 
 #[test]
-fn prepared_coalesced_map_latch_and_confirmation_have_no_heap_activity() {
+fn prepared_coalesced_process_and_event_process_have_no_heap_activity() {
     let lookup =
         ParameterLookup::from_manifest(&ParameterManifest::new(vec![master_gain_descriptor()]))
             .expect("valid coalesced descriptor");
@@ -598,10 +572,9 @@ fn prepared_coalesced_map_latch_and_confirmation_have_no_heap_activity() {
     let mut generations = ParameterTableGenerations::new();
     let store = CoalescedParameterStore::prepare(&mut generations, lookup.table(), 1)
         .expect("store prepares on NRT");
-    let mut bindings = PreparedCoalescedBindingTable::prepare(
+    let bindings = PreparedCoalescedBindingTable::prepare(
         &store,
         lookup.table(),
-        48_000.0,
         &[CoalescedTargetBinding {
             key,
             target: ParameterTarget::MasterEffect {
@@ -609,30 +582,37 @@ fn prepared_coalesced_map_latch_and_confirmation_have_no_heap_activity() {
             },
         }],
     )
-    .expect("binding and smoother prepare on NRT");
-    bindings.drain(lookup.table(), &store);
-    let publisher = store.publisher();
+    .expect("immediate binding prepares on NRT");
+    let state = PreparedCoalescedParameterState::new(lookup.into_table(), store, bindings)
+        .expect("exact prepared owners compose");
+    let publisher = state.publisher();
+    let mut engine = Engine::with_prepared_coalesced_parameters(state);
+    engine.add_master_effect(
+        EffectFactory::new(48_000.0).create_stereo_gain(MASTER_EFFECT_ID, 1.0),
+        &mut engine::DropRetireSink,
+    );
+    let mut left = [1.0; 64];
+    let mut right = [1.0; 64];
+    engine.process(&mut left, &mut right, 48_000.0);
 
     let counts = measure_allocations(|| {
         assert!(matches!(
             publisher.publish(key, 0.25),
             PublicationResult::Accepted(_)
         ));
-        let summary = bindings.drain(lookup.table(), &store);
-        assert_eq!(summary.applied, 1);
-        assert_eq!(summary.failed, 0);
-        black_box(bindings.binding(key).unwrap().smoother().target());
+        engine.process(&mut left, &mut right, 48_000.0);
+        assert!(matches!(
+            publisher.publish(key, 0.5),
+            PublicationResult::Accepted(_)
+        ));
+        engine
+            .process_with_events(&mut left, &mut right, 48_000.0, &[])
+            .unwrap();
     });
 
-    assert_eq!(counts.allocations, 0, "unexpected map/latch allocations");
-    assert_eq!(
-        counts.deallocations, 0,
-        "unexpected map/latch deallocations"
-    );
-    assert_eq!(
-        counts.reallocations, 0,
-        "unexpected map/latch reallocations"
-    );
+    assert_eq!(counts.allocations, 0, "unexpected RT allocations");
+    assert_eq!(counts.deallocations, 0, "unexpected RT deallocations");
+    assert_eq!(counts.reallocations, 0, "unexpected RT reallocations");
 }
 
 #[test]
