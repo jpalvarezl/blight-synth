@@ -2,7 +2,7 @@
 title: Architecture Index
 summary: Routing page for cross-domain contracts and target architecture.
 status: current
-updated: 2026-08-07
+updated: 2026-08-08
 ---
 
 # Architecture
@@ -15,6 +15,7 @@ updated: 2026-08-07
 - [Offline render contract](offline-render-contract.md) — canonical PCM, golden regression policy, and reference updates.
 - [Real-time audio contract](realtime-contract.md) — accepted callback rules, ownership, overload, reclamation, and current violations.
 - [ADR 0005](../decisions/0005-coalesced-parameter-publication.md) + [ADR 0007](../decisions/0007-simplified-coalesced-application.md) — accepted latest-value publication/lifecycle plus simplified block-start target application; generic Engine smoothing is deferred.
+- [ADR 0008](../decisions/0008-portable-state-envelope.md) — accepted portable state, canonical bytes, compatibility, and NRT-prepared restore boundary.
 - [Device host boundary (draft)](device-host-boundary.md) — reusable in-process device host vs OSC standalone transport adapter (ADR 0002).
 - [Event-source contract (draft)](event-source-contract.md) — producer-side clock mapping, bounded current-block events, and separate NRT lookahead (ADR 0003).
 - [RT allocation audit](rt-allocation-audit.md) — test-only heap allocation/deallocation instrumentation for prepared Engine processing.
@@ -33,7 +34,7 @@ updated: 2026-08-07
 | Parameter manifest | [#121](https://github.com/jpalvarezl/blight-synth/issues/121) | Accepted (ADR 0004) |
 | Coalesced parameter publication/lifecycle | [#212](https://github.com/jpalvarezl/blight-synth/issues/212), [#237](https://github.com/jpalvarezl/blight-synth/issues/237) | Accepted (ADRs 0005/0007) |
 | Routing graph | [#136](https://github.com/jpalvarezl/blight-synth/issues/136) | Draft |
-| Versioned state | [#138](https://github.com/jpalvarezl/blight-synth/issues/138) | Draft |
+| Versioned state | [#138](https://github.com/jpalvarezl/blight-synth/issues/138) | Accepted contract (ADR 0008); implementation pending |
 | Device host vs OSC standalone split | [#185](https://github.com/jpalvarezl/blight-synth/issues/185) | Proposed (ADR 0002) |
 
 Do not treat draft diagrams as implemented fact. Domain pages list current code entry points separately.
