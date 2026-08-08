@@ -13,4 +13,4 @@ A packet is a handoff cache, not a second specification. It links to the issue a
 
 ## Active
 
-- [Issue #238 — Apply coalesced targets once per block and remove quantum smoothing](issue-238-simplified-coalesced-application.md)
+_No active packets. Create one when an issue moves to `status:in-progress`._
