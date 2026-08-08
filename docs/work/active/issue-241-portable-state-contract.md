@@ -14,7 +14,7 @@ issue: 241
 - Owner/status: jpalvarezl / in-progress
 - Branch/worktree: `issue/241-portable-state-contract` / `/Users/jpalvarezl/code/blight-241`
 - Base: `main` / `bfb701b60035660fcca6f75915cba2b176c59670`
-- Head: final local commit (see handoff); no push/PR requested
+- Head: branch tip under review in PR #246
 
 ## Goal
 
@@ -68,6 +68,6 @@ Accept the smallest M1 portable state envelope and compatibility/NRT-restore con
 ## Handoff
 
 - Completed: contract, routing/index updates, successor issue boundaries, and independent decision review fixes.
-- Remaining: #242/#243 implementation after this contract lands.
+- Remaining: merge PR #246, then begin #242/#243 implementation through normal workflow.
 - Known risks: canonical JCS support and self-contained host asset packaging need implementation evidence; full-generation ownership replaces today's split song/Engine graph.
 - Next smallest action: review and merge the contract, then transition #242 through normal GitHub workflow.
