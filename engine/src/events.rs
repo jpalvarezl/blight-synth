@@ -29,6 +29,9 @@ impl EventProducerId {
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ParameterTarget {
+    /// Engine-owned final output gain. This system target is deliberately
+    /// outside the user-authored master-effect `EffectId` namespace.
+    MasterGain,
     MasterEffect {
         effect_id: EffectId,
     },

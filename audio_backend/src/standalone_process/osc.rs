@@ -13,13 +13,6 @@ use super::control_worker::{OscCommandRequest, StandaloneControlWorker};
 pub const OSC_LISTEN_ADDR: &str = "127.0.0.1:9000";
 pub const OSC_SEND_ADDR: &str = "127.0.0.1:9001";
 
-/// Reserved master gain effect used by the standalone OSC bridge.
-///
-/// `/param/set gain <0..1>` still uses the transitional structural command;
-/// the device host now installs the shared target before its callback starts.
-pub use crate::device_host::MASTER_GAIN_EFFECT_ID;
-pub const MASTER_GAIN_PARAM_INDEX: u32 = 0;
-
 /// Target meter streaming rate (`/meter/level`) in Hz.
 pub const METER_RATE_HZ: u32 = 30;
 /// Interval between `/meter/level` messages, derived from [`METER_RATE_HZ`].
@@ -263,22 +256,18 @@ fn handle_param_set(message: OscMessage) -> OscDispatch {
     };
 
     match param_id.as_str() {
-        // Wire format is a normalized 0..1 control value (linear amplitude);
-        // map it to the dB the master Gain effect expects.
+        // `/param/set gain <0..1>` carries normalized linear amplitude. The
+        // transitional OSC path maps it to dB and emits the dedicated
+        // Engine-owned master-gain command; no user effect ID is reserved.
         "gain" => {
             let normalized = value.clamp(0.0, 1.0);
             let db = normalized_gain_to_db(normalized);
             log::info!(
-                "OSC /param/set gain {normalized} (norm) -> {db} dB -> MixerCmd::SetMasterEffectParameter"
+                "OSC /param/set gain {normalized} (norm) -> {db} dB -> MixerCmd::SetMasterGain"
             );
             OscDispatch {
                 commands: vec![OscCommandRequest {
-                    command: MixerCmd::SetMasterEffectParameter {
-                        effect_id: MASTER_GAIN_EFFECT_ID,
-                        param_index: MASTER_GAIN_PARAM_INDEX,
-                        value: db,
-                    }
-                    .into(),
+                    command: MixerCmd::SetMasterGain { value_db: db }.into(),
                     // Echo only after the bounded audio queue accepts the value.
                     accepted_response: Some(param_echo(param_id, normalized)),
                 }],
@@ -413,18 +402,12 @@ mod tests {
         ));
 
         assert_eq!(dispatch.commands.len(), 1);
-        let Command::Mixer(MixerCmd::SetMasterEffectParameter {
-            effect_id,
-            param_index,
-            value,
-        }) = &dispatch.commands[0].command
+        let Command::Mixer(MixerCmd::SetMasterGain { value_db }) = &dispatch.commands[0].command
         else {
-            panic!("expected MixerCmd::SetMasterEffectParameter");
+            panic!("expected MixerCmd::SetMasterGain");
         };
-        assert_eq!(*effect_id, MASTER_GAIN_EFFECT_ID);
-        assert_eq!(*param_index, MASTER_GAIN_PARAM_INDEX);
         // 0.5 linear amplitude ~= -6.02 dB.
-        assert!((*value - (-6.0206)).abs() < 1e-3, "got {value}");
+        assert!((*value_db - (-6.0206)).abs() < 1e-3, "got {value_db}");
 
         // Echo is held until queue submission confirms acceptance.
         assert!(dispatch.responses.is_empty());
@@ -442,14 +425,13 @@ mod tests {
             vec![OscType::String("gain".to_string()), OscType::Int(1)],
         ));
 
-        let Command::Mixer(MixerCmd::SetMasterEffectParameter { value, .. }) =
-            &dispatch.commands[0].command
+        let Command::Mixer(MixerCmd::SetMasterGain { value_db }) = &dispatch.commands[0].command
         else {
-            panic!("expected MixerCmd::SetMasterEffectParameter");
+            panic!("expected MixerCmd::SetMasterGain");
         };
         assert!(
-            (*value - 0.0).abs() < 1e-4,
-            "unity gain -> 0 dB, got {value}"
+            (*value_db - 0.0).abs() < 1e-4,
+            "unity gain -> 0 dB, got {value_db}"
         );
         let response = accepted_response(dispatch.commands.into_iter().next().unwrap());
         assert!((param_echo_args(&response).1 - 1.0).abs() < 1e-6);
@@ -462,12 +444,10 @@ mod tests {
             "/param/set",
             vec![OscType::String("gain".to_string()), OscType::Float(2.0)],
         ));
-        let Command::Mixer(MixerCmd::SetMasterEffectParameter { value, .. }) =
-            &high.commands[0].command
-        else {
-            panic!("expected MixerCmd::SetMasterEffectParameter");
+        let Command::Mixer(MixerCmd::SetMasterGain { value_db }) = &high.commands[0].command else {
+            panic!("expected MixerCmd::SetMasterGain");
         };
-        assert!((*value - 0.0).abs() < 1e-4);
+        assert!((*value_db - 0.0).abs() < 1e-4);
         let response = accepted_response(high.commands.into_iter().next().unwrap());
         assert!((param_echo_args(&response).1 - 1.0).abs() < 1e-6);
 
@@ -476,12 +456,10 @@ mod tests {
             "/param/set",
             vec![OscType::String("gain".to_string()), OscType::Float(0.0)],
         ));
-        let Command::Mixer(MixerCmd::SetMasterEffectParameter { value, .. }) =
-            &low.commands[0].command
-        else {
-            panic!("expected MixerCmd::SetMasterEffectParameter");
+        let Command::Mixer(MixerCmd::SetMasterGain { value_db }) = &low.commands[0].command else {
+            panic!("expected MixerCmd::SetMasterGain");
         };
-        assert_eq!(*value, GAIN_FLOOR_DB);
+        assert_eq!(*value_db, GAIN_FLOOR_DB);
         let response = accepted_response(low.commands.into_iter().next().unwrap());
         assert!((param_echo_args(&response).1 - 0.0).abs() < 1e-6);
     }

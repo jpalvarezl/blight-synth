@@ -25,15 +25,8 @@ impl TrackerEngineAdapter {
     #[cfg(feature = "device-host")]
     pub fn with_prepared_coalesced_parameters(
         state: engine::PreparedCoalescedParameterState,
-        sample_rate: f32,
     ) -> Self {
-        let mut engine = Engine::with_prepared_coalesced_parameters(state);
-        // Constructor value is only neutral prepared storage. The manifest's
-        // authoritative normalized seed is mapped/set before the first render.
-        let gain = dsp::EffectFactory::new(sample_rate)
-            .create_stereo_gain(crate::device_host::MASTER_GAIN_EFFECT_ID, 1.0);
-        engine.add_master_effect(gain, &mut engine::DropRetireSink);
-        Self::with_engine(engine)
+        Self::with_engine(Engine::with_prepared_coalesced_parameters(state))
     }
 
     fn with_engine(engine: Engine) -> Self {

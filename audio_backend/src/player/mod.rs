@@ -167,10 +167,7 @@ impl Player {
         state: engine::PreparedCoalescedParameterState,
     ) -> Self {
         let engine_adapter =
-            tracker_engine_adapter::TrackerEngineAdapter::with_prepared_coalesced_parameters(
-                state,
-                sample_rate as f32,
-            );
+            tracker_engine_adapter::TrackerEngineAdapter::with_prepared_coalesced_parameters(state);
         Self::with_event_capacity_and_adapter(
             song,
             sample_rate,

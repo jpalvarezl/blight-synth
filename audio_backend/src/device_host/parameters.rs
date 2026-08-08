@@ -7,7 +7,6 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use dsp::id::EffectId;
 use engine::{
     AcceptedPublication, ApplicationFailureStatus, AppliedTargetStatus,
     CoalescedParameterPublisher, CoalescedParameterStore, CoalescedStoreCounters,
@@ -21,8 +20,6 @@ use param_manifest::{
     ParameterId, ParameterLookup, RuntimeParamKey,
 };
 
-/// Reserved concrete effect instance targeted by the built-in master gain.
-pub const MASTER_GAIN_EFFECT_ID: EffectId = EffectId::from_raw(0);
 const INITIAL_COALESCED_CAPACITY: usize = 1;
 
 #[derive(Debug)]
@@ -210,9 +207,7 @@ pub fn prepare_initial_parameter_generation(
         lookup.table(),
         &[CoalescedTargetBinding {
             key: gain_key,
-            target: ParameterTarget::MasterEffect {
-                effect_id: MASTER_GAIN_EFFECT_ID,
-            },
+            target: ParameterTarget::MasterGain,
         }],
     )
     .map_err(|error| anyhow!("failed to prepare initial parameter bindings: {error:?}"))?;
@@ -244,4 +239,7 @@ pub fn prepare_initial_parameter_generation(
     })
 }
 
+// Keep the synchronous NRT publication result cheap to return by value. A
+// future payload expansion that crosses this bound requires an explicit review
+// rather than silently boxing/allocating in control adapters.
 const _: () = assert!(std::mem::size_of::<StableParameterPublication>() <= 40);

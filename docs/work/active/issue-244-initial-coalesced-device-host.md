@@ -27,9 +27,10 @@ One initial lifecycle vertical slice, generally 500–800 meaningful lines. Cons
 
 - `audio_backend/src/device_host/` — NRT preparation/facade, callback constructor plumbing, static shutdown.
 - `audio_backend/src/player/` — constructor-owned state handoff to Engine.
-- `audio_backend/src/standalone_process/` — remove duplicate startup gain installation; retain OSC command behavior.
+- `audio_backend/src/standalone_process/` — remove duplicate startup gain installation; preserve OSC wire behavior through the dedicated master-gain command.
 - `audio_backend/tests/` — facade/device-host/RT allocation coverage.
 - `engine/src/coalesced_parameters.rs` — NRT generation close/disconnect controls used by the facade.
+- `engine/src/{events,commands,lib}.rs` — dedicated Engine-owned master-gain target/command/state outside the user effect-ID namespace.
 - Focused architecture/domain/task documentation and dependency metadata.
 
 ## Plan
@@ -52,6 +53,7 @@ One initial lifecycle vertical slice, generally 500–800 meaningful lines. Cons
 
 - Completed: implementation, focused tests, full verification, documentation, and independent review (approved with no blocking findings).
 - Deferred: live generation replacement/rebind/retirement (#245), OSC migration (#216), smoothing, and desired-state UI stores.
+- Review decision: canonical master gain is a dedicated Engine system target, not a reserved user `EffectId`. User effects retain the complete ID namespace (including 0); transitional OSC uses `MixerCmd::SetMasterGain`, while the facade uses `ParameterTarget::MasterGain`.
 - Coordination risk: until #216 removes the transitional OSC structural setter, the facade and legacy OSC command can both target master gain. The standalone process uses only its legacy OSC producer; adapters must not drive both paths without NRT arbitration.
 - Verification:
   - `cargo test --workspace --all-targets --all-features`

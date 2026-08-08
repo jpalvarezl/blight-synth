@@ -31,8 +31,8 @@ pub const MASTER_GAIN_ID: &str = "gain";
 /// adapter's `GAIN_FLOOR_DB`).
 pub const MASTER_GAIN_FLOOR_DB: f32 = -120.0;
 
-/// The engine `set_parameter` index for the master `Gain` effect (matches the
-/// OSC adapter's `MASTER_GAIN_PARAM_INDEX`).
+/// Engine parameter slot retained for the canonical master-gain descriptor.
+/// The dedicated `ParameterTarget::MasterGain` does not consume a user effect ID.
 pub const MASTER_GAIN_PARAM_INDEX: u32 = 0;
 
 /// Build the canonical descriptor for the master gain parameter.

@@ -45,6 +45,11 @@ pub enum InstrumentCmd {
 /// Instrument-owned effects are deliberately excluded and belong to
 /// [`InstrumentCmd`].
 pub enum MixerCmd {
+    /// Set the Engine-owned final output gain in decibels. This built-in control
+    /// does not consume a user master-effect ID.
+    SetMasterGain {
+        value_db: f32,
+    },
     AddMasterEffect {
         effect: Box<dyn StereoEffect>,
     },
