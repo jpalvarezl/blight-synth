@@ -2,7 +2,7 @@
 title: Generated Roadmap Burndown
 summary: Offline Obsidian snapshot generated from GitHub roadmap issue metadata.
 status: generated
-source-updated: 2026-08-08T21:03:05Z
+source-updated: 2026-08-08T21:08:51Z
 generator: scripts/docs/sync_roadmap.py
 ---
 
@@ -11,14 +11,14 @@ generator: scripts/docs/sync_roadmap.py
 > [!warning] Generated file
 > GitHub Issues are canonical. Do not edit this page manually. Run `python3 scripts/docs/sync_roadmap.py`.
 
-Data snapshot through `2026-08-08T21:03:05Z`.
+Data snapshot through `2026-08-08T21:08:51Z`.
 
 ## Summary
 
 | Milestone | Open | Done | Ready | In progress | Blocked | Backlog | Sized points done/total | Unsized |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | M0: Architecture & Repository Baseline | 0 | 14 | 0 | 0 | 0 | 0 | 27/27 | 3 |
-| M1: Host-Independent Engine & RT Contracts | 11 | 34 | 1 | 1 | 7 | 2 | 79/95 | 12 |
+| M1: Host-Independent Engine & RT Contracts | 10 | 35 | 2 | 0 | 6 | 2 | 82/95 | 12 |
 | M2: Standalone Host & Control Protocol | 6 | 2 | 0 | 0 | 1 | 5 | 4/7 | 5 |
 | M3: JS/TS Composition UI & Standalone App | 9 | 0 | 0 | 0 | 0 | 9 | 0/0 | 9 |
 | M4 (Optional): Desktop Plugins (VST3/AU) | 7 | 0 | 0 | 0 | 0 | 7 | 0/0 | 7 |
@@ -37,8 +37,7 @@ Data snapshot through `2026-08-08T21:03:05Z`.
 - [ ] [#216](https://github.com/jpalvarezl/blight-synth/issues/216) Migrate OSC parameters to applied-confirmed coalescing — `blocked`, `S`, unassigned
 - [ ] [#242](https://github.com/jpalvarezl/blight-synth/issues/242) Implement portable engine state and migration fixtures — `ready`, `M`, unassigned
 - [ ] [#243](https://github.com/jpalvarezl/blight-synth/issues/243) Integrate RT-safe engine state restore and core adapters — `blocked`, `M`, unassigned
-- [ ] [#244](https://github.com/jpalvarezl/blight-synth/issues/244) Install the initial coalesced parameter generation in device host — `in-progress`, `M`, @jpalvarezl
-- [ ] [#245](https://github.com/jpalvarezl/blight-synth/issues/245) Replace and retire coalesced parameter generations — `blocked`, `M`, unassigned
+- [ ] [#245](https://github.com/jpalvarezl/blight-synth/issues/245) Replace and retire coalesced parameter generations — `ready`, `M`, unassigned
 
 ## All roadmap tasks
 
@@ -104,8 +103,8 @@ Data snapshot through `2026-08-08T21:03:05Z`.
 - [x] [#241](https://github.com/jpalvarezl/blight-synth/issues/241) Decide the minimal portable engine state contract — `done`, `S`, @jpalvarezl
 - [ ] [#242](https://github.com/jpalvarezl/blight-synth/issues/242) Implement portable engine state and migration fixtures — `ready`, `M`, unassigned
 - [ ] [#243](https://github.com/jpalvarezl/blight-synth/issues/243) Integrate RT-safe engine state restore and core adapters — `blocked`, `M`, unassigned
-- [ ] [#244](https://github.com/jpalvarezl/blight-synth/issues/244) Install the initial coalesced parameter generation in device host — `in-progress`, `M`, @jpalvarezl
-- [ ] [#245](https://github.com/jpalvarezl/blight-synth/issues/245) Replace and retire coalesced parameter generations — `blocked`, `M`, unassigned
+- [x] [#244](https://github.com/jpalvarezl/blight-synth/issues/244) Install the initial coalesced parameter generation in device host — `done`, `M`, @jpalvarezl
+- [ ] [#245](https://github.com/jpalvarezl/blight-synth/issues/245) Replace and retire coalesced parameter generations — `ready`, `M`, unassigned
 
 ### M2: Standalone Host & Control Protocol
 
