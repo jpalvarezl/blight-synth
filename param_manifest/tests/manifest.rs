@@ -19,6 +19,8 @@ fn manifest_json_round_trip_is_lossless() {
     assert_eq!(restored.schema_version, MANIFEST_SCHEMA_VERSION);
     assert_eq!(restored.parameters.len(), 1);
     assert_eq!(restored.parameters[0].id.as_str(), MASTER_GAIN_ID);
+    assert_eq!(restored.parameters[0].smoothing, SmoothingPolicy::None);
+    assert!(json.contains("\"smoothing\": \"none\""));
 }
 
 #[test]
@@ -88,7 +90,6 @@ fn changing_automation_rate_is_a_breaking_change() {
     let previous = builtin_manifest();
     let mut changed = master_gain_descriptor();
     changed.automation_rate = AutomationRate::Structural;
-    changed.smoothing = SmoothingPolicy::None;
     let new = ParameterManifest::new(vec![changed]);
 
     let report = new.compatibility_against(&previous);
@@ -878,7 +879,10 @@ fn visibility_is_a_binding_break_but_smoothing_is_compatible() {
         ))));
 
     let mut changed = master_gain_descriptor();
-    changed.smoothing = SmoothingPolicy::None;
+    changed.smoothing = SmoothingPolicy::Smoothed {
+        duration_ms: 15.0,
+        curve: SmoothingCurve::Linear,
+    };
     let report = ParameterManifest::new(vec![changed]).compatibility_against(&previous);
     assert!(report.is_compatible());
 }

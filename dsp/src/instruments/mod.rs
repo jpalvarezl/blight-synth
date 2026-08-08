@@ -98,6 +98,17 @@ impl<S: SynthNode> InstrumentTrait for MonophonicInstrument<S> {
             .set_effect_parameter(effect_id, param_index, value);
     }
 
+    fn try_set_effect_parameter(
+        &mut self,
+        effect_id: EffectId,
+        param_index: u32,
+        value: f32,
+    ) -> bool {
+        self.voice
+            .inner
+            .try_set_effect_parameter(effect_id, param_index, value)
+    }
+
     fn try_handle_command(&mut self, cmd: &crate::SynthCmd) -> bool {
         self.voice.inner.try_handle_command(cmd)
     }
@@ -268,6 +279,21 @@ impl<S: SynthNode> InstrumentTrait for PolyphonicInstrument<S> {
                 .inner
                 .set_effect_parameter(effect_id, param_index, value);
         }
+    }
+
+    fn try_set_effect_parameter(
+        &mut self,
+        effect_id: EffectId,
+        param_index: u32,
+        value: f32,
+    ) -> bool {
+        let mut applied = false;
+        for voice in &mut self.voices {
+            applied |= voice
+                .inner
+                .try_set_effect_parameter(effect_id, param_index, value);
+        }
+        applied
     }
 
     // TODO this is very dodgy, we are only stating the command was handled if at least one voice handled it

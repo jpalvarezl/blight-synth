@@ -3,7 +3,7 @@ title: ADR 0004 — Canonical parameter manifest and host bindings
 summary: One serializable parameter manifest is the single source of truth for parameter metadata across the Rust DSP/engine, project state, OSC, JUCE/APVTS, and the Svelte UI; a bounded string-free runtime lookup serves the audio thread.
 status: accepted
 updated: 2026-08-07
-issues: [121, 101, 145, 137, 212, 237]
+issues: [121, 101, 145, 137, 212, 237, 238]
 supersedes: []
 amended-by: ["0005", "0007"]
 ---
@@ -28,7 +28,9 @@ The existing OSC/engine path is not migrated by this issue. Accepted
 generation, mapping execution, and confirmation. [ADR 0007](0007-simplified-coalesced-application.md)
 amends smoothing ownership: the generic coalesced path applies `None` targets
 immediately, while smoothing is an explicit DSP-local capability added only when
-needed.
+needed. Issue #238 implements that amendment for the Engine path and changes the
+representative master-gain descriptor to `None`, matching its existing immediate
+command/OSC behavior.
 
 ## Context
 

@@ -9,7 +9,6 @@ mod commands;
 mod event_admission;
 mod events;
 mod parameter_atomic_protocol;
-mod smoother;
 
 pub use coalesced_bindings::*;
 pub use coalesced_parameters::*;
@@ -20,7 +19,6 @@ use dsp::{
 };
 pub use event_admission::*;
 pub use events::*;
-pub use smoother::{PreparedSmoother, SmootherPrepareError, SmootherValueError};
 use std::{any::Any, sync::Arc};
 
 /// Hard, fixed instrument-slot capacity. The backing vector is preallocated to
@@ -88,6 +86,7 @@ pub struct Engine {
     instruments: Vec<InstrumentSlot>,
     instrument_capacity: usize,
     master_effects: StereoEffectChain,
+    coalesced_parameters: Option<PreparedCoalescedParameterState>,
 }
 
 impl Default for Engine {
@@ -104,10 +103,25 @@ impl Engine {
     /// Creates an engine with an explicit hard instrument capacity. The slot
     /// vector is preallocated to `capacity` and never grows.
     pub fn with_instrument_capacity(capacity: usize) -> Self {
+        Self::with_optional_parameter_state(capacity, None)
+    }
+
+    /// Creates an Engine that owns one constructor-time prepared coalesced state.
+    /// Live replacement and retirement are intentionally deferred to #215.
+    #[must_use]
+    pub fn with_prepared_coalesced_parameters(state: PreparedCoalescedParameterState) -> Self {
+        Self::with_optional_parameter_state(DEFAULT_INSTRUMENT_CAPACITY, Some(state))
+    }
+
+    fn with_optional_parameter_state(
+        capacity: usize,
+        coalesced_parameters: Option<PreparedCoalescedParameterState>,
+    ) -> Self {
         Self {
             instruments: Vec::with_capacity(capacity),
             instrument_capacity: capacity,
             master_effects: StereoEffectChain::new(DEFAULT_MASTER_EFFECT_CAPACITY),
+            coalesced_parameters,
         }
     }
 
@@ -240,14 +254,13 @@ impl Engine {
     /// adapters should still provide equal lengths, but malformed input must
     /// not panic in an audio callback.
     pub fn process(&mut self, left: &mut [f32], right: &mut [f32], sample_rate: f32) {
+        self.apply_coalesced_parameters();
         let frame_count = left.len().min(right.len());
-        let left = &mut left[..frame_count];
-        let right = &mut right[..frame_count];
-
-        for slot in &mut self.instruments {
-            slot.instrument.process(left, right, sample_rate);
-        }
-        self.master_effects.process(left, right, sample_rate);
+        self.render(
+            &mut left[..frame_count],
+            &mut right[..frame_count],
+            sample_rate,
+        );
     }
 
     /// Applies an already ordered current-block event slice at exact sample
@@ -278,13 +291,14 @@ impl Engine {
         let frame_count = left.len().min(right.len());
         Self::validate_events(events, frame_count)?;
 
+        self.apply_coalesced_parameters();
         let left = &mut left[..frame_count];
         let right = &mut right[..frame_count];
         let mut rendered_until = 0;
 
         for event in events {
             if rendered_until < event.sample_offset {
-                self.process(
+                self.render(
                     &mut left[rendered_until..event.sample_offset],
                     &mut right[rendered_until..event.sample_offset],
                     sample_rate,
@@ -295,13 +309,49 @@ impl Engine {
         }
 
         if rendered_until < frame_count {
-            self.process(
+            self.render(
                 &mut left[rendered_until..],
                 &mut right[rendered_until..],
                 sample_rate,
             );
         }
         Ok(())
+    }
+
+    fn render(&mut self, left: &mut [f32], right: &mut [f32], sample_rate: f32) {
+        for slot in &mut self.instruments {
+            slot.instrument.process(left, right, sample_rate);
+        }
+        self.master_effects.process(left, right, sample_rate);
+    }
+
+    fn apply_coalesced_parameters(&mut self) {
+        let Self {
+            instruments,
+            master_effects,
+            coalesced_parameters,
+            ..
+        } = self;
+        let Some(state) = coalesced_parameters else {
+            return;
+        };
+        state.drain(|binding, value| match binding.target() {
+            ParameterTarget::MasterEffect { effect_id } => master_effects.try_set_effect_parameter(
+                effect_id,
+                binding.engine_param_index(),
+                value,
+            ),
+            ParameterTarget::InstrumentEffect {
+                instrument_id,
+                effect_id,
+            } => Self::try_set_instrument_effect_parameter_in(
+                instruments,
+                instrument_id,
+                effect_id,
+                binding.engine_param_index(),
+                value,
+            ),
+        });
     }
 
     fn validate_events(
@@ -480,6 +530,21 @@ impl Engine {
         }
     }
 
+    fn try_set_instrument_effect_parameter_in(
+        instruments: &mut [InstrumentSlot],
+        instrument_id: InstrumentId,
+        effect_id: EffectId,
+        param_index: u32,
+        value: f32,
+    ) -> bool {
+        let Ok(index) = instruments.binary_search_by_key(&instrument_id, |slot| slot.id) else {
+            return false;
+        };
+        instruments[index]
+            .instrument
+            .try_set_effect_parameter(effect_id, param_index, value)
+    }
+
     fn instrument_mut(
         &mut self,
         instrument_id: InstrumentId,
@@ -507,8 +572,9 @@ impl Engine {
         param_index: u32,
         value: f32,
     ) {
-        self.master_effects
-            .set_effect_parameter(effect_id, param_index, value);
+        let _ = self
+            .master_effects
+            .try_set_effect_parameter(effect_id, param_index, value);
     }
 }
 

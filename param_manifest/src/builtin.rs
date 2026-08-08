@@ -14,7 +14,7 @@
 
 use crate::descriptor::{
     AutomationRate, NodeRef, NodeType, ParameterDescriptor, ParameterId, ParameterKind,
-    SmoothingCurve, SmoothingPolicy, Unit, ValueRange, Visibility,
+    SmoothingPolicy, Unit, ValueRange, Visibility,
 };
 use crate::manifest::{ParameterManifest, MANIFEST_SCHEMA_VERSION};
 use crate::mapping::Mapping;
@@ -59,10 +59,9 @@ pub fn master_gain_descriptor() -> ParameterDescriptor {
         },
         kind: ParameterKind::Continuous,
         automation_rate: AutomationRate::ControlCoalesced,
-        smoothing: SmoothingPolicy::Smoothed {
-            duration_ms: 15.0,
-            curve: SmoothingCurve::Linear,
-        },
+        // This matches the current command/OSC path: gain changes immediately.
+        // Audible click/zipper reports are the trigger for DSP-local smoothing.
+        smoothing: SmoothingPolicy::None,
         visibility: Visibility::default(),
         version_added: 1,
         deprecated: None,

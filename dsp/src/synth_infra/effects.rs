@@ -89,9 +89,26 @@ impl StereoEffectChain {
 
     /// Sets a parameter on one of the effects in the chain.
     pub fn set_effect_parameter(&mut self, effect_id: EffectId, param_index: u32, value: f32) {
-        if let Some(effect) = self.effects.iter_mut().find(|e| e.id() == effect_id) {
-            effect.set_parameter(param_index, value);
-        }
+        let _ = self.try_set_effect_parameter(effect_id, param_index, value);
+    }
+
+    /// Resolve an exact effect and invoke its existing infallible scalar setter.
+    /// Returns `false` without invoking a setter when the effect is absent.
+    pub fn try_set_effect_parameter(
+        &mut self,
+        effect_id: EffectId,
+        param_index: u32,
+        value: f32,
+    ) -> bool {
+        let Some(effect) = self
+            .effects
+            .iter_mut()
+            .find(|effect| effect.id() == effect_id)
+        else {
+            return false;
+        };
+        effect.set_parameter(param_index, value);
+        true
     }
 
     /// Resets all effects in the chain. Useful when reinitializing the signal path.
@@ -184,9 +201,25 @@ impl MonoEffectChain {
 
     /// Sets a parameter on one of the effects in the chain.
     pub fn set_effect_parameter(&mut self, effect_id: EffectId, param_index: u32, value: f32) {
-        if let Some(effect) = self.effects.iter_mut().find(|e| e.id() == effect_id) {
-            effect.set_parameter(param_index, value);
-        }
+        let _ = self.try_set_effect_parameter(effect_id, param_index, value);
+    }
+
+    /// Resolve an exact effect and invoke its existing infallible scalar setter.
+    pub fn try_set_effect_parameter(
+        &mut self,
+        effect_id: EffectId,
+        param_index: u32,
+        value: f32,
+    ) -> bool {
+        let Some(effect) = self
+            .effects
+            .iter_mut()
+            .find(|effect| effect.id() == effect_id)
+        else {
+            return false;
+        };
+        effect.set_parameter(param_index, value);
+        true
     }
 
     /// Resets all effects in the chain. Called when a voice is re-used to avoid

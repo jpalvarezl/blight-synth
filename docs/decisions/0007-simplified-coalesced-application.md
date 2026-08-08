@@ -13,6 +13,7 @@ amends: ["0005"]
 ## Status
 
 Accepted. Deciding issue: [#237](https://github.com/jpalvarezl/blight-synth/issues/237).
+Implemented by [#238](https://github.com/jpalvarezl/blight-synth/issues/238).
 
 This decision supersedes [ADR 0006](0006-fixed-quantum-smoothing-delivery.md)
 and explicitly amends ADR 0005 §3 (smoothing ownership), §5 (confirmation), and
@@ -161,11 +162,11 @@ structural queue is the wrong overload behavior.
 
 ## Validation and revisit triggers
 
-#238 defines the first production coalesced-to-DSP delivery, validates one
+#238 implements the first production coalesced-to-DSP delivery and validates one
 block-start drain/application in both Engine process APIs, setter-reported
 confirmation/failure, unsupported `Smoothed` rejection, unchanged sample-event
-ordering, install/reset seed application, and zero callback heap work while
-deleting unused smoother/quantum infrastructure.
+ordering, constructor/reset-generation seed application, and zero callback heap
+work while deleting unused smoother infrastructure.
 
 Revisit smoothing only when a real control surface demonstrates zipper/click
 artifacts, a parameter needs a specified ramp for product behavior, or a plugin
