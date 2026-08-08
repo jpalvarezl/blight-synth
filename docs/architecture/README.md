@@ -31,7 +31,7 @@ updated: 2026-08-07
 | Sample-accurate events | [#134](https://github.com/jpalvarezl/blight-synth/issues/134) | Draft |
 | Composition event sources | [#145](https://github.com/jpalvarezl/blight-synth/issues/145) | Proposed (ADR 0003) |
 | Parameter manifest | [#121](https://github.com/jpalvarezl/blight-synth/issues/121) | Accepted (ADR 0004) |
-| Coalesced parameter publication/lifecycle | [#212/#237](https://github.com/jpalvarezl/blight-synth/issues/237) | Accepted (ADRs 0005/0007) |
+| Coalesced parameter publication/lifecycle | [#212](https://github.com/jpalvarezl/blight-synth/issues/212), [#237](https://github.com/jpalvarezl/blight-synth/issues/237) | Accepted (ADRs 0005/0007) |
 | Routing graph | [#136](https://github.com/jpalvarezl/blight-synth/issues/136) | Draft |
 | Versioned state | [#138](https://github.com/jpalvarezl/blight-synth/issues/138) | Draft |
 | Device host vs OSC standalone split | [#185](https://github.com/jpalvarezl/blight-synth/issues/185) | Proposed (ADR 0002) |
