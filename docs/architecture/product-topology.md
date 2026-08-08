@@ -2,8 +2,8 @@
 title: Product and Host Topology
 summary: Accepted standalone-first product topology, optional host matrix, and state/parameter authority.
 status: accepted
-updated: 2026-08-03
-issues: [101, 129, 144, 145, 212]
+updated: 2026-08-07
+issues: [101, 129, 144, 145, 212, 237]
 ---
 
 # Product and Host Topology
@@ -51,7 +51,7 @@ The exact desktop shell remains open. Browser components never own UDP sockets, 
 | External MIDI/OSC/file side effects | Standalone host | Composition runtime emits abstract requests only |
 | Device configuration and process lifecycle | Standalone shell/host | UI connection state |
 
-The UI must distinguish desired, pending, and engine-confirmed state. For continuous parameters, [ADR 0005](../decisions/0005-coalesced-parameter-publication.md) defines pending publication revisions and applied-confirmed smoothing targets; confirmation does not mean a smoothing ramp has settled. The UI is not a second authoritative project model.
+The UI must distinguish desired, pending, and engine-confirmed state. For continuous parameters, [ADR 0005](../decisions/0005-coalesced-parameter-publication.md) plus [ADR 0007](../decisions/0007-simplified-coalesced-application.md) define pending revisions and applied-confirmed targets. For the generic `None` path, confirmation means the mapped scalar was accepted by the DSP setter; a future reviewed DSP-local smoother would confirm target acceptance, not ramp settlement. The UI is not a second authoritative project model.
 
 ## Optional plugin topology
 

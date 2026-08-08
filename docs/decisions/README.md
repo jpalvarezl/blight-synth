@@ -2,7 +2,7 @@
 title: Architecture Decision Index
 summary: Durable decisions with status, rationale, and supersession history.
 status: current
-updated: 2026-08-06
+updated: 2026-08-07
 ---
 
 # Architecture Decision Records
@@ -25,5 +25,6 @@ ADRs record decisions that affect multiple domains or constrain future work. The
 | [0002](0002-device-host-osc-split.md) | Proposed | Split a reusable in-process `device_host` from the OSC standalone process adapter; OSC is a transport over the shared `BlightAudio` control boundary, not an owner of device-host semantics. |
 | [0003](0003-event-source-contract.md) | Proposed | Host/producer-side clock adapters fill bounded, already-offset event blocks for the engine; current pull, NRT lookahead, ordering, and fail-closed recovery are explicit. |
 | [0004](0004-parameter-manifest.md) | Accepted | One serializable parameter manifest is the single source of truth for parameter metadata across Rust DSP/engine, project state, OSC, JUCE/APVTS, and Svelte; a bounded string-free runtime lookup keyed by stable ID serves the audio thread. |
-| [0005](0005-coalesced-parameter-publication.md) | Accepted | Continuous parameters use a generation-bound normalized MPSC atomic store; RT maps and latches engine-owned smoothing targets once per render block with eventual-latest and applied-target confirmation semantics. |
-| [0006](0006-fixed-quantum-smoothing-delivery.md) | Accepted | Engine-owned coalesced smoothers use an absolute 16-frame control phase and existing scalar DSP setters. |
+| [0005](0005-coalesced-parameter-publication.md) | Accepted; amended by 0007 | Continuous parameters use a generation-bound normalized MPSC atomic store with bounded RT mapping/application and applied-target confirmation. |
+| [0006](0006-fixed-quantum-smoothing-delivery.md) | Superseded by 0007 | Rejected fixed-quantum Engine smoothing design retained for history. |
+| [0007](0007-simplified-coalesced-application.md) | Accepted | Keep latest-value coalescing, map/apply targets once per block, and defer smoothing to explicit DSP-local implementations when product need is demonstrated. |

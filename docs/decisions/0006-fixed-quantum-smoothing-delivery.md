@@ -1,10 +1,11 @@
 ---
 title: ADR 0006 — Fixed-quantum smoothing delivery
 summary: Engine-owned coalesced smoothers use an absolute 16-frame control phase and existing scalar DSP setters.
-status: accepted
-updated: 2026-08-06
-issues: [223, 224, 214]
+status: superseded
+updated: 2026-08-07
+issues: [214, 223, 224, 231, 234, 235, 237]
 supersedes: []
+superseded-by: ["0007"]
 amends: ["0005"]
 ---
 
@@ -12,7 +13,8 @@ amends: ["0005"]
 
 ## Status
 
-Accepted. Deciding issue: [#223](https://github.com/jpalvarezl/blight-synth/issues/223).
+Superseded by [ADR 0007](0007-simplified-coalesced-application.md).
+Originally accepted by [#223](https://github.com/jpalvarezl/blight-synth/issues/223); the fixed-quantum implementation was not merged.
 
 ## Context
 
