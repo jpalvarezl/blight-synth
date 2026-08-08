@@ -5,7 +5,7 @@ pub use command_sender::{
     CommandSubmissionError, CommandSubmissionErrorKind, CommandSubmissionResult,
 };
 
-use crate::MeterState;
+use crate::{DeviceHostParameterFacade, MeterState};
 use engine::RetiredState;
 use ringbuf::HeapCons;
 use std::sync::Arc;
@@ -35,4 +35,8 @@ pub struct BlightAudio {
     _stream: cpal::Stream,
     /// NRT consumer for heap owners displaced by the callback.
     retirement_rx: HeapCons<RetiredState>,
+    /// Stable-ID access to the exact generation owned by the callback Engine.
+    /// Declared after the stream so static-lifecycle field drop releases the
+    /// callback owner first and this publisher owner last, both on NRT.
+    parameters: DeviceHostParameterFacade,
 }

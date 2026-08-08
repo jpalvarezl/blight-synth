@@ -9,7 +9,8 @@ pub fn main() {
     match &mut BlightAudio::new() {
         Ok(audio) => {
             println!("BlightAudio initialized successfully!");
-            let stereo_gain_id = EffectId::from_raw(0);
+            // Effect id 0 is reserved by the device-host parameter facade.
+            let stereo_gain_id = EffectId::from_raw(10);
             let _ = audio.send_command(
                 MixerCmd::AddMasterEffect {
                     effect: audio

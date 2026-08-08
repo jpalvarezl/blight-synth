@@ -81,6 +81,7 @@ anyhow = { workspace = true }
 log = { workspace = true }
 sequencer = { workspace = true }
 node_registry = { workspace = true }
+param_manifest = { workspace = true }
 hound = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

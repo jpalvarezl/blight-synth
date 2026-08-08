@@ -541,6 +541,7 @@ dependencies = [
  "log",
  "node_registry",
  "os_dls",
+ "param_manifest",
  "ringbuf",
  "rosc",
  "sequencer",

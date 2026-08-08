@@ -15,11 +15,10 @@ use sequencer::models::Song;
 
 use crate::{
     prepare_song_file_for_audio, AudioBackendError, BlightAudio, Command,
-    CommandSubmissionErrorKind, CommandSubmissionResult, MeterState, MixerCmd,
-    Result as BackendResult,
+    CommandSubmissionErrorKind, CommandSubmissionResult, MeterState, Result as BackendResult,
 };
 
-use super::osc::{song_load_error, song_loaded, MASTER_GAIN_EFFECT_ID};
+use super::osc::{song_load_error, song_loaded};
 
 const CONTROL_REQUEST_CAPACITY: usize = 1024;
 const WORKER_POLL_INTERVAL: Duration = Duration::from_millis(1);
@@ -90,18 +89,10 @@ impl StandaloneControlWorker {
             .spawn(move || {
                 let _running_guard = RunningGuard(worker_running);
                 let startup = (|| -> BackendResult<(BlightAudio, Arc<MeterState>)> {
-                    let mut audio =
+                    let audio =
                         BlightAudio::new().map_err(|error| AudioBackendError(error.to_string()))?;
-                    let effect = audio
-                        .get_effect_factory()
-                        .create_stereo_gain(MASTER_GAIN_EFFECT_ID, 1.0);
-                    audio
-                        .try_send_command(MixerCmd::AddMasterEffect { effect }.into())
-                        .map_err(|error| {
-                            AudioBackendError(format!(
-                                "failed to queue the standalone master gain effect: {error}"
-                            ))
-                        })?;
+                    // The device-host constructor already installed the reserved
+                    // master gain and its initial coalesced generation on NRT.
                     let meter = audio.meter_state();
                     Ok((audio, meter))
                 })();

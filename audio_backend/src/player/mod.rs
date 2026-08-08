@@ -160,7 +160,40 @@ impl Player {
         Self::with_event_capacity(song, sample_rate, DEFAULT_EVENT_CAPACITY)
     }
 
+    #[cfg(feature = "device-host")]
+    pub(crate) fn with_prepared_coalesced_parameters(
+        song: Arc<Song>,
+        sample_rate: f64,
+        state: engine::PreparedCoalescedParameterState,
+    ) -> Self {
+        let engine_adapter =
+            tracker_engine_adapter::TrackerEngineAdapter::with_prepared_coalesced_parameters(
+                state,
+                sample_rate as f32,
+            );
+        Self::with_event_capacity_and_adapter(
+            song,
+            sample_rate,
+            DEFAULT_EVENT_CAPACITY,
+            engine_adapter,
+        )
+    }
+
     fn with_event_capacity(song: Arc<Song>, sample_rate: f64, event_capacity: usize) -> Self {
+        Self::with_event_capacity_and_adapter(
+            song,
+            sample_rate,
+            event_capacity,
+            tracker_engine_adapter::TrackerEngineAdapter::new(),
+        )
+    }
+
+    fn with_event_capacity_and_adapter(
+        song: Arc<Song>,
+        sample_rate: f64,
+        event_capacity: usize,
+        engine_adapter: tracker_engine_adapter::TrackerEngineAdapter,
+    ) -> Self {
         let max_ticks = u32::try_from(MAX_TICKS_PER_RENDER_SLICE)
             .expect("the prepared render-slice bound fits u32");
         let timing = TimingState::prepare(sample_rate, song.initial_bpm as f64, max_ticks)
@@ -182,7 +215,7 @@ impl Player {
             position: PlayerPosition::default(),
             is_playing: false,
             loop_enabled: false,
-            engine_adapter: tracker_engine_adapter::TrackerEngineAdapter::new(),
+            engine_adapter,
             tick_boundaries: vec![TickBoundary::default(); MAX_TICKS_PER_RENDER_SLICE],
             tracker_events: Vec::with_capacity(MAX_TRACKER_EVENTS_PER_SLICE),
             queued_live_events: Vec::with_capacity(MAX_LIVE_EVENTS_PER_BLOCK),

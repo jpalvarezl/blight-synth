@@ -75,6 +75,7 @@ impl AudioProcessor {
         sample_rate: f32,
         channels: usize,
         meter: Arc<MeterState>,
+        parameter_state: engine::PreparedCoalescedParameterState,
     ) -> Self {
         let processor = Self {
             command_rx,
@@ -85,7 +86,11 @@ impl AudioProcessor {
             left_buf: vec![0.0; MAX_RENDER_SLICE_FRAMES],
             right_buf: vec![0.0; MAX_RENDER_SLICE_FRAMES],
             meter,
-            player: Player::new(song, sample_rate as f64),
+            player: Player::with_prepared_coalesced_parameters(
+                song,
+                sample_rate as f64,
+                parameter_state,
+            ),
         };
         processor.assert_retirement_bound_invariant();
         processor
@@ -97,6 +102,7 @@ impl AudioProcessor {
         sample_rate: f32,
         channels: usize,
         meter: Arc<MeterState>,
+        parameter_state: engine::PreparedCoalescedParameterState,
     ) -> Self {
         let default_song = Arc::new(sequencer::models::Song::new("Untitled"));
         let processor = Self {
@@ -108,7 +114,11 @@ impl AudioProcessor {
             left_buf: vec![0.0; MAX_RENDER_SLICE_FRAMES],
             right_buf: vec![0.0; MAX_RENDER_SLICE_FRAMES],
             meter,
-            player: Player::new(default_song, sample_rate as f64),
+            player: Player::with_prepared_coalesced_parameters(
+                default_song,
+                sample_rate as f64,
+                parameter_state,
+            ),
         };
         processor.assert_retirement_bound_invariant();
         processor
@@ -239,8 +249,9 @@ mod tests {
     use super::*;
     use crate::{
         id::{EffectId, InstrumentId},
-        EffectInstallError, EffectInstallErrorKind, InstrumentCmd, InstrumentTrait, MonoEffect,
-        SequencerCmd, SynthCmd, TransportCmd, VoiceEffects,
+        prepare_initial_parameter_generation, EffectInstallError, EffectInstallErrorKind,
+        InstrumentCmd, InstrumentTrait, MonoEffect, SequencerCmd, SynthCmd, TransportCmd,
+        VoiceEffects,
     };
     use ringbuf::{storage::Heap, traits::Split, HeapCons, HeapProd, SharedRb};
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -365,6 +376,9 @@ mod tests {
         let (command_tx, command_rx) = rb.split();
         let retirement_rb = SharedRb::<Heap<RetiredState>>::new(retirement_capacity);
         let (retirement_tx, retirement_rx) = retirement_rb.split();
+        let (parameter_state, _parameters) = prepare_initial_parameter_generation()
+            .expect("built-in parameters prepare")
+            .into_parts();
         (
             command_tx,
             retirement_rx,
@@ -374,6 +388,7 @@ mod tests {
                 44_100.0,
                 channels,
                 Arc::new(MeterState::new()),
+                parameter_state,
             ),
         )
     }

@@ -6,7 +6,7 @@ use std::sync::mpsc::TrySendError;
 use std::time::Duration;
 use tokio::net::UdpSocket;
 
-use crate::{id::EffectId, AudioBackendError, MeterLevels, MeterState, MixerCmd, TransportCmd};
+use crate::{AudioBackendError, MeterLevels, MeterState, MixerCmd, TransportCmd};
 
 use super::control_worker::{OscCommandRequest, StandaloneControlWorker};
 
@@ -15,12 +15,9 @@ pub const OSC_SEND_ADDR: &str = "127.0.0.1:9001";
 
 /// Reserved master gain effect used by the standalone OSC bridge.
 ///
-/// `/param/set gain <0..1>` carries a *normalized* control value (linear
-/// amplitude, the VST/AU parameter convention). The core maps it to the dB
-/// the master `Gain` effect expects via [`normalized_gain_to_db`] and emits
-/// `MixerCmd::SetMasterEffectParameter`. [`StandaloneControlWorker::spawn`]
-/// installs this effect while initializing `BlightAudio` on its worker thread.
-pub const MASTER_GAIN_EFFECT_ID: EffectId = EffectId::from_raw(0);
+/// `/param/set gain <0..1>` still uses the transitional structural command;
+/// the device host now installs the shared target before its callback starts.
+pub use crate::device_host::MASTER_GAIN_EFFECT_ID;
 pub const MASTER_GAIN_PARAM_INDEX: u32 = 0;
 
 /// Target meter streaming rate (`/meter/level`) in Hz.
