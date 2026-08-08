@@ -42,10 +42,12 @@ pub trait VoiceTrait: Send + Sync {
     /// Resolve an exact effect and invoke its scalar setter.
     fn try_set_effect_parameter(
         &mut self,
-        effect_id: EffectId,
-        param_index: u32,
-        value: f32,
-    ) -> bool;
+        _effect_id: EffectId,
+        _param_index: u32,
+        _value: f32,
+    ) -> bool {
+        false
+    }
 }
 
 /// A `Voice` represents a single, monophonic musical event. It bundles a sound
