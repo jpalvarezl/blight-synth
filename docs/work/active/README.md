@@ -13,4 +13,4 @@ A packet is a handoff cache, not a second specification. It links to the issue a
 
 ## Active
 
-- [Issue #237 — Simplify coalesced application and defer Engine smoothing](issue-237-simplify-coalesced-application.md)
+_No active packets. Create one when an issue moves to `status:in-progress`._
