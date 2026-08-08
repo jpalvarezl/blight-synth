@@ -2,7 +2,7 @@
 title: Generated Roadmap Burndown
 summary: Offline Obsidian snapshot generated from GitHub roadmap issue metadata.
 status: generated
-source-updated: 2026-08-08T15:06:08Z
+source-updated: 2026-08-08T15:06:38Z
 generator: scripts/docs/sync_roadmap.py
 ---
 
@@ -11,14 +11,14 @@ generator: scripts/docs/sync_roadmap.py
 > [!warning] Generated file
 > GitHub Issues are canonical. Do not edit this page manually. Run `python3 scripts/docs/sync_roadmap.py`.
 
-Data snapshot through `2026-08-08T15:06:08Z`.
+Data snapshot through `2026-08-08T15:06:38Z`.
 
 ## Summary
 
 | Milestone | Open | Done | Ready | In progress | Blocked | Backlog | Sized points done/total | Unsized |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | M0: Architecture & Repository Baseline | 0 | 14 | 0 | 0 | 0 | 0 | 27/27 | 3 |
-| M1: Host-Independent Engine & RT Contracts | 8 | 32 | 1 | 0 | 4 | 3 | 75/85 | 11 |
+| M1: Host-Independent Engine & RT Contracts | 8 | 32 | 0 | 1 | 4 | 3 | 75/85 | 11 |
 | M2: Standalone Host & Control Protocol | 6 | 2 | 0 | 0 | 1 | 5 | 4/7 | 5 |
 | M3: JS/TS Composition UI & Standalone App | 9 | 0 | 0 | 0 | 0 | 9 | 0/0 | 9 |
 | M4 (Optional): Desktop Plugins (VST3/AU) | 7 | 0 | 0 | 0 | 0 | 7 | 0/0 | 7 |
@@ -35,7 +35,7 @@ Data snapshot through `2026-08-08T15:06:08Z`.
 - [ ] [#179](https://github.com/jpalvarezl/blight-synth/issues/179) Expand RT allocation audit across existing instrument and effect paths — `backlog`, `M`, unassigned
 - [ ] [#215](https://github.com/jpalvarezl/blight-synth/issues/215) Integrate coalesced parameter generations with the device host — `blocked`, `M`, unassigned
 - [ ] [#216](https://github.com/jpalvarezl/blight-synth/issues/216) Migrate OSC parameters to applied-confirmed coalescing — `blocked`, `S`, unassigned
-- [ ] [#238](https://github.com/jpalvarezl/blight-synth/issues/238) Apply coalesced targets once per block and remove quantum smoothing — `ready`, `M`, unassigned
+- [ ] [#238](https://github.com/jpalvarezl/blight-synth/issues/238) Apply coalesced targets once per block and remove quantum smoothing — `in-progress`, `M`, @jpalvarezl
 
 ## All roadmap tasks
 
@@ -97,7 +97,7 @@ Data snapshot through `2026-08-08T15:06:08Z`.
 - [x] [#229](https://github.com/jpalvarezl/blight-synth/issues/229) Move legacy envelopes into versioned node definitions — `done`, `M`, @jpalvarezl
 - [x] [#230](https://github.com/jpalvarezl/blight-synth/issues/230) Prepare coalesced target bindings and confirmation — `done`, `M`, @jpalvarezl
 - [x] [#237](https://github.com/jpalvarezl/blight-synth/issues/237) Simplify coalesced application and defer Engine smoothing — `done`, `S`, @jpalvarezl
-- [ ] [#238](https://github.com/jpalvarezl/blight-synth/issues/238) Apply coalesced targets once per block and remove quantum smoothing — `ready`, `M`, unassigned
+- [ ] [#238](https://github.com/jpalvarezl/blight-synth/issues/238) Apply coalesced targets once per block and remove quantum smoothing — `in-progress`, `M`, @jpalvarezl
 
 ### M2: Standalone Host & Control Protocol
 
