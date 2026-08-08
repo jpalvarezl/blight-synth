@@ -2,7 +2,7 @@
 title: Composition Domain
 summary: Focused context for tracker and future generative composition runtimes.
 status: current
-updated: 2026-07-22
+updated: 2026-08-08
 issues: [113, 134, 138, 145, 181]
 ---
 
@@ -13,8 +13,9 @@ issues: [113, 134, 138, 145, 181]
 1. [Current product specification](../spec/current-product.md)
 2. [Target system boundaries](../architecture/system-boundaries.md)
 3. [ADR 0003 — Event-source contract](../decisions/0003-event-source-contract.md) and its [routing page](../architecture/event-source-contract.md)
-4. Issue [#145](https://github.com/jpalvarezl/blight-synth/issues/145)
-5. The assigned issue
+4. [ADR 0008 — Portable state envelope](../decisions/0008-portable-state-envelope.md) for persisted composition/runtime state
+5. Issue [#145](https://github.com/jpalvarezl/blight-synth/issues/145)
+6. The assigned issue
 
 ## Owns
 

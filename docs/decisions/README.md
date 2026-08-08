@@ -2,7 +2,7 @@
 title: Architecture Decision Index
 summary: Durable decisions with status, rationale, and supersession history.
 status: current
-updated: 2026-08-07
+updated: 2026-08-08
 ---
 
 # Architecture Decision Records
@@ -28,3 +28,4 @@ ADRs record decisions that affect multiple domains or constrain future work. The
 | [0005](0005-coalesced-parameter-publication.md) | Accepted; amended by 0007 | Continuous parameters use a generation-bound normalized MPSC atomic store with bounded RT mapping/application and applied-target confirmation. |
 | [0006](0006-fixed-quantum-smoothing-delivery.md) | Superseded by 0007 | Rejected fixed-quantum Engine smoothing design retained for history. |
 | [0007](0007-simplified-coalesced-application.md) | Accepted | Keep latest-value coalescing, map/apply targets once per block, and defer smoothing to explicit DSP-local implementations when product need is demonstrated. |
+| [0008](0008-portable-state-envelope.md) | Accepted | Use one canonical versioned project envelope with tagged composition/routing payloads, source-preserving migration diagnostics, and NRT-prepared block-boundary restore. |
