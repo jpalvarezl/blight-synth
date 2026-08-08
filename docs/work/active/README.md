@@ -13,5 +13,4 @@ A packet is a handoff cache, not a second specification. It links to the issue a
 
 ## Active
 
-- [Issue #241 — Decide the minimal portable engine state contract](issue-241-portable-state-contract.md)
 - [Issue #244 — Install the initial coalesced parameter generation in device host](issue-244-initial-coalesced-device-host.md)
