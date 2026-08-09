@@ -2,7 +2,7 @@
 title: Generated Roadmap Burndown
 summary: Offline Obsidian snapshot generated from GitHub roadmap issue metadata.
 status: generated
-source-updated: 2026-08-09T19:54:15Z
+source-updated: 2026-08-09T20:55:51Z
 generator: scripts/docs/sync_roadmap.py
 ---
 
@@ -11,14 +11,14 @@ generator: scripts/docs/sync_roadmap.py
 > [!warning] Generated file
 > GitHub Issues are canonical. Do not edit this page manually. Run `python3 scripts/docs/sync_roadmap.py`.
 
-Data snapshot through `2026-08-09T19:54:15Z`.
+Data snapshot through `2026-08-09T20:55:51Z`.
 
 ## Summary
 
 | Milestone | Open | Done | Ready | In progress | Blocked | Backlog | Sized points done/total | Unsized |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | M0: Architecture & Repository Baseline | 0 | 14 | 0 | 0 | 0 | 0 | 27/27 | 3 |
-| M1: Host-Independent Engine & RT Contracts | 10 | 35 | 0 | 2 | 6 | 2 | 82/95 | 12 |
+| M1: Host-Independent Engine & RT Contracts | 12 | 35 | 0 | 2 | 8 | 2 | 82/98 | 13 |
 | M2: Standalone Host & Control Protocol | 6 | 2 | 0 | 0 | 1 | 5 | 4/7 | 5 |
 | M3: JS/TS Composition UI & Standalone App | 9 | 0 | 0 | 0 | 0 | 9 | 0/0 | 9 |
 | M4 (Optional): Desktop Plugins (VST3/AU) | 7 | 0 | 0 | 0 | 0 | 7 | 0/0 | 7 |
@@ -35,9 +35,11 @@ Data snapshot through `2026-08-09T19:54:15Z`.
 - [ ] [#179](https://github.com/jpalvarezl/blight-synth/issues/179) Expand RT allocation audit across existing instrument and effect paths — `backlog`, `M`, unassigned
 - [ ] [#215](https://github.com/jpalvarezl/blight-synth/issues/215) Integrate coalesced parameter generations with the device host — `blocked`, `epic`, unassigned
 - [ ] [#216](https://github.com/jpalvarezl/blight-synth/issues/216) Migrate OSC parameters to applied-confirmed coalescing — `blocked`, `S`, unassigned
-- [ ] [#242](https://github.com/jpalvarezl/blight-synth/issues/242) Implement portable engine state and migration fixtures — `in-progress`, `M`, @jpalvarezl
+- [ ] [#242](https://github.com/jpalvarezl/blight-synth/issues/242) Implement portable engine state and migration fixtures — `blocked`, `epic`, unassigned
 - [ ] [#243](https://github.com/jpalvarezl/blight-synth/issues/243) Integrate RT-safe engine state restore and core adapters — `blocked`, `M`, unassigned
 - [ ] [#245](https://github.com/jpalvarezl/blight-synth/issues/245) Replace and retire coalesced parameter generations — `in-progress`, `M`, @jpalvarezl
+- [ ] [#249](https://github.com/jpalvarezl/blight-synth/issues/249) Implement portable state envelope and canonical bytes — `in-progress`, `M`, @jpalvarezl
+- [ ] [#250](https://github.com/jpalvarezl/blight-synth/issues/250) Adapt legacy tracker projects to portable state — `blocked`, `M`, unassigned
 
 ## All roadmap tasks
 
@@ -101,10 +103,12 @@ Data snapshot through `2026-08-09T19:54:15Z`.
 - [x] [#237](https://github.com/jpalvarezl/blight-synth/issues/237) Simplify coalesced application and defer Engine smoothing — `done`, `S`, @jpalvarezl
 - [x] [#238](https://github.com/jpalvarezl/blight-synth/issues/238) Apply coalesced targets once per block and remove quantum smoothing — `done`, `M`, @jpalvarezl
 - [x] [#241](https://github.com/jpalvarezl/blight-synth/issues/241) Decide the minimal portable engine state contract — `done`, `S`, @jpalvarezl
-- [ ] [#242](https://github.com/jpalvarezl/blight-synth/issues/242) Implement portable engine state and migration fixtures — `in-progress`, `M`, @jpalvarezl
+- [ ] [#242](https://github.com/jpalvarezl/blight-synth/issues/242) Implement portable engine state and migration fixtures — `blocked`, `epic`, unassigned
 - [ ] [#243](https://github.com/jpalvarezl/blight-synth/issues/243) Integrate RT-safe engine state restore and core adapters — `blocked`, `M`, unassigned
 - [x] [#244](https://github.com/jpalvarezl/blight-synth/issues/244) Install the initial coalesced parameter generation in device host — `done`, `M`, @jpalvarezl
 - [ ] [#245](https://github.com/jpalvarezl/blight-synth/issues/245) Replace and retire coalesced parameter generations — `in-progress`, `M`, @jpalvarezl
+- [ ] [#249](https://github.com/jpalvarezl/blight-synth/issues/249) Implement portable state envelope and canonical bytes — `in-progress`, `M`, @jpalvarezl
+- [ ] [#250](https://github.com/jpalvarezl/blight-synth/issues/250) Adapt legacy tracker projects to portable state — `blocked`, `M`, unassigned
 
 ### M2: Standalone Host & Control Protocol
 

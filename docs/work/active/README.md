@@ -13,5 +13,5 @@ A packet is a handoff cache, not a second specification. It links to the issue a
 
 ## Active
 
-- [Issue #242 — Implement portable engine state and migration fixtures](issue-242-portable-state-model.md)
 - [Issue #245 — Replace and retire coalesced parameter generations](issue-245-coalesced-generation-replacement.md)
+- [Issue #249 — Implement portable state envelope and canonical bytes](issue-249-portable-state-core.md)
