@@ -2,7 +2,7 @@
 title: Generated Roadmap Burndown
 summary: Offline Obsidian snapshot generated from GitHub roadmap issue metadata.
 status: generated
-source-updated: 2026-08-09T21:15:37Z
+source-updated: 2026-08-09T21:16:52Z
 generator: scripts/docs/sync_roadmap.py
 ---
 
@@ -11,7 +11,7 @@ generator: scripts/docs/sync_roadmap.py
 > [!warning] Generated file
 > GitHub Issues are canonical. Do not edit this page manually. Run `python3 scripts/docs/sync_roadmap.py`.
 
-Data snapshot through `2026-08-09T21:15:37Z`.
+Data snapshot through `2026-08-09T21:16:52Z`.
 
 ## Summary
 
