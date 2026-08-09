@@ -2,8 +2,8 @@
 title: M0 Crate Dependency Graph
 summary: Current enforced workspace dependency direction after the M0 boundary refactor.
 status: current
-updated: 2026-08-06
-issues: [130, 157, 201, 210, 222]
+updated: 2026-08-09
+issues: [130, 157, 201, 210, 222, 249]
 ---
 
 # M0 Crate Dependency Graph
@@ -23,6 +23,8 @@ flowchart TD
 
     ENG --> DSP
     ENG --> PARAM[param_manifest parameter contract]
+    STATE[portable_state canonical project model] --> PARAM
+    STATE --> REG
     REG[node_registry NRT definitions/factory] --> DSP
     DSP --> UTILS[utils music helpers]
     SEQ --> MODEL[serde / bincode / CLI-project dependencies]
@@ -38,6 +40,7 @@ flowchart TD
 | `engine` | Deterministic instrument slots, timestamped event application, instrument/master commands, planar mixing, master effects | Sequencer/tracker types, devices, network/async runtime, files/resources, UI |
 | `param_manifest` | Serializable parameter descriptors and prepared string-free RT parameter lookup | DSP/engine/host/composition/UI dependencies |
 | `node_registry` | Versioned serializable instrument/effect definitions, stable built-in kind inventory, and NRT resolution to prepared DSP owners | Callback processing, hosts/composition documents, runtime modules, routing, project snapshots |
+| `portable_state` | Host-neutral versioned project envelope, RFC 8785 bytes, semantic/migration diagnostics, and digest asset validation interface | Engine restore/preparation, tracker `Song`, devices, filesystem, hosts, UI, or ephemeral DSP state |
 | `sequencer` | Current tracker `Song -> Chain -> Phrase` document/timing runtime and project serialization | DSP/engine/device/network/UI dependencies |
 | `utils` | Small music-theory/data helpers | DSP/engine/sequencer/host/UI/file-decoder dependencies |
 | `os_dls` | DLS/RIFF parsing | Engine/DSP/host orchestration |
@@ -53,6 +56,8 @@ CI requires:
 engine   -> dsp, param_manifest
 param_manifest -> serde (plus serde_json for tests)
 node_registry -> dsp, serde, serde_json
+portable_state -> node_registry, param_manifest, serde, serde_json,
+                  serde_json_canonicalizer, sha2
 dsp      -> arrayvec, log, utils
 utils    -> serde, serde_json
 sequencer -> anyhow, bincode, clap, serde, serde_json, serde_with
