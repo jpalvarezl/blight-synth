@@ -348,6 +348,10 @@ impl Player {
             Command::Mixer(command) => self
                 .engine_adapter
                 .handle_engine_command(command.into(), retired),
+            #[cfg(feature = "device-host")]
+            Command::ReplaceParameterGeneration(state) => self
+                .engine_adapter
+                .replace_parameter_generation(state.into_state(), retired),
         }
     }
 

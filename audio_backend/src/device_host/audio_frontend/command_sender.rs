@@ -78,26 +78,13 @@ impl CommandSender {
             .map_err(|(kind, command)| CommandSubmissionError::new(kind, command))
     }
 
-    /// Reliably submits one command in FIFO order from a caller-owned NRT
-    /// thread. A full queue applies producer backpressure: this call retains
-    /// the command and parks briefly until RT frees a slot. It returns an error
-    /// only when the callback-side consumer disconnects.
-    pub(crate) fn send(&mut self, command: Command) -> CommandSubmissionResult {
-        self.send_until(command, || false)
-    }
-
-    /// Reliably submits one command while allowing an NRT owner to cancel a
-    /// full-queue wait during worker shutdown.
-    ///
-    /// The command stays in this method until it reaches the RT ring, so later
-    /// commands cannot overtake it. Retries use the private unboxed path to
-    /// avoid allocating a `CommandSubmissionError` on every `Full` result.
-    /// Cancellation returns `Full` with the exact command, allowing its owner
-    /// to destroy or hand it off on NRT rather than leaking worker shutdown.
-    pub(crate) fn send_until(
+    /// Retain FIFO ownership while full, invoking NRT maintenance between
+    /// allocation-free retries so callback backpressure can make progress.
+    pub(crate) fn send_until_with_full(
         &mut self,
         mut command: Command,
         cancelled: impl Fn() -> bool,
+        mut on_full: impl FnMut(),
     ) -> CommandSubmissionResult {
         loop {
             if cancelled() {
@@ -110,6 +97,7 @@ impl CommandSender {
                 Ok(()) => return Ok(()),
                 Err((CommandSubmissionErrorKind::Full, rejected)) => {
                     command = rejected;
+                    on_full();
                     std::thread::park_timeout(std::time::Duration::from_millis(1));
                 }
                 Err((CommandSubmissionErrorKind::Disconnected, rejected)) => {
@@ -193,7 +181,10 @@ mod tests {
             Ok(()) => panic!("expected a full queue rejection"),
         };
 
+        let full_observed = std::sync::Arc::new(std::sync::Barrier::new(2));
+        let consumer_gate = full_observed.clone();
         let consumer = std::thread::spawn(move || {
+            consumer_gate.wait();
             let first = loop {
                 if let Some(command) = command_rx.try_pop() {
                     break command;
@@ -209,7 +200,20 @@ mod tests {
             (first, second)
         });
 
-        assert!(sender.send(rejected_command).is_ok());
+        let mut first_full = true;
+        assert!(sender
+            .send_until_with_full(
+                rejected_command,
+                || false,
+                || {
+                    if first_full {
+                        first_full = false;
+                        full_observed.wait();
+                    }
+                }
+            )
+            .is_ok());
+        assert!(!first_full);
         let (first, second) = consumer.join().expect("consumer thread must finish");
         assert!(matches!(
             first,
@@ -226,7 +230,7 @@ mod tests {
         assert!(sender.try_send(play_command()).is_ok());
 
         let rejected = sender
-            .send_until(stop_command(), || true)
+            .send_until_with_full(stop_command(), || true, || {})
             .expect_err("cancellation must reject the pending command");
         assert_eq!(rejected.kind(), CommandSubmissionErrorKind::Full);
         assert!(matches!(
@@ -249,7 +253,8 @@ mod tests {
             }
             Ok(()) => panic!("expected a disconnected queue rejection"),
         };
-        let rejected_command = match sender.send(rejected_command) {
+        let rejected_command = match sender.send_until_with_full(rejected_command, || false, || {})
+        {
             Err(error) => {
                 assert_eq!(error.kind(), CommandSubmissionErrorKind::Disconnected);
                 error.into_command()

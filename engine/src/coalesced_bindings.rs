@@ -254,10 +254,10 @@ impl PreparedCoalescedBindingTable {
     }
 }
 
-/// Minimal constructor-time owner moved into one Engine.
+/// Complete generation owner prepared on NRT and moved into one Engine.
 ///
-/// This type intentionally has no live swap or retirement API. Create the NRT
-/// publisher before moving the state into Engine; #215 owns replacement.
+/// Create the generation-bound publisher before handoff. Live replacement swaps
+/// this owner whole; its table, store, and bindings are never changed in place.
 #[derive(Debug)]
 pub struct PreparedCoalescedParameterState {
     table: RuntimeParameterTable,

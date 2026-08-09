@@ -1,5 +1,7 @@
 use engine::{Engine, EngineCommand, EventProcessError, RetireSink, TimestampedEvent};
 use sequencer::models::{MAX_TRACKS, NO_INSTRUMENT};
+#[cfg(feature = "device-host")]
+use std::sync::Arc;
 
 use crate::id::InstrumentId;
 
@@ -41,6 +43,16 @@ impl TrackerEngineAdapter {
     #[cfg(feature = "device-host")]
     pub fn instrument_capacity(&self) -> usize {
         self.engine.instrument_capacity()
+    }
+
+    #[cfg(feature = "device-host")]
+    pub fn replace_parameter_generation(
+        &mut self,
+        state: Arc<engine::PreparedCoalescedParameterState>,
+        retired: &mut impl RetireSink,
+    ) {
+        self.engine
+            .replace_prepared_coalesced_parameters(state, retired);
     }
 
     pub fn process_with_events(

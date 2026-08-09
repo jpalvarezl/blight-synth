@@ -2,6 +2,25 @@ pub use engine::{EngineCommand, InstrumentCmd, MixerCmd};
 use sequencer::models::Song;
 use std::sync::Arc;
 
+#[cfg(feature = "device-host")]
+use engine::PreparedCoalescedParameterState;
+
+/// Opaque lifecycle-validated parameter replacement payload.
+#[cfg(feature = "device-host")]
+#[doc(hidden)]
+pub struct ParameterGenerationCommand(Arc<PreparedCoalescedParameterState>);
+
+#[cfg(feature = "device-host")]
+impl ParameterGenerationCommand {
+    pub(crate) fn new(state: Arc<PreparedCoalescedParameterState>) -> Self {
+        Self(state)
+    }
+
+    pub(crate) fn into_state(self) -> Arc<PreparedCoalescedParameterState> {
+        self.0
+    }
+}
+
 pub enum TransportCmd {
     PlayLastSong,
     StopSong,
@@ -31,6 +50,9 @@ pub enum Command {
     Sequencer(SequencerCmd),
     Mixer(MixerCmd),
     Instrument(InstrumentCmd),
+    /// NRT-prepared whole generation installed at the next callback boundary.
+    #[cfg(feature = "device-host")]
+    ReplaceParameterGeneration(ParameterGenerationCommand),
 }
 
 impl From<TransportCmd> for Command {
