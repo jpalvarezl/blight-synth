@@ -8,8 +8,8 @@ use std::{
 
 use audio_backend::{
     id::InstrumentId, prepare_initial_parameter_generation, AppliedTargetStatus, AudioProcessor,
-    Command, InstrumentCmd, InstrumentFactory, MeterState, PlayerProcessStatus,
-    StableParameterPublication, StableParameterQuery, TransportCmd,
+    Command, DesiredParameterValue, InstrumentCmd, InstrumentFactory, MeterState,
+    PlayerProcessStatus, StableParameterPublication, StableParameterQuery, TransportCmd,
 };
 use engine::RetiredState;
 use param_manifest::{builtin::MASTER_GAIN_ID, ParameterId};
@@ -176,12 +176,13 @@ fn queued_live_attack_release_and_stopped_render_have_zero_heap_activity() {
 #[test]
 fn stable_id_publication_reaches_confirmation_without_queue_or_heap_activity() {
     let commands = SharedRb::<Heap<Command>>::new(8);
-    let (command_tx, command_rx) = commands.split();
+    let (mut command_tx, command_rx) = commands.split();
     let retirement = SharedRb::<Heap<RetiredState>>::new(8);
     let (retirement_tx, _retirement_rx) = retirement.split();
-    let (parameter_state, parameters) = prepare_initial_parameter_generation()
+    let (parameter_state, mut lifecycle) = prepare_initial_parameter_generation()
         .expect("built-in parameters prepare")
-        .into_parts();
+        .into_lifecycle_parts();
+    let parameters = lifecycle.facade();
     let mut processor = AudioProcessor::new(
         command_rx,
         retirement_tx,
@@ -235,10 +236,35 @@ fn stable_id_publication_reaches_confirmation_without_queue_or_heap_activity() {
             if snapshot.revision == accepted.revision && snapshot.normalized == 0.5
     ));
 
-    // Current static lifecycle destroys both callback owner and final publisher
-    // owner here on this NRT test thread, never from `AudioProcessor::process`.
+    let prepared = lifecycle
+        .prepare_builtin_replacement(&[DesiredParameterValue {
+            id: gain.clone(),
+            normalized: 0.25,
+        }])
+        .expect("replacement prepares on NRT");
+    let (state, replacement, transition) = prepared.into_parts();
+    command_tx
+        .try_push(state)
+        .unwrap_or_else(|_| panic!("replacement handoff fits"));
+    let (replacement_counts, replacement_status) = measure(|| processor.process(&mut output));
+    assert_eq!(
+        replacement_counts,
+        Counts {
+            allocations: 0,
+            deallocations: 0,
+            reallocations: 0
+        }
+    );
+    assert!(replacement_status.is_complete());
+    assert!(matches!(
+        replacement.applied(&gain),
+        StableParameterQuery::Value(AppliedTargetStatus::Applied(snapshot))
+            if snapshot.generation == transition.current && snapshot.normalized == 0.25
+    ));
+
     drop(processor);
     drop(parameters);
+    drop(replacement);
 }
 
 #[test]

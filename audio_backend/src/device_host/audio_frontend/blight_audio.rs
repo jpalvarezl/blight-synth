@@ -1,7 +1,8 @@
 use super::{BlightAudio, CommandSender, CommandSubmissionResult};
 use crate::{
-    prepare_initial_parameter_generation, AudioProcessor, Command, DeviceHostParameterFacade,
-    EffectFactory, InstrumentFactory, MeterState, ResourceManager, RetiredState, VoiceFactory,
+    prepare_initial_parameter_generation, AudioProcessor, Command, DesiredParameterValue,
+    DeviceHostParameterFacade, EffectFactory, InstrumentFactory, MeterState,
+    ParameterGenerationTransition, ResourceManager, RetiredState, VoiceFactory,
 };
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use log::{info, warn};
@@ -34,7 +35,8 @@ impl BlightAudio {
 
         // Prepare the complete initial parameter generation before the
         // real-time processor can enter the audio callback.
-        let (parameter_state, parameters) = prepare_initial_parameter_generation()?.into_parts();
+        let (parameter_state, parameters) =
+            prepare_initial_parameter_generation()?.into_lifecycle_parts();
         let meter = Arc::new(MeterState::new());
         let mut audio_processor = AudioProcessor::new(
             command_rx,
@@ -99,7 +101,8 @@ impl BlightAudio {
 
         // Prepare the complete initial parameter generation before the
         // real-time processor seeded with a Song can enter the callback.
-        let (parameter_state, parameters) = prepare_initial_parameter_generation()?.into_parts();
+        let (parameter_state, parameters) =
+            prepare_initial_parameter_generation()?.into_lifecycle_parts();
         let meter = Arc::new(MeterState::new());
         let mut audio_processor = AudioProcessor::new_with_song(
             song,
@@ -158,7 +161,7 @@ impl BlightAudio {
     /// from a real-time, UI, or async-executor thread.
     pub fn send_command(&mut self, command: Command) -> CommandSubmissionResult {
         self.reclaim_retired();
-        self.command_sender.send(command)
+        self.send_reliably_until(command, || false)
     }
 
     /// Reliably submits one command while allowing an NRT owner to cancel a
@@ -170,7 +173,19 @@ impl BlightAudio {
         cancelled: impl Fn() -> bool,
     ) -> CommandSubmissionResult {
         self.reclaim_retired();
-        self.command_sender.send_until(command, cancelled)
+        self.send_reliably_until(command, cancelled)
+    }
+
+    fn send_reliably_until(
+        &mut self,
+        command: Command,
+        cancelled: impl Fn() -> bool,
+    ) -> CommandSubmissionResult {
+        let retirement_rx = &mut self.retirement_rx;
+        self.command_sender
+            .send_until_with_full(command, cancelled, || {
+                while retirement_rx.try_pop().is_some() {}
+            })
     }
 
     /// Stops the real-time callback and reclaims every retired owner still in
@@ -227,10 +242,33 @@ impl BlightAudio {
         self.meter.clone()
     }
 
-    /// Clone the NRT stable-ID facade for this static parameter generation.
+    /// Clone the NRT stable-ID facade for the currently published generation.
     /// The clone and its final drop must remain off the audio callback.
     pub fn parameter_facade(&self) -> DeviceHostParameterFacade {
-        self.parameters.clone()
+        self.parameters.facade()
+    }
+
+    /// Close/rebind desired stable IDs and reliably hand off one complete
+    /// generation for swap at the next callback block boundary.
+    pub fn replace_parameter_generation(
+        &mut self,
+        desired: &[DesiredParameterValue],
+    ) -> Result<ParameterGenerationTransition, anyhow::Error> {
+        self.reclaim_retired();
+        let prepared = self.parameters.prepare_builtin_replacement(desired)?;
+        let (command, facade, transition) = prepared.into_parts();
+        let submission = self.send_reliably_until(command, || false);
+        if let Err(error) = submission {
+            let kind = error.kind();
+            self.parameters.disconnect();
+            facade.disconnect();
+            drop(error.into_command());
+            return Err(anyhow::anyhow!(
+                "parameter replacement handoff failed: {kind:?}"
+            ));
+        }
+        drop(facade);
+        Ok(transition)
     }
 }
 

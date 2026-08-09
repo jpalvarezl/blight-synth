@@ -88,7 +88,7 @@ pub struct Engine {
     master_effects: StereoEffectChain,
     /// Engine-owned final output gain, kept outside the user effect-ID namespace.
     master_gain_factor: f32,
-    coalesced_parameters: Option<PreparedCoalescedParameterState>,
+    coalesced_parameters: Option<Arc<PreparedCoalescedParameterState>>,
 }
 
 impl Default for Engine {
@@ -109,15 +109,14 @@ impl Engine {
     }
 
     /// Creates an Engine that owns one constructor-time prepared coalesced state.
-    /// Live replacement and retirement are intentionally deferred to #215.
     #[must_use]
     pub fn with_prepared_coalesced_parameters(state: PreparedCoalescedParameterState) -> Self {
-        Self::with_optional_parameter_state(DEFAULT_INSTRUMENT_CAPACITY, Some(state))
+        Self::with_optional_parameter_state(DEFAULT_INSTRUMENT_CAPACITY, Some(Arc::new(state)))
     }
 
     fn with_optional_parameter_state(
         capacity: usize,
-        coalesced_parameters: Option<PreparedCoalescedParameterState>,
+        coalesced_parameters: Option<Arc<PreparedCoalescedParameterState>>,
     ) -> Self {
         Self {
             instruments: Vec::with_capacity(capacity),
@@ -131,6 +130,23 @@ impl Engine {
     /// The hard maximum number of distinct instruments this engine will hold.
     pub fn instrument_capacity(&self) -> usize {
         self.instrument_capacity
+    }
+
+    /// Swap one complete NRT-prepared parameter generation and retire the
+    /// displaced owner without allocating or destroying it on RT.
+    ///
+    /// The incoming `Arc` is created before handoff. Keeping the live owner in
+    /// an `Arc` permits an allocation-free unsizing coercion into the existing
+    /// [`RetiredState::Prepared`] path when it is displaced.
+    pub fn replace_prepared_coalesced_parameters(
+        &mut self,
+        state: Arc<PreparedCoalescedParameterState>,
+        retired: &mut impl RetireSink,
+    ) {
+        if let Some(displaced) = self.coalesced_parameters.replace(state) {
+            let displaced: Arc<dyn Any + Send + Sync> = displaced;
+            retired.retire(RetiredState::Prepared(displaced));
+        }
     }
 
     /// Handles a command on a caller known to be outside RT, immediately

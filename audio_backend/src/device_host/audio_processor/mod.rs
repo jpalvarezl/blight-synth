@@ -159,6 +159,15 @@ impl AudioProcessor {
         // loop can emit at most MAX_PENDING_RETIRED_OBJECTS before this gate.
         if self.pending_retired.is_empty() {
             for _ in 0..MAX_COMMANDS_PER_PROCESS_BLOCK {
+                // Leave replacement FIFO-queued until retirement has headroom;
+                // CallbackRetireSink still handles a producer/consumer race.
+                if matches!(
+                    self.command_rx.first(),
+                    Some(Command::ReplaceParameterGeneration(_))
+                ) && (!self.retirement_tx.read_is_held() || self.retirement_tx.vacant_len() == 0)
+                {
+                    break;
+                }
                 let Some(command) = self.command_rx.try_pop() else {
                     break;
                 };
