@@ -24,20 +24,13 @@ Data snapshot through `2026-08-10T16:11:20Z`.
 | M4 (Optional): Desktop Plugins (VST3/AU) | 7 | 0 | 0 | 0 | 0 | 7 | 0/0 | 7 |
 | M5 (Optional): AUv3 & Distribution | 3 | 0 | 0 | 0 | 0 | 3 | 0/0 | 3 |
 
-## Current milestone
+## Current execution snapshot
 
-### M1: Host-Independent Engine & RT Contracts
+> Temporal priority is defined by [NOW](../NOW.md), not milestone order.
 
-- [ ] [#101](https://github.com/jpalvarezl/blight-synth/issues/101) Implement the coalesced real-time parameter pipeline — `backlog`, `unsized`, unassigned
-- [ ] [#121](https://github.com/jpalvarezl/blight-synth/issues/121) Design the canonical parameter manifest and host bindings — `backlog`, `unsized`, @jpalvarezl
-- [ ] [#132](https://github.com/jpalvarezl/blight-synth/issues/132) Define the host-independent `Engine` lifecycle and offline render harness — `backlog`, `unsized`, unassigned
-- [ ] [#133](https://github.com/jpalvarezl/blight-synth/issues/133) Enforce and test the real-time safety contract — `backlog`, `unsized`, @jpalvarezl
-- [ ] [#134](https://github.com/jpalvarezl/blight-synth/issues/134) Implement sample-accurate event scheduling across block sizes — `backlog`, `unsized`, unassigned
-- [ ] [#135](https://github.com/jpalvarezl/blight-synth/issues/135) Introduce typed instance IDs and versioned instrument/effect definitions — `backlog`, `unsized`, unassigned
-- [ ] [#136](https://github.com/jpalvarezl/blight-synth/issues/136) Define and implement the scalable audio routing graph — `backlog`, `unsized`, unassigned
-- [ ] [#137](https://github.com/jpalvarezl/blight-synth/issues/137) Complete polyphony, note identity, and voice-allocation semantics — `backlog`, `unsized`, @jpalvarezl
-- [ ] [#138](https://github.com/jpalvarezl/blight-synth/issues/138) Define versioned engine state snapshots and migrations — `backlog`, `unsized`, unassigned
-- [ ] [#145](https://github.com/jpalvarezl/blight-synth/issues/145) Decouple composition runtimes from the audio engine through an event-source contract — `backlog`, `unsized`, @jpalvarezl
+### M3: JS/TS Composition UI & Standalone App
+
+- [ ] [#105](https://github.com/jpalvarezl/blight-synth/issues/105) Create the production TypeScript/Svelte workspace and host-neutral UI boundary — `ready`, `M`, unassigned
 
 ## All roadmap tasks
 

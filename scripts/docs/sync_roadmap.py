@@ -147,21 +147,35 @@ def render(issues: list[dict]) -> str:
             f"{done_points}/{total_points} | {unsized} |"
         )
 
-    open_groups = [
-        (key, items) for key, items in sorted(groups.items()) if any(item["state"] == "open" for item in items)
-    ]
-    if open_groups:
-        (number, name), items = open_groups[0]
-        del number
-        lines.extend(["", "## Current milestone", "", f"### {name}", ""])
+    execution_groups = []
+    for key, items in sorted(groups.items()):
+        statuses = {item["status"] for item in items if item["state"] == "open"}
+        if "in-progress" in statuses:
+            execution_groups.append((0, key, items))
+        elif "ready" in statuses:
+            execution_groups.append((1, key, items))
+    lines.extend(
+        [
+            "",
+            "## Current execution snapshot",
+            "",
+            "> Temporal priority is defined by [NOW](../NOW.md), not milestone order.",
+        ]
+    )
+    if execution_groups:
+        _priority, (_number, name), items = min(execution_groups, key=lambda group: (group[0], group[1]))
+        lines.extend(["", f"### {name}", ""])
         for item in items:
-            if item["state"] != "open":
+            if item["state"] != "open" or item["status"] not in {"ready", "in-progress"}:
                 continue
             owner = ", ".join(f"@{name}" for name in item["assignees"]) or "unassigned"
             lines.append(
                 f"- [ ] [#{item['number']}]({item['url']}) {item['title']} "
                 f"— `{item['status']}`, `{item['size']}`, {owner}"
             )
+    else:
+        lines.extend(["", "_No ready or in-progress NOW work in the generated snapshot._"])
+
 
     lines.extend(["", "## All roadmap tasks", ""])
     for (_number, name), items in sorted(groups.items()):

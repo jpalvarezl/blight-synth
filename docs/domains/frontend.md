@@ -12,7 +12,7 @@ issues: [105, 106, 107, 108, 109, 110, 112, 253, 254]
 
 1. [NOW](../NOW.md)
 2. [Current product specification](../spec/current-product.md)
-3. Assigned child of current slice [#253](https://github.com/jpalvarezl/blight-synth/issues/253)
+3. The assigned child issue listed under current-slice parent [#253](https://github.com/jpalvarezl/blight-synth/issues/253)
 
 ## Owns
 

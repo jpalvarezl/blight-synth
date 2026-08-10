@@ -16,7 +16,7 @@ issues: [146, 253]
 
 ### Membership
 
-- `roadmap-task` — included in the current NOW slice/dashboard. This label is not permission to expand beyond NOW.
+- `roadmap-task` — included in the long-term roadmap/dashboard. Only issues also listed by NOW are authorized for current selection.
 
 ### Workflow state
 

@@ -1,6 +1,6 @@
 # blight-synth
 
-blight-synth is an experimental composition environment and modular real-time sound engine built in Rust. The current repository includes a tracker-based composition source and egui debug interface while a host-independent engine and future Svelte/TypeScript frontend are being designed.
+blight-synth is an experimental composition environment and modular real-time sound engine built in Rust. The repository includes a tracker-based composition source, egui reference interface, host-independent Engine crate, standalone CPAL/OSC host, and offline golden renderer. The current product slice builds the first Svelte/TypeScript frontend.
 
 ## Documentation and roadmap
 
@@ -184,7 +184,7 @@ let instrument = audio
     .create_simple_oscillator(instrument_id, 0.0);
 
 audio.send_command(audio_backend::InstrumentCmd::AddInstrument { instrument }.into());
-// Current adapter rendering is transport-gated; M1 will separate live rendering from tracker transport.
+// Current adapter rendering is transport-gated, so start transport before auditioning.
 audio.send_command(audio_backend::TransportCmd::PlayLastSong.into());
 audio.send_command(
     audio_backend::InstrumentCmd::NoteOn {
