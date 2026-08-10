@@ -63,6 +63,8 @@ If overlap becomes necessary, nominate one contract owner and make other branche
 
 ## Handoff and completion
 
+After the user authorizes a named merge, follow the deterministic [post-merge transition](post-merge.md). It removes the completed packet, reconciles NOW child dependencies and workflow labels, regenerates the dashboard, verifies invariants, and stops before new implementation.
+
 A useful handoff includes:
 
 - exact completed/incomplete acceptance criteria;
@@ -88,5 +90,7 @@ Before closing:
 python3 scripts/docs/sync_roadmap.py
 python3 scripts/docs/check_docs.py
 ```
+
+See [Post-Merge Work Transition](post-merge.md) for the complete live-state checklist.
 
 Use `python3 scripts/docs/sync_roadmap.py --check` locally after intentional roadmap updates. CI exercises `--stdout` so unrelated live issue changes do not make an otherwise valid code PR fail; the committed page is explicitly a point-in-time offline snapshot.

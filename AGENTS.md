@@ -93,6 +93,7 @@ When sources disagree: code/tests describe current behavior; NOW controls work s
 - Do not combine contract design, core implementation, host integration, and migration unless separation would be unsafe or untestable.
 - PR descriptions state user-visible payoff/blocker removed, production lines added/deleted, public contracts, non-goals, and simpler alternative considered.
 - Never merge automatically. Merge permission applies only to the named PR(s) and expires after that action.
+- After an authorized merge, follow [`docs/work/post-merge.md`](docs/work/post-merge.md) exactly, report the resulting NOW state, and stop unless the user explicitly requests continued implementation.
 
 ## ADR rules
 

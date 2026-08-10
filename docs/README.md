@@ -20,6 +20,7 @@ Open `docs/` as an Obsidian vault, or browse it directly in GitHub. The vault us
 | Change Svelte/TypeScript UI | [Frontend domain](domains/frontend.md) | Current slice [#253](https://github.com/jpalvarezl/blight-synth/issues/253) |
 | Consider plugin work | [Plugins domain](domains/plugins.md) | [ADR 0001](decisions/0001-product-and-host-priorities.md) |
 | Pick up or hand off work | [NOW](NOW.md) | [Work system](work/README.md) |
+| Reconcile after a merge | [Post-merge transition](work/post-merge.md) | [Active packets](work/active/README.md) |
 | Record a decision | [Decision index](decisions/README.md) | [ADR template](templates/adr.md) |
 
 ## Sections
