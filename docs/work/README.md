@@ -2,21 +2,21 @@
 title: Work and Parallelization System
 summary: GitHub-backed status, focused context packets, ownership, handoff, and burndown rules.
 status: current
-updated: 2026-07-14
-issues: [146]
+updated: 2026-08-10
+issues: [146, 253]
 ---
 
 # Work and Parallelization System
 
 ## Source of truth
 
-GitHub Issues own task scope, acceptance criteria, milestone, state, labels, assignee, and dependency links. The [burndown](burndown.md) is a generated offline mirror for Obsidian; never edit it manually.
+[`docs/NOW.md`](../NOW.md) owns the approved current product slice and bounds work selection. GitHub Issues own task scope, acceptance criteria, milestone, state, labels, assignee, and dependency links inside that slice. The [burndown](burndown.md) is a generated offline mirror; never edit it manually.
 
 ## Labels
 
 ### Membership
 
-- `roadmap-task` — included in the current canonical roadmap/dashboard.
+- `roadmap-task` — included in the current NOW slice/dashboard. This label is not permission to expand beyond NOW.
 
 ### Workflow state
 
@@ -41,7 +41,7 @@ Points are planning signals, not time estimates or performance targets.
 
 ## Claiming work
 
-1. Confirm dependencies and `status:ready`.
+1. Confirm the issue belongs to the approved slice in [NOW](../NOW.md), then confirm dependencies and `status:ready`.
 2. Assign the issue and replace status with `status:in-progress`.
 3. Create `docs/work/active/issue-<number>-<slug>.md` from the [task packet template](../templates/task-packet.md).
 4. Record branch/worktree, base SHA, read-first links, expected touched paths, and contract impact.
@@ -78,8 +78,8 @@ Before closing:
 - tests and format/lint policy pass;
 - durable contract/decision docs are updated;
 - task packet is marked complete or removed after its durable information is moved;
-- PR links/closes the issue;
-- GitHub status remains canonical;
+- PR links/closes the issue and waits for explicit human merge approval;
+- GitHub status remains canonical within the NOW slice;
 - regenerate `burndown.md`.
 
 ## Commands

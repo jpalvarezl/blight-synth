@@ -2,17 +2,17 @@
 title: Frontend Domain
 summary: Focused context for the host-neutral Svelte/TypeScript composition UI.
 status: current
-updated: 2026-07-14
-issues: [105, 106, 107, 108, 109, 110, 111, 112, 113]
+updated: 2026-08-10
+issues: [105, 106, 107, 108, 109, 110, 112, 253, 254]
 ---
 
 # Frontend Domain
 
 ## Read first
 
-1. [Current product specification](../spec/current-product.md)
-2. Issue [#113](https://github.com/jpalvarezl/blight-synth/issues/113) for composition UX
-3. Assigned M3 issue
+1. [NOW](../NOW.md)
+2. [Current product specification](../spec/current-product.md)
+3. Assigned child of current slice [#253](https://github.com/jpalvarezl/blight-synth/issues/253)
 
 ## Owns
 
@@ -35,4 +35,4 @@ issues: [105, 106, 107, 108, 109, 110, 111, 112, 113]
 
 ## Open direction
 
-Do not port tracker screens by default. Prototype a valuable tracker interaction, an ORCA-like character grid, and a hybrid before selecting the production composition interface.
+The current slice deliberately avoids selecting the final composition interface. Build only the transport/gain/meter shell and typed client boundary in [NOW](../NOW.md); tracker/ORCA/hybrid prototyping remains deferred.

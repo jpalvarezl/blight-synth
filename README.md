@@ -6,8 +6,9 @@ blight-synth is an experimental composition environment and modular real-time so
 
 - Start at [`docs/README.md`](docs/README.md) for the committed, Obsidian-compatible knowledge base.
 - Coding agents should read [`AGENTS.md`](AGENTS.md) for the targeted context-loading and parallel-work protocol.
-- GitHub issue [#144](https://github.com/jpalvarezl/blight-synth/issues/144) is the canonical roadmap; [`docs/work/burndown.md`](docs/work/burndown.md) is its generated offline snapshot.
-- [`docs/spec/current-product.md`](docs/spec/current-product.md) records the current product direction and open composition questions.
+- [`docs/NOW.md`](docs/NOW.md) is the canonical current product slice; GitHub issue [#253](https://github.com/jpalvarezl/blight-synth/issues/253) is its live parent.
+- [`docs/spec/current-product.md`](docs/spec/current-product.md) records the long-term product direction and open composition questions.
+- The abandoned post-M0 implementation is preserved for reference in `archive/post-m0-agent-refactor-2026-08` and indexed by issue [#252](https://github.com/jpalvarezl/blight-synth/issues/252).
 - [`docs/architecture/product-topology.md`](docs/architecture/product-topology.md) documents standalone and optional-plugin boundaries, while [ADR 0001](docs/decisions/0001-product-and-host-priorities.md) records the accepted decision.
 - [`docs/architecture/crate-dependency-graph.md`](docs/architecture/crate-dependency-graph.md) records the current CI-enforced M0 crate and feature boundaries.
 
