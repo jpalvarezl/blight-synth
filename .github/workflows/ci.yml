@@ -63,6 +63,34 @@ jobs:
       - name: Exercise roadmap generator
         run: python3 scripts/docs/sync_roadmap.py --stdout > /dev/null
 
+  frontend:
+    name: Svelte frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: gui
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.22
+
+      - name: Install frontend dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Check frontend
+        run: bun run check
+
+      - name: Test frontend
+        run: bun run test
+
+      - name: Build static frontend assets
+        run: |
+          bun run build
+          bun run build:custom-base
+
   macos-tests:
     name: macOS workspace tests
     runs-on: macos-latest
