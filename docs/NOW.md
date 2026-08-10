@@ -40,15 +40,14 @@ GitHub parent: [#253](https://github.com/jpalvarezl/blight-synth/issues/253).
 
 ### Active
 
-- [#105 — Create the production TypeScript/Svelte workspace and host-neutral UI boundary](https://github.com/jpalvarezl/blight-synth/issues/105) — packet: [issue-105-svelte-workspace.md](work/active/issue-105-svelte-workspace.md)
+_None._
 
 ### Ready
 
-_None while #105 is in progress._
+- [#106 — Standalone DSP process supervision](https://github.com/jpalvarezl/blight-synth/issues/106)
 
 ### Blocked sequence
 
-- [#106 — Standalone DSP process supervision](https://github.com/jpalvarezl/blight-synth/issues/106) — depends on #105.
 - [#107 — Standalone OSC EngineClient adapter](https://github.com/jpalvarezl/blight-synth/issues/107) — depends on #105/#106.
 - [#108 — Connection-aware Svelte stores](https://github.com/jpalvarezl/blight-synth/issues/108) — depends on #107.
 - [#110 — Transport UI](https://github.com/jpalvarezl/blight-synth/issues/110), [#112 — meter UI](https://github.com/jpalvarezl/blight-synth/issues/112), and [#254 — gain control](https://github.com/jpalvarezl/blight-synth/issues/254) — depend on #108 and may proceed in parallel.
