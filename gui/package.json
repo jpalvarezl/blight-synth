@@ -1,0 +1,39 @@
+{
+  "name": "blight-gui",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "packageManager": "bun@1.2.22",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && bun run verify:build",
+    "build:custom-base": "vite build --base=/embedded/blight/ && bun run verify:build /embedded/blight/",
+    "verify:build": "bun scripts/verify-static-build.ts",
+    "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc --noEmit -p tsconfig.node.json && bun run lint && bun run format:check",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src vite.config.ts scripts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@eslint/js": "9.29.0",
+    "@sveltejs/vite-plugin-svelte": "5.1.0",
+    "@testing-library/jest-dom": "6.6.3",
+    "@testing-library/svelte": "5.2.8",
+    "@types/bun": "1.2.18",
+    "eslint": "9.29.0",
+    "eslint-config-prettier": "10.1.5",
+    "eslint-plugin-svelte": "3.9.2",
+    "globals": "16.2.0",
+    "jsdom": "26.1.0",
+    "prettier": "3.5.3",
+    "prettier-plugin-svelte": "3.4.0",
+    "svelte": "5.34.3",
+    "svelte-check": "4.2.2",
+    "typescript": "5.8.3",
+    "typescript-eslint": "8.34.1",
+    "vite": "6.3.5",
+    "vitest": "3.2.3"
+  }
+}

@@ -1,3 +1,6 @@
 /target
+/gui/dist/
+/gui/node_modules/
+/gui/*.tsbuildinfo
 **/.DS_Store
 **/target/
