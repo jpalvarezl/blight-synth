@@ -40,11 +40,11 @@ GitHub parent: [#253](https://github.com/jpalvarezl/blight-synth/issues/253).
 
 ### Active
 
-_None._
+- [#105 — Create the production TypeScript/Svelte workspace and host-neutral UI boundary](https://github.com/jpalvarezl/blight-synth/issues/105) — packet: [issue-105-svelte-workspace.md](work/active/issue-105-svelte-workspace.md)
 
 ### Ready
 
-- [#105 — Create the production TypeScript/Svelte workspace and host-neutral UI boundary](https://github.com/jpalvarezl/blight-synth/issues/105)
+_None while #105 is in progress._
 
 ### Blocked sequence
 

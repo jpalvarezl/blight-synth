@@ -2,7 +2,7 @@
 title: Generated Roadmap Burndown
 summary: Offline Obsidian snapshot generated from GitHub roadmap issue metadata.
 status: generated
-source-updated: 2026-08-10T17:45:35Z
+source-updated: 2026-08-10T17:47:20Z
 generator: scripts/docs/sync_roadmap.py
 ---
 
@@ -11,7 +11,7 @@ generator: scripts/docs/sync_roadmap.py
 > [!warning] Generated file
 > GitHub Issues are canonical. Do not edit this page manually. Run `python3 scripts/docs/sync_roadmap.py`.
 
-Data snapshot through `2026-08-10T17:45:35Z`.
+Data snapshot through `2026-08-10T17:47:20Z`.
 
 ## Summary
 
@@ -20,7 +20,7 @@ Data snapshot through `2026-08-10T17:45:35Z`.
 | M0: Architecture & Repository Baseline | 0 | 14 | 0 | 0 | 0 | 0 | 27/27 | 3 |
 | M1: Host-Independent Engine & RT Contracts | 10 | 0 | 0 | 0 | 0 | 10 | 0/0 | 10 |
 | M2: Standalone Host & Control Protocol | 6 | 0 | 0 | 0 | 0 | 6 | 0/3 | 5 |
-| M3: JS/TS Composition UI & Standalone App | 10 | 0 | 1 | 0 | 7 | 2 | 0/18 | 2 |
+| M3: JS/TS Composition UI & Standalone App | 10 | 0 | 0 | 1 | 7 | 2 | 0/18 | 2 |
 | M4 (Optional): Desktop Plugins (VST3/AU) | 7 | 0 | 0 | 0 | 0 | 7 | 0/0 | 7 |
 | M5 (Optional): AUv3 & Distribution | 3 | 0 | 0 | 0 | 0 | 3 | 0/0 | 3 |
 
@@ -30,7 +30,7 @@ Data snapshot through `2026-08-10T17:45:35Z`.
 
 ### M3: JS/TS Composition UI & Standalone App
 
-- [ ] [#105](https://github.com/jpalvarezl/blight-synth/issues/105) Create the production TypeScript/Svelte workspace and host-neutral UI boundary — `ready`, `M`, unassigned
+- [ ] [#105](https://github.com/jpalvarezl/blight-synth/issues/105) Create the production TypeScript/Svelte workspace and host-neutral UI boundary — `in-progress`, `M`, @jpalvarezl
 
 ## All roadmap tasks
 
@@ -75,7 +75,7 @@ Data snapshot through `2026-08-10T17:45:35Z`.
 
 ### M3: JS/TS Composition UI & Standalone App
 
-- [ ] [#105](https://github.com/jpalvarezl/blight-synth/issues/105) Create the production TypeScript/Svelte workspace and host-neutral UI boundary — `ready`, `M`, unassigned
+- [ ] [#105](https://github.com/jpalvarezl/blight-synth/issues/105) Create the production TypeScript/Svelte workspace and host-neutral UI boundary — `in-progress`, `M`, @jpalvarezl
 - [ ] [#106](https://github.com/jpalvarezl/blight-synth/issues/106) Implement standalone DSP process supervision — `blocked`, `M`, unassigned
 - [ ] [#107](https://github.com/jpalvarezl/blight-synth/issues/107) Implement the standalone OSC `EngineClient` adapter — `blocked`, `M`, unassigned
 - [ ] [#108](https://github.com/jpalvarezl/blight-synth/issues/108) Implement connection-aware Svelte stores over `EngineClient` — `blocked`, `M`, unassigned
